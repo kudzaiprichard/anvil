@@ -1,5 +1,10 @@
 # Anvil
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Built with Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
 **Offline-first desktop app for coding-interview / DSA practice.** Read a problem, write code in the
 app, and run it against test cases locally — no internet and no account required.
 
@@ -87,6 +92,12 @@ more with `npx shadcn@latest add <component>`.
 - [ ] Practice modes — Study / Interview / Review
 - [ ] User-authored problems — create, validate, import/export
 
+## Contributing
+
+Contributions are welcome — code, original problems, docs, and more. See
+[CONTRIBUTING.md](./CONTRIBUTING.md) and our [Code of Conduct](./CODE_OF_CONDUCT.md). For security
+issues, see [SECURITY.md](./SECURITY.md).
+
 ## License
 
-Intended to be MIT-licensed; a `LICENSE` file will be added.
+[MIT](./LICENSE) © Kudzai P Matizirofa
