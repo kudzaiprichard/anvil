@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Anvil
 
-## Getting Started
+**Offline-first desktop app for coding-interview / DSA practice.** Read a problem, write code in the
+app, and run it against test cases locally — no internet and no account required.
 
-First, run the development server:
+Anvil pairs NeetCode-style, pattern-first learning with local code execution: structured practice
+with 100% original problems you can run and test on your own machine, plus the ability to author your
+own.
+
+> **Status: early scaffold.** This repository currently contains the desktop shell, the design system,
+> and a theme preview. The problem library, the local code runner, and progress tracking are on the
+> roadmap below — not built yet.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| UI | [Next.js 16](https://nextjs.org) (App Router, static export) · React 19 · TypeScript |
+| Styling | [Tailwind CSS v4](https://tailwindcss.com) · [shadcn/ui](https://ui.shadcn.com) (new-york) |
+| Theme | Custom Slate + Indigo (OKLCH) · light/dark via `next-themes` |
+| Desktop shell | [Tauri 2](https://tauri.app) (Rust) — small, fast, cross-platform |
+
+The frontend is exported as static assets (`output: 'export'`) and served by Tauri; all native work
+(future: code execution, local SQLite) lives on the Rust side.
+
+## Prerequisites
+
+- **Node.js** 20+ and npm
+- **Rust** (stable) + Cargo — required for the desktop shell ([install](https://www.rust-lang.org/tools/install))
+- **Platform webview deps** for Tauri ([prerequisites](https://tauri.app/start/prerequisites/)):
+  - Windows: WebView2 (preinstalled on Windows 11)
+  - macOS: Xcode Command Line Tools
+  - Linux: `webkit2gtk` and related packages
+
+## Getting started
 
 ```bash
+npm install
+
+# Web preview in the browser (theme + components) at http://localhost:3000
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Run the desktop app (starts the dev server, opens the Tauri window)
+npm run tauri dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Building
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Static export of the frontend -> ./out
+npm run build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Desktop installers (.exe / .dmg / .AppImage, per platform) -> src-tauri/target/release/bundle
+npm run tauri build
 
-## Learn More
+# Or just the app binary, no installers
+npm run tauri build -- --no-bundle
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Project structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/                 Next.js App Router — layout, page (theme preview), globals.css (theme tokens)
+src/
+  components/
+    shadcn/          generated shadcn/ui components (button, card, badge, input, …)
+    providers.tsx    next-themes provider (class-based dark mode)
+  lib/
+    utils.ts         cn() class-merge helper
+src-tauri/           Tauri 2 desktop shell (Rust)
+  src/               app entry (lib.rs, main.rs)
+  tauri.conf.json    app + window configuration
+components.json      shadcn/ui configuration
+next.config.ts       Next config (static export for Tauri)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+shadcn components are generated into `src/components/shadcn` (configured in `components.json`); add
+more with `npx shadcn@latest add <component>`.
 
-## Deploy on Vercel
+## Roadmap
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [x] Desktop shell (Tauri) over the Next.js static export
+- [x] Design system — shadcn/ui + custom Slate + Indigo theme
+- [ ] Problem library — original, pattern-organized problems (Markdown + JSON)
+- [ ] Local code runner — run/test Python & JavaScript with timeouts and sandboxing (Rust)
+- [ ] Progress tracking — solved/attempted, streaks (local SQLite, no account)
+- [ ] Practice modes — Study / Interview / Review
+- [ ] User-authored problems — create, validate, import/export
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+Intended to be MIT-licensed; a `LICENSE` file will be added.
