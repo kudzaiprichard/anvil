@@ -1,9 +1,16 @@
-# Anvil
+<div align="center">
 
+<img src="./.github/assets/banner.png" alt="Anvil — offline-first DSA practice" width="820" />
+
+[![CI](https://github.com/kudzaiprichard/anvil/actions/workflows/ci.yml/badge.svg)](https://github.com/kudzaiprichard/anvil/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Built with Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
+</div>
+
+# Anvil
 
 **Offline-first desktop app for coding-interview / DSA practice.** Read a problem, write code in the
 app, and run it against test cases locally — no internet and no account required.
@@ -15,6 +22,15 @@ own.
 > **Status: early scaffold.** This repository currently contains the desktop shell, the design system,
 > and a theme preview. The problem library, the local code runner, and progress tracking are on the
 > roadmap below — not built yet.
+
+## Preview
+
+> The interface below is the current **design-system preview** (theme + base components). Product
+> screens arrive with the roadmap.
+
+<p align="center">
+  <img src="./.github/assets/screenshot.png" alt="Anvil theme and component preview (dark mode)" width="900" />
+</p>
 
 ## Tech stack
 
