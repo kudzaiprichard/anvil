@@ -1,65 +1,106 @@
-import Image from "next/image";
+import { Check, Code2, X, Zap } from "lucide-react";
+import { Button } from "@/src/components/shadcn/button";
+import { Badge } from "@/src/components/shadcn/badge";
+import { Input } from "@/src/components/shadcn/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/src/components/shadcn/card";
+
+const TOKENS = [
+  { name: "primary", className: "bg-primary" },
+  { name: "secondary", className: "bg-secondary" },
+  { name: "muted", className: "bg-muted" },
+  { name: "accent", className: "bg-accent" },
+  { name: "destructive", className: "bg-destructive" },
+  { name: "border", className: "bg-border" },
+];
+
+const CHARTS = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="mx-auto w-full max-w-4xl px-6 py-12">
+      <header className="mb-10 flex items-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Code2 className="size-5" />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Anvil — theme preview</h1>
+          <p className="text-sm text-muted-foreground">Slate + Indigo · shadcn/ui · Tailwind v4</p>
         </div>
-      </main>
-    </div>
+      </header>
+
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Buttons</CardTitle>
+            <CardDescription>Primary uses the indigo accent; the rest stay neutral.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button>Primary</Button>
+            <Button variant="secondary">Secondary</Button>
+            <Button variant="outline">Outline</Button>
+            <Button variant="ghost">Ghost</Button>
+            <Button variant="destructive">Destructive</Button>
+            <Button variant="link">Link</Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Badges, input & test status</CardTitle>
+            <CardDescription>Green/red are reserved for pass/fail results.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge>Easy</Badge>
+              <Badge variant="secondary">Medium</Badge>
+              <Badge variant="outline">Hard</Badge>
+              <Badge variant="destructive">Failing</Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-chart-2">
+                <Check className="size-4" /> 12 / 12 tests passed
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
+                <X className="size-4" /> 3 / 12 tests failed
+              </span>
+            </div>
+            <Input placeholder="Search problems…" className="max-w-sm" />
+          </CardContent>
+          <CardFooter className="text-sm text-muted-foreground">
+            <Zap className="mr-1.5 size-4 text-primary" /> Toggle OS dark mode to preview the dark
+            palette.
+          </CardFooter>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Tokens</CardTitle>
+            <CardDescription>Semantic surfaces and the chart ramp.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+              {TOKENS.map((t) => (
+                <div key={t.name} className="space-y-1.5">
+                  <div className={`${t.className} h-12 w-full rounded-md border`} />
+                  <p className="text-xs text-muted-foreground">{t.name}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {CHARTS.map((c) => (
+                <div key={c} className={`${c} h-8 flex-1 rounded-md`} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
   );
 }
