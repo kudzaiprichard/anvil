@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Claude Code tooling scripts (not app source).
     ".claude/**",
+    // Rust/Tauri crate and its build artifacts (not JS/TS source).
+    "src-tauri/**",
   ]),
 ]);
 
