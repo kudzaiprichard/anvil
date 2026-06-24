@@ -1,0 +1,544 @@
+"use client";
+
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronDown, Code2, Maximize, Minimize, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+import { AppShell } from "@/src/components/anvil/app-shell";
+import { CodeEditor } from "@/src/components/anvil/code-editor";
+import { Spinner } from "@/src/components/anvil/spinner";
+import { ProblemSheet } from "@/src/components/problems/problem-sheet";
+import { ProblemPane } from "@/src/components/workspace/problem-pane";
+import {
+  ResultsPanel,
+  type ResultsTab,
+  type RunState,
+} from "@/src/components/workspace/results-panel";
+import { useWorkspaceShortcuts } from "@/src/components/workspace/use-workspace-shortcuts";
+import { TopBar } from "@/src/components/workspace/top-bar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/src/components/shadcn/dropdown-menu";
+import {
+  getProblem,
+  getProblemUserState,
+  listProblems,
+  runCode,
+  setProblemStatus,
+  submitCode,
+  toggleBookmark,
+} from "@/src/lib/api";
+import { useEditorPrefs, type WorkspaceLayout } from "@/src/lib/settings";
+import type { Language, Problem, ProblemSummary } from "@/src/lib/types";
+import { LANGUAGE_LABELS, LANGUAGES } from "@/src/lib/types";
+
+function clamp(v: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, v));
+}
+
+function ColDivider({
+  onPointerDown,
+}: {
+  onPointerDown: (e: React.PointerEvent) => void;
+}) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      onPointerDown={onPointerDown}
+      className="w-px shrink-0 cursor-col-resize border-r transition-colors hover:border-primary/50"
+    />
+  );
+}
+
+function RowGrip({
+  onPointerDown,
+}: {
+  onPointerDown: (e: React.PointerEvent) => void;
+}) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      onPointerDown={onPointerDown}
+      className="absolute inset-x-0 -top-[5px] z-10 flex h-[9px] cursor-row-resize items-center justify-center"
+    >
+      <span className="h-[3px] w-[34px] rounded-sm bg-border" />
+    </div>
+  );
+}
+
+/**
+ * Arranges the three workspace panes into the layout chosen in Settings →
+ * Appearance. The pane contents are passed in as slots so switching layouts
+ * only moves them around the tree.
+ */
+function WorkspaceBody({
+  bodyRef,
+  layout,
+  maximized,
+  leftPct,
+  resultsH,
+  resultsW,
+  dragProblemLeft,
+  dragProblemRight,
+  dragRow,
+  dragResultsCol,
+  problem,
+  editor,
+  results,
+}: {
+  bodyRef: React.RefObject<HTMLDivElement | null>;
+  layout: WorkspaceLayout;
+  maximized: boolean;
+  leftPct: number;
+  resultsH: number;
+  resultsW: number;
+  dragProblemLeft: (e: React.PointerEvent) => void;
+  dragProblemRight: (e: React.PointerEvent) => void;
+  dragRow: (e: React.PointerEvent) => void;
+  dragResultsCol: (e: React.PointerEvent) => void;
+  problem: React.ReactNode;
+  editor: React.ReactNode;
+  results: React.ReactNode;
+}) {
+  const problemBox = (
+    <div className="min-w-0 shrink-0" style={{ width: `${leftPct}%` }}>
+      {problem}
+    </div>
+  );
+  const resultsDock = (
+    <div
+      className="relative flex shrink-0 flex-col border-t"
+      style={{ height: resultsH }}
+    >
+      <RowGrip onPointerDown={dragRow} />
+      {results}
+    </div>
+  );
+
+  return (
+    <div ref={bodyRef} className="flex min-h-0 flex-1">
+      {maximized ? (
+        editor
+      ) : layout === "mirrored" ? (
+        <>
+          <div className="flex min-w-0 flex-1 flex-col">
+            {editor}
+            {resultsDock}
+          </div>
+          <ColDivider onPointerDown={dragProblemRight} />
+          {problemBox}
+        </>
+      ) : layout === "bottom" ? (
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1">
+            {problemBox}
+            <ColDivider onPointerDown={dragProblemLeft} />
+            {editor}
+          </div>
+          {resultsDock}
+        </div>
+      ) : layout === "columns" ? (
+        <>
+          {problemBox}
+          <ColDivider onPointerDown={dragProblemLeft} />
+          {editor}
+          <ColDivider onPointerDown={dragResultsCol} />
+          <div
+            className="flex min-w-0 shrink-0 flex-col"
+            style={{ width: resultsW }}
+          >
+            {results}
+          </div>
+        </>
+      ) : layout === "editor-deck" ? (
+        <div className="flex min-w-0 flex-1 flex-col">
+          {editor}
+          <div
+            className="relative flex shrink-0 border-t"
+            style={{ height: resultsH }}
+          >
+            <RowGrip onPointerDown={dragRow} />
+            {problemBox}
+            <ColDivider onPointerDown={dragProblemLeft} />
+            <div className="flex min-w-0 flex-1 flex-col">{results}</div>
+          </div>
+        </div>
+      ) : (
+        /* classic */
+        <>
+          {problemBox}
+          <ColDivider onPointerDown={dragProblemLeft} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            {editor}
+            {resultsDock}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Workspace() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
+
+  // `problem` is derived: stale loads don't render while a new id is loading.
+  const [loaded, setLoaded] = useState<{ id: string; problem: Problem } | null>(
+    null
+  );
+  const problem = loaded && loaded.id === id ? loaded.problem : null;
+  const [summaries, setSummaries] = useState<ProblemSummary[]>([]);
+  const [language, setLanguage] = useState<Language>("python");
+  const [codeByLang, setCodeByLang] = useState<Record<Language, string>>({
+    python: "",
+    javascript: "",
+  });
+  const [runState, setRunState] = useState<RunState>("idle");
+  const [resultsTab, setResultsTab] = useState<ResultsTab>("testcase");
+  const [selectedCase, setSelectedCase] = useState(0);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [maximized, setMaximized] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
+
+  // pane sizes
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [leftPct, setLeftPct] = useState(45);
+  const [resultsH, setResultsH] = useState(304);
+  const [resultsW, setResultsW] = useState(360);
+
+  const prefs = useEditorPrefs();
+
+  useEffect(() => {
+    listProblems().then(setSummaries);
+  }, []);
+
+  // Redirect bare /problem to the first problem once the list is known.
+  useEffect(() => {
+    if (!id && summaries.length > 0) {
+      router.replace(`/problem?id=${summaries[0].id}`);
+    }
+  }, [id, summaries, router]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    Promise.all([getProblem(id), getProblemUserState(id)]).then(([p, s]) => {
+      if (cancelled) return;
+      if (!p) {
+        toast.error("Problem not found");
+        router.replace("/problems");
+        return;
+      }
+      setLoaded({ id, problem: p });
+      // Start from the per-language starter, then restore the user's last
+      // attempt for the language they last ran (LeetCode-style continuity).
+      const next: Record<Language, string> = {
+        python: p.function_signature.python,
+        javascript: p.function_signature.javascript,
+      };
+      if (s.lastCode && s.lastLanguage) {
+        next[s.lastLanguage] = s.lastCode;
+        setLanguage(s.lastLanguage);
+      }
+      setCodeByLang(next);
+      setBookmarked(s.bookmarked);
+      setRunState("idle");
+      setResultsTab("testcase");
+      setSelectedCase(0);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, router]);
+
+  const handleToggleBookmark = useCallback(async () => {
+    if (!id) return;
+    try {
+      setBookmarked(await toggleBookmark(id));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bookmark failed");
+    }
+  }, [id]);
+
+  const handleMarkMastered = useCallback(async () => {
+    if (!id) return;
+    try {
+      await setProblemStatus(id, "mark_mastered");
+      toast.success("Marked as mastered.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not mark as mastered"
+      );
+    }
+  }, [id]);
+
+  const code = codeByLang[language];
+  const setCode = useCallback(
+    (next: string) =>
+      setCodeByLang((prev) =>
+        prev[language] === next ? prev : { ...prev, [language]: next }
+      ),
+    [language]
+  );
+
+  const index = useMemo(
+    () => summaries.findIndex((s) => s.id === id),
+    [summaries, id]
+  );
+  const goTo = useCallback(
+    (target?: ProblemSummary) => {
+      if (target) router.push(`/problem?id=${target.id}`);
+    },
+    [router]
+  );
+
+  const execute = useCallback(
+    async (kind: "run" | "submit") => {
+      if (!problem || runState === "running") return;
+      setRunState("running");
+      setResultsTab("result");
+      try {
+        const fn = kind === "run" ? runCode : submitCode;
+        const result = await fn({ id: problem.id, language, code });
+        setRunState(result);
+        if (kind === "submit") {
+          if (result.status === "pass") {
+            toast.success("Accepted — all tests passed.");
+          }
+          // statuses changed — refresh the rows that feed the problem sheet
+          listProblems().then(setSummaries);
+        }
+      } catch (err) {
+        setRunState("idle");
+        toast.error(err instanceof Error ? err.message : "Run failed");
+      }
+    },
+    [problem, runState, language, code]
+  );
+
+  useWorkspaceShortcuts({
+    onRun: () => execute("run"),
+    onSubmit: () => execute("submit"),
+    onPrev: () => goTo(summaries[index - 1] ?? summaries[summaries.length - 1]),
+    onNext: () => goTo(summaries[index + 1] ?? summaries[0]),
+    onToggleList: () => setSheetOpen((open) => !open),
+    onReset: () => {
+      if (!problem) return;
+      setCode(problem.function_signature[language]);
+      toast("Editor reset to starter code.");
+    },
+  });
+
+  // divider drags — one rig: capture the body rect on pointerdown, then
+  // route pointer moves into the relevant pane-size setter.
+  const startDrag = useCallback(
+    (move: (ev: PointerEvent, rect: DOMRect) => void) =>
+      (e: React.PointerEvent) => {
+        e.preventDefault();
+        const body = bodyRef.current;
+        if (!body) return;
+        const rect = body.getBoundingClientRect();
+        const onMove = (ev: PointerEvent) => move(ev, rect);
+        const up = () => {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", up);
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", up);
+      },
+    []
+  );
+
+  const dragProblemLeft = startDrag((ev, rect) =>
+    setLeftPct(clamp(((ev.clientX - rect.left) / rect.width) * 100, 22, 65))
+  );
+  const dragProblemRight = startDrag((ev, rect) =>
+    setLeftPct(clamp(100 - ((ev.clientX - rect.left) / rect.width) * 100, 22, 65))
+  );
+  const dragRow = startDrag((ev, rect) =>
+    setResultsH(clamp(rect.bottom - ev.clientY, 120, rect.height - 140))
+  );
+  const dragResultsCol = startDrag((ev, rect) =>
+    setResultsW(clamp(rect.right - ev.clientX, 280, 600))
+  );
+
+  if (!problem) {
+    return (
+      <AppShell>
+        <TopBar
+          running={false}
+          onOpenList={() => setSheetOpen(true)}
+          onPrev={() => undefined}
+          onNext={() => undefined}
+          onShuffle={() => undefined}
+          onRun={() => undefined}
+          onSubmit={() => undefined}
+        />
+        <div className="flex flex-1 items-center justify-center">
+          <Spinner className="size-6" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell
+      status={
+        <span>
+          #{problem.number} · {LANGUAGE_LABELS[language].toLowerCase()} · sandbox
+          local
+        </span>
+      }
+    >
+      <TopBar
+        running={runState === "running"}
+        onOpenList={() => setSheetOpen(true)}
+        onPrev={() => goTo(summaries[index - 1] ?? summaries[summaries.length - 1])}
+        onNext={() => goTo(summaries[index + 1] ?? summaries[0])}
+        onShuffle={() => {
+          const others = summaries.filter((s) => s.id !== id);
+          goTo(others[Math.floor(Math.random() * others.length)]);
+        }}
+        onRun={() => execute("run")}
+        onSubmit={() => execute("submit")}
+      />
+
+      <WorkspaceBody
+        bodyRef={bodyRef}
+        layout={prefs.workspaceLayout}
+        maximized={maximized}
+        leftPct={leftPct}
+        resultsH={resultsH}
+        resultsW={resultsW}
+        dragProblemLeft={dragProblemLeft}
+        dragProblemRight={dragProblemRight}
+        dragRow={dragRow}
+        dragResultsCol={dragResultsCol}
+        problem={
+          <ProblemPane
+            problem={problem}
+            bookmarked={bookmarked}
+            onToggleBookmark={handleToggleBookmark}
+          />
+        }
+        editor={
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {/* editor header */}
+            <div className="flex h-9 shrink-0 items-center gap-2 border-b bg-card pl-3 pr-2">
+              <div className="flex items-center gap-[7px] text-[12.5px] font-semibold">
+                <Code2 className="size-[14px] stroke-[2.2] text-primary" />
+                Code
+              </div>
+              <div className="flex-1" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-accent"
+                  >
+                    {LANGUAGE_LABELS[language]}
+                    <ChevronDown className="size-[13px] text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {LANGUAGES.map((l) => (
+                    <DropdownMenuItem key={l} onClick={() => setLanguage(l)}>
+                      {LANGUAGE_LABELS[l]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <button
+                type="button"
+                title="Reset to starter"
+                onClick={() => {
+                  setCode(problem.function_signature[language]);
+                  toast("Editor reset to starter code.");
+                }}
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <RotateCcw className="size-[15px]" />
+              </button>
+              <button
+                type="button"
+                title={maximized ? "Restore layout" : "Maximize editor"}
+                onClick={() => setMaximized((m) => !m)}
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                {maximized ? (
+                  <Minimize className="size-[15px]" />
+                ) : (
+                  <Maximize className="size-[15px]" />
+                )}
+              </button>
+            </div>
+
+            {/* editor */}
+            <div className="min-h-0 flex-1">
+              <CodeEditor
+                value={code}
+                language={language}
+                onChange={setCode}
+                fontSize={prefs.fontSize}
+                tabSize={prefs.tabSize}
+                lineWrap={prefs.lineWrap}
+                docKey={problem.id}
+                suppressIndentChords
+              />
+            </div>
+          </div>
+        }
+        results={
+          <ResultsPanel
+            problem={problem}
+            runState={runState}
+            tab={resultsTab}
+            onTabChange={setResultsTab}
+            selectedCase={selectedCase}
+            onSelectCase={setSelectedCase}
+            onMarkMastered={handleMarkMastered}
+          />
+        }
+      />
+
+      <ProblemSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        currentId={id ?? undefined}
+        onSelect={(target) => {
+          setSheetOpen(false);
+          router.push(`/problem?id=${target}`);
+        }}
+      />
+    </AppShell>
+  );
+}
+
+export default function ProblemPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell>
+          <div className="flex flex-1 items-center justify-center">
+            <Spinner className="size-6" />
+          </div>
+        </AppShell>
+      }
+    >
+      <Workspace />
+    </Suspense>
+  );
+}
