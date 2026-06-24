@@ -98,6 +98,37 @@ next.config.ts       Next config (static export for Tauri)
 shadcn components are generated into `src/components/shadcn` (configured in `components.json`); add
 more with `npx shadcn@latest add <component>`.
 
+## How it works
+
+Anvil is a **Tauri 2 desktop shell** wrapping a **Next.js static-export** front end. The WebView
+never executes user code — it sends code over IPC to the Rust backend, which runs it in a sandboxed
+subprocess (timeout + memory cap + temp-dir isolation; Job Objects on Windows) and returns a verdict.
+
+**Backend layering** (`src-tauri/src/`): thin `commands/` (IPC glue) over Tauri-free `domain/` (pure
+types — the serde shapes are the IPC contract, matching `src/lib/types.ts`) and `services/` (runner,
+SQLite, problem/pack loading). Domain + services unit-test as plain Rust. All UI data access goes
+through one seam, `src/lib/api/index.ts` (real backend inside Tauri; a mock in a plain browser so the
+UI can be iterated with `npm run dev`).
+
+**Test packs** are the heart of the judging system. Each problem has a pack with **no hand-typed
+answer keys** — instead it carries reference solutions plus an independent brute-force oracle, and the
+offline build (`tools/build_packs.py`) computes the expected outputs by *executing* the references in
+the same sandbox harness the app uses, cross-checking Python vs JavaScript vs the oracle. A wrong
+solution can't ship — it's quarantined, never frozen. Verified packs are frozen into
+`src-tauri/resources/test-packs.json.gz`.
+
+**Runtimes** are auto-detected: the app probes `PATH` for a compatible Python (≥3.10) and Node (≥18),
+resolves the real interpreter path, and reports status in Settings — no manual configuration.
+
+**Adding a language** is additive (the pack schema is already per-language): write a sandbox
+harness + runner for it in Rust, register it in the build, then generate one reference solution per
+problem (verified by agreement against the stored expecteds). TypeScript ≈ free (rides the JS
+harness); compiled languages each add a harness + runner.
+
+**Problem content** is the user's own — Anvil ships only original test packs/solutions/hints, never
+third-party problem statements; statements come from the user's local import. See
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the originality rule on contributed problems.
+
 ## Roadmap
 
 - [x] Desktop shell (Tauri) over the Next.js static export
