@@ -1,0 +1,43 @@
+{
+  "slug": "insert-into-a-binary-search-tree",
+  "judge": { "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    orig = args[0] if args[0] is not None else []\n    val = args[1]\n    def deser(a):\n        if not a:\n            return None\n        root = [a[0], None, None]\n        q = [root]; i = 1\n        while q and i < len(a):\n            node = q.pop(0)\n            if i < len(a):\n                if a[i] is not None:\n                    node[1] = [a[i], None, None]; q.append(node[1])\n                i += 1\n            if i < len(a):\n                if a[i] is not None:\n                    node[2] = [a[i], None, None]; q.append(node[2])\n                i += 1\n        return root\n    root = deser(output)\n    if root is None:\n        return False\n    # in-order traversal\n    ino = []\n    st, node = [], root\n    while st or node:\n        while node:\n            st.append(node); node = node[1]\n        node = st.pop(); ino.append(node[0]); node = node[2]\n    # must be a valid BST: strictly increasing in-order (all values distinct here)\n    for k in range(1, len(ino)):\n        if ino[k] <= ino[k - 1]:\n            return False\n    # multiset of values == original values plus the inserted val\n    expected = sorted([v for v in orig if v is not None] + [val])\n    if sorted(ino) != expected:\n        return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const orig = args[0] === null || args[0] === undefined ? [] : args[0];\n    const val = args[1];\n    function deser(a) {\n        if (!a || a.length === 0) return null;\n        const root = [a[0], null, null];\n        const q = [root]; let i = 1;\n        while (q.length && i < a.length) {\n            const node = q.shift();\n            if (i < a.length) { if (a[i] !== null) { node[1] = [a[i], null, null]; q.push(node[1]); } i++; }\n            if (i < a.length) { if (a[i] !== null) { node[2] = [a[i], null, null]; q.push(node[2]); } i++; }\n        }\n        return root;\n    }\n    const root = deser(output);\n    if (root === null) return false;\n    const ino = [];\n    const st = []; let node = root;\n    while (st.length || node) {\n        while (node) { st.push(node); node = node[1]; }\n        node = st.pop(); ino.push(node[0]); node = node[2];\n    }\n    for (let k = 1; k < ino.length; k++) if (ino[k] <= ino[k - 1]) return false;\n    const expected = orig.filter(v => v !== null).concat([val]).sort((a, b) => a - b);\n    const got = ino.slice().sort((a, b) => a - b);\n    if (got.length !== expected.length) return false;\n    for (let k = 0; k < got.length; k++) if (got[k] !== expected[k]) return false;\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "io_types": { "params": ["tree", "json"], "returns": "tree" },
+  "pattern": "Searching down a BST for where the new key belongs always ends at an empty slot, and hanging a fresh leaf there preserves the ordering invariant.",
+  "hints": [
+    "The new value has a unique sorted position; follow the usual BST comparisons to find where it would be looked up.",
+    "Go left when the value is smaller than the current node and right when it is larger, until you fall off the tree.",
+    "That first empty spot is exactly where a new leaf keeps every ancestor's BST property intact."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [0, 10000], "value": [-100000000, 100000000] },
+    { "param": "val", "kind": "int", "value": [-100000000, 100000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "insert into a small BST", "input": [[4, 2, 7, 1, 3], 5] },
+    { "kind": "edge", "description": "insert as a new leaf under an inner node", "input": [[40, 20, 60, 10, 30, 50, 70], 25] },
+    { "kind": "boundary", "description": "empty tree becomes a single node", "input": [[], 9] },
+    { "kind": "boundary", "description": "single node, insert smaller", "input": [[5], 1] },
+    { "kind": "trap", "description": "single node, insert larger goes right", "input": [[5], 8] },
+    { "kind": "trap", "description": "insert new minimum down the left spine", "input": [[8, 4, 12, 2, 6], -3] },
+    { "kind": "trap", "description": "insert new maximum down the right spine", "input": [[8, 4, 12, 10, 14], 100] }
+  ],
+  "stress": [
+    {
+      "description": "random BST from distinct shuffled keys; val is a distinct key not already present",
+      "seed": 109,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 400)))\n    pool = rng.sample(range(-1000000, 1000001), n + 1)\n    val = pool[-1]\n    vals = pool[:-1]\n    class NN:\n        __slots__ = ('v', 'l', 'r')\n        def __init__(self, v):\n            self.v = v; self.l = None; self.r = None\n    root = None\n    def ins(node, v):\n        if node is None:\n            return NN(v)\n        if v < node.v:\n            node.l = ins(node.l, v)\n        else:\n            node.r = ins(node.r, v)\n        return node\n    for v in vals:\n        root = ins(root, v)\n    out = []\n    q = [root]\n    while q:\n        node = q.pop(0)\n        if node is None:\n            out.append(None)\n            continue\n        out.append(node.v)\n        q.append(node.l)\n        q.append(node.r)\n    while out and out[-1] is None:\n        out.pop()\n    return [out, val]\n",
+      "note": "val guaranteed distinct from existing keys"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def insertIntoBST(self, root, val):\n        if root is None:\n            return TreeNode(val)\n        if val < root.val:\n            root.left = self.insertIntoBST(root.left, val)\n        else:\n            root.right = self.insertIntoBST(root.right, val)\n        return root\n",
+  "solutions": {
+    "python": "class Solution:\n    def insertIntoBST(self, root, val):\n        if root is None:\n            return TreeNode(val)\n        cur = root\n        while True:\n            if val < cur.val:\n                if cur.left is None:\n                    cur.left = TreeNode(val)\n                    break\n                cur = cur.left\n            else:\n                if cur.right is None:\n                    cur.right = TreeNode(val)\n                    break\n                cur = cur.right\n        return root\n",
+    "javascript": "var insertIntoBST = function(root, val) {\n    if (root === null) return new TreeNode(val);\n    let cur = root;\n    while (true) {\n        if (val < cur.val) {\n            if (cur.left === null) { cur.left = new TreeNode(val); break; }\n            cur = cur.left;\n        } else {\n            if (cur.right === null) { cur.right = new TreeNode(val); break; }\n            cur = cur.right;\n        }\n    }\n    return root;\n};\n"
+  },
+  "complexity": { "time": "O(h)", "space": "O(1)" }
+}

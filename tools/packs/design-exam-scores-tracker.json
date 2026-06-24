@@ -1,0 +1,39 @@
+{
+  "slug": "design-exam-scores-tracker",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Because records arrive with strictly increasing times, appending to a parallel prefix-sum array turns each range total into two binary searches plus a subtraction.",
+  "hints": [
+    "Records come in time order, so the list of times stays sorted as you append.",
+    "Keep a running prefix sum alongside the times so any suffix or window sum is a difference of two prefixes.",
+    "For totalScore, binary-search the first time >= startTime and the first time > endTime, then subtract the two prefix sums."
+  ],
+  "constraints": [
+    { "param": "time", "kind": "int", "value": [1, 1000000000] },
+    { "param": "score", "kind": "int", "value": [1, 1000000000] },
+    { "param": "startTime", "kind": "int", "value": [1, 1000000000] },
+    { "param": "endTime", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "interleaved records and range queries", "input": [["ExamTracker", "record", "totalScore", "record", "totalScore", "totalScore", "totalScore", "totalScore"], [[], [1, 98], [1, 1], [5, 99], [1, 3], [1, 5], [3, 4], [2, 5]]] },
+    { "kind": "boundary", "description": "single record then exact-point query", "input": [["ExamTracker", "record", "totalScore"], [[], [10, 50], [10, 10]]] },
+    { "kind": "trap", "description": "query window entirely before any record returns zero", "input": [["ExamTracker", "record", "totalScore"], [[], [5, 7], [1, 4]]] },
+    { "kind": "edge", "description": "multiple records summed over a wide range", "input": [["ExamTracker", "record", "record", "record", "totalScore", "totalScore"], [[], [2, 3], [4, 5], [6, 7], [2, 6], [3, 5]]] },
+    { "kind": "trap", "description": "boundaries are inclusive on both ends", "input": [["ExamTracker", "record", "record", "totalScore", "totalScore"], [[], [1, 10], [3, 20], [1, 2], [3, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "many records with strictly increasing times and random range queries",
+      "seed": 81,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    ops = ['ExamTracker']\n    args = [[]]\n    t = 0\n    times = []\n    n = max(1, size)\n    # first call must be record\n    t += rng.randint(1, 5)\n    ops.append('record'); args.append([t, rng.randint(1, 1000)]); times.append(t)\n    for _ in range(n):\n        if rng.random() < 0.5:\n            t += rng.randint(1, 5)\n            ops.append('record'); args.append([t, rng.randint(1, 1000)]); times.append(t)\n        else:\n            a = rng.randint(1, t)\n            b = rng.randint(a, t)\n            ops.append('totalScore'); args.append([a, b])\n    return [ops, args]\n",
+      "note": "times strictly increase; queries never exceed the latest recorded time"
+    }
+  ],
+  "oracle_python": "class ExamTracker:\n    def __init__(self):\n        self.events = []\n    def record(self, time, score):\n        self.events.append((time, score))\n    def totalScore(self, startTime, endTime):\n        total = 0\n        for t, s in self.events:\n            if startTime <= t <= endTime:\n                total += s\n        return total\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass ExamTracker:\n    def __init__(self):\n        self.times = []\n        self.prefix = [0]\n    def record(self, time, score):\n        self.times.append(time)\n        self.prefix.append(self.prefix[-1] + score)\n    def totalScore(self, startTime, endTime):\n        lo = bisect.bisect_left(self.times, startTime)\n        hi = bisect.bisect_right(self.times, endTime)\n        return self.prefix[hi] - self.prefix[lo]\n",
+    "javascript": "var ExamTracker = function() {\n    this.times = [];\n    this.prefix = [0];\n};\nExamTracker.prototype.record = function(time, score) {\n    this.times.push(time);\n    this.prefix.push(this.prefix[this.prefix.length - 1] + score);\n};\nExamTracker.prototype.totalScore = function(startTime, endTime) {\n    const lo = lowerBound(this.times, startTime);\n    const hi = upperBound(this.times, endTime);\n    return this.prefix[hi] - this.prefix[lo];\n};\nfunction lowerBound(a, x) {\n    let lo = 0, hi = a.length;\n    while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] < x) lo = m + 1; else hi = m; }\n    return lo;\n}\nfunction upperBound(a, x) {\n    let lo = 0, hi = a.length;\n    while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] <= x) lo = m + 1; else hi = m; }\n    return lo;\n}\n"
+  },
+  "complexity": { "time": "O(log n) per query", "space": "O(n)" }
+}

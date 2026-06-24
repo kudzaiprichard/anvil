@@ -1,0 +1,38 @@
+{
+  "slug": "longest-palindromic-path-in-graph",
+  "judge": "exact",
+  "pattern": "Because a palindrome reads the same from both ends, you grow the path symmetrically from its center, tracking the two frontier nodes and the visited set as a bitmask.",
+  "hints": [
+    "A palindromic path is determined by its center; build outward so that each newly added pair of nodes carries matching labels.",
+    "Keep states of the form (left frontier node, right frontier node, visited bitmask) where the two frontier labels already match, and the implied path between them is a palindrome.",
+    "Seed states from single nodes (odd center) and from label-matching edges (even center), then repeatedly extend each frontier to an unvisited neighbor so the two new nodes share a label, recording the longest length reached."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 14] },
+    { "param": "edges", "kind": "int[][]" },
+    { "param": "label", "kind": "string", "len": [1, 14] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single node", "input": [1, [], "a"] },
+    { "kind": "edge", "description": "path of three forming aba", "input": [3, [[0, 1], [1, 2]], "aba"] },
+    { "kind": "edge", "description": "no multi-node palindrome possible", "input": [3, [[0, 1], [0, 2]], "abc"] },
+    { "kind": "boundary", "description": "star where a branch detour yields bcb", "input": [4, [[0, 2], [0, 3], [3, 1]], "bbac"] },
+    { "kind": "trap", "description": "all same label, longest simple path wins", "input": [5, [[0, 1], [1, 2], [2, 3], [3, 4]], "aaaaa"] },
+    { "kind": "trap", "description": "cycle where the palindrome must avoid revisiting", "input": [4, [[0, 1], [1, 2], [2, 3], [3, 0]], "abab"] },
+    { "kind": "trap", "description": "even-length palindrome centered on an edge", "input": [4, [[0, 1], [1, 2], [2, 3]], "abba"] }
+  ],
+  "stress": [
+    {
+      "description": "small connected graph with a tiny alphabet so palindromic paths appear; size kept low for the exponential oracle",
+      "seed": 53,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 7))\n    nodes = list(range(n))\n    rng.shuffle(nodes)\n    edges = []\n    present = set()\n    for i in range(1, n):\n        u = nodes[i]\n        v = nodes[rng.randint(0, i - 1)]\n        a, b = (u, v) if u < v else (v, u)\n        present.add((a, b))\n    extra = rng.randint(0, n)\n    for _ in range(extra):\n        a = rng.randint(0, n - 1)\n        b = rng.randint(0, n - 1)\n        if a == b:\n            continue\n        if a > b:\n            a, b = b, a\n        present.add((a, b))\n    edges = [[a, b] for (a, b) in present]\n    label = ''.join(rng.choice('ab') for _ in range(n))\n    return [n, edges, label]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxLen(self, n, edges, label):\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        best = 1 if n >= 1 else 0\n        path = []\n        def is_pal(seq):\n            return seq == seq[::-1]\n        visited = [False] * n\n        def dfs(u):\n            nonlocal best\n            s = ''.join(label[x] for x in path)\n            if is_pal(s):\n                if len(s) > best:\n                    best = len(s)\n            for w in adj[u]:\n                if not visited[w]:\n                    visited[w] = True\n                    path.append(w)\n                    dfs(w)\n                    path.pop()\n                    visited[w] = False\n        for start in range(n):\n            visited[start] = True\n            path.append(start)\n            dfs(start)\n            path.pop()\n            visited[start] = False\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxLen(self, n, edges, label):\n        if n == 0:\n            return 0\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        from collections import deque\n        best = 1\n        seen = set()\n        dq = deque()\n        for a in range(n):\n            st = (a, a, 1 << a)\n            seen.add(st)\n            dq.append((a, a, 1 << a, 1))\n        for a in range(n):\n            for b in adj[a]:\n                if a < b and label[a] == label[b]:\n                    mask = (1 << a) | (1 << b)\n                    st = (a, b, mask)\n                    if st not in seen:\n                        seen.add(st)\n                        dq.append((a, b, mask, 2))\n                        best = max(best, 2)\n        while dq:\n            u, v, mask, length = dq.popleft()\n            if length > best:\n                best = length\n            for x in adj[u]:\n                if mask & (1 << x):\n                    continue\n                for y in adj[v]:\n                    if x == y or (mask & (1 << y)):\n                        continue\n                    if label[x] != label[y]:\n                        continue\n                    nmask = mask | (1 << x) | (1 << y)\n                    nst = (x, y, nmask)\n                    if nst not in seen:\n                        seen.add(nst)\n                        dq.append((x, y, nmask, length + 2))\n        return best\n",
+    "javascript": "var maxLen = function(n, edges, label) {\n    if (n === 0) return 0;\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v] of edges) { adj[u].push(v); adj[v].push(u); }\n    let best = 1;\n    const seen = new Set();\n    const queue = [];\n    const key = (a, b, m) => a + ',' + b + ',' + m;\n    for (let a = 0; a < n; a++) {\n        const m = 1 << a;\n        seen.add(key(a, a, m));\n        queue.push([a, a, m, 1]);\n    }\n    for (let a = 0; a < n; a++) {\n        for (const b of adj[a]) {\n            if (a < b && label[a] === label[b]) {\n                const m = (1 << a) | (1 << b);\n                const k = key(a, b, m);\n                if (!seen.has(k)) { seen.add(k); queue.push([a, b, m, 2]); best = Math.max(best, 2); }\n            }\n        }\n    }\n    let head = 0;\n    while (head < queue.length) {\n        const [u, v, mask, length] = queue[head++];\n        if (length > best) best = length;\n        for (const x of adj[u]) {\n            if (mask & (1 << x)) continue;\n            for (const y of adj[v]) {\n                if (x === y || (mask & (1 << y))) continue;\n                if (label[x] !== label[y]) continue;\n                const nmask = mask | (1 << x) | (1 << y);\n                const k = key(x, y, nmask);\n                if (!seen.has(k)) { seen.add(k); queue.push([x, y, nmask, length + 2]); }\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(2^n * n^2)", "space": "O(2^n * n^2)" }
+}

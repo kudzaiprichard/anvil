@@ -1,0 +1,36 @@
+{
+  "slug": "single-threaded-cpu",
+  "judge": "exact",
+  "pattern": "Simulating the CPU with a min-heap keyed by processing time then index, fed from tasks sorted by enqueue time, reproduces the greedy shortest-job-first schedule.",
+  "hints": [
+    "Process events in time order, but among ready tasks always pick the one with the smallest processing time, breaking ties by original index.",
+    "Sort tasks by enqueue time and use a priority queue of (processingTime, index) for whatever has arrived.",
+    "Advance a clock: when the queue is empty jump to the next arrival; otherwise pop the best ready task, append its index, push the clock forward by its processing time, and admit everything that arrived meanwhile."
+  ],
+  "constraints": [
+    { "param": "tasks", "kind": "int[][]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "staggered arrivals with shortest-job preference", "input": [[[1, 2], [2, 4], [3, 2], [4, 1]]] },
+    { "kind": "edge", "description": "all arrive at once, ordered by length", "input": [[[7, 10], [7, 12], [7, 5], [7, 4], [7, 2]]] },
+    { "kind": "boundary", "description": "single task", "input": [[[5, 3]]] },
+    { "kind": "trap", "description": "tie on processing time broken by index", "input": [[[1, 5], [1, 5], [1, 5]]] },
+    { "kind": "trap", "description": "gap where the CPU must idle then resume", "input": [[[1, 1], [100, 1], [100, 1]]] },
+    { "kind": "edge", "description": "later short task overtakes earlier long one", "input": [[[1, 100], [2, 1], [3, 1]]] },
+    { "kind": "boundary", "description": "two tasks arriving far apart", "input": [[[1, 2], [1000, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random tasks with varied enqueue and processing times (capped so the O(n^2) oracle stays fast)",
+      "seed": 88,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    tasks = [[rng.randint(1, 1000000), rng.randint(1, 1000000)] for _ in range(n)]\n    return [tasks]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getOrder(self, tasks):\n        n = len(tasks)\n        order = sorted(range(n), key=lambda i: (tasks[i][0], tasks[i][1], i))\n        res = []\n        time = 0\n        done = [False] * n\n        # naive: repeatedly scan for the best available task\n        ptr = 0\n        available = []\n        remaining = n\n        while remaining > 0:\n            # admit all tasks with enqueue <= time\n            while ptr < n and tasks[order[ptr]][0] <= time:\n                available.append(order[ptr])\n                ptr += 1\n            if not available:\n                time = tasks[order[ptr]][0]\n                continue\n            # pick best by (processing, index)\n            best = min(available, key=lambda i: (tasks[i][1], i))\n            available.remove(best)\n            res.append(best)\n            time += tasks[best][1]\n            remaining -= 1\n        return res\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def getOrder(self, tasks):\n        n = len(tasks)\n        idx = sorted(range(n), key=lambda i: tasks[i][0])\n        res = []\n        heap = []\n        time = 0\n        ptr = 0\n        while len(res) < n:\n            while ptr < n and tasks[idx[ptr]][0] <= time:\n                i = idx[ptr]\n                heapq.heappush(heap, (tasks[i][1], i))\n                ptr += 1\n            if not heap:\n                time = tasks[idx[ptr]][0]\n                continue\n            proc, i = heapq.heappop(heap)\n            res.append(i)\n            time += proc\n        return res\n",
+    "javascript": "var getOrder = function(tasks) {\n    const n = tasks.length;\n    const idx = [...Array(n).keys()].sort((a, b) => tasks[a][0] - tasks[b][0]);\n    // min-heap of [processing, index]\n    const heap = [];\n    const less = (a, b) => a[0] !== b[0] ? a[0] < b[0] : a[1] < b[1];\n    const push = (x) => {\n        heap.push(x);\n        let c = heap.length - 1;\n        while (c > 0) {\n            const p = (c - 1) >> 1;\n            if (less(heap[c], heap[p])) { [heap[c], heap[p]] = [heap[p], heap[c]]; c = p; }\n            else break;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let c = 0;\n            const sz = heap.length;\n            while (true) {\n                let s = c, l = 2 * c + 1, r = 2 * c + 2;\n                if (l < sz && less(heap[l], heap[s])) s = l;\n                if (r < sz && less(heap[r], heap[s])) s = r;\n                if (s === c) break;\n                [heap[c], heap[s]] = [heap[s], heap[c]];\n                c = s;\n            }\n        }\n        return top;\n    };\n    const res = [];\n    let time = 0, ptr = 0;\n    while (res.length < n) {\n        while (ptr < n && tasks[idx[ptr]][0] <= time) {\n            const i = idx[ptr];\n            push([tasks[i][1], i]);\n            ptr++;\n        }\n        if (heap.length === 0) { time = tasks[idx[ptr]][0]; continue; }\n        const [proc, i] = pop();\n        res.push(i);\n        time += proc;\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

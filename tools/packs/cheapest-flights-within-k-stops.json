@@ -1,0 +1,41 @@
+{
+  "slug": "cheapest-flights-within-k-stops",
+  "judge": "exact",
+  "pattern": "A bounded-edge shortest path: relaxing all edges exactly k+1 times, each round from the previous round's costs only, finds the cheapest route that uses at most k intermediate stops.",
+  "hints": [
+    "Plain shortest-path ignores the stop limit; you need the cheapest cost reachable using a bounded number of edges.",
+    "Run a Bellman-Ford style relaxation for k+1 rounds, and in each round update costs from a frozen snapshot of the previous round so a single round adds at most one more edge to a path.",
+    "Keep a distance array seeded with the source at zero; for each of k+1 passes, copy it, relax every flight using the copy as the source of truth, and after the passes return the destination cost or -1 if still unreachable."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int" },
+    { "param": "flights", "kind": "int[][]", "value": [0, 10000] },
+    { "param": "src", "kind": "int" },
+    { "param": "dst", "kind": "int" },
+    { "param": "k", "kind": "int" }
+  ],
+  "edge_inputs": [
+    { "kind": "trap", "description": "cheaper path exists but exceeds the stop budget", "input": [4, [[0, 1, 100], [1, 2, 100], [2, 0, 100], [1, 3, 600], [2, 3, 200]], 0, 3, 1] },
+    { "kind": "edge", "description": "one stop allows a two-hop cheaper than the direct flight", "input": [3, [[0, 1, 100], [1, 2, 100], [0, 2, 500]], 0, 2, 1] },
+    { "kind": "boundary", "description": "zero stops forces the direct flight only", "input": [3, [[0, 1, 100], [1, 2, 100], [0, 2, 500]], 0, 2, 0] },
+    { "kind": "trap", "description": "destination unreachable returns minus one", "input": [3, [[0, 1, 50]], 0, 2, 5] },
+    { "kind": "edge", "description": "no flights at all", "input": [2, [], 0, 1, 0] },
+    { "kind": "boundary", "description": "k large enough to use the full chain", "input": [5, [[0, 1, 5], [1, 2, 5], [2, 3, 5], [3, 4, 5], [0, 4, 100]], 0, 4, 3] },
+    { "kind": "trap", "description": "two competing routes where the longer hop count is cheaper", "input": [4, [[0, 1, 1], [1, 2, 1], [2, 3, 1], [0, 3, 10]], 0, 3, 2] }
+  ],
+  "stress": [
+    {
+      "description": "random directed weighted graphs with a random source, destination and stop budget",
+      "seed": 37,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, min(60, max(2, size)))\n    edges = {}\n    max_edges = n * (n - 1) // 2\n    target = rng.randint(0, max_edges)\n    attempts = 0\n    flights = []\n    while len(flights) < target and attempts < target * 4 + 10:\n        attempts += 1\n        a = rng.randrange(n)\n        b = rng.randrange(n)\n        if a == b:\n            continue\n        if (a, b) in edges:\n            continue\n        edges[(a, b)] = True\n        flights.append([a, b, rng.randint(1, 10000)])\n    src = rng.randrange(n)\n    dst = rng.randrange(n)\n    while dst == src:\n        dst = rng.randrange(n)\n    k = rng.randrange(n)\n    return [n, flights, src, dst, k]\n",
+      "note": "no parallel edges, src != dst, k in [0, n)"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findCheapestPrice(self, n, flights, src, dst, k):\n        import heapq\n        adj = [[] for _ in range(n)]\n        for a, b, c in flights:\n            adj[a].append((b, c))\n        best = {}\n        heap = [(0, src, k + 1)]\n        ans = -1\n        while heap:\n            cost, node, stops = heapq.heappop(heap)\n            if node == dst:\n                ans = cost\n                break\n            if stops == 0:\n                continue\n            if best.get((node, stops), float('inf')) < cost:\n                continue\n            for nb, w in adj[node]:\n                nc = cost + w\n                if nc < best.get((nb, stops - 1), float('inf')):\n                    best[(nb, stops - 1)] = nc\n                    heapq.heappush(heap, (nc, nb, stops - 1))\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def findCheapestPrice(self, n, flights, src, dst, k):\n        INF = float('inf')\n        dist = [INF] * n\n        dist[src] = 0\n        for _ in range(k + 1):\n            prev = dist[:]\n            for a, b, c in flights:\n                if prev[a] + c < dist[b]:\n                    dist[b] = prev[a] + c\n        return -1 if dist[dst] == INF else dist[dst]\n",
+    "javascript": "var findCheapestPrice = function(n, flights, src, dst, k) {\n    const INF = Infinity;\n    let dist = new Array(n).fill(INF);\n    dist[src] = 0;\n    for (let r = 0; r <= k; r++) {\n        const prev = dist.slice();\n        for (const [a, b, c] of flights) {\n            if (prev[a] + c < dist[b]) dist[b] = prev[a] + c;\n        }\n    }\n    return dist[dst] === INF ? -1 : dist[dst];\n};\n"
+  },
+  "complexity": { "time": "O(k * e)", "space": "O(n)" }
+}

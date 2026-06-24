@@ -1,0 +1,38 @@
+{
+  "slug": "count-prime-gap-balanced-subarrays",
+  "judge": "exact",
+  "pattern": "Sieve the primes, then for each right end slide a window of monotonic deques to bound the prime spread and binary-search how many starts still hold at least two primes.",
+  "hints": [
+    "Only the prime values inside a subarray matter. Precompute which entries are prime, and a prefix count of primes so you can ask how many primes lie in any range.",
+    "As a window grows to the left, its prime maximum can only rise and its prime minimum can only fall, so the spread is monotonic; for each right end there is an earliest left where max-min <= k still holds.",
+    "Maintain the prime max and min with two monotonic deques to find that earliest left, then count the starts in that range whose subarray contains at least two primes using the prefix counts."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 50000], "value": [1, 50000] },
+    { "param": "k", "kind": "int", "value": [0, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two primes one apart", "input": [[1, 2, 3], 1] },
+    { "kind": "edge", "description": "four consecutive primes within k", "input": [[2, 3, 5, 7], 3] },
+    { "kind": "trap", "description": "only one prime present yields zero", "input": [[4, 6, 7, 8], 100] },
+    { "kind": "trap", "description": "no primes at all", "input": [[1, 4, 6, 8, 9], 5] },
+    { "kind": "boundary", "description": "k of zero needs two equal primes", "input": [[3, 3, 5], 0] },
+    { "kind": "edge", "description": "primes too far apart for small k", "input": [[2, 50, 47], 1] },
+    { "kind": "edge", "description": "repeated single prime gives equal pairs", "input": [[5, 5, 5], 0] }
+  ],
+  "stress": [
+    {
+      "description": "random small values so primes appear frequently and windows vary",
+      "seed": 37,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(1500, size))\n    nums = [rng.randint(1, 60) for _ in range(n)]\n    k = rng.randint(0, 40)\n    return [nums, k]\n",
+      "note": "linear-with-log approach handles this comfortably"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def primeSubarray(self, nums, k):\n        m = max(nums) if nums else 1\n        m = max(m, 2)\n        is_p = [True] * (m + 1)\n        is_p[0] = False\n        if m >= 1:\n            is_p[1] = False\n        i = 2\n        while i * i <= m:\n            if is_p[i]:\n                for j in range(i * i, m + 1, i):\n                    is_p[j] = False\n            i += 1\n        n = len(nums)\n        cnt = 0\n        for a in range(n):\n            primes = []\n            for b in range(a, n):\n                if is_p[nums[b]]:\n                    primes.append(nums[b])\n                if len(primes) >= 2 and max(primes) - min(primes) <= k:\n                    cnt += 1\n        return cnt\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def primeSubarray(self, nums, k):\n        n = len(nums)\n        m = max(nums) if nums else 1\n        m = max(m, 2)\n        is_p = [True] * (m + 1)\n        is_p[0] = False\n        is_p[1] = False\n        i = 2\n        while i * i <= m:\n            if is_p[i]:\n                for j in range(i * i, m + 1, i):\n                    is_p[j] = False\n            i += 1\n        prime = [is_p[x] for x in nums]\n        pc = [0] * (n + 1)\n        for idx in range(n):\n            pc[idx + 1] = pc[idx] + (1 if prime[idx] else 0)\n        maxd = deque()\n        mind = deque()\n        left = 0\n        ans = 0\n        for r in range(n):\n            if prime[r]:\n                while maxd and nums[maxd[-1]] <= nums[r]:\n                    maxd.pop()\n                maxd.append(r)\n                while mind and nums[mind[-1]] >= nums[r]:\n                    mind.pop()\n                mind.append(r)\n            while maxd and mind and nums[maxd[0]] - nums[mind[0]] > k:\n                left += 1\n                while maxd and maxd[0] < left:\n                    maxd.popleft()\n                while mind and mind[0] < left:\n                    mind.popleft()\n            target = pc[r + 1] - 2\n            if target < 0:\n                continue\n            lo, hi, res = left, r, -1\n            while lo <= hi:\n                mid = (lo + hi) // 2\n                if pc[mid] <= target:\n                    res = mid\n                    lo = mid + 1\n                else:\n                    hi = mid - 1\n            if res >= left:\n                ans += res - left + 1\n        return ans\n",
+    "javascript": "var primeSubarray = function(nums, k) {\n    const n = nums.length;\n    let m = nums.length ? Math.max(...nums) : 1;\n    m = Math.max(m, 2);\n    const isP = new Array(m + 1).fill(true);\n    isP[0] = false; isP[1] = false;\n    for (let i = 2; i * i <= m; i++) {\n        if (isP[i]) {\n            for (let j = i * i; j <= m; j += i) isP[j] = false;\n        }\n    }\n    const prime = nums.map(x => isP[x]);\n    const pc = new Array(n + 1).fill(0);\n    for (let idx = 0; idx < n; idx++) pc[idx + 1] = pc[idx] + (prime[idx] ? 1 : 0);\n    const maxd = [];\n    const mind = [];\n    let left = 0;\n    let ans = 0;\n    for (let r = 0; r < n; r++) {\n        if (prime[r]) {\n            while (maxd.length && nums[maxd[maxd.length - 1]] <= nums[r]) maxd.pop();\n            maxd.push(r);\n            while (mind.length && nums[mind[mind.length - 1]] >= nums[r]) mind.pop();\n            mind.push(r);\n        }\n        while (maxd.length && mind.length && nums[maxd[0]] - nums[mind[0]] > k) {\n            left++;\n            while (maxd.length && maxd[0] < left) maxd.shift();\n            while (mind.length && mind[0] < left) mind.shift();\n        }\n        const target = pc[r + 1] - 2;\n        if (target < 0) continue;\n        let lo = left, hi = r, res = -1;\n        while (lo <= hi) {\n            const mid = (lo + hi) >> 1;\n            if (pc[mid] <= target) { res = mid; lo = mid + 1; }\n            else hi = mid - 1;\n        }\n        if (res >= left) ans += res - left + 1;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n + maxval log log maxval)", "space": "O(n + maxval)" }
+}

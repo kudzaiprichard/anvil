@@ -1,0 +1,46 @@
+{
+  "slug": "my-calendar-i",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Tracking a set of non-overlapping intervals and rejecting any new interval that intersects an existing one is the core of single-booking scheduling.",
+  "hints": [
+    "Two half-open intervals overlap exactly when each one starts strictly before the other ends.",
+    "Before accepting a booking, you must confirm it touches none of the intervals already accepted.",
+    "Keep the accepted intervals and, for each request, test it against them; if it clears all of them, store it and answer true, otherwise answer false without storing."
+  ],
+  "constraints": [
+    { "param": "startTime", "kind": "int", "value": [0, 1000000000] },
+    { "param": "endTime", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: middle event collides, the touching-at-endpoint event is allowed",
+      "input": [["MyCalendar", "book", "book", "book"], [[], [10, 20], [15, 25], [20, 30]]] },
+    { "kind": "boundary", "description": "a single booking always succeeds",
+      "input": [["MyCalendar", "book"], [[], [0, 5]]] },
+    { "kind": "trap", "description": "shared endpoint does not count as overlap for half-open intervals",
+      "input": [["MyCalendar", "book", "book", "book"], [[], [1, 2], [2, 3], [3, 4]]] },
+    { "kind": "trap", "description": "a fully contained interval is still a double booking and is rejected",
+      "input": [["MyCalendar", "book", "book"], [[], [10, 50], [20, 30]]] },
+    { "kind": "trap", "description": "an interval that strictly contains an existing one is rejected too",
+      "input": [["MyCalendar", "book", "book"], [[], [20, 30], [10, 50]]] },
+    { "kind": "edge", "description": "exact duplicate booking is a collision",
+      "input": [["MyCalendar", "book", "book"], [[], [5, 10], [5, 10]]] },
+    { "kind": "edge", "description": "interleaved accepts and rejects",
+      "input": [["MyCalendar", "book", "book", "book", "book", "book"], [[], [10, 20], [30, 40], [25, 35], [20, 30], [40, 50]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random bookings over a small coordinate space so collisions are frequent",
+      "seed": 31,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    ops = ['MyCalendar']\n    args = [[]]\n    for _ in range(max(1, size)):\n        s = rng.randint(0, 80)\n        e = s + rng.randint(1, 20)\n        ops.append('book'); args.append([s, e])\n    return [ops, args]\n",
+      "note": "dense overlaps exercise both the accept and reject branches"
+    }
+  ],
+  "oracle_python": "class MyCalendar:\n    def __init__(self):\n        self.events = []\n    def book(self, startTime, endTime):\n        for s, e in self.events:\n            if startTime < e and s < endTime:\n                return False\n        self.events.append((startTime, endTime))\n        return True\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass MyCalendar:\n    def __init__(self):\n        self.starts = []\n        self.ends = []\n    def book(self, startTime, endTime):\n        i = bisect.bisect_right(self.starts, startTime)\n        if i > 0 and self.ends[i - 1] > startTime:\n            return False\n        if i < len(self.starts) and self.starts[i] < endTime:\n            return False\n        self.starts.insert(i, startTime)\n        self.ends.insert(i, endTime)\n        return True\n",
+    "javascript": "class MyCalendar {\n    constructor() {\n        this.events = [];\n    }\n    book(startTime, endTime) {\n        for (const [s, e] of this.events) {\n            if (startTime < e && s < endTime) return false;\n        }\n        this.events.push([startTime, endTime]);\n        return true;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) per book", "space": "O(n)" }
+}

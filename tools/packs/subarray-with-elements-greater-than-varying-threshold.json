@@ -1,0 +1,41 @@
+{
+  "slug": "subarray-with-elements-greater-than-varying-threshold",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    nums = args[0]\n    threshold = args[1]\n    n = len(nums)\n    # does ANY valid subarray exist?\n    # a length-k window starting at i is valid iff min(window) > threshold/k\n    # i.e. min(window) * k > threshold\n    exists = False\n    # O(n^2) reference existence check (fine for validator-sized inputs)\n    for i in range(n):\n        m = nums[i]\n        for j in range(i, n):\n            if nums[j] < m:\n                m = nums[j]\n            k = j - i + 1\n            if m * k > threshold:\n                exists = True\n                break\n        if exists:\n            break\n    if not exists:\n        return output == -1\n    # output must be a real k for which some window of that length is valid\n    if not isinstance(output, int):\n        return False\n    k = output\n    if k < 1 or k > n:\n        return False\n    for i in range(0, n - k + 1):\n        m = min(nums[i:i+k])\n        if m * k > threshold:\n            return True\n    return False\n",
+    "validator_javascript": "function validate(args, output) {\n    const nums = args[0];\n    const threshold = args[1];\n    const n = nums.length;\n    let exists = false;\n    for (let i = 0; i < n && !exists; i++) {\n        let m = nums[i];\n        for (let j = i; j < n; j++) {\n            if (nums[j] < m) m = nums[j];\n            const k = j - i + 1;\n            if (m * k > threshold) { exists = true; break; }\n        }\n    }\n    if (!exists) return output === -1;\n    if (!Number.isInteger(output)) return false;\n    const k = output;\n    if (k < 1 || k > n) return false;\n    for (let i = 0; i + k <= n; i++) {\n        let m = Infinity;\n        for (let t = i; t < i + k; t++) m = Math.min(m, nums[t]);\n        if (m * k > threshold) return true;\n    }\n    return false;\n}\n"
+  },
+  "pattern": "For each element treated as the minimum of a window, the widest stretch over which it stays the minimum is bounded by the nearest smaller elements on each side, and that maximal width is the strongest test of the per-length threshold.",
+  "hints": [
+    "Rewrite the condition: a window of length k is valid when its minimum times k exceeds the threshold, so fix the minimum and you want the longest window it governs.",
+    "The longest window in which a given element is the minimum runs between the previous strictly-smaller and next strictly-smaller elements.",
+    "A monotonic stack yields those boundaries in linear time; for each element check whether its value times its span beats the threshold."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "threshold", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "unique valid subarray in the middle", "input": [[1, 3, 4, 3, 1], 6] },
+    { "kind": "edge", "description": "many valid sizes including a single strong element", "input": [[6, 5, 6, 5, 8], 7] },
+    { "kind": "trap", "description": "no subarray can meet the threshold", "input": [[1, 1, 1], 100] },
+    { "kind": "boundary", "description": "single element that just clears the bar", "input": [[2], 1] },
+    { "kind": "trap", "description": "single element that fails", "input": [[2], 2] },
+    { "kind": "edge", "description": "all equal so any length up to where value*k exceeds threshold works", "input": [[5, 5, 5, 5], 9] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays with a threshold scaled to the values so both feasible and infeasible cases appear",
+      "seed": 41,
+      "size": 120,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 120))\n    nums = [rng.randint(1, 50) for _ in range(n)]\n    threshold = rng.randint(1, 60 * n)\n    return [nums, threshold]\n",
+      "note": "small values keep the O(n^2) oracle fast; threshold range spans easy and impossible"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def validSubarraySize(self, nums, threshold):\n        n = len(nums)\n        # brute force: smallest valid k (deterministic) by checking every window\n        for k in range(1, n + 1):\n            for i in range(0, n - k + 1):\n                if min(nums[i:i+k]) * k > threshold:\n                    return k\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def validSubarraySize(self, nums, threshold):\n        n = len(nums)\n        # previous smaller and next smaller via monotonic stack\n        prev_smaller = [-1] * n\n        next_smaller = [n] * n\n        stack = []\n        for i in range(n):\n            while stack and nums[stack[-1]] >= nums[i]:\n                stack.pop()\n            prev_smaller[i] = stack[-1] if stack else -1\n            stack.append(i)\n        stack = []\n        for i in range(n - 1, -1, -1):\n            while stack and nums[stack[-1]] >= nums[i]:\n                stack.pop()\n            next_smaller[i] = stack[-1] if stack else n\n            stack.append(i)\n        best = -1\n        for i in range(n):\n            width = next_smaller[i] - prev_smaller[i] - 1\n            if nums[i] * width > threshold:\n                best = width\n                break\n        if best == -1:\n            return -1\n        # normalize to the smallest valid k so all references agree byte-for-byte\n        for k in range(1, n + 1):\n            # quick check: does any window of length k work? reuse the spans found\n            for i in range(n):\n                width = next_smaller[i] - prev_smaller[i] - 1\n                if width >= k and nums[i] * k > threshold:\n                    return k\n        return -1\n",
+    "javascript": "var validSubarraySize = function(nums, threshold) {\n    const n = nums.length;\n    const prevS = new Array(n).fill(-1);\n    const nextS = new Array(n).fill(n);\n    let stack = [];\n    for (let i = 0; i < n; i++) {\n        while (stack.length && nums[stack[stack.length - 1]] >= nums[i]) stack.pop();\n        prevS[i] = stack.length ? stack[stack.length - 1] : -1;\n        stack.push(i);\n    }\n    stack = [];\n    for (let i = n - 1; i >= 0; i--) {\n        while (stack.length && nums[stack[stack.length - 1]] >= nums[i]) stack.pop();\n        nextS[i] = stack.length ? stack[stack.length - 1] : n;\n        stack.push(i);\n    }\n    let anyValid = false;\n    for (let i = 0; i < n; i++) {\n        const width = nextS[i] - prevS[i] - 1;\n        if (nums[i] * width > threshold) { anyValid = true; break; }\n    }\n    if (!anyValid) return -1;\n    for (let k = 1; k <= n; k++) {\n        for (let i = 0; i < n; i++) {\n            const width = nextS[i] - prevS[i] - 1;\n            if (width >= k && nums[i] * k > threshold) return k;\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

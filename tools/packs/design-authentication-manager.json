@@ -1,0 +1,89 @@
+{
+  "slug": "design-authentication-manager",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Tracking each live token by its absolute expiry time turns generate/renew into hash-map writes and reduces counting to filtering out entries whose expiry has already passed.",
+  "hints": [
+    "A token created or renewed at time t is alive only while currentTime is strictly before t + timeToLive; store that expiry instead of the creation time.",
+    "renew must do nothing if the token is missing or already expired at the current time — check both before touching it.",
+    "Keep one map from token id to expiry time; generate and renew overwrite the expiry, and counting walks the map for entries whose expiry exceeds the queried time."
+  ],
+  "constraints": [
+    { "param": "timeToLive", "kind": "int", "value": [1, 100000000] },
+    { "param": "currentTime", "kind": "int", "value": [1, 100000000] },
+    { "param": "tokenId", "kind": "string", "len": [1, 5] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example: renew on missing token is ignored; expired token cannot be renewed",
+      "input": [
+        ["AuthenticationManager", "renew", "generate", "countUnexpiredTokens", "generate", "renew", "renew", "countUnexpiredTokens"],
+        [[5], ["aaa", 1], ["aaa", 2], [6], ["bbb", 7], ["aaa", 8], ["bbb", 10], [15]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a token queried exactly at its expiry time counts as expired",
+      "input": [
+        ["AuthenticationManager", "generate", "countUnexpiredTokens", "countUnexpiredTokens"],
+        [[5], ["x", 1], [5], [6]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "renew right before expiry extends the lifetime",
+      "input": [
+        ["AuthenticationManager", "generate", "renew", "countUnexpiredTokens", "countUnexpiredTokens"],
+        [[10], ["a", 1], ["a", 10], [19], [20]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "renew exactly at expiry instant is too late and must be ignored",
+      "input": [
+        ["AuthenticationManager", "generate", "renew", "countUnexpiredTokens"],
+        [[5], ["a", 1], ["a", 6], [7]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "count with no tokens at all",
+      "input": [
+        ["AuthenticationManager", "countUnexpiredTokens"],
+        [[3], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "several tokens with staggered expiries; count reflects only those still alive",
+      "input": [
+        ["AuthenticationManager", "generate", "generate", "generate", "countUnexpiredTokens", "countUnexpiredTokens"],
+        [[10], ["a", 1], ["b", 5], ["c", 9], [11], [16]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "renew a still-live token then count after the original window would have closed",
+      "input": [
+        ["AuthenticationManager", "generate", "renew", "countUnexpiredTokens"],
+        [[100], ["t", 1], ["t", 50], [120]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long sequence of generate/renew/count with strictly increasing times and unique generated ids",
+      "seed": 11,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    ttl = rng.randint(5, 50)\n    ops = ['AuthenticationManager']\n    args = [[ttl]]\n    t = 1\n    counter = 0\n    live = []\n    for _ in range(size):\n        t += rng.randint(1, 10)\n        r = rng.random()\n        if r < 0.5:\n            counter += 1\n            tid = 't' + str(counter)\n            if len(tid) > 5:\n                tid = tid[:5]\n            # ensure uniqueness within length cap by padding via base mapping\n            tid = format(counter, 'x')\n            if len(tid) > 5:\n                # restart counter space rarely; keep generate ids unique by skipping\n                continue\n            ops.append('generate')\n            args.append([tid, t])\n            live.append(tid)\n        elif r < 0.75 and live:\n            tid = rng.choice(live)\n            ops.append('renew')\n            args.append([tid, t])\n        else:\n            ops.append('countUnexpiredTokens')\n            args.append([t])\n    return [ops, args]\n",
+      "note": "generate ids are hex of a counter so they stay unique and within 5 chars; times strictly increase"
+    }
+  ],
+  "oracle_python": "class AuthenticationManager:\n    def __init__(self, timeToLive: int):\n        self.ttl = timeToLive\n        self.tokens = {}\n    def generate(self, tokenId: str, currentTime: int) -> None:\n        self.tokens[tokenId] = currentTime + self.ttl\n    def renew(self, tokenId: str, currentTime: int) -> None:\n        if tokenId in self.tokens and self.tokens[tokenId] > currentTime:\n            self.tokens[tokenId] = currentTime + self.ttl\n    def countUnexpiredTokens(self, currentTime: int) -> int:\n        count = 0\n        for exp in self.tokens.values():\n            if exp > currentTime:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class AuthenticationManager:\n    def __init__(self, timeToLive: int):\n        self._ttl = timeToLive\n        self._exp = {}\n    def generate(self, tokenId: str, currentTime: int) -> None:\n        self._exp[tokenId] = currentTime + self._ttl\n    def renew(self, tokenId: str, currentTime: int) -> None:\n        e = self._exp.get(tokenId)\n        if e is not None and e > currentTime:\n            self._exp[tokenId] = currentTime + self._ttl\n    def countUnexpiredTokens(self, currentTime: int) -> int:\n        return sum(1 for e in self._exp.values() if e > currentTime)\n",
+    "javascript": "var AuthenticationManager = function(timeToLive) {\n    this.ttl = timeToLive;\n    this.exp = new Map();\n};\nAuthenticationManager.prototype.generate = function(tokenId, currentTime) {\n    this.exp.set(tokenId, currentTime + this.ttl);\n};\nAuthenticationManager.prototype.renew = function(tokenId, currentTime) {\n    const e = this.exp.get(tokenId);\n    if (e !== undefined && e > currentTime) {\n        this.exp.set(tokenId, currentTime + this.ttl);\n    }\n};\nAuthenticationManager.prototype.countUnexpiredTokens = function(currentTime) {\n    let count = 0;\n    for (const e of this.exp.values()) {\n        if (e > currentTime) count++;\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(1) generate/renew, O(n) count", "space": "O(n)" }
+}

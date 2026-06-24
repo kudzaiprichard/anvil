@@ -1,0 +1,37 @@
+{
+  "slug": "distribute-coins-in-binary-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "Each edge must carry the net coin surplus or deficit of the subtree beneath it, so summing the absolute imbalance flowing across every edge gives the minimum moves.",
+  "hints": [
+    "Think about each edge: the coins that must cross it equal the absolute difference between the coins a subtree has and the number of nodes it contains.",
+    "A post-order pass can return how many extra (or missing) coins each subtree must push up to its parent.",
+    "For each node compute balance = node.val - 1 + leftBalance + rightBalance; add abs(leftBalance) + abs(rightBalance) to a move counter as those coins traverse the child edges. Return the root's total."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 100], "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "root holds all coins, push to both children", "input": [[3, 0, 0]] },
+    { "kind": "edge", "description": "coins concentrated in left child", "input": [[0, 3, 0]] },
+    { "kind": "boundary", "description": "single node already balanced", "input": [[1]] },
+    { "kind": "trap", "description": "deep chain shifting one coin along several edges", "input": [[1, 0, 2]] },
+    { "kind": "edge", "description": "balanced subtrees need no moves", "input": [[1, 1, 1, null, null, null, null]] },
+    { "kind": "trap", "description": "surplus deep in the tree travels up then down", "input": [[0, 0, 3, null, null, 0, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "random binary tree whose values sum to the node count",
+      "seed": 37,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    # Build a random tree by attaching each new node to a random existing node's\n    # free child slot. left[i]/right[i] hold child indices or None.\n    left = [None] * n\n    right = [None] * n\n    open_slots = [(0, 'L'), (0, 'R')]\n    for child in range(1, n):\n        idx = rng.randrange(len(open_slots))\n        parent, side = open_slots.pop(idx)\n        if side == 'L':\n            left[parent] = child\n        else:\n            right[parent] = child\n        open_slots.append((child, 'L'))\n        open_slots.append((child, 'R'))\n    vals = [0] * n\n    for _ in range(n):\n        vals[rng.randrange(n)] += 1\n    out = []\n    queue = [0]\n    while queue:\n        idx = queue.pop(0)\n        if idx is None:\n            out.append(None)\n            continue\n        out.append(vals[idx])\n        if left[idx] is not None or right[idx] is not None:\n            queue.append(left[idx])\n            queue.append(right[idx])\n    return [out]\n",
+      "note": "coins sum to node count so a valid distribution always exists"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def distributeCoins(self, root):\n        # Independent approach: repeatedly compute each subtree's coin total and\n        # size, summing |coins - size| over every non-root node (each such value\n        # is the net flow on that node's parent edge).\n        nodes = []\n        def collect(node):\n            if node is None:\n                return\n            nodes.append(node)\n            collect(node.left)\n            collect(node.right)\n        collect(root)\n        def coins(node):\n            if node is None:\n                return 0\n            return node.val + coins(node.left) + coins(node.right)\n        def size(node):\n            if node is None:\n                return 0\n            return 1 + size(node.left) + size(node.right)\n        total = 0\n        for node in nodes:\n            if node is root:\n                continue\n            total += abs(coins(node) - size(node))\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def distributeCoins(self, root):\n        self.moves = 0\n        def dfs(node):\n            if node is None:\n                return 0\n            left = dfs(node.left)\n            right = dfs(node.right)\n            self.moves += abs(left) + abs(right)\n            return node.val - 1 + left + right\n        dfs(root)\n        return self.moves\n",
+    "javascript": "var distributeCoins = function(root) {\n    let moves = 0;\n    function dfs(node) {\n        if (!node) return 0;\n        const left = dfs(node.left);\n        const right = dfs(node.right);\n        moves += Math.abs(left) + Math.abs(right);\n        return node.val - 1 + left + right;\n    }\n    dfs(root);\n    return moves;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

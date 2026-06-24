@@ -1,0 +1,38 @@
+{
+  "slug": "words-within-two-edits-of-dictionary",
+  "judge": "exact",
+  "pattern": "Since every word has equal length, an edit is just a mismatched position, so a query qualifies when some dictionary word differs from it in at most two spots.",
+  "hints": [
+    "All words are the same length, so reaching a dictionary word only ever means substituting letters, never inserting or deleting.",
+    "The number of edits between two equal-length words is the count of positions where they differ.",
+    "Keep a query if any dictionary word has at most two differing positions; preserve the original query order in the result."
+  ],
+  "constraints": [
+    { "param": "queries", "kind": "string[]", "len": [1, 100] },
+    { "param": "dictionary", "kind": "string[]", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "given example with several matches", "input": [["word", "note", "ants", "wood"], ["wood", "joke", "moat"]] },
+    { "kind": "trap", "description": "no query is within two edits", "input": [["yes"], ["not"]] },
+    { "kind": "boundary", "description": "exactly two edits qualifies (inclusive bound)", "input": [["abc"], ["xyc"]] },
+    { "kind": "trap", "description": "three edits is too many", "input": [["abc"], ["xyz"]] },
+    { "kind": "edge", "description": "zero edits, identical word present", "input": [["cat", "dog"], ["cat"]] },
+    { "kind": "edge", "description": "single-character words, any letter is one edit", "input": [["a", "b"], ["c"]] },
+    { "kind": "trap", "description": "duplicate queries each evaluated independently", "input": [["abcd", "abcd"], ["abxy"]] }
+  ],
+  "stress": [
+    {
+      "description": "random queries against a dictionary, planting some near-matches",
+      "seed": 19,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, size)\n    L = rng.randint(1, 10)\n    def rand_word():\n        return ''.join(rng.choice(string.ascii_lowercase) for _ in range(L))\n    dictionary = [rand_word() for _ in range(max(1, n // 2))]\n    queries = []\n    for _ in range(n):\n        if rng.random() < 0.5 and dictionary:\n            base = list(rng.choice(dictionary))\n            k = rng.randint(0, 3)\n            idxs = rng.sample(range(L), min(k, L))\n            for i in idxs:\n                base[i] = rng.choice(string.ascii_lowercase)\n            queries.append(''.join(base))\n        else:\n            queries.append(rand_word())\n    return [queries, dictionary]\n",
+      "note": "half the queries are perturbations of dictionary words"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def twoEditWords(self, queries, dictionary):\n        res = []\n        for q in queries:\n            ok = False\n            for d in dictionary:\n                diff = sum(1 for a, b in zip(q, d) if a != b)\n                if diff <= 2:\n                    ok = True\n                    break\n            if ok:\n                res.append(q)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def twoEditWords(self, queries, dictionary):\n        def within(q, d):\n            cnt = 0\n            for i in range(len(q)):\n                if q[i] != d[i]:\n                    cnt += 1\n                    if cnt > 2:\n                        return False\n            return True\n        return [q for q in queries if any(within(q, d) for d in dictionary)]\n",
+    "javascript": "var twoEditWords = function(queries, dictionary) {\n    const within = (q, d) => {\n        let cnt = 0;\n        for (let i = 0; i < q.length; i++) {\n            if (q[i] !== d[i]) {\n                cnt++;\n                if (cnt > 2) return false;\n            }\n        }\n        return true;\n    };\n    return queries.filter(q => dictionary.some(d => within(q, d)));\n};\n"
+  },
+  "complexity": { "time": "O(q * d * n)", "space": "O(1)" }
+}

@@ -1,0 +1,87 @@
+{
+  "slug": "detect-squares",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Fixing one diagonal of a candidate square and using coordinate counts lets you enumerate all valid axis-aligned squares through any query point without exhaustive search.",
+  "hints": [
+    "An axis-aligned square is fully determined by two diagonal corners — fix the query point as one corner and pick any stored point at the same y-distance as a candidate opposite corner.",
+    "Once you have two diagonal corners you know both remaining corners; multiply the counts of those two corners to get the number of distinct ways to form the square with that diagonal.",
+    "Count duplicates carefully: the problem treats identical added points as distinct, so store a frequency count per coordinate rather than a set."
+  ],
+  "constraints": [
+    { "param": "point", "kind": "int[]", "len": [2, 2], "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "standard sequence matching the problem illustration",
+      "input": [
+        ["DetectSquares", "add", "add", "add", "count", "count", "add", "count"],
+        [[], [[3, 10]], [[11, 2]], [[3, 2]], [[11, 10]], [[14, 8]], [[11, 2]], [[11, 10]]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "count on an empty structure returns 0",
+      "input": [
+        ["DetectSquares", "count"],
+        [[], [[5, 5]]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "square touching the origin corner (0,0)",
+      "input": [
+        ["DetectSquares", "add", "add", "add", "count"],
+        [[], [[0, 0]], [[5, 0]], [[0, 5]], [[5, 5]]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate added points multiply the square count accordingly",
+      "input": [
+        ["DetectSquares", "add", "add", "add", "add", "add", "count"],
+        [[], [[1, 1]], [[1, 4]], [[4, 1]], [[4, 1]], [[4, 1]], [[4, 4]]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "zero-area square (all four corners coincide) should not be counted — positive area required",
+      "input": [
+        ["DetectSquares", "add", "add", "add", "count"],
+        [[], [[3, 3]], [[3, 3]], [[3, 3]], [[3, 3]]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "query point that lies on the same row/column as added points but cannot form a square",
+      "input": [
+        ["DetectSquares", "add", "add", "count"],
+        [[], [[2, 5]], [[8, 5]], [[5, 5]]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two distinct valid squares share the query point as a corner",
+      "input": [
+        ["DetectSquares", "add", "add", "add", "add", "add", "add", "count"],
+        [[], [[0, 0]], [[2, 0]], [[0, 2]], [[2, 2]], [[4, 0]], [[0, 4]], [[4, 4]]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "randomized add and count queries over a moderate coordinate range",
+      "seed": 7,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    ops = ['DetectSquares']\n    args = [[]]\n    for _ in range(max(1, size)):\n        x = rng.randint(0, 50)\n        y = rng.randint(0, 50)\n        if rng.random() < 0.6:\n            ops.append('add')\n            args.append([[x, y]])\n        else:\n            ops.append('count')\n            args.append([[x, y]])\n    return [ops, args]\n",
+      "note": "small coordinate range (0-50) ensures many duplicate points and valid squares form frequently"
+    }
+  ],
+  "oracle_python": "from collections import defaultdict\n\n\nclass DetectSquares:\n    def __init__(self):\n        self.pts = defaultdict(int)  # (x,y) -> count\n\n    def add(self, point):\n        self.pts[(point[0], point[1])] += 1\n\n    def count(self, point):\n        qx, qy = point[0], point[1]\n        total = 0\n        # brute-force: enumerate all pairs of stored points as potential diagonals\n        all_pts = list(self.pts.keys())\n        for (x1, y1), c1 in list(self.pts.items()):\n            for (x2, y2), c2 in list(self.pts.items()):\n                # (qx,qy), (x1,y1), (x2,y2), fourth corner forms an axis-aligned square\n                # need: x2==qx, y1==qy, x1!=qx (side length != 0)\n                if x2 == qx and y1 == qy and abs(x1 - qx) == abs(y2 - qy) and x1 != qx:\n                    fourth_count = self.pts.get((x1, y2), 0)\n                    total += c1 * c2 * fourth_count\n        return total\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\n\nclass DetectSquares:\n    def __init__(self):\n        self.pt_count = defaultdict(int)  # (x, y) -> frequency\n        self.x_to_ys = defaultdict(set)   # x -> set of y values seen\n\n    def add(self, point):\n        x, y = point[0], point[1]\n        self.pt_count[(x, y)] += 1\n        self.x_to_ys[x].add(y)\n\n    def count(self, point):\n        qx, qy = point[0], point[1]\n        total = 0\n        # pick a point on the same column (same x as query) as one far corner\n        for y3 in self.x_to_ys.get(qx, set()):\n            if y3 == qy:\n                continue  # zero-area\n            side = abs(y3 - qy)\n            # the square can extend left or right\n            for dx in [side, -side]:\n                x3 = qx + dx\n                c1 = self.pt_count[(qx, y3)]\n                c2 = self.pt_count[(x3, qy)]\n                c3 = self.pt_count[(x3, y3)]\n                total += c1 * c2 * c3\n        return total\n",
+    "javascript": "class DetectSquares {\n    constructor() {\n        this.ptCount = new Map();\n        this.xToYs = new Map();\n    }\n    _key(x, y) { return x * 1001 + y; }\n    add(point) {\n        const [x, y] = point;\n        const k = this._key(x, y);\n        this.ptCount.set(k, (this.ptCount.get(k) || 0) + 1);\n        if (!this.xToYs.has(x)) this.xToYs.set(x, new Set());\n        this.xToYs.get(x).add(y);\n    }\n    count(point) {\n        const [qx, qy] = point;\n        let total = 0;\n        const ys = this.xToYs.get(qx);\n        if (!ys) return 0;\n        for (const y3 of ys) {\n            if (y3 === qy) continue;\n            const side = Math.abs(y3 - qy);\n            for (const dx of [side, -side]) {\n                const x3 = qx + dx;\n                const c1 = this.ptCount.get(this._key(qx, y3)) || 0;\n                const c2 = this.ptCount.get(this._key(x3, qy)) || 0;\n                const c3 = this.ptCount.get(this._key(x3, y3)) || 0;\n                total += c1 * c2 * c3;\n            }\n        }\n        return total;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) per count where n is distinct y-values on the query x-column; O(1) per add", "space": "O(total added points)" }
+}

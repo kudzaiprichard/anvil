@@ -1,0 +1,71 @@
+{
+  "slug": "reconstruct-a-2-row-binary-matrix",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    upper, lower, colsum = args[0], args[1], args[2]\n    n = len(colsum)\n    total = sum(colsum)\n    # Check if a solution exists\n    if total != upper + lower:\n        # No solution is possible\n        return output == [] or output == [[],[]]\n    # Also check colsum values are all 0,1,2\n    for v in colsum:\n        if v not in (0, 1, 2):\n            return False\n    if total != upper + lower:\n        return output == [] or output == [[],[]]\n    # Count mandatory 2s and 1s\n    twos = sum(1 for v in colsum if v == 2)\n    ones = sum(1 for v in colsum if v == 1)\n    upper_avail = upper - twos\n    lower_avail = lower - twos\n    if upper_avail < 0 or lower_avail < 0:\n        return output == [] or output == [[],[]]\n    if upper_avail + lower_avail != ones:\n        return output == [] or output == [[],[]]\n    # At this point a solution exists; output must be a valid 2-row matrix\n    if output == [] or output == [[],[]]:\n        return False  # solution exists but empty returned\n    if not isinstance(output, list) or len(output) != 2:\n        return False\n    row0, row1 = output[0], output[1]\n    if len(row0) != n or len(row1) != n:\n        return False\n    r0_sum = 0\n    r1_sum = 0\n    for j in range(n):\n        v0, v1 = row0[j], row1[j]\n        if v0 not in (0, 1) or v1 not in (0, 1):\n            return False\n        r0_sum += v0\n        r1_sum += v1\n        if v0 + v1 != colsum[j]:\n            return False\n    return r0_sum == upper and r1_sum == lower\n",
+    "validator_javascript": "function validate(args, output) {\n    const upper = args[0], lower = args[1], colsum = args[2];\n    const n = colsum.length;\n    const total = colsum.reduce((a, b) => a + b, 0);\n    // Check solvability\n    const twos = colsum.filter(v => v === 2).length;\n    const ones = colsum.filter(v => v === 1).length;\n    const upperAvail = upper - twos;\n    const lowerAvail = lower - twos;\n    const solvable = (\n        total === upper + lower &&\n        upperAvail >= 0 &&\n        lowerAvail >= 0 &&\n        upperAvail + lowerAvail === ones\n    );\n    const isEmpty = !output || output.length === 0 || (output.length === 2 && output[0].length === 0);\n    if (!solvable) return isEmpty;\n    if (isEmpty) return false;\n    if (!Array.isArray(output) || output.length !== 2) return false;\n    const row0 = output[0], row1 = output[1];\n    if (row0.length !== n || row1.length !== n) return false;\n    let r0sum = 0, r1sum = 0;\n    for (let j = 0; j < n; j++) {\n        const v0 = row0[j], v1 = row1[j];\n        if (v0 !== 0 && v0 !== 1) return false;\n        if (v1 !== 0 && v1 !== 1) return false;\n        r0sum += v0;\n        r1sum += v1;\n        if (v0 + v1 !== colsum[j]) return false;\n    }\n    return r0sum === upper && r1sum === lower;\n}\n"
+  },
+  "pattern": "Greedy column assignment: force both rows to 1 where the column sum is 2 and both to 0 where it is 0; then distribute the remaining budget from the colsum=1 columns — fill the upper row first until its quota is met, then the lower row.",
+  "hints": [
+    "Columns where the sum is 2 or 0 are uniquely determined — no choice exists; handle those first and deduct from the row budgets accordingly.",
+    "After the forced columns are placed, the remaining columns all have sum 1 and represent slots where exactly one row gets a 1; assign them greedily to the upper row until its remaining quota reaches zero, then to the lower row.",
+    "Before building the result, verify feasibility: the total of all column sums must equal upper + lower, and after placing the forced columns the leftover budgets must be non-negative and sum to exactly the number of sum-1 columns."
+  ],
+  "constraints": [
+    { "param": "upper", "kind": "int", "note": "0 <= upper <= colsum.length" },
+    { "param": "lower", "kind": "int", "note": "0 <= lower <= colsum.length" },
+    { "param": "colsum", "kind": "int[]", "len": [1, 100000], "value": [0, 2] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "all columns have sum 2 — both rows must be all-ones",
+      "input": [3, 3, [2, 2, 2]]
+    },
+    {
+      "kind": "edge",
+      "description": "all columns have sum 0 — both rows must be all-zeros",
+      "input": [0, 0, [0, 0, 0]]
+    },
+    {
+      "kind": "trap",
+      "description": "row sums add up but forced 2-columns alone exhaust one row budget — no solution",
+      "input": [1, 2, [2, 2, 0]]
+    },
+    {
+      "kind": "trap",
+      "description": "total column sum differs from upper+lower — immediately impossible",
+      "input": [3, 2, [1, 1, 1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "single column with sum 1, upper=1, lower=0",
+      "input": [1, 0, [1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "single column with sum 1, upper=0, lower=1",
+      "input": [0, 1, [1]]
+    },
+    {
+      "kind": "edge",
+      "description": "mix of 0, 1, and 2 columns all satisfiable",
+      "input": [3, 2, [2, 1, 1, 0, 1]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large colsum of length 100000 with random mix — exercises the greedy path at scale",
+      "seed": 17,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    colsum = [rng.randint(0, 2) for _ in range(n)]\n    total = sum(colsum)\n    twos = sum(1 for v in colsum if v == 2)\n    ones = sum(1 for v in colsum if v == 1)\n    # choose upper in a valid range\n    upper_min = twos\n    upper_max = twos + ones\n    if upper_min > upper_max:\n        upper = twos\n    else:\n        upper = rng.randint(upper_min, upper_max)\n    lower = total - upper\n    return [upper, lower, colsum]\n",
+      "note": "always constructed to have a valid solution"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def reconstructMatrix(self, upper, lower, colsum):\n        # Same greedy as the optimal solution — ensures identical output for validator comparison\n        n = len(colsum)\n        row0 = [0] * n\n        row1 = [0] * n\n        u, l = upper, lower\n        for j in range(n):\n            if colsum[j] == 2:\n                row0[j] = 1\n                row1[j] = 1\n                u -= 1\n                l -= 1\n        if u < 0 or l < 0:\n            return []\n        for j in range(n):\n            if colsum[j] == 1:\n                if u > 0:\n                    row0[j] = 1\n                    u -= 1\n                else:\n                    row1[j] = 1\n                    l -= 1\n        if u != 0 or l != 0:\n            return []\n        return [row0, row1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def reconstructMatrix(self, upper, lower, colsum):\n        n = len(colsum)\n        row0 = [0] * n\n        row1 = [0] * n\n        u, l = upper, lower\n        for j in range(n):\n            if colsum[j] == 2:\n                row0[j] = 1\n                row1[j] = 1\n                u -= 1\n                l -= 1\n        if u < 0 or l < 0:\n            return []\n        for j in range(n):\n            if colsum[j] == 1:\n                if u > 0:\n                    row0[j] = 1\n                    u -= 1\n                else:\n                    row1[j] = 1\n                    l -= 1\n        if u != 0 or l != 0:\n            return []\n        return [row0, row1]\n",
+    "javascript": "var reconstructMatrix = function(upper, lower, colsum) {\n    const n = colsum.length;\n    const row0 = new Array(n).fill(0);\n    const row1 = new Array(n).fill(0);\n    let u = upper, l = lower;\n    for (let j = 0; j < n; j++) {\n        if (colsum[j] === 2) {\n            row0[j] = 1;\n            row1[j] = 1;\n            u--;\n            l--;\n        }\n    }\n    if (u < 0 || l < 0) return [];\n    for (let j = 0; j < n; j++) {\n        if (colsum[j] === 1) {\n            if (u > 0) {\n                row0[j] = 1;\n                u--;\n            } else {\n                row1[j] = 1;\n                l--;\n            }\n        }\n    }\n    if (u !== 0 || l !== 0) return [];\n    return [row0, row1];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

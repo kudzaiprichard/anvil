@@ -1,0 +1,38 @@
+{
+  "slug": "most-profitable-path-in-a-tree",
+  "judge": "exact",
+  "pattern": "Bob's fixed path to the root stamps each visited node with an arrival time, then a depth-first walk from the root credits Alice the full, half, or none of each gate depending on who arrives first, maximizing the leaf total.",
+  "hints": [
+    "Bob's route is forced: it is the unique path from his node up to the root, so record when he reaches each node.",
+    "Alice starts at the root and explores; at any node, compare her depth to Bob's arrival time to decide if she pays full, splits, or pays nothing.",
+    "First find Bob's path and assign each node his arrival time (infinity if he never visits), then DFS from the root accumulating income and taking the best value reached at a leaf."
+  ],
+  "constraints": [
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000], "value": [0, 100000] },
+    { "param": "bob", "kind": "int", "value": [1, 100000] },
+    { "param": "amount", "kind": "int[]", "len": [2, 100000], "value": [-10000, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "shared node splits the reward", "input": [[[0, 1], [1, 2], [1, 3], [3, 4]], 3, [-2, 4, 2, -4, 6]] },
+    { "kind": "boundary", "description": "two nodes, Alice and Bob swap ends", "input": [[[0, 1]], 1, [-7280, 2350]] },
+    { "kind": "trap", "description": "Bob reaches root before Alice descends far, so no sharing", "input": [[[0, 1], [1, 2], [0, 3]], 2, [10, -20, 30, 40]] },
+    { "kind": "edge", "description": "Alice must pick the more profitable of two leaves", "input": [[[0, 1], [0, 2]], 1, [4, -6, 8]] },
+    { "kind": "trap", "description": "every gate is a cost, choose the least negative leaf", "input": [[[0, 1], [1, 2], [0, 3]], 3, [-2, -4, -6, -2]] },
+    { "kind": "edge", "description": "deeper tree where sharing happens mid-path", "input": [[[0, 1], [1, 2], [2, 3], [1, 4]], 3, [2, 2, 2, 2, -100]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree built by attaching each new node to an existing one",
+      "seed": 79,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    edges = []\n    for v in range(1, n):\n        u = rng.randint(0, v - 1)\n        edges.append([u, v])\n    bob = rng.randint(1, n - 1)\n    amount = [rng.randrange(-10000, 10001, 2) for _ in range(n)]\n    return [edges, bob, amount]\n",
+      "note": "amounts kept even per the problem; bob is any non-root node"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mostProfitablePath(self, edges, bob, amount):\n        n = len(amount)\n        g = [[] for _ in range(n)]\n        for a, b in edges:\n            g[a].append(b)\n            g[b].append(a)\n        parent = [-1] * n\n        order = []\n        seen = [False] * n\n        stack = [0]\n        seen[0] = True\n        while stack:\n            u = stack.pop()\n            order.append(u)\n            for w in g[u]:\n                if not seen[w]:\n                    seen[w] = True\n                    parent[w] = u\n                    stack.append(w)\n        bob_time = [float('inf')] * n\n        t = 0\n        cur = bob\n        while cur != -1:\n            bob_time[cur] = t\n            t += 1\n            cur = parent[cur]\n        best = [float('-inf')]\n        def dfs(u, p, depth, income):\n            if bob_time[u] == depth:\n                income += amount[u] // 2\n            elif depth < bob_time[u]:\n                income += amount[u]\n            is_leaf = True\n            for w in g[u]:\n                if w != p:\n                    is_leaf = False\n                    dfs(w, u, depth + 1, income)\n            if is_leaf:\n                best[0] = max(best[0], income)\n        import sys\n        sys.setrecursionlimit(300000)\n        dfs(0, -1, 0, 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "import sys\nfrom collections import deque\nclass Solution:\n    def mostProfitablePath(self, edges, bob, amount):\n        sys.setrecursionlimit(300000)\n        n = len(amount)\n        g = [[] for _ in range(n)]\n        for a, b in edges:\n            g[a].append(b)\n            g[b].append(a)\n        parent = [-1] * n\n        seen = [False] * n\n        dq = deque([0])\n        seen[0] = True\n        while dq:\n            u = dq.popleft()\n            for w in g[u]:\n                if not seen[w]:\n                    seen[w] = True\n                    parent[w] = u\n                    dq.append(w)\n        bob_time = [float('inf')] * n\n        cur, t = bob, 0\n        while cur != -1:\n            bob_time[cur] = t\n            cur = parent[cur]\n            t += 1\n        best = [float('-inf')]\n        def dfs(u, p, depth, income):\n            if depth < bob_time[u]:\n                income += amount[u]\n            elif depth == bob_time[u]:\n                income += amount[u] // 2\n            leaf = True\n            for w in g[u]:\n                if w != p:\n                    leaf = False\n                    dfs(w, u, depth + 1, income)\n            if leaf:\n                if income > best[0]:\n                    best[0] = income\n        dfs(0, -1, 0, 0)\n        return best[0]\n",
+    "javascript": "var mostProfitablePath = function(edges, bob, amount) {\n    const n = amount.length;\n    const g = Array.from({length: n}, () => []);\n    for (const [a, b] of edges) { g[a].push(b); g[b].push(a); }\n    const parent = new Array(n).fill(-1);\n    const seen = new Array(n).fill(false);\n    const q = [0]; seen[0] = true; let head = 0;\n    while (head < q.length) {\n        const u = q[head++];\n        for (const w of g[u]) if (!seen[w]) { seen[w] = true; parent[w] = u; q.push(w); }\n    }\n    const bobTime = new Array(n).fill(Infinity);\n    let cur = bob, t = 0;\n    while (cur !== -1) { bobTime[cur] = t; cur = parent[cur]; t++; }\n    let best = -Infinity;\n    const stack = [[0, -1, 0, 0]];\n    const incomeAt = (u, depth, income) => {\n        if (depth < bobTime[u]) return income + amount[u];\n        if (depth === bobTime[u]) return income + Math.trunc(amount[u] / 2);\n        return income;\n    };\n    const dfs = (u, p, depth, income) => {\n        income = incomeAt(u, depth, income);\n        let leaf = true;\n        for (const w of g[u]) if (w !== p) { leaf = false; dfs(w, u, depth + 1, income); }\n        if (leaf && income > best) best = income;\n    };\n    dfs(0, -1, 0, 0);\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

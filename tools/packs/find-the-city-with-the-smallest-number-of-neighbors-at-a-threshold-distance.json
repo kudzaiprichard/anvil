@@ -1,0 +1,37 @@
+{
+  "slug": "find-the-city-with-the-smallest-number-of-neighbors-at-a-threshold-distance",
+  "judge": "exact",
+  "pattern": "Floyd-Warshall computes all-pairs shortest paths in O(n^3); then a linear scan counts reachable neighbors per city and picks the city with the fewest, preferring the highest-numbered city on ties.",
+  "hints": [
+    "With n up to 100, an O(n^3) all-pairs shortest path algorithm is fast enough. Floyd-Warshall iterates over every triple (k, i, j) and relaxes dist[i][j] through intermediate node k.",
+    "After running Floyd-Warshall, count for each city how many other cities have a shortest path at most distanceThreshold.",
+    "Walk through cities in order and track the minimum neighbor count seen, always updating the answer when you find a count that is less than or equal to the current minimum — this naturally picks the largest index on ties."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 4950] },
+    { "param": "distanceThreshold", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "example from the problem statement — tie at 2 neighbors, pick highest index", "input": [4, [[0, 1, 3], [1, 2, 1], [1, 3, 4], [2, 3, 1]], 4] },
+    { "kind": "edge", "description": "second example — city 0 isolated by threshold", "input": [5, [[0, 1, 2], [0, 4, 8], [1, 2, 3], [1, 4, 2], [2, 3, 1], [3, 4, 1]], 2] },
+    { "kind": "boundary", "description": "only two cities, one edge — threshold includes it", "input": [2, [[0, 1, 1]], 1] },
+    { "kind": "boundary", "description": "only two cities, threshold too small — neither reaches the other", "input": [2, [[0, 1, 10]], 5] },
+    { "kind": "trap", "description": "threshold of 1 — most cities unreachable, pick highest-index isolate", "input": [4, [[0, 1, 2], [1, 2, 2], [2, 3, 2]], 1] },
+    { "kind": "trap", "description": "all cities form a clique with weight 1 — tie-breaking by index", "input": [3, [[0, 1, 1], [0, 2, 1], [1, 2, 1]], 1] }
+  ],
+  "stress": [
+    {
+      "description": "dense random graph, n near max, random threshold",
+      "seed": 29,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100))\n    edges = []\n    for i in range(n):\n        for j in range(i + 1, n):\n            if rng.random() < 0.4:\n                edges.append([i, j, rng.randint(1, 10000)])\n    if not edges:\n        edges.append([0, 1, rng.randint(1, 10000)])\n    threshold = rng.randint(1, 10000)\n    return [n, edges, threshold]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findTheCity(self, n, edges, distanceThreshold):\n        INF = float('inf')\n        dist = [[INF] * n for _ in range(n)]\n        for i in range(n):\n            dist[i][i] = 0\n        for u, v, w in edges:\n            dist[u][v] = min(dist[u][v], w)\n            dist[v][u] = min(dist[v][u], w)\n        for k in range(n):\n            for i in range(n):\n                for j in range(n):\n                    if dist[i][k] + dist[k][j] < dist[i][j]:\n                        dist[i][j] = dist[i][k] + dist[k][j]\n        best_city = -1\n        best_count = n + 1\n        for i in range(n):\n            count = sum(1 for j in range(n) if j != i and dist[i][j] <= distanceThreshold)\n            if count <= best_count:\n                best_count = count\n                best_city = i\n        return best_city\n",
+  "solutions": {
+    "python": "class Solution:\n    def findTheCity(self, n, edges, distanceThreshold):\n        INF = float('inf')\n        dist = [[INF] * n for _ in range(n)]\n        for i in range(n):\n            dist[i][i] = 0\n        for u, v, w in edges:\n            dist[u][v] = min(dist[u][v], w)\n            dist[v][u] = min(dist[v][u], w)\n        for k in range(n):\n            for i in range(n):\n                for j in range(n):\n                    if dist[i][k] + dist[k][j] < dist[i][j]:\n                        dist[i][j] = dist[i][k] + dist[k][j]\n        best_city, best_count = -1, n + 1\n        for i in range(n):\n            cnt = sum(1 for j in range(n) if j != i and dist[i][j] <= distanceThreshold)\n            if cnt <= best_count:\n                best_count, best_city = cnt, i\n        return best_city\n",
+    "javascript": "var findTheCity = function(n, edges, distanceThreshold) {\n    const INF = Infinity;\n    const dist = Array.from({length: n}, (_, i) => {\n        const row = new Array(n).fill(INF);\n        row[i] = 0;\n        return row;\n    });\n    for (const [u, v, w] of edges) {\n        dist[u][v] = Math.min(dist[u][v], w);\n        dist[v][u] = Math.min(dist[v][u], w);\n    }\n    for (let k = 0; k < n; k++)\n        for (let i = 0; i < n; i++)\n            for (let j = 0; j < n; j++)\n                if (dist[i][k] + dist[k][j] < dist[i][j])\n                    dist[i][j] = dist[i][k] + dist[k][j];\n    let bestCity = -1, bestCount = n + 1;\n    for (let i = 0; i < n; i++) {\n        let cnt = 0;\n        for (let j = 0; j < n; j++) if (j !== i && dist[i][j] <= distanceThreshold) cnt++;\n        if (cnt <= bestCount) { bestCount = cnt; bestCity = i; }\n    }\n    return bestCity;\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n^2)" }
+}

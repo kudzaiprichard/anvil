@@ -1,0 +1,37 @@
+{
+  "slug": "is-graph-bipartite",
+  "judge": "exact",
+  "pattern": "Two-coloring by traversal: a graph splits into two independent sets exactly when a breadth- or depth-first walk can paint each newly seen node the opposite color of its neighbor without ever hitting a conflict.",
+  "hints": [
+    "Try to paint the nodes with two colors so that no edge joins two nodes of the same color; a conflict means it cannot be done.",
+    "Traverse each connected component, coloring an unvisited neighbor the opposite of the current node and failing the moment a neighbor already carries the same color.",
+    "Keep a color array initialized to unknown; for every uncolored node start a BFS/DFS, assign colors alternately, and return false if any edge connects two equally colored nodes."
+  ],
+  "constraints": [
+    { "param": "graph", "kind": "int[][]", "len": [1, 100], "value": [0, 99] }
+  ],
+  "edge_inputs": [
+    { "kind": "trap", "description": "odd cycle of length three cannot be two-colored", "input": [[[1, 2, 3], [0, 2], [0, 1, 3], [0, 2]]] },
+    { "kind": "edge", "description": "even cycle of length four is bipartite", "input": [[[1, 3], [0, 2], [1, 3], [0, 2]]] },
+    { "kind": "boundary", "description": "single isolated node is trivially bipartite", "input": [[[]]] },
+    { "kind": "edge", "description": "two disconnected components, one bad component fails the whole graph", "input": [[[1], [0], [3, 4], [2], [2]]] },
+    { "kind": "trap", "description": "triangle hidden among extra isolated nodes", "input": [[[1, 2], [0, 2], [0, 1], [], []]] },
+    { "kind": "edge", "description": "simple single edge", "input": [[[1], [0]]] },
+    { "kind": "trap", "description": "long odd cycle of length five", "input": [[[1, 4], [0, 2], [1, 3], [2, 4], [3, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random graphs, often planted bipartite, sometimes with an odd cycle injected",
+      "seed": 29,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    adj = [set() for _ in range(n)]\n    # split nodes into two groups and add cross edges to bias toward bipartite\n    side = [rng.randint(0, 1) for _ in range(n)]\n    for u in range(n):\n        for v in range(u + 1, n):\n            if side[u] != side[v] and rng.random() < 0.3:\n                adj[u].add(v)\n                adj[v].add(u)\n    # occasionally inject a same-side edge to create an odd structure\n    if n >= 2 and rng.random() < 0.4:\n        same = [(u, v) for u in range(n) for v in range(u + 1, n) if side[u] == side[v]]\n        if same:\n            u, v = rng.choice(same)\n            adj[u].add(v)\n            adj[v].add(u)\n    return [[sorted(a) for a in adj]]\n",
+      "note": "mixes clearly bipartite graphs with deliberately non-bipartite ones"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isBipartite(self, graph):\n        n = len(graph)\n        color = [0] * n\n        import itertools\n        def dfs(u, c):\n            color[u] = c\n            for v in graph[u]:\n                if color[v] == c:\n                    return False\n                if color[v] == 0 and not dfs(v, -c):\n                    return False\n            return True\n        import sys\n        sys.setrecursionlimit(10000)\n        for i in range(n):\n            if color[i] == 0:\n                if not dfs(i, 1):\n                    return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def isBipartite(self, graph):\n        from collections import deque\n        n = len(graph)\n        color = [0] * n\n        for s in range(n):\n            if color[s] != 0:\n                continue\n            color[s] = 1\n            q = deque([s])\n            while q:\n                u = q.popleft()\n                for v in graph[u]:\n                    if color[v] == 0:\n                        color[v] = -color[u]\n                        q.append(v)\n                    elif color[v] == color[u]:\n                        return False\n        return True\n",
+    "javascript": "var isBipartite = function(graph) {\n    const n = graph.length;\n    const color = new Array(n).fill(0);\n    for (let s = 0; s < n; s++) {\n        if (color[s] !== 0) continue;\n        color[s] = 1;\n        const q = [s];\n        let head = 0;\n        while (head < q.length) {\n            const u = q[head++];\n            for (const v of graph[u]) {\n                if (color[v] === 0) {\n                    color[v] = -color[u];\n                    q.push(v);\n                } else if (color[v] === color[u]) {\n                    return false;\n                }\n            }\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(n + e)", "space": "O(n)" }
+}

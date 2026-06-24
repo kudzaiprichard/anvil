@@ -1,0 +1,39 @@
+{
+  "slug": "most-popular-video-creator",
+  "judge": "unordered",
+  "pattern": "Aggregate each creator's total views and best single video in one pass, then report every creator tied for the highest total alongside their lexicographically smallest top video.",
+  "hints": [
+    "A creator's popularity is the sum of all their videos' views; track that running total per creator.",
+    "Also remember, per creator, the highest view count seen and the smallest id achieving it.",
+    "After the pass, find the maximum popularity and emit one pair for every creator reaching it; pairs may be returned in any order."
+  ],
+  "constraints": [
+    { "param": "creators", "kind": "string[]", "len": [1, 100000] },
+    { "param": "ids", "kind": "string[]", "len": [1, 100000] },
+    { "param": "views", "kind": "int[]", "len": [1, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "given example with two tied creators", "input": [["alice", "bob", "alice", "chris"], ["one", "two", "three", "four"], [5, 10, 5, 4]] },
+    { "kind": "edge", "description": "given example, tie on top video resolved lexicographically", "input": [["alice", "alice", "alice"], ["a", "b", "c"], [1, 2, 2]] },
+    { "kind": "boundary", "description": "single video single creator", "input": [["x"], ["v"], [0]] },
+    { "kind": "trap", "description": "all views zero, lexicographically smallest id wins per creator", "input": [["a", "a", "b"], ["z", "y", "m"], [0, 0, 0]] },
+    { "kind": "trap", "description": "duplicate ids for the same creator are distinct videos", "input": [["a", "a"], ["dup", "dup"], [3, 5]] },
+    { "kind": "edge", "description": "many creators, one clear winner", "input": [["p", "q", "r", "p"], ["i1", "i2", "i3", "i4"], [10, 1, 1, 10]] },
+    { "kind": "trap", "description": "winner decided by sum not by any single max view", "input": [["a", "a", "b"], ["a1", "a2", "b1"], [6, 6, 11]] }
+  ],
+  "stress": [
+    {
+      "description": "many videos spread over a small creator pool to force ties and lexical tie-breaks",
+      "seed": 41,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, size)\n    creators = []\n    ids = []\n    views = []\n    pool = ['ann', 'bo', 'cy', 'dan', 'eve']\n    for _ in range(n):\n        creators.append(rng.choice(pool))\n        ids.append(''.join(rng.choice(string.ascii_lowercase) for _ in range(rng.randint(1, 5))))\n        views.append(rng.randint(0, 100))\n    return [creators, ids, views]\n",
+      "note": "duplicate ids and tied totals occur naturally"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mostPopularCreator(self, creators, ids, views):\n        pop = {}\n        best = {}\n        for c, i, v in zip(creators, ids, views):\n            pop[c] = pop.get(c, 0) + v\n            if c not in best or v > best[c][0] or (v == best[c][0] and i < best[c][1]):\n                best[c] = (v, i)\n        top = max(pop.values())\n        res = []\n        for c in pop:\n            if pop[c] == top:\n                res.append([c, best[c][1]])\n        res.sort()\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def mostPopularCreator(self, creators, ids, views):\n        from collections import defaultdict\n        total = defaultdict(int)\n        top_view = {}\n        top_id = {}\n        for c, i, v in zip(creators, ids, views):\n            total[c] += v\n            if c not in top_view or v > top_view[c] or (v == top_view[c] and i < top_id[c]):\n                top_view[c] = v\n                top_id[c] = i\n        best = max(total.values())\n        ans = [[c, top_id[c]] for c in total if total[c] == best]\n        ans.sort()\n        return ans\n",
+    "javascript": "var mostPopularCreator = function(creators, ids, views) {\n    const total = new Map();\n    const topView = new Map();\n    const topId = new Map();\n    for (let k = 0; k < creators.length; k++) {\n        const c = creators[k], i = ids[k], v = views[k];\n        total.set(c, (total.get(c) || 0) + v);\n        if (!topView.has(c) || v > topView.get(c) || (v === topView.get(c) && i < topId.get(c))) {\n            topView.set(c, v);\n            topId.set(c, i);\n        }\n    }\n    let best = -Infinity;\n    for (const t of total.values()) best = Math.max(best, t);\n    const ans = [];\n    for (const [c, t] of total) {\n        if (t === best) ans.push([c, topId.get(c)]);\n    }\n    ans.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0)));\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "subdomain-visit-count",
+  "judge": "unordered",
+  "pattern": "Accumulate visit counts into a hash map keyed by every suffix domain, then emit each key paired with its total count.",
+  "hints": [
+    "Each entry contributes its count not only to the full domain but to every parent suffix obtained by dropping leading labels.",
+    "Split each label sequence and, for each suffix starting at successive dots, add the count to that suffix's running total.",
+    "Use a map from domain string to summed visits, then format every entry back into the count-space-domain form."
+  ],
+  "constraints": [
+    { "param": "cpdomains", "kind": "string[]", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single three-label domain expands to three subdomains", "input": [["9001 discuss.leetcode.com"]] },
+    { "kind": "edge", "description": "several domains whose suffixes overlap and sum", "input": [["900 google.mail.com", "50 yahoo.com", "1 intel.mail.com", "5 wiki.org"]] },
+    { "kind": "boundary", "description": "a two-label domain yields exactly two entries", "input": [["1 a.b"]] },
+    { "kind": "trap", "description": "repeated full domains accumulate into one total", "input": [["3 x.com", "4 x.com"]] },
+    { "kind": "trap", "description": "shared top-level label aggregates across different second levels", "input": [["2 a.com", "5 b.com"]] },
+    { "kind": "edge", "description": "deepest three-label domains sharing a common parent", "input": [["10 m.n.org", "7 p.n.org"]] }
+  ],
+  "stress": [
+    {
+      "description": "random count-paired domains over a small label vocabulary so suffix totals collide",
+      "seed": 47,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    labels = ['a', 'b', 'c', 'com', 'org', 'net', 'mail', 'web']\n    n = rng.randint(1, max(1, size))\n    out = []\n    for _ in range(n):\n        rep = rng.randint(1, 10000)\n        depth = rng.randint(2, 3)\n        parts = [rng.choice(labels) for _ in range(depth)]\n        out.append(str(rep) + ' ' + '.'.join(parts))\n    return [out]\n",
+      "note": "small label set guarantees overlapping suffix aggregation"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def subdomainVisits(self, cpdomains):\n        counts = {}\n        for entry in cpdomains:\n            space = entry.index(' ')\n            rep = int(entry[:space])\n            domain = entry[space + 1:]\n            labels = domain.split('.')\n            # Build every suffix explicitly and tally.\n            for i in range(len(labels)):\n                suffix = '.'.join(labels[i:])\n                counts[suffix] = counts.get(suffix, 0) + rep\n        return [str(v) + ' ' + k for k, v in counts.items()]\n",
+  "solutions": {
+    "python": "class Solution:\n    def subdomainVisits(self, cpdomains):\n        from collections import defaultdict\n        counts = defaultdict(int)\n        for entry in cpdomains:\n            rep_str, domain = entry.split(' ')\n            rep = int(rep_str)\n            parts = domain.split('.')\n            for i in range(len(parts)):\n                counts['.'.join(parts[i:])] += rep\n        return [f\"{v} {k}\" for k, v in counts.items()]\n",
+    "javascript": "var subdomainVisits = function(cpdomains) {\n    const counts = new Map();\n    for (const entry of cpdomains) {\n        const sp = entry.indexOf(' ');\n        const rep = parseInt(entry.slice(0, sp), 10);\n        const parts = entry.slice(sp + 1).split('.');\n        for (let i = 0; i < parts.length; i++) {\n            const suffix = parts.slice(i).join('.');\n            counts.set(suffix, (counts.get(suffix) || 0) + rep);\n        }\n    }\n    const res = [];\n    for (const [k, v] of counts) res.push(`${v} ${k}`);\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(total labels)", "space": "O(distinct subdomains)" }
+}

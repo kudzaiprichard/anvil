@@ -1,0 +1,38 @@
+{
+  "slug": "count-prefix-and-suffix-pairs-ii",
+  "judge": "exact",
+  "pattern": "Count pairs (i < j) where words[i] is both a prefix and suffix of words[j]; at large scale, use a trie keyed on zipped (prefix_char, suffix_char) pairs to avoid O(n²L) brute force.",
+  "hints": [
+    "Pair up the first and last characters of words[i] simultaneously: if words[i] has length L, its 'signature' is [(w[0],w[L-1]), (w[1],w[L-2]), ...]; a word words[j] is a candidate only if words[j] starts with the same character-pair sequence from both ends.",
+    "Build a trie where each node stores the count of words whose zipped signature ends at that node; for each new word words[j] walk its own signature through the trie and accumulate counts.",
+    "The key insight is that checking isPrefixAndSuffix is equivalent to verifying the length-L zipped sequence of words[i] is a prefix of the zipped sequence of words[j]."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 100000] },
+    { "param": "words[i]", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single word, no pair possible", "input": [["abc"]] },
+    { "kind": "edge", "description": "two words, words[0] is prefix-suffix of words[1]", "input": [["a", "aba"]] },
+    { "kind": "edge", "description": "two words of equal length — only match if identical", "input": [["ab", "ab"]] },
+    { "kind": "edge", "description": "longer word before shorter — no match", "input": [["ababa", "aba"]] },
+    { "kind": "boundary", "description": "all single-character words that match each other", "input": [["a", "a", "a", "a", "a"]] },
+    { "kind": "trap", "description": "prefix matches but suffix does not", "input": [["ab", "abcd"]] },
+    { "kind": "trap", "description": "suffix matches but prefix does not", "input": [["cd", "abcd"]] },
+    { "kind": "trap", "description": "multiple matches in a dense set", "input": [["a", "aa", "aaa", "aaaa"]] }
+  ],
+  "stress": [
+    {
+      "description": "medium array of random short words from small alphabet to create many matches",
+      "seed": 42,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    words = []\n    for _ in range(size):\n        length = rng.randint(1, 8)\n        words.append(''.join(rng.choice('abc') for _ in range(length)))\n    return [words]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPrefixSuffixPairs(self, words):\n        count = 0\n        for i in range(len(words)):\n            for j in range(i + 1, len(words)):\n                s1, s2 = words[i], words[j]\n                if len(s1) <= len(s2) and s2.startswith(s1) and s2.endswith(s1):\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPrefixSuffixPairs(self, words):\n        trie = {}\n        count = 0\n        for word in words:\n            L = len(word)\n            # Walk signature, accumulate counts at each node (words whose full signature ends there)\n            cur = trie\n            for i in range(L):\n                key = (word[i], word[L - 1 - i])\n                if key not in cur:\n                    cur[key] = {'#': 0}\n                cur = cur[key]\n                count += cur['#']\n            # Insert: increment terminal count\n            cur2 = trie\n            for i in range(L):\n                key = (word[i], word[L - 1 - i])\n                cur2 = cur2[key]\n            cur2['#'] += 1\n        return count\n",
+    "javascript": "var countPrefixSuffixPairs = function(words) {\n    const trie = {};\n    let count = 0;\n    for (const word of words) {\n        const L = word.length;\n        // Walk and accumulate\n        let cur = trie;\n        for (let i = 0; i < L; i++) {\n            const key = word[i] + '|' + word[L - 1 - i];\n            if (!cur[key]) cur[key] = { '#': 0 };\n            cur = cur[key];\n            count += cur['#'];\n        }\n        // Insert\n        let cur2 = trie;\n        for (let i = 0; i < L; i++) {\n            const key = word[i] + '|' + word[L - 1 - i];\n            cur2 = cur2[key];\n        }\n        cur2['#']++;\n    }\n    return count;\n};"
+  },
+  "complexity": { "time": "O(sum of word lengths)", "space": "O(sum of word lengths)" }
+}

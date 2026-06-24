@@ -1,0 +1,37 @@
+{
+  "slug": "closest-dessert-cost",
+  "judge": "exact",
+  "pattern": "Enumerate every achievable total (each topping used 0, 1, or 2 times on top of each base) and keep the cost nearest the target, tie-breaking toward the lower cost.",
+  "hints": [
+    "Every topping independently contributes 0, 1, or 2 of its price, so the reachable costs form a tree of choices over the toppings.",
+    "For each base flavor, explore all topping combinations and track the total closest to the target.",
+    "When two totals are equally far from the target, prefer the smaller total."
+  ],
+  "constraints": [
+    { "param": "baseCosts", "kind": "int[]", "len": [1, 10], "value": [1, 10000] },
+    { "param": "toppingCosts", "kind": "int[]", "len": [1, 10], "value": [1, 10000] },
+    { "param": "target", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "exact target reachable", "input": [[1, 7], [3, 4], 10] },
+    { "kind": "edge", "description": "closest is below target", "input": [[2, 3], [4, 5, 100], 18] },
+    { "kind": "edge", "description": "small example, undershoot", "input": [[3, 10], [2, 5], 9] },
+    { "kind": "trap", "description": "base alone already overshoots, no toppings best", "input": [[10], [1], 7] },
+    { "kind": "boundary", "description": "single base single topping", "input": [[5], [3], 5] },
+    { "kind": "trap", "description": "tie distance prefers lower total", "input": [[5], [4], 7] }
+  ],
+  "stress": [
+    {
+      "description": "up to 10 bases and 10 toppings with random prices",
+      "seed": 41,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    nb = rng.randrange(1, 11)\n    nt = rng.randrange(1, 11)\n    bases = [rng.randrange(1, 10001) for _ in range(nb)]\n    tops = [rng.randrange(1, 10001) for _ in range(nt)]\n    target = rng.randrange(1, 10001)\n    return [bases, tops, target]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def closestCost(self, baseCosts, toppingCosts, target):\n        best = [None]\n        def consider(cost):\n            if best[0] is None:\n                best[0] = cost\n                return\n            cur = best[0]\n            if abs(cost - target) < abs(cur - target) or (abs(cost - target) == abs(cur - target) and cost < cur):\n                best[0] = cost\n        def dfs(i, cost):\n            if i == len(toppingCosts):\n                consider(cost)\n                return\n            for k in range(3):\n                dfs(i + 1, cost + k * toppingCosts[i])\n        for b in baseCosts:\n            dfs(0, b)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def closestCost(self, baseCosts, toppingCosts, target):\n        best = float('inf')\n        bestcost = None\n        sums = {0}\n        for t in toppingCosts:\n            ns = set()\n            for s in sums:\n                ns.add(s)\n                ns.add(s + t)\n                ns.add(s + 2 * t)\n            sums = ns\n        for b in baseCosts:\n            for s in sums:\n                cost = b + s\n                d = abs(cost - target)\n                if d < best or (d == best and cost < bestcost):\n                    best = d\n                    bestcost = cost\n        return bestcost\n",
+    "javascript": "var closestCost = function(baseCosts, toppingCosts, target) {\n    let sums = new Set([0]);\n    for (const t of toppingCosts) {\n        const ns = new Set();\n        for (const s of sums) {\n            ns.add(s);\n            ns.add(s + t);\n            ns.add(s + 2 * t);\n        }\n        sums = ns;\n    }\n    let best = Infinity, bestcost = null;\n    for (const b of baseCosts) {\n        for (const s of sums) {\n            const cost = b + s;\n            const d = Math.abs(cost - target);\n            if (d < best || (d === best && cost < bestcost)) {\n                best = d;\n                bestcost = cost;\n            }\n        }\n    }\n    return bestcost;\n};\n"
+  },
+  "complexity": { "time": "O(b * 3^m)", "space": "O(3^m)" }
+}

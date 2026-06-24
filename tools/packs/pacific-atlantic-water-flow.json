@@ -1,0 +1,37 @@
+{
+  "slug": "pacific-atlantic-water-flow",
+  "judge": "unordered",
+  "pattern": "Instead of tracing every cell down to an ocean, flood inward from each ocean's border against the flow rule; cells reached from both floods are exactly the answer.",
+  "hints": [
+    "Tracing outward from each cell is wasteful; reverse the question and ask which cells an ocean can reach if water flowed uphill from its border.",
+    "Run one traversal seeded from the Pacific border cells and another from the Atlantic border cells, each only stepping to a neighbor whose height is greater than or equal to the current cell.",
+    "Mark cells reachable from the Pacific and cells reachable from the Atlantic in two separate visited grids, then collect every coordinate present in both."
+  ],
+  "constraints": [
+    { "param": "heights", "kind": "int[][]", "len": [1, 200], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single cell touches both oceans", "input": [[[1]]] },
+    { "kind": "edge", "description": "the multi-row sample island", "input": [[[1, 2, 2, 3, 5], [3, 2, 3, 4, 4], [2, 4, 5, 3, 1], [6, 7, 1, 4, 5], [5, 1, 1, 2, 4]]] },
+    { "kind": "boundary", "description": "single row, every cell reaches both oceans", "input": [[[1, 2, 3, 4]]] },
+    { "kind": "boundary", "description": "single column, every cell reaches both oceans", "input": [[[5], [4], [3], [2]]] },
+    { "kind": "trap", "description": "all equal heights, water flows everywhere so every cell qualifies", "input": [[[2, 2], [2, 2]]] },
+    { "kind": "trap", "description": "a central peak high enough to drain both ways", "input": [[[1, 1, 1], [1, 9, 1], [1, 1, 1]]] },
+    { "kind": "edge", "description": "strictly increasing toward bottom-right, only corners qualify in part", "input": [[[1, 2], [4, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random rectangular grids of varied heights forcing real reverse-floods",
+      "seed": 5,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(40, size)))\n    n = rng.randint(1, max(1, min(40, size)))\n    grid = [[rng.randint(0, 30) for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "small value range so many cells connect, exercising both flood fills"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def pacificAtlantic(self, heights):\n        m = len(heights)\n        n = len(heights[0])\n        def can_reach(sr, sc, edge):\n            # edge(r,c) True if (r,c) sits on the target ocean border\n            seen = [[False] * n for _ in range(m)]\n            stack = [(sr, sc)]\n            seen[sr][sc] = True\n            found = False\n            while stack:\n                r, c = stack.pop()\n                if edge(r, c):\n                    found = True\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < m and 0 <= nc < n and not seen[nr][nc] and heights[nr][nc] <= heights[r][c]:\n                        seen[nr][nc] = True\n                        stack.append((nr, nc))\n            return found\n        pac = lambda r, c: r == 0 or c == 0\n        atl = lambda r, c: r == m - 1 or c == n - 1\n        res = []\n        for r in range(m):\n            for c in range(n):\n                if can_reach(r, c, pac) and can_reach(r, c, atl):\n                    res.append([r, c])\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def pacificAtlantic(self, heights):\n        m = len(heights)\n        n = len(heights[0])\n        pac = [[False] * n for _ in range(m)]\n        atl = [[False] * n for _ in range(m)]\n        def flood(seen, starts):\n            stack = list(starts)\n            for r, c in starts:\n                seen[r][c] = True\n            while stack:\n                r, c = stack.pop()\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < m and 0 <= nc < n and not seen[nr][nc] and heights[nr][nc] >= heights[r][c]:\n                        seen[nr][nc] = True\n                        stack.append((nr, nc))\n        pac_starts = [(r, 0) for r in range(m)] + [(0, c) for c in range(n)]\n        atl_starts = [(r, n - 1) for r in range(m)] + [(m - 1, c) for c in range(n)]\n        flood(pac, pac_starts)\n        flood(atl, atl_starts)\n        res = []\n        for r in range(m):\n            for c in range(n):\n                if pac[r][c] and atl[r][c]:\n                    res.append([r, c])\n        return res\n",
+    "javascript": "var pacificAtlantic = function(heights) {\n    const m = heights.length, n = heights[0].length;\n    const pac = Array.from({length: m}, () => new Array(n).fill(false));\n    const atl = Array.from({length: m}, () => new Array(n).fill(false));\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    function flood(seen, starts) {\n        const stack = [];\n        for (const [r, c] of starts) { seen[r][c] = true; stack.push([r, c]); }\n        while (stack.length) {\n            const [r, c] = stack.pop();\n            for (const [dr, dc] of dirs) {\n                const nr = r + dr, nc = c + dc;\n                if (nr >= 0 && nr < m && nc >= 0 && nc < n && !seen[nr][nc] && heights[nr][nc] >= heights[r][c]) {\n                    seen[nr][nc] = true;\n                    stack.push([nr, nc]);\n                }\n            }\n        }\n    }\n    const pacStarts = [], atlStarts = [];\n    for (let r = 0; r < m; r++) { pacStarts.push([r, 0]); atlStarts.push([r, n - 1]); }\n    for (let c = 0; c < n; c++) { pacStarts.push([0, c]); atlStarts.push([m - 1, c]); }\n    flood(pac, pacStarts);\n    flood(atl, atlStarts);\n    const res = [];\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            if (pac[r][c] && atl[r][c]) res.push([r, c]);\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(m * n)", "space": "O(m * n)" }
+}

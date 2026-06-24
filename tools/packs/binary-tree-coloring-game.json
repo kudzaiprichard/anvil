@@ -1,0 +1,40 @@
+{
+  "slug": "binary-tree-coloring-game",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json", "json"], "returns": "json" },
+  "pattern": "Choosing the neighbor of the first player's node that controls the biggest region wins exactly when one of the three regions around that node exceeds half the tree.",
+  "hints": [
+    "After the first move, the node x splits the rest of the tree into three regions: its left subtree, its right subtree, and everything through its parent.",
+    "The second player should claim whichever of those three regions is largest by coloring x's corresponding neighbor.",
+    "Find x, measure its left-subtree size and right-subtree size; the parent side is n minus those two minus one. You win if the largest of the three is more than n/2."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 100], "value": [1, 100] },
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "x", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "second player can win by taking the parent side", "input": [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 11, 3] },
+    { "kind": "trap", "description": "x is the root of a tiny tree, no winning region", "input": [[1, 2, 3], 3, 1] },
+    { "kind": "boundary", "description": "single node, first player takes everything", "input": [[1], 1, 1] },
+    { "kind": "edge", "description": "x is a leaf so parent side dominates", "input": [[1, 2, 3, 4, 5, 6, 7], 7, 4] },
+    { "kind": "trap", "description": "x at root with balanced halves", "input": [[1, 2, 3, 4, 5, 6, 7], 7, 1] },
+    { "kind": "edge", "description": "left-heavy choice via a subtree", "input": [[1, 2, 3, 4, 5], 5, 1] },
+    { "kind": "edge", "description": "x deep on a skewed tree", "input": [[1, 2, null, 3, null, 4, null, 5], 5, 3] }
+  ],
+  "stress": [
+    {
+      "description": "random odd-sized trees with a random labelled x",
+      "seed": 53,
+      "size": 99,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, max(1, min(size, 99)) + 1)\n    if n % 2 == 0:\n        n += 1\n    vals = list(range(1, n + 1))\n    rng.shuffle(vals)\n    x = rng.randint(1, n)\n    return [vals, n, x]\n",
+      "note": "n forced odd and values are a permutation of 1..n as the problem requires"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def btreeGameWinningMove(self, root, n, x):\n        # build adjacency over all nodes, then BFS region sizes around x\n        adj = {}\n        nodes = []\n        def walk(node, parent):\n            if not node:\n                return\n            nodes.append(node.val)\n            adj.setdefault(node.val, [])\n            if parent is not None:\n                adj[node.val].append(parent)\n                adj[parent].append(node.val)\n            walk(node.left, node.val)\n            walk(node.right, node.val)\n        walk(root, None)\n        from collections import deque\n        # for each neighbor of x, size of region reachable without passing through x\n        best = 0\n        for nb in adj[x]:\n            seen = {x, nb}\n            q = deque([nb])\n            size = 1\n            while q:\n                cur = q.popleft()\n                for nxt in adj[cur]:\n                    if nxt not in seen:\n                        seen.add(nxt)\n                        size += 1\n                        q.append(nxt)\n            best = max(best, size)\n        return best > n - best\n",
+  "solutions": {
+    "python": "class Solution:\n    def btreeGameWinningMove(self, root, n, x):\n        self.left_size = 0\n        self.right_size = 0\n        def count(node):\n            if not node:\n                return 0\n            l = count(node.left)\n            r = count(node.right)\n            if node.val == x:\n                self.left_size = l\n                self.right_size = r\n            return l + r + 1\n        count(root)\n        parent_side = n - self.left_size - self.right_size - 1\n        biggest = max(self.left_size, self.right_size, parent_side)\n        return biggest > n - biggest\n",
+    "javascript": "var btreeGameWinningMove = function(root, n, x) {\n    let leftSize = 0, rightSize = 0;\n    const count = (node) => {\n        if (!node) return 0;\n        const l = count(node.left);\n        const r = count(node.right);\n        if (node.val === x) { leftSize = l; rightSize = r; }\n        return l + r + 1;\n    };\n    count(root);\n    const parentSide = n - leftSize - rightSize - 1;\n    const biggest = Math.max(leftSize, rightSize, parentSide);\n    return biggest > n - biggest;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "basic-calculator-ii",
+  "judge": "exact",
+  "pattern": "With no parentheses but mixed precedence, a single stack of pending additive terms handles precedence: defer +/- by pushing them, but apply * and / immediately to the stack's top before pushing.",
+  "hints": [
+    "Multiplication and division bind tighter than addition and subtraction, so those must be resolved as soon as both operands are known.",
+    "Keep a stack of signed terms; the running answer is just the sum of that stack at the end.",
+    "Track the operator preceding the current number: for + push it, for - push its negation, and for * or / pop the top, combine, and push the result back."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 300000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "multiplication takes precedence over addition", "input": ["3+2*2"] },
+    { "kind": "edge", "description": "integer division truncates toward zero", "input": [" 3/2 "] },
+    { "kind": "edge", "description": "addition then division mixing precedence", "input": [" 3+5 / 2 "] },
+    { "kind": "boundary", "description": "a single number with surrounding spaces", "input": ["  7  "] },
+    { "kind": "trap", "description": "subtraction followed by multiplication keeps the negative term", "input": ["2-3*4"] },
+    { "kind": "trap", "description": "chained division must left-associate", "input": ["100/2/5"] },
+    { "kind": "trap", "description": "division of a larger truncation case toward zero", "input": ["14-3/2"] },
+    { "kind": "trap", "description": "multi-digit operands with no spaces", "input": ["12*34+56"] }
+  ],
+  "stress": [
+    {
+      "description": "deterministically generated valid expression of non-negative numbers and +-*/ with random spaces",
+      "seed": 67,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    parts = [str(rng.randint(0, 999))]\n    for _ in range(n - 1):\n        op = rng.choice(['+', '-', '*', '/'])\n        val = rng.randint(0, 999)\n        if op == '/':\n            val = rng.randint(1, 999)\n        parts.append(op)\n        parts.append(str(val))\n    out = []\n    for tok in parts:\n        out.append(tok)\n        if rng.random() < 0.3:\n            out.append(' ')\n    return [''.join(out)]\n",
+      "note": "divisors forced non-zero; only non-negative operands so the expression is always valid"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def calculate(self, s):\n        tokens = []\n        i = 0\n        while i < len(s):\n            c = s[i]\n            if c == ' ':\n                i += 1\n            elif c.isdigit():\n                j = i\n                while j < len(s) and s[j].isdigit():\n                    j += 1\n                tokens.append(int(s[i:j]))\n                i = j\n            else:\n                tokens.append(c)\n                i += 1\n        vals = [tokens[0]]\n        ops_out = []\n        k = 1\n        while k < len(tokens):\n            op = tokens[k]\n            rhs = tokens[k + 1]\n            if op in ('*', '/'):\n                a = vals.pop()\n                if op == '*':\n                    vals.append(a * rhs)\n                else:\n                    vals.append(int(a / rhs))\n            else:\n                ops_out.append(op)\n                vals.append(rhs)\n            k += 2\n        result = vals[0]\n        for idx, op in enumerate(ops_out):\n            if op == '+':\n                result += vals[idx + 1]\n            else:\n                result -= vals[idx + 1]\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def calculate(self, s):\n        stack = []\n        num = 0\n        op = '+'\n        s = s + '+'\n        for c in s:\n            if c == ' ':\n                continue\n            if c.isdigit():\n                num = num * 10 + int(c)\n            else:\n                if op == '+':\n                    stack.append(num)\n                elif op == '-':\n                    stack.append(-num)\n                elif op == '*':\n                    stack.append(stack.pop() * num)\n                else:\n                    top = stack.pop()\n                    stack.append(int(top / num))\n                op = c\n                num = 0\n        return sum(stack)\n",
+    "javascript": "var calculate = function(s) {\n    const stack = [];\n    let num = 0;\n    let op = '+';\n    s = s + '+';\n    for (const c of s) {\n        if (c === ' ') continue;\n        if (c >= '0' && c <= '9') {\n            num = num * 10 + (c.charCodeAt(0) - 48);\n        } else {\n            if (op === '+') stack.push(num);\n            else if (op === '-') stack.push(-num);\n            else if (op === '*') stack.push(stack.pop() * num);\n            else stack.push(Math.trunc(stack.pop() / num));\n            op = c;\n            num = 0;\n        }\n    }\n    return stack.reduce((a, b) => a + b, 0);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

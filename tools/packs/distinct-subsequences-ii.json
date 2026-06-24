@@ -1,0 +1,44 @@
+{
+  "slug": "distinct-subsequences-ii",
+  "judge": "exact",
+  "pattern": "A running count of distinct subsequences doubles when a new character is appended, but to avoid recounting we subtract the count that existed just before the previous occurrence of that same character.",
+  "hints": [
+    "Build the answer character by character, tracking how many distinct non-empty subsequences exist so far.",
+    "Appending a character to every existing subsequence (and to the empty one) doubles the count, but identical characters seen earlier would create duplicates.",
+    "Keep dp = total distinct so far; on each character c, new_dp = 2*dp + 1 minus the dp value recorded the last time c appeared, then remember the old dp for c. Apply the modulus throughout."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all distinct characters, every subset counts", "input": ["abc"] },
+    { "kind": "trap", "description": "a repeated leading character forces duplicate suppression", "input": ["aba"] },
+    { "kind": "trap", "description": "all identical characters give only length-many subsequences", "input": ["aaa"] },
+    { "kind": "boundary", "description": "single character", "input": ["a"] },
+    { "kind": "edge", "description": "two distinct characters", "input": ["ab"] },
+    { "kind": "edge", "description": "two identical characters", "input": ["aa"] },
+    { "kind": "trap", "description": "alternating pattern mixes new and duplicate contributions", "input": ["ababab"] },
+    { "kind": "edge", "description": "full alphabet exactly once", "input": ["abcdefghijklmnopqrstuvwxyz"] }
+  ],
+  "stress": [
+    {
+      "description": "long random lowercase strings exercising the modular recurrence",
+      "seed": 23,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, min(size, 2000))\n    return [''.join(rng.choice(string.ascii_lowercase) for _ in range(n))]\n",
+      "note": "value range of 26 letters drives frequent duplicate subtraction"
+    },
+    {
+      "description": "small alphabet to maximise repeated-character subtraction",
+      "seed": 24,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    return [''.join(rng.choice('abc') for _ in range(n))]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def distinctSubseqII(self, s):\n        MOD = 10**9 + 7\n        seen = set()\n        cur = ['']\n        for ch in s:\n            nxt = list(cur)\n            for sub in cur:\n                nxt.append(sub + ch)\n        # brute over all subsequences for small inputs only\n        n = len(s)\n        subs = set()\n        if n <= 16:\n            for mask in range(1, 1 << n):\n                t = ''.join(s[i] for i in range(n) if mask & (1 << i))\n                subs.add(t)\n            return len(subs) % MOD\n        # fall back to an independent dp formulation for larger inputs\n        last = {}\n        dp = [0] * (n + 1)\n        dp[0] = 1\n        for i in range(1, n + 1):\n            ch = s[i - 1]\n            dp[i] = (2 * dp[i - 1]) % MOD\n            if ch in last:\n                dp[i] = (dp[i] - dp[last[ch] - 1]) % MOD\n            last[ch] = i\n        return (dp[n] - 1) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def distinctSubseqII(self, s):\n        MOD = 10**9 + 7\n        dp = 0\n        last = {}\n        for ch in s:\n            prev = dp\n            dp = (2 * dp + 1) % MOD\n            if ch in last:\n                dp = (dp - last[ch]) % MOD\n            last[ch] = prev + 1\n        return dp % MOD\n",
+    "javascript": "var distinctSubseqII = function(s) {\n    const MOD = 1000000007n;\n    let dp = 0n;\n    const last = new Map();\n    for (const ch of s) {\n        const prev = dp;\n        dp = (2n * dp + 1n) % MOD;\n        if (last.has(ch)) {\n            dp = (dp - last.get(ch)) % MOD;\n        }\n        last.set(ch, (prev + 1n) % MOD);\n    }\n    dp = ((dp % MOD) + MOD) % MOD;\n    return Number(dp);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

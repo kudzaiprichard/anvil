@@ -1,0 +1,39 @@
+{
+  "slug": "word-search",
+  "judge": "exact",
+  "pattern": "Depth-first search from every cell, marking the current cell visited during recursion and restoring it on backtrack, tests whether the word forms a connected path.",
+  "hints": [
+    "The word must trace a path of orthogonally adjacent cells where no cell is reused, so a search that grows the path one letter at a time fits.",
+    "Start a search from any cell matching the first letter, then try the four neighbors for the next letter, undoing your mark when a branch fails.",
+    "Recurse with the next index into the word; mark the cell so the same path cannot revisit it, recurse into the four directions, and unmark before returning so other paths can use it."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "char[][]", "rows": [1, 6], "cols": [1, 6] },
+    { "param": "word", "kind": "str", "len": [1, 15] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "word found with a turn", "input": [[["A", "B", "C", "E"], ["S", "F", "C", "S"], ["A", "D", "E", "E"]], "ABCCED"] },
+    { "kind": "edge", "description": "short word found", "input": [[["A", "B", "C", "E"], ["S", "F", "C", "S"], ["A", "D", "E", "E"]], "SEE"] },
+    { "kind": "trap", "description": "would need to reuse a cell, so absent", "input": [[["A", "B", "C", "E"], ["S", "F", "C", "S"], ["A", "D", "E", "E"]], "ABCB"] },
+    { "kind": "boundary", "description": "single cell matches single letter", "input": [[["A"]], "A"] },
+    { "kind": "boundary", "description": "single cell mismatch", "input": [[["A"]], "B"] },
+    { "kind": "trap", "description": "first letter missing entirely", "input": [[["A", "B"], ["C", "D"]], "Z"] },
+    { "kind": "edge", "description": "word longer than the grid can hold", "input": [[["A", "B"], ["C", "D"]], "ABDCABDC"] },
+    { "kind": "edge", "description": "snake path through the whole board", "input": [[["A", "B"], ["D", "C"]], "ABCD"] }
+  ],
+  "stress": [
+    {
+      "description": "small grids over a tiny alphabet with words that may or may not exist",
+      "seed": 79,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 6)\n    n = rng.randint(1, 6)\n    alpha = 'ABC'\n    board = [[rng.choice(alpha) for _ in range(n)] for _ in range(m)]\n    wlen = rng.randint(1, 8)\n    word = ''.join(rng.choice(alpha) for _ in range(wlen))\n    return [board, word]\n",
+      "note": "tiny alphabet makes real paths common so both true and false outcomes occur"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def exist(self, board, word):\n        m, n = len(board), len(board[0])\n        L = len(word)\n        def dfs(i, j, k, used):\n            if k == L:\n                return True\n            if i < 0 or i >= m or j < 0 or j >= n:\n                return False\n            if (i, j) in used or board[i][j] != word[k]:\n                return False\n            used.add((i, j))\n            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                if dfs(i + di, j + dj, k + 1, used):\n                    used.discard((i, j))\n                    return True\n            used.discard((i, j))\n            return False\n        for i in range(m):\n            for j in range(n):\n                if dfs(i, j, 0, set()):\n                    return True\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def exist(self, board, word):\n        m, n = len(board), len(board[0])\n        L = len(word)\n        def dfs(i, j, k):\n            if k == L:\n                return True\n            if i < 0 or i >= m or j < 0 or j >= n or board[i][j] != word[k]:\n                return False\n            tmp = board[i][j]\n            board[i][j] = '#'\n            found = (dfs(i + 1, j, k + 1) or dfs(i - 1, j, k + 1) or\n                     dfs(i, j + 1, k + 1) or dfs(i, j - 1, k + 1))\n            board[i][j] = tmp\n            return found\n        for i in range(m):\n            for j in range(n):\n                if dfs(i, j, 0):\n                    return True\n        return False\n",
+    "javascript": "var exist = function(board, word) {\n    const m = board.length, n = board[0].length, L = word.length;\n    function dfs(i, j, k) {\n        if (k === L) return true;\n        if (i < 0 || i >= m || j < 0 || j >= n || board[i][j] !== word[k]) return false;\n        const tmp = board[i][j];\n        board[i][j] = '#';\n        const found = dfs(i + 1, j, k + 1) || dfs(i - 1, j, k + 1) ||\n                      dfs(i, j + 1, k + 1) || dfs(i, j - 1, k + 1);\n        board[i][j] = tmp;\n        return found;\n    }\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (dfs(i, j, 0)) return true;\n        }\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(m*n*4^L)", "space": "O(L)" }
+}

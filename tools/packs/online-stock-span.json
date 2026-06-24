@@ -1,0 +1,45 @@
+{
+  "slug": "online-stock-span",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A monotonic stack of (price, span) groups collapses every earlier day whose price did not exceed today's into a single span, so each day's answer is found in amortized constant time.",
+  "hints": [
+    "The span for today counts a run of recent days, so it depends only on how far back prices stayed at or below today's price.",
+    "When a new price arrives, every immediately preceding day with a price at or below it is already absorbed into a longer run and never needs to be examined again.",
+    "Keep a stack of (price, span) pairs: start today's span at one, then while the top price is at or below today's, pop it and add its span to today's; push today's price with the accumulated span."
+  ],
+  "constraints": [
+    { "param": "price", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed prices producing growing spans on later peaks",
+      "input": [["StockSpanner", "next", "next", "next", "next", "next", "next", "next"], [[], [100], [80], [60], [70], [60], [75], [85]]] },
+    { "kind": "trap", "description": "strictly increasing prices give spans counting all prior days",
+      "input": [["StockSpanner", "next", "next", "next", "next"], [[], [10], [20], [30], [40]]] },
+    { "kind": "trap", "description": "strictly decreasing prices keep every span at one",
+      "input": [["StockSpanner", "next", "next", "next", "next"], [[], [40], [30], [20], [10]]] },
+    { "kind": "edge", "description": "equal prices count toward the span since the test is at-or-below",
+      "input": [["StockSpanner", "next", "next", "next"], [[], [50], [50], [50]]] },
+    { "kind": "boundary", "description": "single query returns one",
+      "input": [["StockSpanner", "next"], [[], [7]]] },
+    { "kind": "trap", "description": "a tall peak after a valley swallows the entire history",
+      "input": [["StockSpanner", "next", "next", "next", "next"], [[], [30], [10], [20], [100]]] },
+    { "kind": "edge", "description": "alternating high and low prices",
+      "input": [["StockSpanner", "next", "next", "next", "next", "next", "next"], [[], [90], [10], [90], [10], [90], [10]]] }
+  ],
+  "stress": [
+    {
+      "description": "long stream of prices over a narrow band to force many stack collapses and ties",
+      "seed": 29,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    ops = ['StockSpanner']\n    args = [[]]\n    for _ in range(max(1, size)):\n        ops.append('next')\n        args.append([rng.randint(1, 40)])\n    return [ops, args]\n",
+      "note": "narrow value range maximises ties and long collapsing runs"
+    }
+  ],
+  "oracle_python": "class StockSpanner:\n    def __init__(self):\n        self.prices = []\n    def next(self, price):\n        self.prices.append(price)\n        span = 0\n        i = len(self.prices) - 1\n        while i >= 0 and self.prices[i] <= price:\n            span += 1\n            i -= 1\n        return span\n",
+  "solutions": {
+    "python": "class StockSpanner:\n    def __init__(self):\n        self.stack = []\n    def next(self, price):\n        span = 1\n        while self.stack and self.stack[-1][0] <= price:\n            span += self.stack.pop()[1]\n        self.stack.append((price, span))\n        return span\n",
+    "javascript": "var StockSpanner = function() {\n    this.stack = [];\n};\nStockSpanner.prototype.next = function(price) {\n    let span = 1;\n    while (this.stack.length && this.stack[this.stack.length - 1][0] <= price) {\n        span += this.stack.pop()[1];\n    }\n    this.stack.push([price, span]);\n    return span;\n};\n"
+  },
+  "complexity": { "time": "O(1) amortized per next", "space": "O(n)" }
+}

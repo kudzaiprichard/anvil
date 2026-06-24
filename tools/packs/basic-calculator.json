@@ -1,0 +1,38 @@
+{
+  "slug": "basic-calculator",
+  "judge": "exact",
+  "pattern": "Evaluating an expression with parentheses and unary minus needs only a running result, a current sign, and a stack that saves the result and sign on every open paren so a closed paren can fold the sub-expression back in.",
+  "hints": [
+    "There is no multiplication, so the whole expression is a sum of signed numbers, and a parenthesized group just flips or keeps the sign applied to everything inside it.",
+    "Scan left to right keeping a running total and the sign to apply to the next number; build multi-digit numbers as you go.",
+    "On '(' push the current total and sign and reset; on ')' multiply the inner total by the saved sign and add it to the saved total."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 300000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "simple addition of two numbers", "input": ["1 + 1"] },
+    { "kind": "edge", "description": "leading subtraction with irregular spacing", "input": [" 2-1 + 2 "] },
+    { "kind": "edge", "description": "nested parentheses with mixed signs", "input": ["(1+(4+5+2)-3)+(6+8)"] },
+    { "kind": "boundary", "description": "a single number with no operators", "input": ["42"] },
+    { "kind": "trap", "description": "unary minus applied directly to a parenthesized group", "input": ["-(3+2)"] },
+    { "kind": "trap", "description": "subtraction making the result negative", "input": ["5-(6+7)"] },
+    { "kind": "trap", "description": "deeply nested parentheses with a leading negative", "input": ["-(1-(2-(3-4)))"] },
+    { "kind": "trap", "description": "many spaces and a multi-digit number", "input": ["  100  -  50  +  25 "] }
+  ],
+  "stress": [
+    {
+      "description": "deterministically generated valid expression with random parens, plus/minus, spaces, and multi-digit numbers",
+      "seed": 61,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    out = []\n    depth = 0\n    expect_value = True\n    count = 0\n    while count < n:\n        if expect_value:\n            r = rng.random()\n            if r < 0.2 and depth < 8:\n                out.append('('); depth += 1\n            elif r < 0.35:\n                out.append('-')\n                out.append(str(rng.randint(0, 999)))\n                expect_value = False; count += 1\n            else:\n                out.append(str(rng.randint(0, 999)))\n                expect_value = False; count += 1\n        else:\n            if depth > 0 and rng.random() < 0.3:\n                out.append(')'); depth -= 1\n            else:\n                out.append(rng.choice(['+', '-']))\n                expect_value = True\n        if rng.random() < 0.2:\n            out.append(' ')\n    while not expect_value and depth > 0 and rng.random() < 0.8:\n        out.append(')'); depth -= 1\n    if expect_value:\n        out.append(str(rng.randint(0, 999)))\n    while depth > 0:\n        out.append(')'); depth -= 1\n    return [''.join(out)]\n",
+      "note": "constructs only valid expressions: never two consecutive operators, '+' never unary, balanced parens"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def calculate(self, s):\n        tokens = []\n        i = 0\n        while i < len(s):\n            c = s[i]\n            if c == ' ':\n                i += 1\n            elif c.isdigit():\n                j = i\n                while j < len(s) and s[j].isdigit():\n                    j += 1\n                tokens.append(int(s[i:j]))\n                i = j\n            else:\n                tokens.append(c)\n                i += 1\n        pos = [0]\n        def parse_expr():\n            val = parse_term()\n            while pos[0] < len(tokens) and tokens[pos[0]] in ('+', '-'):\n                op = tokens[pos[0]]; pos[0] += 1\n                rhs = parse_term()\n                val = val + rhs if op == '+' else val - rhs\n            return val\n        def parse_term():\n            if tokens[pos[0]] == '-':\n                pos[0] += 1\n                return -parse_term()\n            if tokens[pos[0]] == '(':\n                pos[0] += 1\n                v = parse_expr()\n                pos[0] += 1\n                return v\n            v = tokens[pos[0]]; pos[0] += 1\n            return v\n        return parse_expr()\n",
+  "solutions": {
+    "python": "class Solution:\n    def calculate(self, s):\n        total = 0\n        sign = 1\n        num = 0\n        stack = []\n        has_num = False\n        for c in s:\n            if c.isdigit():\n                num = num * 10 + int(c)\n                has_num = True\n            elif c == '+':\n                total += sign * num\n                num = 0; has_num = False; sign = 1\n            elif c == '-':\n                total += sign * num\n                num = 0; has_num = False; sign = -1\n            elif c == '(':\n                stack.append(total)\n                stack.append(sign)\n                total = 0; sign = 1; num = 0; has_num = False\n            elif c == ')':\n                total += sign * num\n                num = 0; has_num = False\n                prev_sign = stack.pop()\n                prev_total = stack.pop()\n                total = prev_total + prev_sign * total\n                sign = 1\n        total += sign * num\n        return total\n",
+    "javascript": "var calculate = function(s) {\n    let total = 0, sign = 1, num = 0;\n    const stack = [];\n    for (const c of s) {\n        if (c >= '0' && c <= '9') {\n            num = num * 10 + (c.charCodeAt(0) - 48);\n        } else if (c === '+') {\n            total += sign * num; num = 0; sign = 1;\n        } else if (c === '-') {\n            total += sign * num; num = 0; sign = -1;\n        } else if (c === '(') {\n            stack.push(total); stack.push(sign);\n            total = 0; sign = 1; num = 0;\n        } else if (c === ')') {\n            total += sign * num; num = 0;\n            const prevSign = stack.pop();\n            const prevTotal = stack.pop();\n            total = prevTotal + prevSign * total;\n            sign = 1;\n        }\n    }\n    total += sign * num;\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

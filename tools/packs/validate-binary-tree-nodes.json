@@ -1,0 +1,39 @@
+{
+  "slug": "validate-binary-tree-nodes",
+  "judge": "exact",
+  "pattern": "A valid binary tree has exactly one root (no parent), every non-root node has exactly one parent, and there are no cycles — union-find or parent-tracking with a reachability BFS/DFS confirms all three.",
+  "hints": [
+    "Which node should be the root? It must be the unique node that no other node claims as a child.",
+    "If more than one node has no parent, or if any node has two parents, the structure is invalid. Cycle detection catches any remaining violation.",
+    "Track in-degree for every node. The root is the single node with in-degree 0. Then BFS/DFS from the root and verify every node is visited exactly once."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 10000] },
+    { "param": "leftChild", "kind": "int[]", "len": [1, 10000], "value": [-1, 9999] },
+    { "param": "rightChild", "kind": "int[]", "len": [1, 10000], "value": [-1, 9999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "valid single-node tree", "input": [1, [-1], [-1]] },
+    { "kind": "edge", "description": "valid tree with four nodes", "input": [4, [1, -1, 3, -1], [2, -1, -1, -1]] },
+    { "kind": "edge", "description": "node with two parents (invalid)", "input": [4, [1, -1, 3, -1], [2, 3, -1, -1]] },
+    { "kind": "edge", "description": "cycle: node points back to itself indirectly (invalid)", "input": [2, [1, 0], [-1, -1]] },
+    { "kind": "trap", "description": "two disconnected valid trees — fails because not one tree", "input": [4, [1, -1, -1, -1], [-1, -1, 3, -1]] },
+    { "kind": "trap", "description": "self-loop on a node (invalid)", "input": [2, [1, 1], [-1, -1]] },
+    { "kind": "boundary", "description": "single node pointing nowhere", "input": [1, [-1], [-1]] },
+    { "kind": "trap", "description": "multiple roots — no single parent-free node dominates", "input": [3, [1, -1, -1], [-1, 2, -1]] }
+  ],
+  "stress": [
+    {
+      "description": "large valid random binary tree built top-down",
+      "seed": 11,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    left = [-1] * n\n    right = [-1] * n\n    # build a valid tree by assigning children level-by-level\n    available = list(range(1, n))\n    rng.shuffle(available)\n    frontier = [0]\n    idx = 0\n    while frontier and idx < len(available):\n        node = frontier.pop(rng.randint(0, len(frontier) - 1) if len(frontier) > 1 else 0)\n        if idx < len(available):\n            left[node] = available[idx]; frontier.append(available[idx]); idx += 1\n        if idx < len(available):\n            right[node] = available[idx]; frontier.append(available[idx]); idx += 1\n    return [n, left, right]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def validateBinaryTreeNodes(self, n: int, leftChild, rightChild) -> bool:\n        parent = [-1] * n\n        for i in range(n):\n            for c in [leftChild[i], rightChild[i]]:\n                if c == -1:\n                    continue\n                if parent[c] != -1:\n                    return False\n                parent[c] = i\n        roots = [i for i in range(n) if parent[i] == -1]\n        if len(roots) != 1:\n            return False\n        root = roots[0]\n        visited = set()\n        stack = [root]\n        while stack:\n            node = stack.pop()\n            if node in visited:\n                return False\n            visited.add(node)\n            for c in [leftChild[node], rightChild[node]]:\n                if c != -1:\n                    stack.append(c)\n        return len(visited) == n\n",
+  "solutions": {
+    "python": "class Solution:\n    def validateBinaryTreeNodes(self, n: int, leftChild, rightChild) -> bool:\n        in_degree = [0] * n\n        for i in range(n):\n            if leftChild[i] != -1:\n                in_degree[leftChild[i]] += 1\n                if in_degree[leftChild[i]] > 1:\n                    return False\n            if rightChild[i] != -1:\n                in_degree[rightChild[i]] += 1\n                if in_degree[rightChild[i]] > 1:\n                    return False\n        roots = [i for i in range(n) if in_degree[i] == 0]\n        if len(roots) != 1:\n            return False\n        visited = set()\n        queue = [roots[0]]\n        while queue:\n            node = queue.pop()\n            if node in visited:\n                return False\n            visited.add(node)\n            if leftChild[node] != -1:\n                queue.append(leftChild[node])\n            if rightChild[node] != -1:\n                queue.append(rightChild[node])\n        return len(visited) == n\n",
+    "javascript": "var validateBinaryTreeNodes = function(n, leftChild, rightChild) {\n    const inDeg = new Array(n).fill(0);\n    for (let i = 0; i < n; i++) {\n        if (leftChild[i] !== -1) { inDeg[leftChild[i]]++; if (inDeg[leftChild[i]] > 1) return false; }\n        if (rightChild[i] !== -1) { inDeg[rightChild[i]]++; if (inDeg[rightChild[i]] > 1) return false; }\n    }\n    const roots = [];\n    for (let i = 0; i < n; i++) if (inDeg[i] === 0) roots.push(i);\n    if (roots.length !== 1) return false;\n    const visited = new Set();\n    const stack = [roots[0]];\n    while (stack.length) {\n        const node = stack.pop();\n        if (visited.has(node)) return false;\n        visited.add(node);\n        if (leftChild[node] !== -1) stack.push(leftChild[node]);\n        if (rightChild[node] !== -1) stack.push(rightChild[node]);\n    }\n    return visited.size === n;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

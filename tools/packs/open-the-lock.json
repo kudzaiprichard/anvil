@@ -1,0 +1,38 @@
+{
+  "slug": "open-the-lock",
+  "judge": "exact",
+  "pattern": "Treat each four-digit display as a graph node with eight neighbours (each wheel turned up or down), then breadth-first search from the start to the target while never entering a dead end.",
+  "hints": [
+    "Each state is a string of four digits; from it you can reach eight others by nudging one wheel up or down with wrap-around.",
+    "The minimum number of turns is the shortest path in this state graph, which calls for a breadth-first search level by level.",
+    "Seed the visited set with the dead ends (and bail if the start itself is one), expand neighbours layer by layer, and return the layer count when you first dequeue the target, or -1 if the queue empties."
+  ],
+  "constraints": [
+    { "param": "deadends", "kind": "string[]", "len": [1, 500] },
+    { "param": "target", "kind": "string", "len": [4, 4] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "six turns around dead ends from the first example", "input": [["0201", "0101", "0102", "1212", "2002"], "0202"] },
+    { "kind": "edge", "description": "single reverse turn reaches target", "input": [["8888"], "0009"] },
+    { "kind": "trap", "description": "start boxed in by dead ends, unreachable", "input": [["8887", "8889", "8878", "8898", "8788", "8988", "7888", "9888"], "8888"] },
+    { "kind": "boundary", "description": "target equals start, zero turns", "input": [["1111"], "0000"] },
+    { "kind": "trap", "description": "start itself is a dead end", "input": [["0000"], "1234"] },
+    { "kind": "edge", "description": "wrap-around shortest path on one wheel", "input": [["0002"], "0009"] },
+    { "kind": "trap", "description": "no dead ends in the way, direct cost", "input": [["5555"], "0011"] }
+  ],
+  "stress": [
+    {
+      "description": "random dead-end sets with a target not among them",
+      "seed": 29,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    def rcode():\n        return ''.join(str(rng.randint(0, 9)) for _ in range(4))\n    target = rcode()\n    while target == '0000':\n        target = rcode()\n    deads = set()\n    m = rng.randint(1, min(size, 200))\n    while len(deads) < m:\n        c = rcode()\n        if c != target:\n            deads.add(c)\n    return [list(deads), target]\n",
+      "note": "guarantees target is never listed as a dead end"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def openLock(self, deadends, target):\n        from collections import deque\n        dead = set(deadends)\n        if '0000' in dead:\n            return -1\n        if target == '0000':\n            return 0\n        visited = set(['0000'])\n        q = deque([('0000', 0)])\n        while q:\n            state, d = q.popleft()\n            for i in range(4):\n                digit = int(state[i])\n                for nd in (digit + 1) % 10, (digit - 1) % 10:\n                    nxt = state[:i] + str(nd) + state[i+1:]\n                    if nxt == target:\n                        return d + 1\n                    if nxt not in dead and nxt not in visited:\n                        visited.add(nxt)\n                        q.append((nxt, d + 1))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def openLock(self, deadends, target):\n        from collections import deque\n        dead = set(deadends)\n        if '0000' in dead:\n            return -1\n        q = deque([('0000', 0)])\n        seen = {'0000'}\n        while q:\n            state, d = q.popleft()\n            if state == target:\n                return d\n            for i in range(4):\n                for delta in (1, -1):\n                    nd = (int(state[i]) + delta) % 10\n                    nxt = state[:i] + str(nd) + state[i+1:]\n                    if nxt not in seen and nxt not in dead:\n                        seen.add(nxt)\n                        q.append((nxt, d + 1))\n        return -1\n",
+    "javascript": "var openLock = function(deadends, target) {\n    const dead = new Set(deadends);\n    if (dead.has('0000')) return -1;\n    const seen = new Set(['0000']);\n    let queue = [['0000', 0]];\n    while (queue.length) {\n        const [state, d] = queue.shift();\n        if (state === target) return d;\n        for (let i = 0; i < 4; i++) {\n            for (const delta of [1, -1]) {\n                const nd = (Number(state[i]) + delta + 10) % 10;\n                const nxt = state.slice(0, i) + nd + state.slice(i + 1);\n                if (!seen.has(nxt) && !dead.has(nxt)) {\n                    seen.add(nxt);\n                    queue.push([nxt, d + 1]);\n                }\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(10000)", "space": "O(10000)" }
+}

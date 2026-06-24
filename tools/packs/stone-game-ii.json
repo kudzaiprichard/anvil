@@ -1,0 +1,37 @@
+{
+  "slug": "stone-game-ii",
+  "judge": "exact",
+  "pattern": "Optimal play on a suffix depends only on the starting index and the current cap M, so memoizing the best score over (index, M) resolves the minimax with overlapping subproblems.",
+  "hints": [
+    "Once it's a player's turn, the past is irrelevant: the state is just where the remaining piles start and the current value of M.",
+    "On a turn you pick X piles (1..2M); you gain the suffix total minus whatever the opponent then optimally takes from the rest.",
+    "Memoize best(i, M) = max over X of (sum of piles from i to end) - best(i+X, max(M, X)); precompute suffix sums for speed."
+  ],
+  "constraints": [
+    { "param": "piles", "kind": "int[]", "len": [1, 100], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small mixed piles", "input": [[2, 7, 9, 4, 4]] },
+    { "kind": "edge", "description": "one huge pile at the end", "input": [[1, 2, 3, 4, 5, 100]] },
+    { "kind": "boundary", "description": "single pile taken entirely", "input": [[7]] },
+    { "kind": "boundary", "description": "two equal piles", "input": [[5, 5]] },
+    { "kind": "trap", "description": "increasing piles tempt early grabbing", "input": [[1, 2, 3, 4, 5, 6, 7, 8]] },
+    { "kind": "trap", "description": "all equal piles", "input": [[3, 3, 3, 3, 3]] },
+    { "kind": "edge", "description": "decreasing then spike", "input": [[10, 1, 1, 1, 100]] }
+  ],
+  "stress": [
+    {
+      "description": "random short pile rows",
+      "seed": 17,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 24)))\n    return [[rng.randint(1, 10000) for _ in range(n)]]\n",
+      "note": "length capped so the plain minimax oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def stoneGameII(self, piles):\n        n = len(piles)\n        suffix = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            suffix[i] = suffix[i + 1] + piles[i]\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def best(i, m):\n            if i >= n:\n                return 0\n            if i + 2 * m >= n:\n                return suffix[i]\n            res = 0\n            for x in range(1, 2 * m + 1):\n                if i + x > n:\n                    break\n                res = max(res, suffix[i] - best(i + x, max(m, x)))\n            return res\n        return best(0, 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def stoneGameII(self, piles):\n        n = len(piles)\n        suffix = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            suffix[i] = suffix[i + 1] + piles[i]\n        memo = {}\n        def dp(i, m):\n            if i + 2 * m >= n:\n                return suffix[i]\n            key = (i, m)\n            if key in memo:\n                return memo[key]\n            best = 0\n            for x in range(1, 2 * m + 1):\n                best = max(best, suffix[i] - dp(i + x, max(m, x)))\n            memo[key] = best\n            return best\n        return dp(0, 1)\n",
+    "javascript": "var stoneGameII = function(piles) {\n    const n = piles.length;\n    const suffix = new Array(n + 1).fill(0);\n    for (let i = n - 1; i >= 0; i--) suffix[i] = suffix[i + 1] + piles[i];\n    const memo = new Map();\n    const dp = (i, m) => {\n        if (i + 2 * m >= n) return suffix[i];\n        const key = i * 200 + m;\n        if (memo.has(key)) return memo.get(key);\n        let best = 0;\n        for (let x = 1; x <= 2 * m; x++) {\n            best = Math.max(best, suffix[i] - dp(i + x, Math.max(m, x)));\n        }\n        memo.set(key, best);\n        return best;\n    };\n    return dp(0, 1);\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n^2)" }
+}

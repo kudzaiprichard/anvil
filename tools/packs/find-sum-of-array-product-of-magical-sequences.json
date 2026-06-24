@@ -1,0 +1,39 @@
+{
+  "slug": "find-sum-of-array-product-of-magical-sequences",
+  "judge": "exact",
+  "pattern": "Grouping ordered sequences by how many times each index is chosen turns the count into a multinomial-weighted DP that carries binary additions while tracking the set-bit budget.",
+  "hints": [
+    "An ordered sequence is determined by how many times each index appears; the number of orderings is the multinomial m! over the product of those counts' factorials.",
+    "Summing the chosen powers of two is binary addition with carries, so process indices low to high while tracking the running carry and how many set bits have landed.",
+    "Carry the DP state as (elements used, carry, set bits so far), multiply in nums[i] raised to the count over that count's factorial, and finish by multiplying by m! and requiring the final carry's bits plus accumulated bits to total k."
+  ],
+  "constraints": [
+    { "param": "m", "kind": "int", "value": [1, 30] },
+    { "param": "k", "kind": "int", "value": [1, 30] },
+    { "param": "nums", "kind": "int[]", "len": [1, 50], "value": [1, 100000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all permutations magical", "input": [5, 5, [1, 10, 100, 10000, 1000000]] },
+    { "kind": "edge", "description": "pairs of distinct indices", "input": [2, 2, [5, 4, 3, 2, 1]] },
+    { "kind": "boundary", "description": "single pick", "input": [1, 1, [28]] },
+    { "kind": "trap", "description": "repeats force carries, k smaller than m", "input": [3, 1, [2, 3]] },
+    { "kind": "edge", "description": "two picks one bit via carry", "input": [2, 1, [7, 9]] },
+    { "kind": "boundary", "description": "single index repeated", "input": [4, 1, [6]] },
+    { "kind": "trap", "description": "k equals m forces all-distinct picks", "input": [3, 3, [2, 5, 7, 11]] }
+  ],
+  "stress": [
+    {
+      "description": "small m, k, and array so the brute force over sequences stays fast",
+      "seed": 127,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    length = rng.randint(1, 4)\n    m = rng.randint(1, 5)\n    k = rng.randint(1, m)\n    nums = [rng.randint(1, 100000000) for _ in range(length)]\n    return [m, k, nums]\n",
+      "note": "kept tiny because the oracle enumerates all length-m sequences"
+    }
+  ],
+  "oracle_python": "from itertools import product\nclass Solution:\n    def magicalSum(self, m, k, nums):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        total = 0\n        for seq in product(range(n), repeat=m):\n            s = 0\n            for idx in seq:\n                s += 1 << idx\n            if bin(s).count('1') == k:\n                p = 1\n                for idx in seq:\n                    p = (p * nums[idx]) % MOD\n                total = (total + p) % MOD\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def magicalSum(self, m, k, nums):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        fact = [1] * (m + 1)\n        for i in range(1, m + 1):\n            fact[i] = fact[i - 1] * i % MOD\n        inv_fact = [1] * (m + 1)\n        inv_fact[m] = pow(fact[m], MOD - 2, MOD)\n        for i in range(m - 1, -1, -1):\n            inv_fact[i] = inv_fact[i + 1] * (i + 1) % MOD\n        max_carry = m\n        # dp[used][carry][bits] = sum of product(nums^c / c!) so far\n        from collections import defaultdict\n        dp = defaultdict(int)\n        dp[(0, 0, 0)] = 1\n        for i in range(n):\n            powv = [1] * (m + 1)\n            for c in range(1, m + 1):\n                powv[c] = powv[c - 1] * nums[i] % MOD\n            ndp = defaultdict(int)\n            for (used, carry, bits), val in dp.items():\n                for c in range(0, m - used + 1):\n                    total_low = carry + c\n                    bit = total_low & 1\n                    ncarry = total_low >> 1\n                    nbits = bits + bit\n                    if nbits > k:\n                        continue\n                    add = val * powv[c] % MOD * inv_fact[c] % MOD\n                    ndp[(used + c, ncarry, nbits)] = (ndp[(used + c, ncarry, nbits)] + add) % MOD\n            dp = ndp\n        ans = 0\n        for (used, carry, bits), val in dp.items():\n            if used != m:\n                continue\n            final_bits = bits + bin(carry).count('1')\n            if final_bits == k:\n                ans = (ans + val) % MOD\n        ans = ans * fact[m] % MOD\n        return ans\n",
+    "javascript": "var magicalSum = function(m, k, nums) {\n    const MOD = 1000000007n;\n    const n = nums.length;\n    const fact = new Array(m + 1).fill(1n);\n    for (let i = 1; i <= m; i++) fact[i] = fact[i - 1] * BigInt(i) % MOD;\n    const power = (a, b) => { let r = 1n; a %= MOD; while (b > 0n) { if (b & 1n) r = r * a % MOD; a = a * a % MOD; b >>= 1n; } return r; };\n    const invFact = new Array(m + 1).fill(1n);\n    invFact[m] = power(fact[m], MOD - 2n);\n    for (let i = m - 1; i >= 0; i--) invFact[i] = invFact[i + 1] * BigInt(i + 1) % MOD;\n    const popcount = (x) => { let c = 0; while (x > 0) { c += x & 1; x >>= 1; } return c; };\n    let dp = new Map();\n    const key = (u, c, b) => u + ',' + c + ',' + b;\n    dp.set(key(0, 0, 0), 1n);\n    for (let i = 0; i < n; i++) {\n        const v = BigInt(nums[i]) % MOD;\n        const powv = new Array(m + 1).fill(1n);\n        for (let c = 1; c <= m; c++) powv[c] = powv[c - 1] * v % MOD;\n        const ndp = new Map();\n        for (const [kk, val] of dp) {\n            const parts = kk.split(',');\n            const used = parseInt(parts[0]), carry = parseInt(parts[1]), bits = parseInt(parts[2]);\n            for (let c = 0; c <= m - used; c++) {\n                const totalLow = carry + c;\n                const bit = totalLow & 1;\n                const ncarry = totalLow >> 1;\n                const nbits = bits + bit;\n                if (nbits > k) continue;\n                const add = val * powv[c] % MOD * invFact[c] % MOD;\n                const nk = key(used + c, ncarry, nbits);\n                ndp.set(nk, ((ndp.get(nk) || 0n) + add) % MOD);\n            }\n        }\n        dp = ndp;\n    }\n    let ans = 0n;\n    for (const [kk, val] of dp) {\n        const parts = kk.split(',');\n        const used = parseInt(parts[0]), carry = parseInt(parts[1]), bits = parseInt(parts[2]);\n        if (used !== m) continue;\n        if (bits + popcount(carry) === k) ans = (ans + val) % MOD;\n    }\n    ans = ans * fact[m] % MOD;\n    return Number(ans);\n};\n"
+  },
+  "complexity": { "time": "O(n * m^2 * k)", "space": "O(m^2 * k)" }
+}

@@ -1,0 +1,41 @@
+{
+  "slug": "palindrome-partitioning",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    s = args[0]\n    if not isinstance(output, list):\n        return False\n    def is_pal(t):\n        return t == t[::-1]\n    seen = set()\n    for part in output:\n        if not isinstance(part, list):\n            return False\n        if any(not isinstance(p, str) for p in part):\n            return False\n        if ''.join(part) != s:\n            return False\n        if any(len(p) == 0 or not is_pal(p) for p in part):\n            return False\n        key = tuple(part)\n        if key in seen:\n            return False\n        seen.add(key)\n    # completeness: recompute every valid partition\n    n = len(s)\n    pal = [[False] * n for _ in range(n)]\n    for i in range(n - 1, -1, -1):\n        for j in range(i, n):\n            if s[i] == s[j] and (j - i < 2 or pal[i + 1][j - 1]):\n                pal[i][j] = True\n    correct = set()\n    def bt(start, cur):\n        if start == n:\n            correct.add(tuple(cur))\n            return\n        for end in range(start, n):\n            if pal[start][end]:\n                cur.append(s[start:end + 1])\n                bt(end + 1, cur)\n                cur.pop()\n    bt(0, [])\n    return seen == correct\n",
+    "validator_javascript": "function validate(args, output) {\n    const s = args[0];\n    if (!Array.isArray(output)) return false;\n    const isPal = (t) => { for (let a = 0, b = t.length - 1; a < b; a++, b--) if (t[a] !== t[b]) return false; return true; };\n    const seen = new Set();\n    for (const part of output) {\n        if (!Array.isArray(part)) return false;\n        if (part.some(p => typeof p !== 'string')) return false;\n        if (part.join('') !== s) return false;\n        if (part.some(p => p.length === 0 || !isPal(p))) return false;\n        const key = JSON.stringify(part);\n        if (seen.has(key)) return false;\n        seen.add(key);\n    }\n    const n = s.length;\n    const pal = Array.from({length: n}, () => new Array(n).fill(false));\n    for (let i = n - 1; i >= 0; i--) {\n        for (let j = i; j < n; j++) {\n            if (s[i] === s[j] && (j - i < 2 || pal[i + 1][j - 1])) pal[i][j] = true;\n        }\n    }\n    const correct = new Set();\n    const cur = [];\n    function bt(start) {\n        if (start === n) { correct.add(JSON.stringify(cur)); return; }\n        for (let end = start; end < n; end++) {\n            if (pal[start][end]) {\n                cur.push(s.slice(start, end + 1));\n                bt(end + 1);\n                cur.pop();\n            }\n        }\n    }\n    bt(0);\n    if (seen.size !== correct.size) return false;\n    for (const k of seen) if (!correct.has(k)) return false;\n    return true;\n}\n"
+  },
+  "pattern": "Backtracking grows a partition by cutting off every leading palindromic prefix and recursing on the rest, yielding all palindrome partitions of the string.",
+  "hints": [
+    "At each position decide where the first piece ends; it is only allowed if that prefix is a palindrome, then solve the remaining suffix the same way.",
+    "Recurse from a start index: for every end such that s[start..end] is a palindrome, append it and recurse from end+1, backtracking afterwards.",
+    "Use a depth-first search carrying the current list of pieces; when start reaches the end of the string record a copy, otherwise try each palindromic prefix and recurse."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 16] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two partitions, one all-single and one with a pair", "input": ["aab"] },
+    { "kind": "boundary", "description": "single character has exactly one partition", "input": ["a"] },
+    { "kind": "trap", "description": "all distinct characters allow only the singleton partition", "input": ["abc"] },
+    { "kind": "edge", "description": "whole string is a palindrome, many partitions", "input": ["aaa"] },
+    { "kind": "trap", "description": "embedded palindrome creates branching", "input": ["abacd"] },
+    { "kind": "edge", "description": "even-length palindrome", "input": ["abba"] },
+    { "kind": "trap", "description": "repeated pairs maximise branching for the size", "input": ["aabb"] }
+  ],
+  "stress": [
+    {
+      "description": "short two-letter strings keep the exponential partition count bounded",
+      "seed": 47,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 12))\n    return [''.join(rng.choice('ab') for _ in range(n))]\n",
+      "note": "length capped at 12 over a two-letter alphabet so the full partition set stays small enough to enumerate"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def partition(self, s):\n        n = len(s)\n        def is_pal(t):\n            return t == t[::-1]\n        res = []\n        def bt(start, cur):\n            if start == n:\n                res.append(list(cur))\n                return\n            for end in range(start + 1, n + 1):\n                piece = s[start:end]\n                if is_pal(piece):\n                    cur.append(piece)\n                    bt(end, cur)\n                    cur.pop()\n        bt(0, [])\n        res.sort()\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def partition(self, s):\n        n = len(s)\n        pal = [[False] * n for _ in range(n)]\n        for i in range(n - 1, -1, -1):\n            for j in range(i, n):\n                if s[i] == s[j] and (j - i < 2 or pal[i + 1][j - 1]):\n                    pal[i][j] = True\n        res = []\n        def bt(start, cur):\n            if start == n:\n                res.append(list(cur))\n                return\n            for end in range(start, n):\n                if pal[start][end]:\n                    cur.append(s[start:end + 1])\n                    bt(end + 1, cur)\n                    cur.pop()\n        bt(0, [])\n        res.sort()\n        return res\n",
+    "javascript": "var partition = function(s) {\n    const n = s.length;\n    const pal = Array.from({length: n}, () => new Array(n).fill(false));\n    for (let i = n - 1; i >= 0; i--) {\n        for (let j = i; j < n; j++) {\n            if (s[i] === s[j] && (j - i < 2 || pal[i + 1][j - 1])) pal[i][j] = true;\n        }\n    }\n    const res = [];\n    const cur = [];\n    function bt(start) {\n        if (start === n) { res.push(cur.slice()); return; }\n        for (let end = start; end < n; end++) {\n            if (pal[start][end]) {\n                cur.push(s.slice(start, end + 1));\n                bt(end + 1);\n                cur.pop();\n            }\n        }\n    }\n    bt(0);\n    res.sort((a, b) => {\n        const m = Math.min(a.length, b.length);\n        for (let i = 0; i < m; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;\n        return a.length - b.length;\n    });\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n * 2^n)", "space": "O(n)" }
+}

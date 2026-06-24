@@ -1,0 +1,44 @@
+{
+  "slug": "perfect-rectangle",
+  "judge": "exact",
+  "pattern": "An exact cover holds only when the small rectangles' areas sum to the bounding box and every interior corner cancels in pairs, leaving exactly the four outer corners unpaired.",
+  "hints": [
+    "If the pieces tile a single rectangle with no gaps or overlaps, their combined area must equal the area of the smallest box that contains them all.",
+    "Track every corner point of every small rectangle; a point shared by an even number of rectangles is an interior junction, while an odd count marks an exposed corner.",
+    "After processing all pieces, only the four corners of the overall bounding box may remain with an odd (exactly one) appearance — all other points must cancel — and the area test must also pass."
+  ],
+  "constraints": [
+    { "param": "rectangles", "kind": "int[][]", "len": [1, 20000], "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "five pieces forming a perfect square", "input": [[[1,1,3,3],[3,1,4,2],[3,2,4,4],[1,3,2,4],[2,3,3,4]]] },
+    { "kind": "trap", "description": "a gap in the middle leaves the cover incomplete", "input": [[[1,1,2,3],[1,3,2,4],[3,1,4,2],[3,2,4,4]]] },
+    { "kind": "trap", "description": "overlapping pieces inflate the area so the corner test alone is not enough", "input": [[[1,1,3,3],[3,1,4,2],[1,3,2,4],[2,2,4,4]]] },
+    { "kind": "edge", "description": "a single rectangle is trivially perfect", "input": [[[0,0,1,1]]] },
+    { "kind": "trap", "description": "two pieces that share an edge but together are an L, not a rectangle", "input": [[[0,0,1,1],[0,1,1,2],[1,0,2,1]]] },
+    { "kind": "boundary", "description": "negative coordinates with a clean 2x1 split", "input": [[[-2,-2,0,0],[0,-2,2,0],[-2,0,2,2]]] },
+    { "kind": "trap", "description": "correct total area but pieces overlap so corners do not cancel", "input": [[[0,0,2,2],[1,1,3,3],[0,2,2,3],[2,0,3,2]]] }
+  ],
+  "stress": [
+    {
+      "description": "tile a wide grid into unit squares so the cover is always perfect",
+      "seed": 7,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    cols = max(1, int(size ** 0.5))\n    rows = max(1, size // cols)\n    rects = []\n    for r in range(rows):\n        for c in range(cols):\n            rects.append([c, r, c + 1, r + 1])\n    rng.shuffle(rects)\n    return [rects]\n",
+      "note": "always a valid full tiling; tests the area+corner accounting at scale"
+    },
+    {
+      "description": "tile a grid but randomly drop one cell so most cases are imperfect",
+      "seed": 11,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    cols = max(2, int(size ** 0.5))\n    rows = max(2, size // cols)\n    rects = []\n    for r in range(rows):\n        for c in range(cols):\n            rects.append([c, r, c + 1, r + 1])\n    if rng.random() < 0.7 and len(rects) > 1:\n        rects.pop(rng.randrange(len(rects)))\n    rng.shuffle(rects)\n    return [rects]\n",
+      "note": "dropping an interior or edge cell breaks the cover; some runs stay perfect"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isRectangleCover(self, rectangles):\n        # naive: paint a scaled grid only feasible for small coords; instead use\n        # an independent area+overlap check via coordinate compression.\n        xs = sorted(set([r[0] for r in rectangles] + [r[2] for r in rectangles]))\n        ys = sorted(set([r[1] for r in rectangles] + [r[3] for r in rectangles]))\n        xi = {x: i for i, x in enumerate(xs)}\n        yi = {y: i for i, y in enumerate(ys)}\n        grid = [[0] * (len(xs) - 1) for _ in range(len(ys) - 1)]\n        for x1, y1, x2, y2 in rectangles:\n            for a in range(xi[x1], xi[x2]):\n                for b in range(yi[y1], yi[y2]):\n                    grid[b][a] += 1\n                    if grid[b][a] > 1:\n                        return False\n        minx, miny = xs[0], ys[0]\n        maxx, maxy = xs[-1], ys[-1]\n        for b in range(len(ys) - 1):\n            for a in range(len(xs) - 1):\n                if grid[b][a] == 0:\n                    return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def isRectangleCover(self, rectangles):\n        area = 0\n        corners = set()\n        minx = miny = float('inf')\n        maxx = maxy = float('-inf')\n        for x1, y1, x2, y2 in rectangles:\n            area += (x2 - x1) * (y2 - y1)\n            minx = min(minx, x1); miny = min(miny, y1)\n            maxx = max(maxx, x2); maxy = max(maxy, y2)\n            for p in ((x1, y1), (x1, y2), (x2, y1), (x2, y2)):\n                if p in corners:\n                    corners.remove(p)\n                else:\n                    corners.add(p)\n        expected = {(minx, miny), (minx, maxy), (maxx, miny), (maxx, maxy)}\n        if corners != expected:\n            return False\n        return area == (maxx - minx) * (maxy - miny)\n",
+    "javascript": "var isRectangleCover = function(rectangles) {\n    let area = 0;\n    const corners = new Set();\n    let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;\n    const toggle = (x, y) => {\n        const k = x + ',' + y;\n        if (corners.has(k)) corners.delete(k); else corners.add(k);\n    };\n    for (const [x1, y1, x2, y2] of rectangles) {\n        area += (x2 - x1) * (y2 - y1);\n        minx = Math.min(minx, x1); miny = Math.min(miny, y1);\n        maxx = Math.max(maxx, x2); maxy = Math.max(maxy, y2);\n        toggle(x1, y1); toggle(x1, y2); toggle(x2, y1); toggle(x2, y2);\n    }\n    const expected = [[minx, miny], [minx, maxy], [maxx, miny], [maxx, maxy]];\n    if (corners.size !== 4) return false;\n    for (const [x, y] of expected) if (!corners.has(x + ',' + y)) return false;\n    return area === (maxx - minx) * (maxy - miny);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

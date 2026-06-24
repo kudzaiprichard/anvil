@@ -1,0 +1,75 @@
+{
+  "slug": "search-suggestions-system",
+  "judge": "exact",
+  "pattern": "Sort the product list once; for each growing prefix of the search word, binary-search for the first product that is lexicographically >= the prefix, then collect up to three consecutive matches whose prefix still holds.",
+  "hints": [
+    "Sort products lexicographically once upfront — after sorting, all products that share a given prefix form a contiguous block, so a single binary search locates the start of each block in O(log n).",
+    "For prefix p, the first candidate is the leftmost product >= p in sorted order; scan forward from there collecting products that start with p, stopping after three or when the prefix no longer matches.",
+    "The prefix grows by one character each step — you can either re-run binary search from scratch each time (O(k log n) total) or advance a left pointer since the block can only move right as the prefix lengthens."
+  ],
+  "constraints": [
+    { "param": "products", "kind": "string[]", "len": [1, 1000] },
+    { "param": "searchWord", "kind": "string", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single product that matches every prefix of the search word",
+      "input": [["havana"], "havana"]
+    },
+    {
+      "kind": "edge",
+      "description": "no product shares any prefix with the search word — all sublists empty",
+      "input": [["xyz", "abc"], "mno"]
+    },
+    {
+      "kind": "trap",
+      "description": "five products from the canonical example — suggestions narrow with each character",
+      "input": [["mobile", "mouse", "moneypot", "monitor", "mousepad"], "mouse"]
+    },
+    {
+      "kind": "trap",
+      "description": "products list has more than three matches for the first prefix — only top three returned",
+      "input": [["aa", "aab", "aac", "aad", "aae"], "aa"]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-character search word — one prefix step only",
+      "input": [["apple", "ant", "ape", "banana"], "a"]
+    },
+    {
+      "kind": "trap",
+      "description": "products longer than search word still match their prefix",
+      "input": [["suggestion", "suggest", "su"], "su"]
+    },
+    {
+      "kind": "trap",
+      "description": "search word longer than all products — sublists empty once prefix exceeds product length",
+      "input": [["car", "card"], "cardboard"]
+    },
+    {
+      "kind": "boundary",
+      "description": "all products are identical — three copies suggested for every prefix",
+      "input": [["pen", "pen", "pen", "pen"], "pen"]
+    },
+    {
+      "kind": "trap",
+      "description": "products unsorted in input — sorting step is essential",
+      "input": [["zoo", "alpha", "beta", "ant", "ape"], "a"]
+    }
+  ],
+  "stress": [
+    {
+      "description": "1000 products of length 20 from a small alphabet, search word length 15 — many prefix collisions stress the binary search boundary logic",
+      "seed": 7,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    alphabet = 'abcde'\n    products = list({''.join(rng.choice(list(alphabet)) for _ in range(20)) for _ in range(n * 2)})[:n]\n    search_word = ''.join(rng.choice(list(alphabet)) for _ in range(15))\n    return [products, search_word]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def suggestedProducts(self, products, searchWord):\n        # Brute force: for each prefix, filter and sort the full list each time.\n        result = []\n        for length in range(1, len(searchWord) + 1):\n            prefix = searchWord[:length]\n            matches = sorted(p for p in products if p.startswith(prefix))\n            result.append(matches[:3])\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def suggestedProducts(self, products, searchWord):\n        import bisect\n        products.sort()\n        result = []\n        prefix = ''\n        lo = 0  # left boundary only moves right\n        for ch in searchWord:\n            prefix += ch\n            lo = bisect.bisect_left(products, prefix, lo)\n            group = []\n            for i in range(lo, min(lo + 3, len(products))):\n                if products[i].startswith(prefix):\n                    group.append(products[i])\n                else:\n                    break\n            result.append(group)\n        return result\n",
+    "javascript": "var suggestedProducts = function(products, searchWord) {\n    products.sort();\n    const result = [];\n    let prefix = '';\n    let lo = 0;\n\n    // Binary search: leftmost index >= target\n    function lowerBound(arr, target, start) {\n        let l = start, r = arr.length;\n        while (l < r) {\n            const mid = (l + r) >> 1;\n            if (arr[mid] < target) l = mid + 1;\n            else r = mid;\n        }\n        return l;\n    }\n\n    for (const ch of searchWord) {\n        prefix += ch;\n        lo = lowerBound(products, prefix, lo);\n        const group = [];\n        for (let i = lo; i < Math.min(lo + 3, products.length); i++) {\n            if (products[i].startsWith(prefix)) group.push(products[i]);\n            else break;\n        }\n        result.push(group);\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n log n + k log n)", "space": "O(n)" }
+}

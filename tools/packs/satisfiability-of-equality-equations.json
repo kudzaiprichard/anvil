@@ -1,0 +1,37 @@
+{
+  "slug": "satisfiability-of-equality-equations",
+  "judge": "exact",
+  "pattern": "Union-find merges every pair joined by equality, then a single pass over the inequalities reports a contradiction whenever two supposedly-unequal variables share a root.",
+  "hints": [
+    "Equalities force variables into the same group; inequalities forbid two variables from sharing a group.",
+    "Process all the equals first so the groups are fully formed before you check the not-equals.",
+    "Use a disjoint-set over the 26 letters: union the two sides of every '==' equation, then for every '!=' equation return false if find(x) == find(y); otherwise return true."
+  ],
+  "constraints": [
+    { "param": "equations", "kind": "string[]", "len": [1, 500], "value": [4, 4] }
+  ],
+  "edge_inputs": [
+    { "kind": "trap", "description": "equality immediately contradicted by inequality", "input": [["a==b", "b!=a"]] },
+    { "kind": "edge", "description": "two consistent equalities", "input": [["b==a", "a==b"]] },
+    { "kind": "trap", "description": "transitive equality breaks a later inequality", "input": [["a==b", "b==c", "a!=c"]] },
+    { "kind": "boundary", "description": "self-inequality is always false", "input": [["a!=a"]] },
+    { "kind": "edge", "description": "self-equality is harmless", "input": [["a==a"]] },
+    { "kind": "edge", "description": "independent components stay satisfiable", "input": [["a==b", "c==d", "a!=c"]] },
+    { "kind": "trap", "description": "long equality chain then a contradiction", "input": [["a==b", "b==c", "c==d", "d==e", "a!=e"]] }
+  ],
+  "stress": [
+    {
+      "description": "random equations over a few letters so chains and conflicts appear",
+      "seed": 77,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 500))\n    letters = 'abcdef'\n    eqs = []\n    for _ in range(n):\n        x = rng.choice(letters)\n        y = rng.choice(letters)\n        op = '==' if rng.random() < 0.6 else '!='\n        eqs.append(x + op + y)\n    return [eqs]\n",
+      "note": "small alphabet maximizes the chance of both consistent merges and conflicts"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def equationsPossible(self, equations):\n        from itertools import product\n        eqs = [(e[0], e[3]) for e in equations if e[1] == '=']\n        neqs = [(e[0], e[3]) for e in equations if e[1] == '!']\n        adj = {chr(c): set() for c in range(ord('a'), ord('z') + 1)}\n        for x, y in eqs:\n            adj[x].add(y)\n            adj[y].add(x)\n        comp = {}\n        cid = 0\n        for start in adj:\n            if start in comp:\n                continue\n            stack = [start]\n            comp[start] = cid\n            while stack:\n                u = stack.pop()\n                for v in adj[u]:\n                    if v not in comp:\n                        comp[v] = cid\n                        stack.append(v)\n            cid += 1\n        for x, y in neqs:\n            if comp[x] == comp[y]:\n                return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def equationsPossible(self, equations):\n        parent = list(range(26))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            parent[find(a)] = find(b)\n        for e in equations:\n            if e[1] == '=':\n                union(ord(e[0]) - 97, ord(e[3]) - 97)\n        for e in equations:\n            if e[1] == '!':\n                if find(ord(e[0]) - 97) == find(ord(e[3]) - 97):\n                    return False\n        return True\n",
+    "javascript": "var equationsPossible = function(equations) {\n    const parent = Array.from({length: 26}, (_, i) => i);\n    const find = (x) => {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    };\n    const union = (a, b) => { parent[find(a)] = find(b); };\n    for (const e of equations) {\n        if (e[1] === '=') union(e.charCodeAt(0) - 97, e.charCodeAt(3) - 97);\n    }\n    for (const e of equations) {\n        if (e[1] === '!') {\n            if (find(e.charCodeAt(0) - 97) === find(e.charCodeAt(3) - 97)) return false;\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

@@ -1,0 +1,39 @@
+{
+  "slug": "stream-of-characters",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Storing the dictionary words reversed in a trie turns suffix matching of the incoming stream into a single prefix walk over the most recent characters.",
+  "hints": [
+    "You are asked about suffixes of the stream, and a suffix read backward is a prefix; reversing the words makes this a prefix problem.",
+    "Build a trie of all words spelled backward; then a query walks the recent stream characters from newest to oldest down that trie.",
+    "Keep the stream's recent characters and, on each query, descend the reversed-word trie newest-first, reporting true as soon as you pass through any end-of-word node."
+  ],
+  "constraints": [],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two- and one-letter words detected as the stream advances",
+      "input": [["StreamChecker", "query", "query", "query", "query", "query", "query", "query", "query", "query", "query", "query", "query"], [[["cd", "f", "kl"]], ["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"], ["h"], ["i"], ["j"], ["k"], ["l"]]] },
+    { "kind": "boundary", "description": "a single one-letter word matches immediately",
+      "input": [["StreamChecker", "query", "query"], [[["a"]], ["a"], ["b"]]] },
+    { "kind": "trap", "description": "a word completes only when its full suffix is present",
+      "input": [["StreamChecker", "query", "query", "query", "query"], [[["abc"]], ["a"], ["b"], ["c"], ["a"]]] },
+    { "kind": "trap", "description": "overlapping words where a longer match follows a shorter one",
+      "input": [["StreamChecker", "query", "query", "query", "query"], [[["xy", "wxy"]], ["w"], ["x"], ["y"], ["x"]]] },
+    { "kind": "edge", "description": "repeated characters that re-trigger the same word",
+      "input": [["StreamChecker", "query", "query", "query", "query", "query"], [[["aa"]], ["a"], ["a"], ["a"], ["b"], ["a"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random dictionary and random stream over a small alphabet so matches occur",
+      "seed": 37,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    alpha = 'abc'\n    nwords = rng.randint(1, 8)\n    words = []\n    for _ in range(nwords):\n        wl = rng.randint(1, 4)\n        words.append(''.join(rng.choice(alpha) for _ in range(wl)))\n    ops = ['StreamChecker']\n    args = [[words]]\n    for _ in range(max(1, size)):\n        ops.append('query'); args.append([rng.choice(alpha)])\n    return [ops, args]\n",
+      "note": "small alphabet and short words guarantee frequent true results"
+    }
+  ],
+  "oracle_python": "class StreamChecker:\n    def __init__(self, words):\n        self.words = set(words)\n        self.maxlen = max(len(w) for w in words)\n        self.stream = []\n    def query(self, letter):\n        self.stream.append(letter)\n        if len(self.stream) > self.maxlen:\n            self.stream.pop(0)\n        s = ''.join(self.stream)\n        for i in range(len(s)):\n            if s[i:] in self.words:\n                return True\n        return False\n",
+  "solutions": {
+    "python": "class StreamChecker:\n    def __init__(self, words):\n        self.trie = {}\n        self.maxlen = 0\n        for w in words:\n            self.maxlen = max(self.maxlen, len(w))\n            node = self.trie\n            for ch in reversed(w):\n                node = node.setdefault(ch, {})\n            node['$'] = True\n        self.stream = []\n    def query(self, letter):\n        self.stream.append(letter)\n        if len(self.stream) > self.maxlen:\n            self.stream.pop(0)\n        node = self.trie\n        for ch in reversed(self.stream):\n            if ch not in node:\n                return False\n            node = node[ch]\n            if '$' in node:\n                return True\n        return False\n",
+    "javascript": "var StreamChecker = function(words) {\n    this.trie = {};\n    this.maxlen = 0;\n    for (const w of words) {\n        this.maxlen = Math.max(this.maxlen, w.length);\n        let node = this.trie;\n        for (let i = w.length - 1; i >= 0; i--) {\n            const ch = w[i];\n            if (!node[ch]) node[ch] = {};\n            node = node[ch];\n        }\n        node['$'] = true;\n    }\n    this.stream = [];\n};\nStreamChecker.prototype.query = function(letter) {\n    this.stream.push(letter);\n    if (this.stream.length > this.maxlen) this.stream.shift();\n    let node = this.trie;\n    for (let i = this.stream.length - 1; i >= 0; i--) {\n        const ch = this.stream[i];\n        if (!node[ch]) return false;\n        node = node[ch];\n        if (node['$']) return true;\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(maxlen) per query", "space": "O(total word length)" }
+}

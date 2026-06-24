@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-stability-factor-of-array",
+  "judge": "exact",
+  "pattern": "Setting a chosen element to 1 destroys every stable run through it, so binary search the target length and greedily count the breakers needed.",
+  "hints": [
+    "Changing an element to 1 forces the gcd of any subarray crossing it to 1, breaking stability there.",
+    "For a fixed cap L, sweep left to right tracking the distinct gcd-runs ending at each index and drop a breaker whenever a stable run would exceed L.",
+    "Binary search the smallest L whose required breaker count is at most maxC."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "maxC", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one change collapses to one", "input": [[3, 5, 10], 1] },
+    { "kind": "edge", "description": "two changes break a run of three", "input": [[2, 6, 8], 2] },
+    { "kind": "edge", "description": "two separate runs cannot both shrink", "input": [[2, 4, 9, 6], 1] },
+    { "kind": "edge", "description": "no stable elements at all", "input": [[1, 1, 1], 0] },
+    { "kind": "boundary", "description": "single prime element", "input": [[7], 0] },
+    { "kind": "trap", "description": "no budget keeps the full run", "input": [[6, 6, 6, 6], 0] },
+    { "kind": "trap", "description": "budget covers all", "input": [[2, 4, 8], 3] }
+  ],
+  "stress": [
+    {
+      "description": "small arrays so the subset oracle stays fast",
+      "seed": 101,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 7)))\n    nums = [rng.randint(1, 20) for _ in range(n)]\n    maxC = rng.randint(0, n)\n    return [nums, maxC]\n"
+    }
+  ],
+  "oracle_python": "from math import gcd\nimport itertools\nclass Solution:\n    def minStable(self, nums, maxC):\n        def longest_stable(arr):\n            n = len(arr)\n            best = 0\n            for i in range(n):\n                g = 0\n                for j in range(i, n):\n                    g = gcd(g, arr[j])\n                    if g >= 2:\n                        if j - i + 1 > best:\n                            best = j - i + 1\n                    else:\n                        break\n            return best\n        n = len(nums)\n        best = longest_stable(nums)\n        for r in range(1, maxC + 1):\n            for combo in itertools.combinations(range(n), r):\n                arr = list(nums)\n                for c in combo:\n                    arr[c] = 1\n                v = longest_stable(arr)\n                if v < best:\n                    best = v\n        return best\n",
+  "solutions": {
+    "python": "from math import gcd\nclass Solution:\n    def minStable(self, nums, maxC):\n        n = len(nums)\n        def breakers_needed(L):\n            if L >= n:\n                return 0\n            cnt = 0\n            runs = []\n            for x in nums:\n                tmp = [(x, 1)]\n                for pg, pl in runs:\n                    tmp.append((gcd(pg, x), pl + 1))\n                m = {}\n                for gg, ll in tmp:\n                    if gg not in m or ll > m[gg]:\n                        m[gg] = ll\n                runs = list(m.items())\n                longest = 0\n                for gg, ll in runs:\n                    if gg >= 2 and ll > longest:\n                        longest = ll\n                if longest > L:\n                    cnt += 1\n                    runs = []\n            return cnt\n        lo, hi, ans = 0, n, n\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if breakers_needed(mid) <= maxC:\n                ans = mid\n                hi = mid - 1\n            else:\n                lo = mid + 1\n        return ans\n",
+    "javascript": "var minStable = function(nums, maxC) {\n    const n = nums.length;\n    const gcd = (a, b) => { while (b) { [a, b] = [b, a % b]; } return a; };\n    const breakersNeeded = (L) => {\n        if (L >= n) return 0;\n        let cnt = 0;\n        let runs = [];\n        for (const x of nums) {\n            const tmp = [[x, 1]];\n            for (const [pg, pl] of runs) tmp.push([gcd(pg, x), pl + 1]);\n            const m = new Map();\n            for (const [gg, ll] of tmp) {\n                if (!m.has(gg) || ll > m.get(gg)) m.set(gg, ll);\n            }\n            runs = Array.from(m.entries());\n            let longest = 0;\n            for (const [gg, ll] of runs) {\n                if (gg >= 2 && ll > longest) longest = ll;\n            }\n            if (longest > L) { cnt++; runs = []; }\n        }\n        return cnt;\n    };\n    let lo = 0, hi = n, ans = n;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (breakersNeeded(mid) <= maxC) { ans = mid; hi = mid - 1; }\n        else lo = mid + 1;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n log V)", "space": "O(log V)" }
+}

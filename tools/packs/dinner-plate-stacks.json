@@ -1,0 +1,43 @@
+{
+  "slug": "dinner-plate-stacks",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A min-heap of non-full stack indices for pushes plus trimming of trailing empty stacks for pops keeps both leftmost-insert and rightmost-remove fast.",
+  "hints": [
+    "Push always targets the leftmost stack with room; that is a minimum-index query over the set of non-full stacks.",
+    "Pop always targets the rightmost non-empty stack, so keep dropping empty trailing stacks until you reach one with elements.",
+    "Maintain a min-heap of available (non-full) stack indices for push, and after a popAtStack reopens room, add that index back; lazily discard stale or out-of-range heap entries."
+  ],
+  "constraints": [
+    { "param": "capacity", "kind": "int", "value": [1, 20000] },
+    { "param": "val", "kind": "int", "value": [1, 20000] },
+    { "param": "index", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "interleaved pushes, middle pops, and right-end pops",
+      "input": [["DinnerPlates", "push", "push", "push", "push", "push", "popAtStack", "push", "push", "popAtStack", "popAtStack", "pop", "pop", "pop", "pop", "pop"], [[2], [1], [2], [3], [4], [5], [0], [20], [21], [0], [2], [], [], [], [], []]] },
+    { "kind": "boundary", "description": "capacity one makes every stack hold a single value",
+      "input": [["DinnerPlates", "push", "push", "push", "pop", "pop", "pop", "pop"], [[1], [1], [2], [3], [], [], [], []]] },
+    { "kind": "trap", "description": "pop on an all-empty structure returns minus one",
+      "input": [["DinnerPlates", "pop", "popAtStack", "push", "pop", "pop"], [[3], [], [0], [9], [], []]] },
+    { "kind": "trap", "description": "a middle pop reopens room so the next push refills the gap",
+      "input": [["DinnerPlates", "push", "push", "push", "push", "popAtStack", "push", "pop", "pop", "pop"], [[2], [1], [2], [3], [4], [0], [99], [], [], []]] },
+    { "kind": "edge", "description": "popAtStack on an empty given index returns minus one",
+      "input": [["DinnerPlates", "push", "popAtStack", "popAtStack"], [[2], [7], [0], [0]]] }
+  ],
+  "stress": [
+    {
+      "description": "randomized push, pop, and popAtStack mix against a small capacity",
+      "seed": 31,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    cap = rng.randint(1, 4)\n    ops = ['DinnerPlates']\n    args = [[cap]]\n    pushed = 0\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.5:\n            pushed += 1\n            ops.append('push'); args.append([rng.randint(1, 1000)])\n        elif r < 0.75:\n            ops.append('pop'); args.append([])\n        else:\n            ops.append('popAtStack'); args.append([rng.randint(0, max(0, pushed // max(1, cap) + 1))])\n    return [ops, args]\n",
+      "note": "popAtStack indices stay near the populated range so both hits and misses occur"
+    }
+  ],
+  "oracle_python": "class DinnerPlates:\n    def __init__(self, capacity):\n        self.cap = capacity\n        self.stacks = []\n    def push(self, val):\n        for s in self.stacks:\n            if len(s) < self.cap:\n                s.append(val)\n                return\n        self.stacks.append([val])\n    def pop(self):\n        while self.stacks and not self.stacks[-1]:\n            self.stacks.pop()\n        if not self.stacks:\n            return -1\n        return self.stacks[-1].pop()\n    def popAtStack(self, index):\n        if index >= len(self.stacks) or not self.stacks[index]:\n            return -1\n        return self.stacks[index].pop()\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass DinnerPlates:\n    def __init__(self, capacity):\n        self.cap = capacity\n        self.stacks = []\n        self.avail = []\n    def push(self, val):\n        while self.avail and (self.avail[0] >= len(self.stacks) or len(self.stacks[self.avail[0]]) >= self.cap):\n            heapq.heappop(self.avail)\n        if self.avail:\n            i = self.avail[0]\n            self.stacks[i].append(val)\n            if len(self.stacks[i]) == self.cap:\n                heapq.heappop(self.avail)\n        else:\n            self.stacks.append([val])\n            if self.cap > 1:\n                heapq.heappush(self.avail, len(self.stacks) - 1)\n    def pop(self):\n        while self.stacks and not self.stacks[-1]:\n            self.stacks.pop()\n        if not self.stacks:\n            return -1\n        return self.popAtStack(len(self.stacks) - 1)\n    def popAtStack(self, index):\n        if index >= len(self.stacks) or not self.stacks[index]:\n            return -1\n        v = self.stacks[index].pop()\n        heapq.heappush(self.avail, index)\n        return v\n",
+    "javascript": "class MinHeap {\n    constructor() { this.a = []; }\n    push(x) { const a = this.a; a.push(x); let i = a.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (a[p] <= a[i]) break; [a[p], a[i]] = [a[i], a[p]]; i = p; } }\n    top() { return this.a[0]; }\n    size() { return this.a.length; }\n    pop() { const a = this.a; const top = a[0]; const last = a.pop(); if (a.length) { a[0] = last; let i = 0; const n = a.length; while (true) { let l = 2 * i + 1, r = 2 * i + 2, s = i; if (l < n && a[l] < a[s]) s = l; if (r < n && a[r] < a[s]) s = r; if (s === i) break; [a[s], a[i]] = [a[i], a[s]]; i = s; } } return top; }\n}\nvar DinnerPlates = function(capacity) {\n    this.cap = capacity;\n    this.stacks = [];\n    this.avail = new MinHeap();\n};\nDinnerPlates.prototype.push = function(val) {\n    while (this.avail.size() && (this.avail.top() >= this.stacks.length || this.stacks[this.avail.top()].length >= this.cap)) this.avail.pop();\n    if (this.avail.size()) {\n        const i = this.avail.top();\n        this.stacks[i].push(val);\n        if (this.stacks[i].length === this.cap) this.avail.pop();\n    } else {\n        this.stacks.push([val]);\n        if (this.cap > 1) this.avail.push(this.stacks.length - 1);\n    }\n};\nDinnerPlates.prototype.pop = function() {\n    while (this.stacks.length && this.stacks[this.stacks.length - 1].length === 0) this.stacks.pop();\n    if (!this.stacks.length) return -1;\n    return this.popAtStack(this.stacks.length - 1);\n};\nDinnerPlates.prototype.popAtStack = function(index) {\n    if (index >= this.stacks.length || this.stacks[index].length === 0) return -1;\n    const v = this.stacks[index].pop();\n    this.avail.push(index);\n    return v;\n};\n"
+  },
+  "complexity": { "time": "O(log n) amortized per op", "space": "O(n)" }
+}

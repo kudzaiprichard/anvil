@@ -1,0 +1,37 @@
+{
+  "slug": "burst-balloons",
+  "judge": "exact",
+  "pattern": "Choosing which balloon to burst last in each subinterval decouples the two sides, so an interval dynamic program over padded boundaries finds the best total in cubic time.",
+  "hints": [
+    "Bursting a balloon first is hard because it changes both neighbours; instead reason about which balloon in a range is burst last.",
+    "If balloon k is the last one popped within a range, its neighbours at that moment are the fixed walls just outside the range, and the two subranges become independent.",
+    "Pad the array with ones at both ends and fill a table over intervals: the value for a range is the max over k inside it of left[i..k] + right[k..j] plus nums[i-1]*nums[k]*nums[j+1]."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 300], "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single balloon bursts against two implicit ones", "input": [[5]] },
+    { "kind": "edge", "description": "two balloons", "input": [[1, 5]] },
+    { "kind": "edge", "description": "classic four-balloon ordering matters", "input": [[3, 1, 5, 8]] },
+    { "kind": "trap", "description": "a zero balloon should be popped to remove its dampening factor", "input": [[7, 0, 9]] },
+    { "kind": "trap", "description": "all ones means every burst yields exactly one", "input": [[1, 1, 1, 1]] },
+    { "kind": "edge", "description": "descending values reward saving the largest for last", "input": [[9, 7, 5, 3]] },
+    { "kind": "boundary", "description": "all zeros earn nothing", "input": [[0, 0, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate random array within the value range so the cubic DP stays fast",
+      "seed": 53,
+      "size": 90,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 120))\n    return [[rng.randint(0, 100) for _ in range(n)]]\n",
+      "note": "size capped so the O(n^3) reference finishes quickly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxCoins(self, nums):\n        from functools import lru_cache\n        vals = [1] + list(nums) + [1]\n        @lru_cache(maxsize=None)\n        def best(lo, hi):\n            if lo > hi:\n                return 0\n            res = 0\n            for k in range(lo, hi + 1):\n                gain = vals[lo - 1] * vals[k] * vals[hi + 1]\n                res = max(res, best(lo, k - 1) + best(k + 1, hi) + gain)\n            return res\n        return best(1, len(nums))\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxCoins(self, nums):\n        vals = [1] + list(nums) + [1]\n        m = len(vals)\n        dp = [[0] * m for _ in range(m)]\n        for length in range(2, m):\n            for lo in range(0, m - length):\n                hi = lo + length\n                best = 0\n                for k in range(lo + 1, hi):\n                    cand = dp[lo][k] + dp[k][hi] + vals[lo] * vals[k] * vals[hi]\n                    if cand > best:\n                        best = cand\n                dp[lo][hi] = best\n        return dp[0][m - 1]\n",
+    "javascript": "var maxCoins = function(nums) {\n    const vals = [1, ...nums, 1];\n    const m = vals.length;\n    const dp = Array.from({ length: m }, () => new Array(m).fill(0));\n    for (let length = 2; length < m; length++) {\n        for (let lo = 0; lo + length < m; lo++) {\n            const hi = lo + length;\n            let best = 0;\n            for (let k = lo + 1; k < hi; k++) {\n                const cand = dp[lo][k] + dp[k][hi] + vals[lo] * vals[k] * vals[hi];\n                if (cand > best) best = cand;\n            }\n            dp[lo][hi] = best;\n        }\n    }\n    return dp[0][m - 1];\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n^2)" }
+}

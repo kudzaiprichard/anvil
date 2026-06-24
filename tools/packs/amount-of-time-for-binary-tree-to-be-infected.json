@@ -1,0 +1,37 @@
+{
+  "slug": "amount-of-time-for-binary-tree-to-be-infected",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json"], "returns": "json" },
+  "pattern": "Infection spreads along edges in both directions, so rebuilding the tree as an undirected graph and measuring the farthest node from the start gives the total minutes.",
+  "hints": [
+    "Infection can travel from a node to its children and to its parent, so the rigid downward shape of a tree is not enough.",
+    "Turn the tree into an undirected adjacency map where each node links to its children and its parent.",
+    "From the start value, run a breadth-first or depth-first traversal over that graph and return the maximum distance reached, which equals the last minute any node is infected."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "start", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "asymmetric tree, start in the interior", "input": [[1, 5, 3, null, 4, 10, 6, 9, 2], 3] },
+    { "kind": "boundary", "description": "single node is the start", "input": [[1], 1] },
+    { "kind": "trap", "description": "start at the root spreads only downward", "input": [[1, 2, 3, 4, 5, 6, 7], 1] },
+    { "kind": "trap", "description": "start at a leaf must climb up then down the far side", "input": [[1, 2, 3, 4, 5, 6, 7], 4] },
+    { "kind": "edge", "description": "left-skewed chain from the bottom", "input": [[1, 2, null, 3, null, 4], 4] },
+    { "kind": "edge", "description": "start mid-chain", "input": [[10, 20, 30, 40], 20] }
+  ],
+  "stress": [
+    {
+      "description": "random tree with a random infection origin among its values",
+      "seed": 23,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    vals = list(range(1, n + 1))\n    rng.shuffle(vals)\n    start = rng.choice(vals)\n    return [vals, start]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def amountOfTime(self, root, start):\n        from collections import defaultdict, deque\n        adj = defaultdict(list)\n        stack = [(root, None)]\n        while stack:\n            node, par = stack.pop()\n            if not node:\n                continue\n            if par is not None:\n                adj[node.val].append(par)\n                adj[par].append(node.val)\n            stack.append((node.left, node.val))\n            stack.append((node.right, node.val))\n        # BFS distances\n        dist = {start: 0}\n        q = deque([start])\n        far = 0\n        while q:\n            u = q.popleft()\n            for v in adj[u]:\n                if v not in dist:\n                    dist[v] = dist[u] + 1\n                    far = max(far, dist[v])\n                    q.append(v)\n        return far\n",
+  "solutions": {
+    "python": "class Solution:\n    def amountOfTime(self, root, start):\n        self.ans = 0\n        def dfs(node):\n            if not node:\n                return 0, False\n            ld, lf = dfs(node.left)\n            rd, rf = dfs(node.right)\n            if node.val == start:\n                self.ans = max(self.ans, ld, rd)\n                return 1, True\n            if lf:\n                self.ans = max(self.ans, ld + rd)\n                return ld + 1, True\n            if rf:\n                self.ans = max(self.ans, ld + rd)\n                return rd + 1, True\n            return max(ld, rd) + 1, False\n        dfs(root)\n        return self.ans\n",
+    "javascript": "var amountOfTime = function(root, start) {\n    let ans = 0;\n    const dfs = (node) => {\n        if (!node) return [0, false];\n        const [ld, lf] = dfs(node.left);\n        const [rd, rf] = dfs(node.right);\n        if (node.val === start) {\n            ans = Math.max(ans, ld, rd);\n            return [1, true];\n        }\n        if (lf) {\n            ans = Math.max(ans, ld + rd);\n            return [ld + 1, true];\n        }\n        if (rf) {\n            ans = Math.max(ans, ld + rd);\n            return [rd + 1, true];\n        }\n        return [Math.max(ld, rd) + 1, false];\n    };\n    dfs(root);\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

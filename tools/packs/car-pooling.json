@@ -1,0 +1,37 @@
+{
+  "slug": "car-pooling",
+  "judge": "exact",
+  "pattern": "A difference-array sweep over locations tracks net occupancy so you can verify capacity is never exceeded at any point along the route.",
+  "hints": [
+    "Passengers board at one location and leave at another, so each trip is a +delta at pickup and a -delta at dropoff.",
+    "If you record those changes per kilometer and accumulate them in order, the running total is the car's occupancy.",
+    "Build a timeline keyed by location, add passengers at 'from' and subtract at 'to', then sweep left to right; if the running sum ever exceeds capacity return false."
+  ],
+  "constraints": [
+    { "param": "trips", "kind": "int[][]", "len": [1, 1000], "value": [0, 1000] },
+    { "param": "capacity", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "overlapping trips exceed capacity", "input": [[[2, 1, 5], [3, 3, 7]], 4] },
+    { "kind": "edge", "description": "same trips fit with one more seat", "input": [[[2, 1, 5], [3, 3, 7]], 5] },
+    { "kind": "boundary", "description": "single trip exactly at capacity", "input": [[[5, 0, 10]], 5] },
+    { "kind": "trap", "description": "dropoff and pickup at the same location must not overlap", "input": [[[3, 2, 5], [4, 5, 8]], 4] },
+    { "kind": "trap", "description": "back-to-back non-overlapping trips reuse the seats", "input": [[[2, 1, 3], [2, 3, 5], [2, 5, 7]], 2] },
+    { "kind": "trap", "description": "two simultaneous trips sum over capacity", "input": [[[3, 0, 4], [3, 0, 4]], 5] }
+  ],
+  "stress": [
+    {
+      "description": "many random short trips over a bounded route with a moderate capacity",
+      "seed": 41,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    trips = []\n    for _ in range(n):\n        a = rng.randrange(0, 1000)\n        b = rng.randrange(a + 1, 1001)\n        p = rng.randrange(1, 101)\n        trips.append([p, a, b])\n    capacity = rng.randrange(1, 100001)\n    return [trips, capacity]\n",
+      "note": "wide capacity range produces both true and false cases"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def carPooling(self, trips, capacity):\n        points = set()\n        for _, a, b in trips:\n            points.add(a)\n            points.add(b)\n        for loc in sorted(points):\n            onboard = 0\n            for p, a, b in trips:\n                if a <= loc < b:\n                    onboard += p\n            if onboard > capacity:\n                return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def carPooling(self, trips, capacity):\n        timeline = [0] * 1001\n        for p, a, b in trips:\n            timeline[a] += p\n            timeline[b] -= p\n        cur = 0\n        for delta in timeline:\n            cur += delta\n            if cur > capacity:\n                return False\n        return True\n",
+    "javascript": "var carPooling = function(trips, capacity) {\n    const timeline = new Array(1001).fill(0);\n    for (const [p, a, b] of trips) {\n        timeline[a] += p;\n        timeline[b] -= p;\n    }\n    let cur = 0;\n    for (const delta of timeline) {\n        cur += delta;\n        if (cur > capacity) return false;\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(n + maxLoc)", "space": "O(maxLoc)" }
+}

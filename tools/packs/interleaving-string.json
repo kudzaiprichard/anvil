@@ -1,0 +1,40 @@
+{
+  "slug": "interleaving-string",
+  "judge": "exact",
+  "pattern": "Checking whether one string is formed by interleaving two others is a two-dimensional reachability DP over how many characters of each source have been consumed.",
+  "hints": [
+    "If the combined length of the two sources does not equal the target length, no interleaving can exist.",
+    "Track a position in each source; the next target character must come from advancing exactly one of the two sources when it matches.",
+    "Let dp[i][j] mean the first i+j target characters can be built from the first i of s1 and first j of s2; it is reachable when the previous state advanced through a matching s1[i-1] or s2[j-1] character."
+  ],
+  "constraints": [
+    { "param": "s1", "kind": "string", "len": [0, 100] },
+    { "param": "s2", "kind": "string", "len": [0, 100] },
+    { "param": "s3", "kind": "string", "len": [0, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a valid interleaving", "input": ["aabcc", "dbbca", "aadbbcbcac"] },
+    { "kind": "trap", "description": "right letters wrong order is not an interleaving", "input": ["aabcc", "dbbca", "aadbbbaccc"] },
+    { "kind": "boundary", "description": "all three empty", "input": ["", "", ""] },
+    { "kind": "trap", "description": "length mismatch fails immediately", "input": ["abc", "de", "abcde x"] },
+    { "kind": "edge", "description": "one source empty, target equals the other", "input": ["", "abc", "abc"] },
+    { "kind": "trap", "description": "shared prefix forces a real branching decision", "input": ["aa", "ab", "aaba"] },
+    { "kind": "trap", "description": "shared prefix that cannot complete", "input": ["aa", "ab", "abaa"] },
+    { "kind": "edge", "description": "simple alternating interleave", "input": ["ab", "cd", "acbd"] }
+  ],
+  "stress": [
+    {
+      "description": "construct s3 as a genuine random interleaving of s1 and s2 so the answer is true",
+      "seed": 29,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n1 = rng.randint(0, max(0, min(size, 60)))\n    n2 = rng.randint(0, max(0, min(size, 60)))\n    s1 = ''.join(rng.choice('ab') for _ in range(n1))\n    s2 = ''.join(rng.choice('ab') for _ in range(n2))\n    i = j = 0\n    out = []\n    while i < n1 or j < n2:\n        if i < n1 and (j >= n2 or rng.random() < 0.5):\n            out.append(s1[i]); i += 1\n        else:\n            out.append(s2[j]); j += 1\n    return [s1, s2, ''.join(out)]\n",
+      "note": "tiny alphabet plus a true interleave path stresses the branching DP"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isInterleave(self, s1, s2, s3):\n        from functools import lru_cache\n        if len(s1) + len(s2) != len(s3):\n            return False\n        @lru_cache(maxsize=None)\n        def solve(i, j):\n            k = i + j\n            if k == len(s3):\n                return i == len(s1) and j == len(s2)\n            ok = False\n            if i < len(s1) and s1[i] == s3[k]:\n                ok = ok or solve(i + 1, j)\n            if j < len(s2) and s2[j] == s3[k]:\n                ok = ok or solve(i, j + 1)\n            return ok\n        return solve(0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def isInterleave(self, s1, s2, s3):\n        n1, n2 = len(s1), len(s2)\n        if n1 + n2 != len(s3):\n            return False\n        dp = [[False] * (n2 + 1) for _ in range(n1 + 1)]\n        dp[0][0] = True\n        for i in range(n1 + 1):\n            for j in range(n2 + 1):\n                if i > 0 and s1[i - 1] == s3[i + j - 1]:\n                    dp[i][j] = dp[i][j] or dp[i - 1][j]\n                if j > 0 and s2[j - 1] == s3[i + j - 1]:\n                    dp[i][j] = dp[i][j] or dp[i][j - 1]\n        return dp[n1][n2]\n",
+    "javascript": "var isInterleave = function(s1, s2, s3) {\n    const n1 = s1.length, n2 = s2.length;\n    if (n1 + n2 !== s3.length) return false;\n    const dp = Array.from({ length: n1 + 1 }, () => new Array(n2 + 1).fill(false));\n    dp[0][0] = true;\n    for (let i = 0; i <= n1; i++) {\n        for (let j = 0; j <= n2; j++) {\n            if (i > 0 && s1[i - 1] === s3[i + j - 1]) dp[i][j] = dp[i][j] || dp[i - 1][j];\n            if (j > 0 && s2[j - 1] === s3[i + j - 1]) dp[i][j] = dp[i][j] || dp[i][j - 1];\n        }\n    }\n    return dp[n1][n2];\n};\n"
+  },
+  "complexity": { "time": "O(n1*n2)", "space": "O(n1*n2)" }
+}

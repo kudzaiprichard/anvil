@@ -1,0 +1,38 @@
+{
+  "slug": "gas-station",
+  "judge": "exact",
+  "pattern": "If the total gas covers the total cost a valid start exists, and it is found in one pass by restarting the candidate whenever the running tank dips below zero.",
+  "hints": [
+    "A full loop is possible only when the sum of gas is at least the sum of cost; otherwise no start works.",
+    "Sweep once tracking the tank after leaving each station; whenever it goes negative, no station from the current candidate up to here can be the start, so the next station becomes the new candidate.",
+    "Keep a running total and a current segment total; if the current total drops below zero set start to the next index and reset the segment to zero; return start if the overall sum is non-negative, else -1."
+  ],
+  "constraints": [
+    { "param": "gas", "kind": "int[]", "len": [1, 100000], "value": [0, 10000] },
+    { "param": "cost", "kind": "int[]", "len": [1, 100000], "value": [0, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a unique valid start partway around", "input": [[1, 2, 3, 4, 5], [3, 4, 5, 1, 2]] },
+    { "kind": "trap", "description": "total cost exceeds total gas, impossible", "input": [[2, 3, 4], [3, 4, 3]] },
+    { "kind": "boundary", "description": "single station that can fuel itself", "input": [[5], [4]] },
+    { "kind": "trap", "description": "single station that cannot move", "input": [[3], [4]] },
+    { "kind": "edge", "description": "start at zero works when surplus front-loaded", "input": [[4, 3, 2, 1], [1, 2, 3, 4]] },
+    { "kind": "trap", "description": "exactly balanced totals with a forced late start", "input": [[1, 1, 1, 10], [2, 2, 2, 1]] },
+    { "kind": "edge", "description": "all stations break even, start at zero", "input": [[2, 2, 2], [2, 2, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "construct a circuit with a guaranteed unique feasible start",
+      "seed": 29,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 5000))\n    start = rng.randrange(n)\n    gas = [0] * n\n    cost = [0] * n\n    # make every prefix-from-start strictly positive except returning to start exactly 0\n    surplus = [0] * n\n    total = 0\n    for k in range(n):\n        idx = (start + k) % n\n        if k < n - 1:\n            s = rng.randint(1, 50)\n        else:\n            s = -total  # close the loop to net zero\n        surplus[idx] = s\n        total += s\n    for i in range(n):\n        c = rng.randint(0, 50)\n        g = c + surplus[i]\n        if g < 0:\n            c -= g\n            g = 0\n        gas[i] = g\n        cost[i] = c\n    return [gas, cost]\n",
+      "note": "running surplus from the chosen start stays positive until the loop closes at zero, so the start is unique"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canCompleteCircuit(self, gas, cost):\n        n = len(gas)\n        for start in range(n):\n            tank = 0\n            ok = True\n            for k in range(n):\n                i = (start + k) % n\n                tank += gas[i] - cost[i]\n                if tank < 0:\n                    ok = False\n                    break\n            if ok:\n                return start\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def canCompleteCircuit(self, gas, cost):\n        total = 0\n        tank = 0\n        start = 0\n        for i in range(len(gas)):\n            diff = gas[i] - cost[i]\n            total += diff\n            tank += diff\n            if tank < 0:\n                start = i + 1\n                tank = 0\n        return start if total >= 0 else -1\n",
+    "javascript": "var canCompleteCircuit = function(gas, cost) {\n    let total = 0, tank = 0, start = 0;\n    for (let i = 0; i < gas.length; i++) {\n        const diff = gas[i] - cost[i];\n        total += diff;\n        tank += diff;\n        if (tank < 0) {\n            start = i + 1;\n            tank = 0;\n        }\n    }\n    return total >= 0 ? start : -1;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

@@ -1,0 +1,41 @@
+{
+  "slug": "find-and-replace-in-string",
+  "judge": "exact",
+  "pattern": "Resolve every replacement against the original string and apply them in left-to-right index order so that earlier edits never shift the positions the later ones were measured against.",
+  "hints": [
+    "Each operation is checked against the original string, not against the partially-edited result, so decide first which operations actually fire.",
+    "If you walk the string from left to right and process the operations sorted by their start index, the pieces you keep and the pieces you replace simply concatenate in order.",
+    "Sort the operations by index. Scan the original string with a cursor; at each start index whose source matches there, append the target and jump the cursor past the source, otherwise copy the current character. The non-overlap guarantee makes this unambiguous."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 1000] },
+    { "param": "indices", "kind": "int[]", "len": [1, 100], "value": [0, 999] },
+    { "param": "sources", "kind": "string[]", "len": [1, 100] },
+    { "param": "targets", "kind": "string[]", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "both operations fire and rewrite disjoint regions", "input": ["abcd", [0, 2], ["a", "cd"], ["eee", "ffff"]] },
+    { "kind": "trap", "description": "second source does not match at its index so it is skipped", "input": ["abcd", [0, 2], ["ab", "ec"], ["eee", "ffff"]] },
+    { "kind": "trap", "description": "operations supplied out of index order must still apply correctly", "input": ["abcd", [2, 0], ["cd", "ab"], ["xy", "zz"]] },
+    { "kind": "edge", "description": "single full-string replacement", "input": ["hello", [0], ["hello"], ["world"]] },
+    { "kind": "trap", "description": "source longer than remaining suffix cannot match", "input": ["abc", [1], ["bcd"], ["z"]] },
+    { "kind": "edge", "description": "target shorter than source shrinks the string", "input": ["abcdef", [0, 3], ["abc", "def"], ["a", "d"]] },
+    { "kind": "boundary", "description": "replacement at the final character", "input": ["xyz", [2], ["z"], ["qqqq"]] },
+    { "kind": "trap", "description": "no operation matches leaves the string untouched", "input": ["aaaa", [0, 2], ["b", "c"], ["x", "y"]] }
+  ],
+  "stress": [
+    {
+      "description": "long random string with many non-overlapping single-character operations, some matching and some not",
+      "seed": 11,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    s = ''.join(rng.choice('abc') for _ in range(n))\n    idxs = sorted(rng.sample(range(n), min(n, 100)))\n    indices, sources, targets = [], [], []\n    for i in idxs:\n        # half the time use the real char (will match), half a wrong char\n        if rng.random() < 0.5:\n            src = s[i]\n        else:\n            src = rng.choice('xyz')\n        indices.append(i)\n        sources.append(src)\n        targets.append(rng.choice(['Q', 'WW', 'EEE']))\n    return [s, indices, sources, targets]\n",
+      "note": "single-char sources guarantee non-overlap regardless of which fire"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findReplaceString(self, s, indices, sources, targets):\n        ops = sorted(zip(indices, sources, targets))\n        out = []\n        i = 0\n        j = 0\n        n = len(s)\n        while i < n:\n            if j < len(ops) and ops[j][0] == i:\n                idx, src, tgt = ops[j]\n                if s[i:i + len(src)] == src:\n                    out.append(tgt)\n                    i += len(src)\n                    j += 1\n                    continue\n                else:\n                    j += 1\n            out.append(s[i])\n            i += 1\n        return ''.join(out)\n",
+  "solutions": {
+    "python": "class Solution:\n    def findReplaceString(self, s, indices, sources, targets):\n        ops = sorted(zip(indices, sources, targets), key=lambda o: o[0])\n        res = []\n        cur = 0\n        for idx, src, tgt in ops:\n            res.append(s[cur:idx])\n            if s[idx:idx + len(src)] == src:\n                res.append(tgt)\n                cur = idx + len(src)\n            else:\n                res.append(s[idx:idx + len(src)])\n                cur = idx + len(src)\n        res.append(s[cur:])\n        return ''.join(res)\n",
+    "javascript": "var findReplaceString = function(s, indices, sources, targets) {\n    const ops = indices.map((idx, i) => [idx, sources[i], targets[i]]);\n    ops.sort((a, b) => a[0] - b[0]);\n    const res = [];\n    let cur = 0;\n    for (const [idx, src, tgt] of ops) {\n        res.push(s.slice(cur, idx));\n        if (s.slice(idx, idx + src.length) === src) {\n            res.push(tgt);\n        } else {\n            res.push(s.slice(idx, idx + src.length));\n        }\n        cur = idx + src.length;\n    }\n    res.push(s.slice(cur));\n    return res.join('');\n};\n"
+  },
+  "complexity": { "time": "O(k log k + n)", "space": "O(n)" }
+}

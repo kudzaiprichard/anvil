@@ -1,0 +1,38 @@
+{
+  "slug": "selling-pieces-of-wood",
+  "judge": "exact",
+  "pattern": "The best value of an h-by-w block is the larger of selling it whole or splitting it once by every possible horizontal or vertical cut, which a bottom-up grid DP fills in.",
+  "hints": [
+    "Define best(h, w) as the most money obtainable from an h-by-w piece; a listed price gives a lower bound for that exact shape.",
+    "Any cutting strategy starts with one straight cut, so best(h, w) is the max over all first horizontal and vertical splits of the two resulting subpieces' values.",
+    "Fill a (m+1) x (n+1) table by increasing size: best(h, w) = max(direct price, max over i of best(i,w)+best(h-i,w), max over j of best(h,j)+best(h,w-j))."
+  ],
+  "constraints": [
+    { "param": "m", "kind": "int", "value": [1, 200] },
+    { "param": "n", "kind": "int", "value": [1, 200] },
+    { "param": "prices", "kind": "int[][]", "len": [1, 20000], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "3x5 board with three shapes", "input": [3, 5, [[1, 4, 2], [2, 2, 7], [2, 1, 3]]] },
+    { "kind": "edge", "description": "4x6 board favoring a tall shape", "input": [4, 6, [[3, 2, 10], [1, 4, 2], [4, 1, 3]]] },
+    { "kind": "boundary", "description": "1x1 board sells as itself", "input": [1, 1, [[1, 1, 5]]] },
+    { "kind": "trap", "description": "only the full board is priced", "input": [2, 3, [[2, 3, 9]]] },
+    { "kind": "trap", "description": "splitting beats selling whole", "input": [1, 4, [[1, 1, 5], [1, 4, 3]]] },
+    { "kind": "edge", "description": "tall strip with no full-board price", "input": [4, 1, [[1, 1, 2], [2, 1, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "small board with random distinct shape prices",
+      "seed": 20,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = rng.randrange(1, max(2, min(size, 30)) + 1)\n    n = rng.randrange(1, max(2, min(size, 30)) + 1)\n    shapes = []\n    seen = set()\n    cnt = rng.randrange(1, m * n + 1)\n    while len(shapes) < cnt:\n        h = rng.randrange(1, m + 1)\n        w = rng.randrange(1, n + 1)\n        if (h, w) in seen:\n            continue\n        seen.add((h, w))\n        shapes.append([h, w, rng.randrange(1, 1000001)])\n    return [m, n, shapes]\n",
+      "note": "kept small because the DP and oracle are O(m*n*(m+n))"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sellingWood(self, m, n, prices):\n        from functools import lru_cache\n        price = {}\n        for h, w, p in prices:\n            price[(h, w)] = p\n        import sys\n        sys.setrecursionlimit(100000)\n        @lru_cache(maxsize=None)\n        def best(h, w):\n            res = price.get((h, w), 0)\n            for i in range(1, h):\n                res = max(res, best(i, w) + best(h - i, w))\n            for j in range(1, w):\n                res = max(res, best(h, j) + best(h, w - j))\n            return res\n        return best(m, n)\n",
+  "solutions": {
+    "python": "class Solution:\n    def sellingWood(self, m, n, prices):\n        dp = [[0] * (n + 1) for _ in range(m + 1)]\n        for h, w, p in prices:\n            dp[h][w] = max(dp[h][w], p)\n        for h in range(1, m + 1):\n            for w in range(1, n + 1):\n                best = dp[h][w]\n                for i in range(1, h // 2 + 1):\n                    cand = dp[i][w] + dp[h - i][w]\n                    if cand > best:\n                        best = cand\n                for j in range(1, w // 2 + 1):\n                    cand = dp[h][j] + dp[h][w - j]\n                    if cand > best:\n                        best = cand\n                dp[h][w] = best\n        return dp[m][n]\n",
+    "javascript": "var sellingWood = function(m, n, prices) {\n    const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));\n    for (const [h, w, p] of prices) {\n        if (p > dp[h][w]) dp[h][w] = p;\n    }\n    for (let h = 1; h <= m; h++) {\n        for (let w = 1; w <= n; w++) {\n            let best = dp[h][w];\n            for (let i = 1; i <= Math.floor(h / 2); i++) {\n                const cand = dp[i][w] + dp[h - i][w];\n                if (cand > best) best = cand;\n            }\n            for (let j = 1; j <= Math.floor(w / 2); j++) {\n                const cand = dp[h][j] + dp[h][w - j];\n                if (cand > best) best = cand;\n            }\n            dp[h][w] = best;\n        }\n    }\n    return dp[m][n];\n};\n"
+  },
+  "complexity": { "time": "O(m*n*(m+n))", "space": "O(m*n)" }
+}

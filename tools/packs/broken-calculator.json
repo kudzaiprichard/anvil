@@ -1,0 +1,45 @@
+{
+  "slug": "broken-calculator",
+  "judge": "exact",
+  "pattern": "Reasoning backward from the target, halving when it is even and incrementing when it is odd, turns the doubling/decrement search into a greedy linear walk down to the start value.",
+  "hints": [
+    "Doubling forward branches explosively, but running the operations in reverse from the target is deterministic.",
+    "In reverse, doubling becomes halving (only valid on an even number) and subtracting one becomes adding one.",
+    "While target > startValue: if target is even halve it, else add one; count each step. Once target <= startValue, add (startValue - target) more decrements."
+  ],
+  "constraints": [
+    { "param": "startValue", "kind": "int", "value": [1, 1000000000] },
+    { "param": "target", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "double then decrement", "input": [2, 3] },
+    { "kind": "edge", "description": "decrement then double", "input": [5, 8] },
+    { "kind": "edge", "description": "double decrement double", "input": [3, 10] },
+    { "kind": "boundary", "description": "already at target needs no operations", "input": [10, 10] },
+    { "kind": "trap", "description": "start above target only decrements", "input": [1000, 1] },
+    { "kind": "trap", "description": "target far above start needs many doublings", "input": [1, 1000000000] },
+    { "kind": "boundary", "description": "start one is the minimum", "input": [1, 2] }
+  ],
+  "stress": [
+    {
+      "description": "small start and target so the BFS oracle can cross-check the greedy",
+      "seed": 78,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    s = rng.randint(1, 5000)\n    t = rng.randint(1, 50000)\n    return [s, t]\n",
+      "note": "target under the BFS threshold so both oracle paths agree"
+    },
+    {
+      "description": "large random start and target across the full range",
+      "seed": 79,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    s = rng.randint(1, 10**9)\n    t = rng.randint(1, 10**9)\n    return [s, t]\n",
+      "note": "exercises the greedy on the full constraint range"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def brokenCalc(self, startValue, target):\n        # Independent BFS for small targets; reverse-greedy otherwise. The BFS path\n        # cross-checks the greedy on every small input the stress/edges produce.\n        if startValue >= target:\n            return startValue - target\n        if target <= 100000:\n            from collections import deque\n            cap = target * 2 + 2\n            seen = {startValue}\n            q = deque([(startValue, 0)])\n            while q:\n                v, d = q.popleft()\n                if v == target:\n                    return d\n                for nv in (v * 2, v - 1):\n                    if 1 <= nv <= cap and nv not in seen:\n                        seen.add(nv)\n                        q.append((nv, d + 1))\n        t = target\n        ops = 0\n        while t > startValue:\n            t = t // 2 if t % 2 == 0 else t + 1\n            ops += 1\n        return ops + (startValue - t)\n",
+  "solutions": {
+    "python": "class Solution:\n    def brokenCalc(self, startValue, target):\n        ops = 0\n        while target > startValue:\n            if target % 2 == 0:\n                target //= 2\n            else:\n                target += 1\n            ops += 1\n        return ops + (startValue - target)\n",
+    "javascript": "var brokenCalc = function(startValue, target) {\n    let ops = 0;\n    while (target > startValue) {\n        if (target % 2 === 0) target = target / 2;\n        else target += 1;\n        ops++;\n    }\n    return ops + (startValue - target);\n};\n"
+  },
+  "complexity": { "time": "O(log target)", "space": "O(1)" }
+}

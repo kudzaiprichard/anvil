@@ -1,0 +1,39 @@
+{
+  "slug": "word-ladder",
+  "judge": "exact",
+  "pattern": "Treating each equal-length word as a graph node with edges between words differing in exactly one letter turns shortest transformation into a breadth-first search for the minimum number of nodes on a path.",
+  "hints": [
+    "Two words are adjacent when they differ in exactly one character, so the answer is the length of the shortest path from the start word to the end word in that implicit graph.",
+    "Breadth-first search from the begin word finds the fewest steps; generate a word's neighbours by trying every single-letter change and keeping only those present in the word set.",
+    "Put the word list in a hash set, BFS level by level from beginWord counting levels starting at 1, and for each word try replacing each position with every letter a-z; return the level when endWord is dequeued, or 0 if the queue empties first."
+  ],
+  "constraints": [
+    { "param": "beginWord", "kind": "str", "len": [1, 10] },
+    { "param": "endWord", "kind": "str", "len": [1, 10] },
+    { "param": "wordList", "kind": "str[]", "len": [1, 5000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a reachable end word through a short chain", "input": ["hit", "cog", ["hot", "dot", "dog", "lot", "log", "cog"]] },
+    { "kind": "trap", "description": "end word absent from the list is unreachable", "input": ["hit", "cog", ["hot", "dot", "dog", "lot", "log"]] },
+    { "kind": "edge", "description": "single hop directly from begin to end", "input": ["a", "c", ["a", "b", "c"]] },
+    { "kind": "trap", "description": "end word equals a one-letter change but is not in the list", "input": ["hot", "dog", ["hot", "dog", "dot"]] },
+    { "kind": "trap", "description": "begin and end differ by one letter but end not present", "input": ["hot", "hog", ["hot", "dot", "dog"]] },
+    { "kind": "edge", "description": "two distinct shortest paths of equal length", "input": ["red", "tax", ["ted", "tex", "red", "tax", "tad", "den", "rex", "pee"]] },
+    { "kind": "boundary", "description": "minimum sizes, no possible transformation", "input": ["a", "b", ["c"]] }
+  ],
+  "stress": [
+    {
+      "description": "a guaranteed reachable chain plus distractor words sharing prefixes",
+      "seed": 17,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    L = 5\n    import string\n    letters = string.ascii_lowercase\n    n = max(2, min(size, 60))\n    # build a chain begin -> ... -> end by changing one letter each step\n    word = [rng.choice(letters) for _ in range(L)]\n    begin = ''.join(word)\n    chain = []\n    cur = list(word)\n    seen = {begin}\n    for _ in range(n):\n        pos = rng.randrange(L)\n        old = cur[pos]\n        choices = [c for c in letters if c != old]\n        cur[pos] = rng.choice(choices)\n        w = ''.join(cur)\n        if w in seen:\n            continue\n        seen.add(w)\n        chain.append(w)\n    if not chain:\n        chain = [begin[:-1] + ('a' if begin[-1] != 'a' else 'b')]\n    end = chain[-1]\n    wl = list(chain)\n    # distractors\n    for _ in range(n):\n        w = ''.join(rng.choice(letters) for _ in range(L))\n        if w not in seen:\n            seen.add(w)\n            wl.append(w)\n    rng.shuffle(wl)\n    return [begin, end, wl]\n",
+      "note": "the constructed chain guarantees a reachable end word"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def ladderLength(self, beginWord, endWord, wordList):\n        from collections import deque\n        words = set(wordList)\n        if endWord not in words:\n            return 0\n        L = len(beginWord)\n        def neighbours(w):\n            for i in range(L):\n                for c in 'abcdefghijklmnopqrstuvwxyz':\n                    if c != w[i]:\n                        cand = w[:i] + c + w[i+1:]\n                        if cand in words:\n                            yield cand\n        q = deque([(beginWord, 1)])\n        visited = {beginWord}\n        while q:\n            w, d = q.popleft()\n            if w == endWord:\n                return d\n            for nb in neighbours(w):\n                if nb not in visited:\n                    visited.add(nb)\n                    q.append((nb, d + 1))\n        return 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def ladderLength(self, beginWord, endWord, wordList):\n        from collections import deque\n        words = set(wordList)\n        if endWord not in words:\n            return 0\n        L = len(beginWord)\n        q = deque([beginWord])\n        visited = {beginWord}\n        level = 1\n        while q:\n            for _ in range(len(q)):\n                w = q.popleft()\n                if w == endWord:\n                    return level\n                for i in range(L):\n                    for c in 'abcdefghijklmnopqrstuvwxyz':\n                        if c == w[i]:\n                            continue\n                        cand = w[:i] + c + w[i+1:]\n                        if cand in words and cand not in visited:\n                            visited.add(cand)\n                            q.append(cand)\n            level += 1\n        return 0\n",
+    "javascript": "var ladderLength = function(beginWord, endWord, wordList) {\n    const words = new Set(wordList);\n    if (!words.has(endWord)) return 0;\n    const L = beginWord.length;\n    let q = [beginWord];\n    const visited = new Set([beginWord]);\n    let level = 1;\n    while (q.length) {\n        const next = [];\n        for (const w of q) {\n            if (w === endWord) return level;\n            for (let i = 0; i < L; i++) {\n                for (let cc = 97; cc < 123; cc++) {\n                    const c = String.fromCharCode(cc);\n                    if (c === w[i]) continue;\n                    const cand = w.slice(0, i) + c + w.slice(i + 1);\n                    if (words.has(cand) && !visited.has(cand)) {\n                        visited.add(cand);\n                        next.push(cand);\n                    }\n                }\n            }\n        }\n        q = next;\n        level += 1;\n    }\n    return 0;\n};\n"
+  },
+  "complexity": { "time": "O(N * L * 26)", "space": "O(N * L)" }
+}

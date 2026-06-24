@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-discards-to-balance-inventory",
+  "judge": "exact",
+  "pattern": "A single left-to-right pass with a per-type sliding-window count and a greedy keep-unless-it-overflows rule yields the fewest discards.",
+  "hints": [
+    "Process arrivals in order; the decision for each day only depends on how many of its type are still kept inside the trailing window of w days.",
+    "Expire kept arrivals once they fall out of the w-day window, then look at the current type's live count.",
+    "Keep the arrival if its type's count in the window is below m, otherwise discard it and tally the discard; greedily keeping whenever allowed is optimal because a kept item only ever blocks later identical items, which would themselves be discarded anyway."
+  ],
+  "constraints": [
+    { "param": "arrivals", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "w", "kind": "int", "value": [1, 100000] },
+    { "param": "m", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "nothing exceeds the window limit", "input": [[1, 2, 1, 3, 1], 4, 2] },
+    { "kind": "edge", "description": "one overflow discarded", "input": [[1, 2, 3, 3, 3, 4], 3, 2] },
+    { "kind": "trap", "description": "window of one allows one per day", "input": [[5, 5, 5, 5], 1, 1] },
+    { "kind": "boundary", "description": "single arrival", "input": [[7], 1, 1] },
+    { "kind": "trap", "description": "all same type with small limit", "input": [[2, 2, 2, 2, 2], 5, 2] },
+    { "kind": "edge", "description": "expiry frees the count again", "input": [[1, 1, 1, 1], 2, 1] }
+  ],
+  "stress": [
+    {
+      "description": "many arrivals over few types so windows fill up",
+      "seed": 61,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    types = rng.randrange(2, 8)\n    arrivals = [rng.randrange(1, types + 1) for _ in range(n)]\n    w = rng.randrange(1, n + 1)\n    m = rng.randrange(1, w + 1)\n    return [arrivals, w, m]\n",
+      "note": "few types and a sizable window create frequent overflow decisions"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minArrivalsToDiscard(self, arrivals, w, m):\n        # brute: recompute the kept-window count from scratch each day\n        kept = []  # list of (day, type) kept so far\n        discards = 0\n        for i, t in enumerate(arrivals):\n            day = i + 1\n            lo = max(1, day - w + 1)\n            cnt = 0\n            for (d, tt) in kept:\n                if lo <= d <= day and tt == t:\n                    cnt += 1\n            if cnt + 1 > m:\n                discards += 1\n            else:\n                kept.append((day, t))\n        return discards\n",
+  "solutions": {
+    "python": "class Solution:\n    def minArrivalsToDiscard(self, arrivals, w, m):\n        from collections import deque, defaultdict\n        counts = defaultdict(int)\n        kept = deque()  # (day, type) of kept arrivals\n        discards = 0\n        for i, t in enumerate(arrivals):\n            day = i + 1\n            lo = day - w + 1\n            while kept and kept[0][0] < lo:\n                d, tt = kept.popleft()\n                counts[tt] -= 1\n            if counts[t] + 1 > m:\n                discards += 1\n            else:\n                counts[t] += 1\n                kept.append((day, t))\n        return discards\n",
+    "javascript": "var minArrivalsToDiscard = function(arrivals, w, m) {\n    const counts = new Map();\n    const keptDay = [];\n    const keptType = [];\n    let head = 0;\n    let discards = 0;\n    for (let i = 0; i < arrivals.length; i++) {\n        const t = arrivals[i];\n        const day = i + 1;\n        const lo = day - w + 1;\n        while (head < keptDay.length && keptDay[head] < lo) {\n            const tt = keptType[head];\n            counts.set(tt, counts.get(tt) - 1);\n            head++;\n        }\n        if ((counts.get(t) || 0) + 1 > m) {\n            discards++;\n        } else {\n            counts.set(t, (counts.get(t) || 0) + 1);\n            keptDay.push(day);\n            keptType.push(t);\n        }\n    }\n    return discards;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "most-common-word",
+  "judge": "exact",
+  "pattern": "Normalising the paragraph to lowercase word tokens, skipping the banned set, and tallying frequencies yields the unique most frequent allowed word in one pass.",
+  "hints": [
+    "Treat any run of letters as a word and ignore everything else, comparing in lowercase so case does not matter.",
+    "Put the banned words in a set, split the paragraph into lowercase words, and count only the words that are not banned.",
+    "Tokenise on non-letter characters, lowercase each token, increment a counter for tokens outside the banned set, and return the key with the highest count."
+  ],
+  "constraints": [
+    { "param": "paragraph", "kind": "string", "len": [1, 1000] },
+    { "param": "banned", "kind": "string[]", "len": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example, banned top word leaves the runner-up", "input": ["Bob hit a ball, the hit BALL flew far after it was hit.", ["hit"]] },
+    { "kind": "boundary", "description": "single word with trailing punctuation, no banned words", "input": ["a.", []] },
+    { "kind": "trap", "description": "punctuation glued to words must be stripped", "input": ["Word, word; WORD! other.", []] },
+    { "kind": "edge", "description": "case folding unifies differently-cased copies", "input": ["Aa AA aa bb BB", []] },
+    { "kind": "trap", "description": "the overall most frequent word is banned", "input": ["one one two two two three", ["two"]] },
+    { "kind": "edge", "description": "multiple banned words", "input": ["red blue blue green green green", ["green", "blue"]] },
+    { "kind": "trap", "description": "apostrophe and semicolon as separators", "input": ["it's it's done; done done!", []] }
+  ],
+  "stress": [
+    {
+      "description": "random sentence with a planted clear winner and some banned words",
+      "seed": 31,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    pool = ['alpha', 'beta', 'gamma', 'delta', 'omega']\n    words = []\n    for _ in range(max(1, min(size, 150))):\n        words.append(rng.choice(pool))\n    words += ['winner'] * (len(words) + 5)\n    rng.shuffle(words)\n    seps = [' ', ', ', '. ', '! ', '; ']\n    text = ''\n    for i, w in enumerate(words):\n        if rng.random() < 0.5:\n            w = w.upper()\n        text += w + (rng.choice(seps) if i < len(words) - 1 else '.')\n    banned = rng.sample(pool, rng.randint(0, 2))\n    return [text[:1000], banned]\n",
+      "note": "the planted word \"winner\" is never banned so the unique-answer guarantee holds"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mostCommonWord(self, paragraph, banned):\n        banned_set = set(b.lower() for b in banned)\n        word = ''\n        counts = {}\n        for ch in paragraph + ' ':\n            if ch.isalpha():\n                word += ch.lower()\n            else:\n                if word and word not in banned_set:\n                    counts[word] = counts.get(word, 0) + 1\n                word = ''\n        best = None\n        best_c = -1\n        for w, c in counts.items():\n            if c > best_c:\n                best_c = c\n                best = w\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def mostCommonWord(self, paragraph, banned):\n        import re\n        banned_set = set(b.lower() for b in banned)\n        words = re.findall(r'[a-z]+', paragraph.lower())\n        from collections import Counter\n        counts = Counter(w for w in words if w not in banned_set)\n        return counts.most_common(1)[0][0]\n",
+    "javascript": "var mostCommonWord = function(paragraph, banned) {\n    const bannedSet = new Set(banned.map(b => b.toLowerCase()));\n    const words = paragraph.toLowerCase().match(/[a-z]+/g) || [];\n    const counts = new Map();\n    let best = null, bestC = -1;\n    for (const w of words) {\n        if (bannedSet.has(w)) continue;\n        const c = (counts.get(w) || 0) + 1;\n        counts.set(w, c);\n        if (c > bestC) { bestC = c; best = w; }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

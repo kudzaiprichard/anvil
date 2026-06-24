@@ -1,0 +1,39 @@
+{
+  "slug": "profitable-schemes",
+  "judge": "exact",
+  "pattern": "Count subsets with a knapsack-style dynamic program over members used and profit accumulated, clamping profit at the threshold so every state at or above it shares one bucket, accumulating counts modulo the fixed prime.",
+  "hints": [
+    "This is a counting knapsack: each crime is either included or skipped, and you want how many inclusion choices satisfy both a capacity and a floor.",
+    "Track states by members already committed and profit reached, but cap the profit dimension at the required minimum since any surplus is equivalent.",
+    "Process crimes one at a time, and for each, fold in the option of committing it when enough members remain; sum the counts at full-or-fewer members and at-or-above the profit floor, taking the modulus at every addition."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "minProfit", "kind": "int", "value": [0, 100] },
+    { "param": "group", "kind": "int[]", "len": [1, 100], "value": [1, 100] },
+    { "param": "profit", "kind": "int[]", "len": [1, 100], "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two crimes, two qualifying schemes", "input": [5, 3, [2, 2], [2, 3]] },
+    { "kind": "edge", "description": "any non-empty subset qualifies", "input": [10, 5, [2, 3, 5], [6, 7, 8]] },
+    { "kind": "trap", "description": "zero minimum profit counts the empty scheme too", "input": [5, 0, [2, 2], [2, 3]] },
+    { "kind": "boundary", "description": "single member cannot afford a two-member crime", "input": [1, 1, [2], [5]] },
+    { "kind": "edge", "description": "zero-profit crimes never reach a positive floor alone", "input": [4, 2, [1, 1, 1], [0, 0, 0]] },
+    { "kind": "trap", "description": "exactly enough members for one crime", "input": [3, 1, [3, 3], [4, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "small instances so the subset-enumeration oracle stays fast",
+      "seed": 31,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 12)))\n    n = rng.randint(1, 12)\n    minProfit = rng.randint(0, 8)\n    group = [rng.randint(1, 6) for _ in range(m)]\n    profit = [rng.randint(0, 6) for _ in range(m)]\n    return [n, minProfit, group, profit]\n",
+      "note": "crime count bounded so the brute oracle's 2^m enumeration is cheap"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def profitableSchemes(self, n, minProfit, group, profit):\n        MOD = 10 ** 9 + 7\n        m = len(group)\n        total = 0\n        for mask in range(1 << m):\n            members = 0\n            gain = 0\n            for i in range(m):\n                if mask & (1 << i):\n                    members += group[i]\n                    gain += profit[i]\n            if members <= n and gain >= minProfit:\n                total += 1\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def profitableSchemes(self, n, minProfit, group, profit):\n        MOD = 10 ** 9 + 7\n        dp = [[0] * (minProfit + 1) for _ in range(n + 1)]\n        dp[0][0] = 1\n        for g, p in zip(group, profit):\n            ndp = [row[:] for row in dp]\n            for used in range(n - g, -1, -1):\n                for pr in range(minProfit + 1):\n                    if dp[used][pr]:\n                        npr = min(minProfit, pr + p)\n                        ndp[used + g][npr] = (ndp[used + g][npr] + dp[used][pr]) % MOD\n            dp = ndp\n        return sum(dp[used][minProfit] for used in range(n + 1)) % MOD\n",
+    "javascript": "var profitableSchemes = function(n, minProfit, group, profit) {\n    const MOD = 1000000007;\n    let dp = Array.from({ length: n + 1 }, () => new Array(minProfit + 1).fill(0));\n    dp[0][0] = 1;\n    for (let c = 0; c < group.length; c++) {\n        const g = group[c], p = profit[c];\n        const ndp = dp.map(row => row.slice());\n        for (let used = n - g; used >= 0; used--) {\n            for (let pr = 0; pr <= minProfit; pr++) {\n                if (dp[used][pr]) {\n                    const npr = Math.min(minProfit, pr + p);\n                    ndp[used + g][npr] = (ndp[used + g][npr] + dp[used][pr]) % MOD;\n                }\n            }\n        }\n        dp = ndp;\n    }\n    let total = 0;\n    for (let used = 0; used <= n; used++) total = (total + dp[used][minProfit]) % MOD;\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(m * n * minProfit)", "space": "O(n * minProfit)" }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "remove-sub-folders-from-the-filesystem",
+  "judge": "unordered",
+  "pattern": "Sort the paths lexicographically so every sub-folder immediately follows its parent, then scan once keeping the last accepted ancestor to filter out children.",
+  "hints": [
+    "If you sort the folder list, every sub-folder of a given parent must appear directly after that parent in sorted order.",
+    "A path B is a sub-folder of A only when B starts with A followed by a slash; the trailing slash guards against a prefix like /a matching /ab.",
+    "Walk through the sorted list keeping track of the last path you accepted; skip the current path whenever it starts with that last-accepted path plus '/'."
+  ],
+  "constraints": [
+    { "param": "folder", "kind": "string[]", "len": [1, 40000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one path is nested inside another, one is independent", "input": [["/a", "/a/b", "/c/d", "/c/d/e", "/c/f"]] },
+    { "kind": "edge", "description": "all paths under a single root", "input": [["/a", "/a/b/c", "/a/b/d"]] },
+    { "kind": "trap", "description": "prefix match must require trailing slash — /a/b/ca is not under /a/b/c", "input": [["/a/b/c", "/a/b/ca", "/a/b/d"]] },
+    { "kind": "edge", "description": "single-element list", "input": [["/x/y/z"]] },
+    { "kind": "boundary", "description": "two paths, one nested", "input": [["/root", "/root/sub"]] },
+    { "kind": "trap", "description": "multiple levels of nesting — only top-level survives", "input": [["/a", "/a/b", "/a/b/c", "/a/b/c/d"]] },
+    { "kind": "trap", "description": "siblings that share a prefix should all survive", "input": [["/p/q", "/p/qr", "/p/q/s"]] }
+  ],
+  "stress": [
+    {
+      "description": "wide tree: many short top-level paths each with several sub-folders",
+      "seed": 17,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    roots = ['/r{}'.format(i) for i in range(min(50, n // 4 + 1))]\n    paths = set(roots[:])\n    while len(paths) < n:\n        base = rng.choice(roots)\n        depth = rng.randint(1, 4)\n        p = base\n        for _ in range(depth):\n            p += '/' + rng.choice(['a','b','c','d','e','f','g'])\n        paths.add(p)\n    return [list(paths)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def removeSubfolders(self, folder):\n        s = set(folder)\n        res = []\n        for f in folder:\n            parts = f.split('/')\n            dominated = False\n            for i in range(1, len(parts)):\n                ancestor = '/'.join(parts[:i])\n                if ancestor and ancestor in s:\n                    dominated = True\n                    break\n            if not dominated:\n                res.append(f)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def removeSubfolders(self, folder):\n        folder.sort()\n        res = []\n        last = None\n        for f in folder:\n            if last is None or not f.startswith(last + '/'):\n                res.append(f)\n                last = f\n        return res\n",
+    "javascript": "var removeSubfolders = function(folder) {\n    folder.sort();\n    const res = [];\n    let last = null;\n    for (const f of folder) {\n        if (last === null || !f.startsWith(last + '/')) {\n            res.push(f);\n            last = f;\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n log n * L)", "space": "O(n)" }
+}

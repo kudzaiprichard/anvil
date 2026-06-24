@@ -1,0 +1,89 @@
+{
+  "slug": "design-underground-system",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Storing check-in events by passenger id and accumulating per-route totals lets all three operations run in O(1) amortised time.",
+  "hints": [
+    "A check-out can only be recorded after a check-in, so the check-in station and time need to be retrievable by passenger id at check-out time.",
+    "For each (startStation, endStation) pair you only need the running total travel time and the number of completed trips — not every individual duration.",
+    "Store check-ins in one hash map keyed by passenger id; store route totals in a second hash map keyed by the station pair. getAverageTime is then a single lookup and a division."
+  ],
+  "constraints": [
+    { "param": "id", "kind": "int", "value": [1, 100000] },
+    { "param": "t", "kind": "int", "value": [1, 1000000] },
+    { "param": "stationName", "kind": "string", "len": [1, 10] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two passengers on same route, then query average",
+      "input": [
+        ["UndergroundSystem", "checkIn", "checkIn", "checkOut", "checkOut", "getAverageTime"],
+        [[], [45, "Leyton", 3], [32, "Paradise", 8], [45, "Waterloo", 15], [32, "Cambridge", 22], ["Paradise", "Cambridge"]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "same passenger makes two trips on the same route; average must reflect both",
+      "input": [
+        ["UndergroundSystem", "checkIn", "checkOut", "checkIn", "checkOut", "getAverageTime"],
+        [[], [10, "Alpha", 1], [10, "Beta", 11], [10, "Alpha", 20], [10, "Beta", 26], ["Alpha", "Beta"]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two different routes queried independently",
+      "input": [
+        ["UndergroundSystem", "checkIn", "checkOut", "checkIn", "checkOut", "getAverageTime", "getAverageTime"],
+        [[], [1, "A", 0], [1, "B", 10], [2, "C", 5], [2, "D", 20], ["A", "B"], ["C", "D"]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single trip, average equals that trip's duration",
+      "input": [
+        ["UndergroundSystem", "checkIn", "checkOut", "getAverageTime"],
+        [[], [99, "Start", 7], [99, "End", 19], ["Start", "End"]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "interspersed check-ins and check-outs for distinct passengers",
+      "input": [
+        ["UndergroundSystem", "checkIn", "checkIn", "checkIn", "checkOut", "checkOut", "checkOut", "getAverageTime", "getAverageTime"],
+        [[], [1, "X", 1], [2, "X", 2], [3, "X", 3], [1, "Y", 9], [2, "Y", 10], [3, "Y", 14], ["X", "Y"], ["X", "Y"]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "passenger re-uses the same id after their first trip completes",
+      "input": [
+        ["UndergroundSystem", "checkIn", "checkOut", "checkIn", "checkOut", "getAverageTime"],
+        [[], [5, "M", 10], [5, "N", 30], [5, "M", 50], [5, "N", 80], ["M", "N"]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three trips on the same route accumulate correctly",
+      "input": [
+        ["UndergroundSystem", "checkIn", "checkOut", "checkIn", "checkOut", "checkIn", "checkOut", "getAverageTime"],
+        [[], [1, "P", 0], [1, "Q", 6], [2, "P", 10], [2, "Q", 16], [3, "P", 20], [3, "Q", 29], ["P", "Q"]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long randomised sequence of check-ins and check-outs with occasional average queries",
+      "seed": 42,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    ops = ['UndergroundSystem']\n    args = [[]]\n    checked_in = {}\n    stations = ['A', 'B', 'C', 'D', 'E']\n    t = 1\n    for _ in range(size):\n        if checked_in and rng.random() < 0.4:\n            uid = rng.choice(list(checked_in.keys()))\n            station = rng.choice(stations)\n            t += rng.randint(1, 20)\n            ops.append('checkOut')\n            args.append([uid, station, t])\n            del checked_in[uid]\n        elif checked_in and rng.random() < 0.3:\n            uid = rng.randint(1, 1000)\n            if uid not in checked_in:\n                station = rng.choice(stations)\n                ops.append('checkIn')\n                args.append([uid, station, t])\n                checked_in[uid] = station\n                t += rng.randint(1, 5)\n        else:\n            uid = rng.randint(1, 1000)\n            if uid not in checked_in:\n                station = rng.choice(stations)\n                ops.append('checkIn')\n                args.append([uid, station, t])\n                checked_in[uid] = station\n                t += rng.randint(1, 5)\n    for uid in list(checked_in.keys()):\n        t += rng.randint(1, 20)\n        ops.append('checkOut')\n        args.append([uid, rng.choice(stations), t])\n    return [ops, args]\n",
+      "note": "keys drawn from a large id space; all checked-in passengers are checked out at the end"
+    }
+  ],
+  "oracle_python": "class UndergroundSystem:\n    def __init__(self):\n        self.check_ins = {}\n        self.route_data = {}\n    def checkIn(self, id, stationName, t):\n        self.check_ins[id] = (stationName, t)\n    def checkOut(self, id, stationName, t):\n        start_station, start_time = self.check_ins.pop(id)\n        key = (start_station, stationName)\n        if key not in self.route_data:\n            self.route_data[key] = [0, 0]\n        self.route_data[key][0] += t - start_time\n        self.route_data[key][1] += 1\n    def getAverageTime(self, startStation, endStation):\n        total, count = self.route_data[(startStation, endStation)]\n        return total / count\n",
+  "solutions": {
+    "python": "class UndergroundSystem:\n    def __init__(self):\n        self._check_ins = {}\n        self._routes = {}\n    def checkIn(self, id: int, stationName: str, t: int) -> None:\n        self._check_ins[id] = (stationName, t)\n    def checkOut(self, id: int, stationName: str, t: int) -> None:\n        src, t0 = self._check_ins.pop(id)\n        key = (src, stationName)\n        entry = self._routes.get(key)\n        if entry is None:\n            self._routes[key] = [t - t0, 1]\n        else:\n            entry[0] += t - t0\n            entry[1] += 1\n    def getAverageTime(self, startStation: str, endStation: str) -> float:\n        total, cnt = self._routes[(startStation, endStation)]\n        return total / cnt\n",
+    "javascript": "var UndergroundSystem = function() {\n    this.checkIns = {};\n    this.routes = {};\n};\nUndergroundSystem.prototype.checkIn = function(id, stationName, t) {\n    this.checkIns[id] = [stationName, t];\n};\nUndergroundSystem.prototype.checkOut = function(id, stationName, t) {\n    const [src, t0] = this.checkIns[id];\n    delete this.checkIns[id];\n    const key = src + '|' + stationName;\n    if (!this.routes[key]) this.routes[key] = [0, 0];\n    this.routes[key][0] += t - t0;\n    this.routes[key][1] += 1;\n};\nUndergroundSystem.prototype.getAverageTime = function(startStation, endStation) {\n    const [total, cnt] = this.routes[startStation + '|' + endStation];\n    return total / cnt;\n};\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(P + R) where P = active passengers, R = distinct routes" }
+}

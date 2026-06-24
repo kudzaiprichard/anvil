@@ -1,0 +1,239 @@
+{
+  "slug": "possible-bipartition",
+  "judge": "exact",
+  "pattern": "Graph two-coloring on the dislike relationship: if every connected component can be colored with two colors so that no dislike edge connects same-colored people, a valid split exists.",
+  "hints": [
+    "Build an undirected graph where an edge between two people means they dislike each other, then ask whether the graph is two-colorable.",
+    "Use BFS or DFS to color each unvisited person, assigning the opposite color to each neighbor; any conflict means two people in the same group dislike each other.",
+    "Process every connected component independently; if any component fails the two-coloring check, return false, otherwise return true."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        2000
+      ]
+    },
+    {
+      "param": "dislikes",
+      "kind": "int[][]",
+      "len": [
+        0,
+        10000
+      ],
+      "value": [
+        1,
+        2000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "four people with dislikes forming a bipartite structure",
+      "input": [
+        4,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "three people mutually disliking each other form an odd cycle impossible to split",
+      "input": [
+        3,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "five people with dislikes that still permit a valid partition",
+      "input": [
+        5,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            1,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single person no dislikes always splittable",
+      "input": [
+        1,
+        []
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two people who dislike each other trivially splits into one each",
+      "input": [
+        2,
+        [
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "odd cycle of length five cannot be two-colored",
+      "input": [
+        5,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "no dislikes at all everyone can go in one group",
+      "input": [
+        4,
+        []
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two separate components one of which is an odd cycle forces false",
+      "input": [
+        6,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "long even cycle is bipartite",
+      "input": [
+        6,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random graphs built from a planted bipartite structure occasionally with an odd cycle injected",
+      "seed": 17,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    side = [rng.randint(0, 1) for _ in range(n + 1)]\n    seen = set()\n    dislikes = []\n    # add cross-side edges to bias toward bipartite\n    for _ in range(min(n * 2, 200)):\n        a = rng.randint(1, n)\n        b = rng.randint(1, n)\n        if a == b:\n            continue\n        if side[a] == side[b]:\n            continue\n        key = (min(a, b), max(a, b))\n        if key in seen:\n            continue\n        seen.add(key)\n        dislikes.append([min(a, b), max(a, b)])\n    # occasionally inject a same-side edge creating an odd structure\n    if n >= 3 and rng.random() < 0.4:\n        same = [(a, b) for a in range(1, n+1) for b in range(a+1, n+1) if side[a] == side[b]]\n        if same:\n            a, b = rng.choice(same[:min(len(same), 100)])\n            key = (a, b)\n            if key not in seen:\n                seen.add(key)\n                dislikes.append([a, b])\n    return [n, dislikes]\n",
+      "note": "mixes clearly bipartite inputs with deliberately non-bipartite ones"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def possibleBipartition(self, n, dislikes):\n        import sys\n        sys.setrecursionlimit(10000)\n        from collections import defaultdict\n        adj = defaultdict(list)\n        for a, b in dislikes:\n            adj[a].append(b)\n            adj[b].append(a)\n        color = [0] * (n + 1)\n        def dfs(u, c):\n            color[u] = c\n            for v in adj[u]:\n                if color[v] == c:\n                    return False\n                if color[v] == 0 and not dfs(v, -c):\n                    return False\n            return True\n        for i in range(1, n + 1):\n            if color[i] == 0:\n                if not dfs(i, 1):\n                    return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def possibleBipartition(self, n, dislikes):\n        from collections import defaultdict, deque\n        adj = defaultdict(list)\n        for a, b in dislikes:\n            adj[a].append(b)\n            adj[b].append(a)\n        color = [0] * (n + 1)\n        for start in range(1, n + 1):\n            if color[start] != 0:\n                continue\n            color[start] = 1\n            q = deque([start])\n            while q:\n                u = q.popleft()\n                for v in adj[u]:\n                    if color[v] == 0:\n                        color[v] = -color[u]\n                        q.append(v)\n                    elif color[v] == color[u]:\n                        return False\n        return True\n",
+    "javascript": "var possibleBipartition = function(n, dislikes) {\n    const adj = Array.from({length: n + 1}, () => []);\n    for (const [a, b] of dislikes) {\n        adj[a].push(b);\n        adj[b].push(a);\n    }\n    const color = new Array(n + 1).fill(0);\n    for (let start = 1; start <= n; start++) {\n        if (color[start] !== 0) continue;\n        color[start] = 1;\n        const q = [start];\n        let head = 0;\n        while (head < q.length) {\n            const u = q[head++];\n            for (const v of adj[u]) {\n                if (color[v] === 0) {\n                    color[v] = -color[u];\n                    q.push(v);\n                } else if (color[v] === color[u]) {\n                    return false;\n                }\n            }\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + e)",
+    "space": "O(n + e)"
+  }
+}

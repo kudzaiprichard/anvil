@@ -1,0 +1,37 @@
+{
+  "slug": "making-a-large-island",
+  "judge": "exact",
+  "pattern": "Labelling each existing island with a unique id and its size, then for every empty cell summing the sizes of its distinct neighbouring islands plus one, finds the best single flip.",
+  "hints": [
+    "First measure the islands that already exist; flipping a cell can only ever merge the islands touching that cell.",
+    "Give every island a distinct id and record its area, then for each zero look at its up-to-four neighbours and add the areas of the distinct island ids around it.",
+    "The answer is the largest neighbour-area sum plus one over all zeros, or the whole grid if there are no zeros to flip."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 500], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example, flipping joins two singletons", "input": [[[1, 0], [0, 1]]] },
+    { "kind": "edge", "description": "second example, one flip extends an L shape", "input": [[[1, 1], [1, 0]]] },
+    { "kind": "trap", "description": "third example, no zero to flip, whole grid is the island", "input": [[[1, 1], [1, 1]]] },
+    { "kind": "boundary", "description": "single zero cell becomes size one", "input": [[[0]]] },
+    { "kind": "trap", "description": "all water, the one flip yields size one", "input": [[[0, 0], [0, 0]]] },
+    { "kind": "edge", "description": "central zero bridges four separate islands", "input": [[[1, 0, 1], [0, 0, 0], [1, 0, 1]]] },
+    { "kind": "trap", "description": "flip touches the same island twice, count it once", "input": [[[1, 1, 0], [0, 1, 0], [0, 0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random binary grid with a moderate density of ones",
+      "seed": 37,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 40))\n    grid = [[1 if rng.random() < 0.55 else 0 for _ in range(n)] for _ in range(n)]\n    return [grid]\n",
+      "note": "grid capped so the brute-force oracle stays well under the time limit"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestIsland(self, grid):\n        n = len(grid)\n        import copy\n\n        def area(g):\n            seen = [[False] * n for _ in range(n)]\n            best = 0\n            for i in range(n):\n                for j in range(n):\n                    if g[i][j] == 1 and not seen[i][j]:\n                        stack = [(i, j)]\n                        seen[i][j] = True\n                        cnt = 0\n                        while stack:\n                            x, y = stack.pop()\n                            cnt += 1\n                            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                                nx, ny = x + dx, y + dy\n                                if 0 <= nx < n and 0 <= ny < n and g[nx][ny] == 1 and not seen[nx][ny]:\n                                    seen[nx][ny] = True\n                                    stack.append((nx, ny))\n                        if cnt > best:\n                            best = cnt\n            return best\n\n        best = area(grid)\n        for i in range(n):\n            for j in range(n):\n                if grid[i][j] == 0:\n                    g2 = copy.deepcopy(grid)\n                    g2[i][j] = 1\n                    best = max(best, area(g2))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestIsland(self, grid):\n        n = len(grid)\n        label = [[0] * n for _ in range(n)]\n        sizes = {}\n        cur = 2\n        for i in range(n):\n            for j in range(n):\n                if grid[i][j] == 1 and label[i][j] == 0:\n                    stack = [(i, j)]\n                    label[i][j] = cur\n                    cells = 0\n                    while stack:\n                        x, y = stack.pop()\n                        cells += 1\n                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                            nx, ny = x + dx, y + dy\n                            if 0 <= nx < n and 0 <= ny < n and grid[nx][ny] == 1 and label[nx][ny] == 0:\n                                label[nx][ny] = cur\n                                stack.append((nx, ny))\n                    sizes[cur] = cells\n                    cur += 1\n        best = max(sizes.values()) if sizes else 0\n        for i in range(n):\n            for j in range(n):\n                if grid[i][j] == 0:\n                    seen = set()\n                    total = 1\n                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                        nx, ny = i + dx, j + dy\n                        if 0 <= nx < n and 0 <= ny < n:\n                            lab = label[nx][ny]\n                            if lab and lab not in seen:\n                                seen.add(lab)\n                                total += sizes[lab]\n                    best = max(best, total)\n        return best\n",
+    "javascript": "var largestIsland = function(grid) {\n    const n = grid.length;\n    const label = Array.from({length: n}, () => new Array(n).fill(0));\n    const sizes = new Map();\n    let cur = 2;\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < n; j++) {\n            if (grid[i][j] === 1 && label[i][j] === 0) {\n                const stack = [[i, j]];\n                label[i][j] = cur;\n                let cells = 0;\n                while (stack.length) {\n                    const [x, y] = stack.pop();\n                    cells++;\n                    for (const [dx, dy] of dirs) {\n                        const nx = x + dx, ny = y + dy;\n                        if (nx >= 0 && nx < n && ny >= 0 && ny < n && grid[nx][ny] === 1 && label[nx][ny] === 0) {\n                            label[nx][ny] = cur;\n                            stack.push([nx, ny]);\n                        }\n                    }\n                }\n                sizes.set(cur, cells);\n                cur++;\n            }\n        }\n    }\n    let best = 0;\n    for (const v of sizes.values()) best = Math.max(best, v);\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < n; j++) {\n            if (grid[i][j] === 0) {\n                const seen = new Set();\n                let total = 1;\n                for (const [dx, dy] of dirs) {\n                    const nx = i + dx, ny = j + dy;\n                    if (nx >= 0 && nx < n && ny >= 0 && ny < n) {\n                        const lab = label[nx][ny];\n                        if (lab && !seen.has(lab)) {\n                            seen.add(lab);\n                            total += sizes.get(lab);\n                        }\n                    }\n                }\n                best = Math.max(best, total);\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

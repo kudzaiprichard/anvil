@@ -1,0 +1,38 @@
+{
+  "slug": "loud-and-rich",
+  "judge": "exact",
+  "pattern": "Reverse the richer relation into a directed graph, then a memoized depth-first search lets each person inherit the quietest answer reachable among everyone at least as rich.",
+  "hints": [
+    "For each person, the candidates are themselves plus everyone who is definitely at least as rich, so think about the chain of \"richer than\" relations leading toward them.",
+    "Build edges pointing from a richer person to a poorer one; the answer for a person is the quietest result among that person and the people who reach them.",
+    "Memoize: answer(x) is x unless some person y richer than x has a quieter best answer, in which case answer(x) inherits answer(y). Cache each computed result to keep it linear."
+  ],
+  "constraints": [
+    { "param": "richer", "kind": "int[][]", "len": [0, 124750] },
+    { "param": "quiet", "kind": "int[]", "len": [1, 500], "value": [0, 499] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "chains and branches where quiet inheritance flows down several levels", "input": [[[1, 0], [2, 1], [3, 1], [3, 7], [4, 3], [5, 3], [6, 3]], [3, 2, 5, 4, 6, 1, 7, 0]] },
+    { "kind": "boundary", "description": "single person with no relations answers themselves", "input": [[], [0]] },
+    { "kind": "edge", "description": "no relations means everyone answers themselves", "input": [[], [2, 0, 1]] },
+    { "kind": "trap", "description": "a richer person who is louder must not override a quieter poorer one", "input": [[[0, 1]], [0, 1]] },
+    { "kind": "trap", "description": "richer person is quieter so the poorer one inherits", "input": [[[0, 1]], [1, 0]] },
+    { "kind": "edge", "description": "single rich source dominating a fan-out of poorer people", "input": [[[0, 1], [0, 2], [0, 3]], [3, 1, 2, 0]] },
+    { "kind": "edge", "description": "linear chain so the richest quiet person propagates to all", "input": [[[3, 2], [2, 1], [1, 0]], [4, 3, 2, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random consistent DAG built by only adding edges from lower to higher index, guaranteeing no cycles",
+      "seed": 17,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    quiet = list(range(n))\n    rng.shuffle(quiet)\n    richer = []\n    seen = set()\n    # edge a->b means a richer than b; only allow a<b to stay acyclic\n    pairs = max(0, n - 1)\n    for _ in range(pairs):\n        a = rng.randint(0, n - 2)\n        b = rng.randint(a + 1, n - 1)\n        if (a, b) not in seen:\n            seen.add((a, b))\n            richer.append([a, b])\n    return [richer, quiet]\n",
+      "note": "constraining a<b keeps the richer relation logically consistent (acyclic)"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def loudAndRich(self, richer, quiet):\n        n = len(quiet)\n        # Brute: for each person, BFS over everyone definitely at least as rich.\n        # reverse[b] = list of people richer than b\n        reverse = {i: [] for i in range(n)}\n        for a, b in richer:\n            reverse[b].append(a)\n        ans = []\n        for x in range(n):\n            best = x\n            stack = [x]\n            seen = {x}\n            while stack:\n                cur = stack.pop()\n                if quiet[cur] < quiet[best]:\n                    best = cur\n                for nxt in reverse[cur]:\n                    if nxt not in seen:\n                        seen.add(nxt)\n                        stack.append(nxt)\n            ans.append(best)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def loudAndRich(self, richer, quiet):\n        n = len(quiet)\n        graph = {i: [] for i in range(n)}\n        for a, b in richer:\n            graph[b].append(a)\n        ans = [-1] * n\n        def dfs(x):\n            if ans[x] != -1:\n                return ans[x]\n            best = x\n            for y in graph[x]:\n                cand = dfs(y)\n                if quiet[cand] < quiet[best]:\n                    best = cand\n            ans[x] = best\n            return best\n        for i in range(n):\n            dfs(i)\n        return ans\n",
+    "javascript": "var loudAndRich = function(richer, quiet) {\n    const n = quiet.length;\n    const graph = Array.from({ length: n }, () => []);\n    for (const [a, b] of richer) graph[b].push(a);\n    const ans = new Array(n).fill(-1);\n    const dfs = (x) => {\n        if (ans[x] !== -1) return ans[x];\n        let best = x;\n        for (const y of graph[x]) {\n            const cand = dfs(y);\n            if (quiet[cand] < quiet[best]) best = cand;\n        }\n        ans[x] = best;\n        return best;\n    };\n    for (let i = 0; i < n; i++) dfs(i);\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n + e)", "space": "O(n + e)" }
+}

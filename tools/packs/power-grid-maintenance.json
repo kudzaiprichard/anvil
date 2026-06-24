@@ -1,0 +1,38 @@
+{
+  "slug": "power-grid-maintenance",
+  "judge": "exact",
+  "pattern": "Connectivity is fixed, so a union-find groups the stations once and each grid keeps a lazily-cleaned min-heap of its still-online members to answer smallest-online lookups quickly.",
+  "hints": [
+    "The cables never change, so the grids (connected components) can be computed up front with union-find.",
+    "For each grid you need the smallest id that is still online; a min-heap per grid gives that, with offline ids skipped lazily.",
+    "On a check, if the station is online answer it directly; otherwise pop stale (offline) entries off its grid's heap until the top is online, or report -1 if the heap empties."
+  ],
+  "constraints": [
+    { "param": "c", "kind": "int", "value": [1, 100000] },
+    { "param": "connections", "kind": "int[][]", "len": [0, 100000], "value": [1, 100000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 200000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a chain grid with stations going offline", "input": [5, [[1, 2], [2, 3], [3, 4], [4, 5]], [[1, 3], [2, 1], [1, 1], [2, 2], [1, 2]]] },
+    { "kind": "edge", "description": "isolated stations, one becomes unrecoverable", "input": [3, [], [[1, 1], [2, 1], [1, 1]]] },
+    { "kind": "boundary", "description": "single station offline then checked", "input": [1, [], [[1, 1], [2, 1], [1, 1]]] },
+    { "kind": "trap", "description": "smallest id offline forces fallback to next id", "input": [4, [[1, 2], [2, 3], [3, 4]], [[2, 1], [1, 1], [2, 2], [1, 2], [1, 3]]] },
+    { "kind": "trap", "description": "two separate grids do not rescue each other", "input": [4, [[1, 2], [3, 4]], [[2, 1], [1, 1], [2, 3], [1, 3], [1, 2]]] },
+    { "kind": "trap", "description": "online station resolves itself regardless of smaller offline ids", "input": [3, [[1, 2], [2, 3]], [[2, 1], [1, 2], [1, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random grids, interleaved offline and check queries",
+      "seed": 91,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    c = max(1, size)\n    m = rng.randint(0, min(2 * c, 300))\n    connections = []\n    for _ in range(m):\n        u = rng.randint(1, c)\n        v = rng.randint(1, c)\n        if u != v:\n            connections.append([u, v])\n    q = rng.randint(1, 400)\n    queries = []\n    for _ in range(q):\n        if rng.random() < 0.5:\n            queries.append([1, rng.randint(1, c)])\n        else:\n            queries.append([2, rng.randint(1, c)])\n    return [c, connections, queries]\n",
+      "note": "mixes checks and outages so the -1 and fallback paths both fire"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def processQueries(self, c, connections, queries):\n        parent = list(range(c + 1))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        for u, v in connections:\n            parent[find(u)] = find(v)\n        online = [True] * (c + 1)\n        from collections import defaultdict\n        members = defaultdict(list)\n        for s in range(1, c + 1):\n            members[find(s)].append(s)\n        res = []\n        for t, x in queries:\n            if t == 2:\n                online[x] = False\n            else:\n                if online[x]:\n                    res.append(x)\n                else:\n                    r = find(x)\n                    best = -1\n                    for s in members[r]:\n                        if online[s]:\n                            best = s\n                            break\n                    res.append(best)\n        return res\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def processQueries(self, c, connections, queries):\n        parent = list(range(c + 1))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        for u, v in connections:\n            ru, rv = find(u), find(v)\n            if ru != rv:\n                parent[ru] = rv\n        from collections import defaultdict\n        heaps = defaultdict(list)\n        for s in range(1, c + 1):\n            heaps[find(s)].append(s)\n        for r in heaps:\n            heapq.heapify(heaps[r])\n        online = [True] * (c + 1)\n        res = []\n        for t, x in queries:\n            if t == 2:\n                online[x] = False\n            else:\n                if online[x]:\n                    res.append(x)\n                    continue\n                h = heaps[find(x)]\n                while h and not online[h[0]]:\n                    heapq.heappop(h)\n                res.append(h[0] if h else -1)\n        return res\n",
+    "javascript": "class MinHeap {\n    constructor(arr) { this.a = arr; this._build(); }\n    _build() { for (let i = (this.a.length >> 1) - 1; i >= 0; i--) this._down(i); }\n    _down(i) { const a = this.a, n = a.length; while (true) { let s = i, l = 2 * i + 1, r = 2 * i + 2; if (l < n && a[l] < a[s]) s = l; if (r < n && a[r] < a[s]) s = r; if (s === i) break; [a[i], a[s]] = [a[s], a[i]]; i = s; } }\n    peek() { return this.a.length ? this.a[0] : undefined; }\n    pop() { const a = this.a; const t = a[0]; const last = a.pop(); if (a.length) { a[0] = last; this._down(0); } return t; }\n    get size() { return this.a.length; }\n}\nvar processQueries = function(c, connections, queries) {\n    const parent = new Array(c + 1);\n    for (let i = 0; i <= c; i++) parent[i] = i;\n    function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }\n    for (const [u, v] of connections) { const ru = find(u), rv = find(v); if (ru !== rv) parent[ru] = rv; }\n    const buckets = new Map();\n    for (let s = 1; s <= c; s++) { const r = find(s); if (!buckets.has(r)) buckets.set(r, []); buckets.get(r).push(s); }\n    const heaps = new Map();\n    for (const [r, arr] of buckets) heaps.set(r, new MinHeap(arr));\n    const online = new Array(c + 1).fill(true);\n    const res = [];\n    for (const [t, x] of queries) {\n        if (t === 2) { online[x] = false; }\n        else {\n            if (online[x]) { res.push(x); continue; }\n            const h = heaps.get(find(x));\n            while (h.size && !online[h.peek()]) h.pop();\n            res.push(h.size ? h.peek() : -1);\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O((c + q) log c)", "space": "O(c)" }
+}

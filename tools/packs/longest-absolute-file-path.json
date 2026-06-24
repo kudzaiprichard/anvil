@@ -1,0 +1,38 @@
+{
+  "slug": "longest-absolute-file-path",
+  "judge": "exact",
+  "pattern": "A stack keyed on indentation depth tracks the accumulated path length at each directory level so the longest file path can be read off in one linear scan.",
+  "hints": [
+    "Split on newlines and measure the leading tab count to find the depth of each entry; an entry with a dot in its name is a file.",
+    "Maintain a stack where stack[d] holds the total character count of the path down to depth d (not counting the final slash); when you see a file at depth d, the answer candidate is stack[d-1] + 1 + len(name).",
+    "Push len(name) + stack[d-1] + 1 (for the slash) onto position d of the stack for directories, and update the global maximum only when the entry is a file."
+  ],
+  "constraints": [
+    { "param": "input", "kind": "string", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single directory, no files", "input": ["a"] },
+    { "kind": "edge", "description": "single file at root level", "input": ["file.txt"] },
+    { "kind": "edge", "description": "shallow two-level path with one file", "input": ["dir\n\tsubdir1\n\tsubdir2\n\t\tfile.ext"] },
+    { "kind": "edge", "description": "deep nesting with two files, pick the longer", "input": ["dir\n\tsubdir1\n\t\tfile1.ext\n\t\tsubsubdir1\n\tsubdir2\n\t\tsubsubdir2\n\t\t\tfile2.ext"] },
+    { "kind": "trap", "description": "directory name that contains a dot (should not count as file)", "input": ["dir.conf\n\tfile.txt"] },
+    { "kind": "trap", "description": "all directories, no files, must return 0", "input": ["root\n\tsub1\n\t\tsub2\n\t\t\tsub3"] },
+    { "kind": "boundary", "description": "file name at maximum depth causing long path", "input": ["a\n\tb\n\t\tc\n\t\t\td.txt"] },
+    { "kind": "trap", "description": "file with spaces in name", "input": ["dir\n\tmy file.txt"] }
+  ],
+  "stress": [
+    {
+      "description": "valid tree with many files at varying depths",
+      "seed": 3,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    # Build a valid tree: each entry's depth <= parent_depth + 1\n    parts = []\n    cur_depth = 0\n    for i in range(size):\n        # depth can stay, go one deeper, or come back up\n        if cur_depth == 0:\n            depth = 0\n        else:\n            step = rng.choice([-1, 0, 1])\n            depth = max(0, min(3, cur_depth + step))\n        # only go deeper if parent exists\n        if depth > cur_depth + 1:\n            depth = cur_depth + 1\n        tabs = '\\t' * depth\n        if i == size - 1 or rng.random() < 0.35:\n            parts.append(tabs + 'file' + str(i) + '.txt')\n            cur_depth = max(0, depth - 1)\n        else:\n            parts.append(tabs + 'dir' + str(i))\n            cur_depth = depth\n    if not parts:\n        parts = ['root']\n    return ['\\n'.join(parts)]\n",
+      "note": "valid filesystem hierarchy with files at various depths"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def lengthLongestPath(self, input: str) -> int:\n        # Build actual path strings tracking depth -> cumulative path length\n        lines = input.split('\\n')\n        # depth_len[d] = length of path string up to and including depth d\n        depth_len = {-1: 0}\n        best = 0\n        for line in lines:\n            depth = len(line) - len(line.lstrip('\\t'))\n            name = line[depth:]\n            parent_len = depth_len.get(depth - 1, 0)\n            cur_len = parent_len + (1 if depth > 0 else 0) + len(name)\n            if '.' in name:\n                best = max(best, cur_len)\n            else:\n                depth_len[depth] = cur_len\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def lengthLongestPath(self, input: str) -> int:\n        # stack[d] = total chars in path up to and including depth d, with slashes\n        stack = {-1: 0}\n        best = 0\n        for line in input.split('\\n'):\n            depth = len(line) - len(line.lstrip('\\t'))\n            name = line[depth:]\n            parent_len = stack.get(depth - 1, 0)\n            cur_len = parent_len + (1 if depth > 0 else 0) + len(name)\n            if '.' in name:\n                best = max(best, cur_len)\n            else:\n                stack[depth] = cur_len\n        return best\n",
+    "javascript": "var lengthLongestPath = function(input) {\n    const stack = {};\n    stack[-1] = 0;\n    let best = 0;\n    for (const line of input.split('\\n')) {\n        let depth = 0;\n        while (depth < line.length && line[depth] === '\\t') depth++;\n        const name = line.slice(depth);\n        const parentLen = (stack[depth - 1] !== undefined ? stack[depth - 1] : 0);\n        const curLen = parentLen + (depth > 0 ? 1 : 0) + name.length;\n        if (name.includes('.')) {\n            best = Math.max(best, curLen);\n        } else {\n            stack[depth] = curLen;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

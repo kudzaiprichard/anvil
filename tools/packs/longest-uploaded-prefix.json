@@ -1,0 +1,88 @@
+{
+  "slug": "longest-uploaded-prefix",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Maintain a pointer at the current contiguous prefix end and a set of arrived-but-not-yet-joined videos; advancing the pointer on each upload query keeps longest() O(1).",
+  "hints": [
+    "The prefix length only grows — it never shrinks — so you can track a single 'frontier' value and advance it whenever the next expected video arrives.",
+    "When a video that fills the gap is uploaded, you may need to advance the frontier past multiple already-uploaded later videos.",
+    "Use a boolean array or a set to record which videos have arrived, then on each upload walk the frontier forward as far as it can go."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "video", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "uploads arrive out of order; prefix jumps when gap is filled",
+      "input": [
+        ["LUPrefix", "upload", "longest", "upload", "longest", "upload", "longest"],
+        [[4], [3], [], [1], [], [2], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "uploads arrive in order 1..n; prefix grows each step",
+      "input": [
+        ["LUPrefix", "upload", "longest", "upload", "longest", "upload", "longest"],
+        [[3], [1], [], [2], [], [3], []]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "only n=1, upload video 1 then query",
+      "input": [
+        ["LUPrefix", "upload", "longest"],
+        [[1], [1], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no upload of video 1 at all; longest stays 0",
+      "input": [
+        ["LUPrefix", "upload", "longest", "upload", "longest"],
+        [[5], [3], [], [4], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "last video uploaded; prefix completes all the way to n",
+      "input": [
+        ["LUPrefix", "upload", "upload", "upload", "upload", "upload", "longest"],
+        [[5], [5], [4], [3], [2], [1], []]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "query longest before any upload",
+      "input": [
+        ["LUPrefix", "longest"],
+        [[3], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "many uploads skipping 1, then uploading 1 at the end collapses the whole gap",
+      "input": [
+        ["LUPrefix", "upload", "upload", "upload", "longest", "upload", "longest"],
+        [[4], [4], [3], [2], [], [1], []]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random permutation of 1..n uploaded one by one with longest queries interspersed",
+      "seed": 7,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    perm = list(range(1, n + 1))\n    rng.shuffle(perm)\n    ops = ['LUPrefix']\n    args = [[n]]\n    for v in perm:\n        ops.append('upload'); args.append([v])\n        if rng.random() < 0.3:\n            ops.append('longest'); args.append([])\n    ops.append('longest'); args.append([])\n    return [ops, args]\n",
+      "note": "shuffled upload order; final longest must equal n"
+    }
+  ],
+  "oracle_python": "class LUPrefix:\n    def __init__(self, n):\n        self.uploaded = set()\n        self.prefix = 0\n        self.n = n\n    def upload(self, video):\n        self.uploaded.add(video)\n        while self.prefix + 1 in self.uploaded:\n            self.prefix += 1\n    def longest(self):\n        return self.prefix\n",
+  "solutions": {
+    "python": "class LUPrefix:\n    def __init__(self, n: int):\n        self.seen = [False] * (n + 2)\n        self.frontier = 0\n    def upload(self, video: int) -> None:\n        self.seen[video] = True\n        while self.seen[self.frontier + 1]:\n            self.frontier += 1\n    def longest(self) -> int:\n        return self.frontier\n",
+    "javascript": "class LUPrefix {\n    constructor(n) {\n        this.seen = new Uint8Array(n + 2);\n        this.frontier = 0;\n    }\n    upload(video) {\n        this.seen[video] = 1;\n        while (this.seen[this.frontier + 1]) this.frontier++;\n    }\n    longest() {\n        return this.frontier;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) total amortized", "space": "O(n)" }
+}

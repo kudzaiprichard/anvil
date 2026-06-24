@@ -1,0 +1,46 @@
+{
+  "slug": "maximum-number-of-removable-characters",
+  "judge": "exact",
+  "pattern": "The property is monotone in k, so binary-search the answer and for each candidate mark the first k removable indices and verify p is still a subsequence of the surviving characters.",
+  "hints": [
+    "If removing the first k indices keeps p a subsequence, removing any fewer also does, so the feasible k form a prefix.",
+    "Binary-search the largest valid k; the check is a single subsequence test over s with the first k removable positions deleted.",
+    "For a candidate k, build a boolean removed set of those indices and run a two-pointer subsequence match skipping removed characters."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] },
+    { "param": "p", "kind": "string", "len": [1, 100000] },
+    { "param": "removable", "kind": "int[]", "len": [0, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two removals keep p a subsequence", "input": ["abcacb", "ab", [3,1,0]] },
+    { "kind": "edge", "description": "only one removal allowed", "input": ["abcbddddd", "abcd", [3,2,1,4,5,6]] },
+    { "kind": "trap", "description": "first removal already breaks p", "input": ["abcab", "abc", [0,1,2,3,4]] },
+    { "kind": "boundary", "description": "empty removable list yields zero", "input": ["abc", "abc", []] },
+    { "kind": "edge", "description": "p equals s, removing non-essential duplicates", "input": ["aaa", "a", [0,1]] },
+    { "kind": "trap", "description": "removable order matters, later index needed first", "input": ["aabb", "ab", [1,2]] },
+    { "kind": "boundary", "description": "single character p and s", "input": ["a", "a", [0]] }
+  ],
+  "stress": [
+    {
+      "description": "random s with p a guaranteed subsequence and a random removable permutation subset",
+      "seed": 71,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 400)\n    s = ''.join(rng.choice('abc') for _ in range(n))\n    # pick p as a random subsequence (non-empty)\n    idxs = sorted(rng.sample(range(n), rng.randint(1, n)))\n    p = ''.join(s[i] for i in idxs)\n    # removable is a subset of indices, shuffled\n    rcount = rng.randint(0, n - 1)\n    rem = rng.sample(range(n), rcount)\n    rng.shuffle(rem)\n    return [s, p, rem]\n",
+      "note": "p always a valid subsequence by construction"
+    },
+    {
+      "description": "small alphabet long strings to stress the subsequence checks",
+      "seed": 72,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(50, 600)\n    s = ''.join(rng.choice('ab') for _ in range(n))\n    idxs = sorted(rng.sample(range(n), rng.randint(1, n)))\n    p = ''.join(s[i] for i in idxs)\n    rcount = rng.randint(0, n - 1)\n    rem = rng.sample(range(n), rcount)\n    rng.shuffle(rem)\n    return [s, p, rem]\n",
+      "note": "binary alphabet edge structure"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumRemovals(self, s, p, removable):\n        # Independent: linear scan increasing k, rebuilding the removed set each time but stop early.\n        n = len(s)\n        def ok(k):\n            removed = [False] * n\n            for i in range(k):\n                removed[removable[i]] = True\n            j = 0\n            for i in range(n):\n                if removed[i]:\n                    continue\n                if j < len(p) and s[i] == p[j]:\n                    j += 1\n            return j == len(p)\n        # linear is fine for stress sizes (n<=600), test descending and return first ok\n        for k in range(len(removable), -1, -1):\n            if ok(k):\n                return k\n        return 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumRemovals(self, s, p, removable):\n        n = len(s)\n        def ok(k):\n            removed = [False] * n\n            for i in range(k):\n                removed[removable[i]] = True\n            j = 0\n            m = len(p)\n            for i in range(n):\n                if removed[i]:\n                    continue\n                if j < m and s[i] == p[j]:\n                    j += 1\n                    if j == m:\n                        return True\n            return j == m\n        lo, hi = 0, len(removable)\n        ans = 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if ok(mid):\n                ans = mid\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        return ans\n",
+    "javascript": "var maximumRemovals = function(s, p, removable) {\n    const n = s.length, m = p.length;\n    const ok = (k) => {\n        const removed = new Uint8Array(n);\n        for (let i = 0; i < k; i++) removed[removable[i]] = 1;\n        let j = 0;\n        for (let i = 0; i < n; i++) {\n            if (removed[i]) continue;\n            if (j < m && s[i] === p[j]) {\n                j++;\n                if (j === m) return true;\n            }\n        }\n        return j === m;\n    };\n    let lo = 0, hi = removable.length, ans = 0;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (ok(mid)) { ans = mid; lo = mid + 1; }\n        else hi = mid - 1;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log r)", "space": "O(n)" }
+}

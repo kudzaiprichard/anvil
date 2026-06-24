@@ -1,0 +1,40 @@
+{
+  "slug": "trim-a-binary-search-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json", "json"], "returns": "tree" },
+  "pattern": "The ordering of a search tree means that if a node's value is below the lower bound its entire left side is too, and above the upper bound its entire right side is too, so whole branches can be skipped at once.",
+  "hints": [
+    "When a node's value is too small, nothing in its left subtree can survive, so the answer lives somewhere to its right.",
+    "Symmetrically, a value above the high bound discards its right subtree, leaving only its left side to consider.",
+    "Recurse: if the value is below low return the trimmed right child, if above high return the trimmed left child, otherwise keep the node and trim both children."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 10000], "value": [0, 10000] },
+    { "param": "low", "kind": "int", "value": [0, 10000] },
+    { "param": "high", "kind": "int", "value": [0, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "trimming removes a value below the lower bound", "input": [[1, 0, 2], 1, 2] },
+    { "kind": "edge", "description": "the root itself is replaced and structure preserved", "input": [[3, 0, 4, null, 2, null, null, 1], 1, 3] },
+    { "kind": "boundary", "description": "single node inside the range survives", "input": [[5], 1, 10] },
+    { "kind": "boundary", "description": "single node outside the range is removed entirely", "input": [[5], 6, 10] },
+    { "kind": "trap", "description": "low and high collapse to a single permitted value", "input": [[2, 1, 3], 2, 2] },
+    { "kind": "trap", "description": "right-skewed chain trimmed from both ends", "input": [[1, null, 2, null, 3, null, 4, null, 5], 2, 4] },
+    { "kind": "edge", "description": "bounds cover everything so the tree is unchanged", "input": [[4, 2, 6, 1, 3, 5, 7], 0, 10000] }
+  ],
+  "stress": [
+    {
+      "description": "random BST from a shuffled permutation with random in-range bounds",
+      "seed": 67,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    vals = rng.sample(range(0, 10001), n)\n    order = vals[:]\n    rng.shuffle(order)\n    root = None\n    nodes = {}\n    def insert(v):\n        nonlocal root\n        if root is None:\n            root = v; nodes[v] = [None, None]; return\n        cur = root\n        while True:\n            l, r = nodes[cur]\n            if v < cur:\n                if l is None:\n                    nodes[cur][0] = v; nodes[v] = [None, None]; return\n                cur = l\n            else:\n                if r is None:\n                    nodes[cur][1] = v; nodes[v] = [None, None]; return\n                cur = r\n    for v in order:\n        insert(v)\n    out = []\n    from collections import deque\n    q = deque([root])\n    while q:\n        cur = q.popleft()\n        if cur is None:\n            out.append(None); continue\n        out.append(cur)\n        cl, cr = nodes[cur]\n        q.append(cl); q.append(cr)\n    while out and out[-1] is None:\n        out.pop()\n    a = rng.randint(0, 10000)\n    b = rng.randint(0, 10000)\n    low, high = min(a, b), max(a, b)\n    return [out, low, high]\n",
+      "note": "bounds are clamped to low<=high within the value range"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def trimBST(self, root, low, high):\n        # independent: rebuild the surviving tree by walking the whole tree and\n        # re-inserting each in-range value in pre-order into a fresh BST. Since the\n        # source is a BST and pre-order insertion of a BST's nodes reproduces the\n        # original shape, the trimmed result preserves relative structure.\n        order = []\n        def pre(node):\n            if not node:\n                return\n            order.append(node.val)\n            pre(node.left)\n            pre(node.right)\n        pre(root)\n        new_root = None\n        def insert(v):\n            nonlocal new_root\n            if new_root is None:\n                new_root = TreeNode(v)\n                return\n            cur = new_root\n            while True:\n                if v < cur.val:\n                    if cur.left is None:\n                        cur.left = TreeNode(v); return\n                    cur = cur.left\n                else:\n                    if cur.right is None:\n                        cur.right = TreeNode(v); return\n                    cur = cur.right\n        for v in order:\n            if low <= v <= high:\n                insert(v)\n        return new_root\n",
+  "solutions": {
+    "python": "class Solution:\n    def trimBST(self, root, low, high):\n        if not root:\n            return None\n        if root.val < low:\n            return self.trimBST(root.right, low, high)\n        if root.val > high:\n            return self.trimBST(root.left, low, high)\n        root.left = self.trimBST(root.left, low, high)\n        root.right = self.trimBST(root.right, low, high)\n        return root\n",
+    "javascript": "var trimBST = function(root, low, high) {\n    if (!root) return null;\n    if (root.val < low) return trimBST(root.right, low, high);\n    if (root.val > high) return trimBST(root.left, low, high);\n    root.left = trimBST(root.left, low, high);\n    root.right = trimBST(root.right, low, high);\n    return root;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

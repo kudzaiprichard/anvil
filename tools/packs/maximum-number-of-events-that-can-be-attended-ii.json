@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-number-of-events-that-can-be-attended-ii",
+  "judge": "exact",
+  "pattern": "Weighted interval scheduling with a cap on the count: sort by start, then DP over events and remaining picks using binary search to skip overlaps.",
+  "hints": [
+    "This is weighted interval scheduling, but you may attend at most k events, so the state must include how many picks remain.",
+    "Sort events by start day; for each event decide to skip it or take it and jump to the first later event that starts after this one ends.",
+    "Define dp[i][j] = best value using events from index i with j picks left; binary search the next non-overlapping start, and memoize over (index, picks)."
+  ],
+  "constraints": [
+    { "param": "events", "kind": "int[][]", "len": [1, 1000000], "value": [1, 1000000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two non-overlapping events both attended", "input": [[[1, 2, 4], [3, 4, 3], [2, 3, 1]], 2] },
+    { "kind": "trap", "description": "one high-value event beats two cheaper overlapping ones", "input": [[[1, 2, 4], [3, 4, 3], [2, 3, 10]], 2] },
+    { "kind": "trap", "description": "more events than k forces choosing the top k", "input": [[[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]], 3] },
+    { "kind": "boundary", "description": "single event, k equals one", "input": [[[1, 5, 9]], 1] },
+    { "kind": "edge", "description": "adjacent days end-start clash cannot both be taken", "input": [[[1, 3, 5], [3, 5, 6]], 2] },
+    { "kind": "edge", "description": "k larger than usable disjoint set", "input": [[[1, 10, 5], [2, 9, 4], [3, 8, 3]], 5] },
+    { "kind": "trap", "description": "skipping a wide low-value event for two narrow high-value ones", "input": [[[1, 6, 4], [1, 2, 5], [4, 5, 5]], 2] }
+  ],
+  "stress": [
+    {
+      "description": "many short events on a compact day range with small k",
+      "seed": 23,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    events = []\n    for _ in range(n):\n        s = rng.randrange(1, 60)\n        e = s + rng.randrange(0, 6)\n        v = rng.randrange(1, 100)\n        events.append([s, e, v])\n    k = rng.randrange(1, min(n, 8) + 1)\n    return [events, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxValue(self, events, k):\n        events = sorted(events)\n        n = len(events)\n        from functools import lru_cache\n        import sys\n        sys.setrecursionlimit(10000)\n\n        def nxt(i):\n            end = events[i][1]\n            lo, hi = i + 1, n\n            while lo < hi:\n                mid = (lo + hi) // 2\n                if events[mid][0] > end:\n                    hi = mid\n                else:\n                    lo = mid + 1\n            return lo\n\n        @lru_cache(maxsize=None)\n        def solve(i, j):\n            if i >= n or j == 0:\n                return 0\n            skip = solve(i + 1, j)\n            take = events[i][2] + solve(nxt(i), j - 1)\n            return max(skip, take)\n\n        res = solve(0, k)\n        solve.cache_clear()\n        return res\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def maxValue(self, events, k):\n        events.sort()\n        n = len(events)\n        starts = [e[0] for e in events]\n        nxt = [bisect.bisect_right(starts, events[i][1]) for i in range(n)]\n        dp = [[0] * (k + 1) for _ in range(n + 1)]\n        for i in range(n - 1, -1, -1):\n            for j in range(1, k + 1):\n                skip = dp[i + 1][j]\n                take = events[i][2] + dp[nxt[i]][j - 1]\n                dp[i][j] = max(skip, take)\n        return dp[0][k]\n",
+    "javascript": "var maxValue = function(events, k) {\n    events.sort((a, b) => a[0] - b[0]);\n    const n = events.length;\n    const starts = events.map(e => e[0]);\n    const upper = (x) => {\n        let lo = 0, hi = n;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (starts[mid] > x) hi = mid; else lo = mid + 1;\n        }\n        return lo;\n    };\n    const nxt = events.map(e => upper(e[1]));\n    const dp = Array.from({length: n + 1}, () => new Array(k + 1).fill(0));\n    for (let i = n - 1; i >= 0; i--) {\n        for (let j = 1; j <= k; j++) {\n            const skip = dp[i + 1][j];\n            const take = events[i][2] + dp[nxt[i]][j - 1];\n            dp[i][j] = Math.max(skip, take);\n        }\n    }\n    return dp[0][k];\n};\n"
+  },
+  "complexity": { "time": "O(n log n + n k)", "space": "O(n k)" }
+}

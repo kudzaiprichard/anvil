@@ -1,0 +1,45 @@
+{
+  "slug": "maximum-good-subtree-score",
+  "judge": "exact",
+  "pattern": "Each value collapses to a ten-bit digit mask, turning every subtree into a disjoint-mask knapsack whose best total is found by a 1024-state DP.",
+  "hints": [
+    "A value can only ever be chosen if its own digits are already distinct; otherwise it poisons any subset it joins.",
+    "Represent each usable value by the set of digits it occupies; a good subset is a collection of pairwise digit-disjoint masks.",
+    "For each subtree run a DP over the 1024 possible digit sets, picking the maximum-sum disjoint collection, then total those maxima modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "vals", "kind": "int[]", "len": [1, 500], "value": [1, 1000000000] },
+    { "param": "par", "kind": "int[]", "len": [1, 500], "value": [-1, 499] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two node chain", "input": [[2, 3], [-1, 0]] },
+    { "kind": "edge", "description": "star of three", "input": [[1, 5, 2], [-1, 0, 0]] },
+    { "kind": "edge", "description": "multi digit root", "input": [[34, 1, 2], [-1, 0, 1]] },
+    { "kind": "edge", "description": "repeated digit blocks a value", "input": [[3, 22, 5], [-1, 0, 1]] },
+    { "kind": "boundary", "description": "single node", "input": [[7], [-1]] },
+    { "kind": "trap", "description": "self-conflicting value never usable", "input": [[11, 11, 11], [-1, 0, 1]] },
+    { "kind": "trap", "description": "digit collision forces choosing one", "input": [[12, 21, 3], [-1, 0, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "random small tree, small values",
+      "seed": 47,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 40))\n    par = [-1]\n    for i in range(1, n):\n        par.append(rng.randrange(0, i))\n    vals = [rng.randrange(1, 1000) for _ in range(n)]\n    return [vals, par]\n",
+      "note": "small values to keep masks varied; valid parent array by construction"
+    },
+    {
+      "description": "deeper chain with multi-digit values",
+      "seed": 48,
+      "size": 25,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 25))\n    par = [-1]\n    for i in range(1, n):\n        par.append(i - 1)\n    vals = [rng.randrange(1, 10**6) for _ in range(n)]\n    return [vals, par]\n",
+      "note": "linear tree"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def goodSubtreeSum(self, vals, par):\n        MOD = 10**9 + 7\n        n = len(vals)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[par[i]].append(i)\n        def mask_of(x):\n            seen = 0\n            while x:\n                d = x % 10\n                b = 1 << d\n                if seen & b:\n                    return -1\n                seen |= b\n                x //= 10\n            return seen\n        def subtree_nodes(u):\n            stack = [u]\n            out = []\n            while stack:\n                c = stack.pop()\n                out.append(c)\n                stack.extend(children[c])\n            return out\n        total = 0\n        for u in range(n):\n            items = []\n            for node in subtree_nodes(u):\n                m = mask_of(vals[node])\n                if m != -1:\n                    items.append((m, vals[node]))\n            best = 0\n            L = len(items)\n            for sub in range(1 << L) if L <= 18 else []:\n                used = 0\n                s = 0\n                ok = True\n                for b in range(L):\n                    if sub & (1 << b):\n                        m, v = items[b]\n                        if used & m:\n                            ok = False\n                            break\n                        used |= m\n                        s += v\n                if ok and s > best:\n                    best = s\n            if L > 18:\n                dp = [-1] * 1024\n                dp[0] = 0\n                for m, v in items:\n                    cur = dp[:]\n                    for usedmask in range(1024):\n                        if dp[usedmask] >= 0 and (usedmask & m) == 0:\n                            cand = dp[usedmask] + v\n                            if cand > cur[usedmask | m]:\n                                cur[usedmask | m] = cand\n                    dp = cur\n                best = max(x for x in dp if x >= 0)\n            total = (total + best) % MOD\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def goodSubtreeSum(self, vals, par):\n        MOD = 10**9 + 7\n        n = len(vals)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[par[i]].append(i)\n        def mask_of(x):\n            seen = 0\n            while x:\n                d = x % 10\n                b = 1 << d\n                if seen & b:\n                    return -1\n                seen |= b\n                x //= 10\n            return seen\n        order = []\n        stack = [0]\n        while stack:\n            u = stack.pop()\n            order.append(u)\n            stack.extend(children[u])\n        items_in_subtree = [None] * n\n        total = 0\n        for u in reversed(order):\n            m = mask_of(vals[u])\n            mine = []\n            if m != -1:\n                mine.append((m, vals[u]))\n            for c in children[u]:\n                mine.extend(items_in_subtree[c])\n                items_in_subtree[c] = None\n            items_in_subtree[u] = mine\n            dp = [-1] * 1024\n            dp[0] = 0\n            for mm, vv in mine:\n                cur = dp[:]\n                for used in range(1024):\n                    if dp[used] >= 0 and (used & mm) == 0:\n                        cand = dp[used] + vv\n                        if cand > cur[used | mm]:\n                            cur[used | mm] = cand\n                dp = cur\n            best = 0\n            for x in dp:\n                if x > best:\n                    best = x\n            total = (total + best) % MOD\n        return total\n",
+    "javascript": "var goodSubtreeSum = function(vals, par) {\n    const MOD = 1000000007n;\n    const n = vals.length;\n    const children = Array.from({length: n}, () => []);\n    for (let i = 1; i < n; i++) children[par[i]].push(i);\n    const maskOf = (x) => {\n        let seen = 0;\n        while (x > 0) {\n            const d = x % 10;\n            const b = 1 << d;\n            if (seen & b) return -1;\n            seen |= b;\n            x = Math.floor(x / 10);\n        }\n        return seen;\n    };\n    const order = [];\n    const stack = [0];\n    while (stack.length) {\n        const u = stack.pop();\n        order.push(u);\n        for (const c of children[u]) stack.push(c);\n    }\n    const itemsInSubtree = new Array(n).fill(null);\n    let total = 0n;\n    for (let oi = order.length - 1; oi >= 0; oi--) {\n        const u = order[oi];\n        const m = maskOf(vals[u]);\n        const mine = [];\n        if (m !== -1) mine.push([m, vals[u]]);\n        for (const c of children[u]) {\n            for (const it of itemsInSubtree[c]) mine.push(it);\n            itemsInSubtree[c] = null;\n        }\n        itemsInSubtree[u] = mine;\n        const dp = new Array(1024).fill(-1);\n        dp[0] = 0;\n        for (const [mm, vv] of mine) {\n            const cur = dp.slice();\n            for (let used = 0; used < 1024; used++) {\n                if (dp[used] >= 0 && (used & mm) === 0) {\n                    const cand = dp[used] + vv;\n                    if (cand > cur[used | mm]) cur[used | mm] = cand;\n                }\n            }\n            for (let i = 0; i < 1024; i++) dp[i] = cur[i];\n        }\n        let best = 0;\n        for (const x of dp) if (x > best) best = x;\n        total = (total + BigInt(best)) % MOD;\n    }\n    return Number(total);\n};\n"
+  },
+  "complexity": { "time": "O(n * 1024 * subtreeItems)", "space": "O(n + 1024)" }
+}

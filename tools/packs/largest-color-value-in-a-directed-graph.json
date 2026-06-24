@@ -1,0 +1,45 @@
+{
+  "slug": "largest-color-value-in-a-directed-graph",
+  "judge": "exact",
+  "pattern": "On a directed acyclic graph you can propagate, in topological order, a per-color running maximum count along the best path ending at each node; a cycle (detectable because topological processing cannot consume every node) makes the answer undefined.",
+  "hints": [
+    "If the graph has a cycle there is no longest path, so first decide whether the graph is acyclic at all.",
+    "Carry along each path a count of how many nodes of every one of the 26 colors it has seen, and keep, per node, the best such counts over all paths ending there.",
+    "Process nodes in topological order: a node's counts are the elementwise maximum of its predecessors' counts plus one for the node's own color; if you cannot order all nodes, a cycle exists and the answer is -1."
+  ],
+  "constraints": [
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single node and no edges", "input": ["a", []] },
+    { "kind": "edge", "description": "self loop is a cycle", "input": ["a", [[0, 0]]] },
+    { "kind": "edge", "description": "two nodes of the same color in a chain", "input": ["aa", [[0, 1]]] },
+    { "kind": "edge", "description": "two nodes of different colors", "input": ["ab", [[0, 1]]] },
+    { "kind": "boundary", "description": "disconnected nodes with no edges each contribute one", "input": ["abc", []] },
+    { "kind": "trap", "description": "branching where the most frequent color path is not the longest path", "input": ["abaca", [[0, 1], [0, 2], [2, 3], [3, 4]]] },
+    { "kind": "trap", "description": "a cycle hidden inside a larger graph still forces -1", "input": ["abc", [[0, 1], [1, 2], [2, 0]]] },
+    { "kind": "trap", "description": "diamond where two paths reconverge and one accumulates more of one color", "input": ["aabb", [[0, 1], [0, 2], [1, 3], [2, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random acyclic graph (edges only go to higher indices) so the answer is always defined",
+      "seed": 13,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    colors = ''.join(chr(ord('a') + rng.randint(0, 3)) for _ in range(n))\n    edges = []\n    for u in range(n):\n        for _ in range(rng.randint(0, 2)):\n            if u + 1 < n:\n                v = rng.randint(u + 1, n - 1)\n                edges.append([u, v])\n    return [colors, edges]\n",
+      "note": "DAG-by-construction keeps the longest-path answer well defined"
+    },
+    {
+      "description": "random graph that may contain cycles to exercise the -1 path",
+      "seed": 27,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    colors = ''.join(chr(ord('a') + rng.randint(0, 2)) for _ in range(n))\n    edges = []\n    for _ in range(rng.randint(0, n * 2)):\n        u = rng.randint(0, n - 1)\n        v = rng.randint(0, n - 1)\n        edges.append([u, v])\n    return [colors, edges]\n",
+      "note": "free-form edges produce a mix of cyclic and acyclic cases"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestPathValue(self, colors, edges):\n        n = len(colors)\n        adj = [[] for _ in range(n)]\n        for a, b in edges:\n            adj[a].append(b)\n        # iterative DFS topological sort with cycle detection\n        state = [0] * n  # 0 unvisited, 1 in-stack, 2 done\n        order = []\n        for s in range(n):\n            if state[s] != 0:\n                continue\n            stack = [(s, 0)]\n            while stack:\n                node, idx = stack[-1]\n                if idx == 0:\n                    state[node] = 1\n                if idx < len(adj[node]):\n                    stack[-1] = (node, idx + 1)\n                    nxt = adj[node][idx]\n                    if state[nxt] == 1:\n                        return -1\n                    if state[nxt] == 0:\n                        stack.append((nxt, 0))\n                else:\n                    state[node] = 2\n                    order.append(node)\n                    stack.pop()\n        # order is reverse-topological; process so predecessors come first\n        order.reverse()\n        rev = [[] for _ in range(n)]\n        for a, b in edges:\n            rev[b].append(a)\n        dp = [[0] * 26 for _ in range(n)]\n        best = 0\n        for node in order:\n            c = ord(colors[node]) - 97\n            for p in rev[node]:\n                for k in range(26):\n                    if dp[p][k] > dp[node][k]:\n                        dp[node][k] = dp[p][k]\n            dp[node][c] += 1\n            m = max(dp[node])\n            if m > best:\n                best = m\n        return best\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def largestPathValue(self, colors, edges):\n        n = len(colors)\n        adj = [[] for _ in range(n)]\n        indeg = [0] * n\n        for a, b in edges:\n            adj[a].append(b)\n            indeg[b] += 1\n        dp = [[0] * 26 for _ in range(n)]\n        q = deque(i for i in range(n) if indeg[i] == 0)\n        seen = 0\n        best = 0\n        while q:\n            u = q.popleft()\n            seen += 1\n            c = ord(colors[u]) - 97\n            dp[u][c] += 1\n            if dp[u][c] > best:\n                best = dp[u][c]\n            for v in adj[u]:\n                for k in range(26):\n                    if dp[u][k] > dp[v][k]:\n                        dp[v][k] = dp[u][k]\n                indeg[v] -= 1\n                if indeg[v] == 0:\n                    q.append(v)\n        return best if seen == n else -1\n",
+    "javascript": "var largestPathValue = function(colors, edges) {\n    const n = colors.length;\n    const adj = Array.from({length: n}, () => []);\n    const indeg = new Array(n).fill(0);\n    for (const [a, b] of edges) {\n        adj[a].push(b);\n        indeg[b]++;\n    }\n    const dp = Array.from({length: n}, () => new Array(26).fill(0));\n    const queue = [];\n    for (let i = 0; i < n; i++) if (indeg[i] === 0) queue.push(i);\n    let head = 0, seen = 0, best = 0;\n    while (head < queue.length) {\n        const u = queue[head++];\n        seen++;\n        const c = colors.charCodeAt(u) - 97;\n        dp[u][c]++;\n        if (dp[u][c] > best) best = dp[u][c];\n        for (const v of adj[u]) {\n            for (let k = 0; k < 26; k++) {\n                if (dp[u][k] > dp[v][k]) dp[v][k] = dp[u][k];\n            }\n            if (--indeg[v] === 0) queue.push(v);\n        }\n    }\n    return seen === n ? best : -1;\n};\n"
+  },
+  "complexity": { "time": "O((n + m) * 26)", "space": "O(n * 26)" }
+}

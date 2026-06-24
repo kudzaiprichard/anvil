@@ -1,0 +1,38 @@
+{
+  "slug": "apply-discount-to-prices",
+  "judge": "exact",
+  "pattern": "Splitting on spaces isolates each token so only genuine dollar-prefixed numbers are discounted and reformatted to two decimals.",
+  "hints": [
+    "Process the sentence word by word; a word qualifies only if it is a dollar sign followed entirely by digits.",
+    "For a qualifying word, strip the dollar sign, apply the percentage discount, and rebuild it with exactly two decimal places.",
+    "To avoid floating-point drift, multiply the integer price by (100 minus discount) to get hundredths of a dollar, then format the integer and fractional parts as dollars.cents with a leading dollar sign."
+  ],
+  "constraints": [
+    { "param": "sentence", "kind": "str", "len": [1, 100000] },
+    { "param": "discount", "kind": "int", "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two prices and a non-price dollar token", "input": ["there are $1 $2 and 5$ candies in the shop", 50] },
+    { "kind": "trap", "description": "full discount and several non-price tokens", "input": ["1 2 $3 4 $5 $6 7 8$ $9 $10$", 100] },
+    { "kind": "boundary", "description": "zero discount leaves value but adds decimals", "input": ["$100 costs", 0] },
+    { "kind": "trap", "description": "a lone dollar sign is not a price", "input": ["$ is just a symbol", 50] },
+    { "kind": "trap", "description": "digits with letters after the dollar are not a price", "input": ["$1a $2b are codes", 50] },
+    { "kind": "edge", "description": "single price word", "input": ["$8", 25] },
+    { "kind": "boundary", "description": "large ten-digit price", "input": ["pay $1000000000 now", 10] },
+    { "kind": "trap", "description": "dollar sign not at the start is not a price", "input": ["a$5 b$6 here", 50] }
+  ],
+  "stress": [
+    {
+      "description": "many words, a mix of prices and decoys, random discount",
+      "seed": 26,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    words = []\n    cnt = max(1, min(size, 200))\n    kinds = ['price', 'price', 'word', 'trail', 'lone', 'mixed']\n    for _ in range(cnt):\n        k = rng.choice(kinds)\n        if k == 'price':\n            digits = rng.randrange(1, 11)\n            num = ''.join(str(rng.randrange(0, 10)) for _ in range(digits)).lstrip('0') or '0'\n            words.append('$' + num)\n        elif k == 'word':\n            wl = rng.randrange(1, 6)\n            words.append(''.join(rng.choice('abcdef') for _ in range(wl)))\n        elif k == 'trail':\n            words.append(str(rng.randrange(1, 99)) + '$')\n        elif k == 'lone':\n            words.append('$')\n        else:\n            words.append('$' + str(rng.randrange(1, 99)) + 'x')\n    sentence = ' '.join(words)\n    discount = rng.randrange(0, 101)\n    return [sentence, discount]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def discountPrices(self, sentence, discount):\n        out = []\n        for w in sentence.split(' '):\n            if len(w) >= 2 and w[0] == '$' and w[1:].isdigit():\n                price = int(w[1:])\n                hundredths = price * (100 - discount)\n                dollars = hundredths // 100\n                cents = hundredths % 100\n                out.append('$' + str(dollars) + '.' + ('0' + str(cents))[-2:])\n            else:\n                out.append(w)\n        return ' '.join(out)\n",
+  "solutions": {
+    "python": "class Solution:\n    def discountPrices(self, sentence, discount):\n        factor = 100 - discount\n        res = []\n        for word in sentence.split(' '):\n            if len(word) > 1 and word[0] == '$' and word[1:].isdigit():\n                value = int(word[1:]) * factor\n                whole = value // 100\n                frac = value % 100\n                res.append('$%d.%02d' % (whole, frac))\n            else:\n                res.append(word)\n        return ' '.join(res)\n",
+    "javascript": "var discountPrices = function(sentence, discount) {\n    const factor = 100 - discount;\n    const isDigits = (str) => str.length > 0 && /^[0-9]+$/.test(str);\n    return sentence.split(' ').map((word) => {\n        if (word.length > 1 && word[0] === '$' && isDigits(word.slice(1))) {\n            const value = BigInt(word.slice(1)) * BigInt(factor);\n            const whole = value / 100n;\n            const frac = value % 100n;\n            return '$' + whole.toString() + '.' + frac.toString().padStart(2, '0');\n        }\n        return word;\n    }).join(' ');\n};\n"
+  },
+  "complexity": { "time": "O(L)", "space": "O(L)" }
+}

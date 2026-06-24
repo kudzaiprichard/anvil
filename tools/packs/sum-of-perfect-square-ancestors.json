@@ -1,0 +1,39 @@
+{
+  "slug": "sum-of-perfect-square-ancestors",
+  "judge": "exact",
+  "pattern": "Two numbers multiply to a perfect square exactly when their squarefree parts match, so reducing each value to its squarefree core turns the ancestor test into counting equal cores along the root path during one DFS.",
+  "hints": [
+    "A product is a perfect square iff every prime appears an even number of times; strip each value down to the product of primes that appear an odd number of times.",
+    "Once each node carries that squarefree signature, node i and an ancestor form a square product iff their signatures are identical.",
+    "DFS from the root keeping a frequency map of the signatures on the current root-to-node path; at each node add the count of its own signature already on the path, then push it and recurse, popping on the way back up."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000], "value": [0, 100000] },
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "chain where each pair multiplies to a square", "input": [3, [[0, 1], [1, 2]], [2, 8, 2]] },
+    { "kind": "edge", "description": "only one ancestor pair qualifies", "input": [3, [[0, 1], [0, 2]], [1, 2, 4]] },
+    { "kind": "edge", "description": "branching tree with mixed results", "input": [4, [[0, 1], [0, 2], [1, 3]], [1, 2, 9, 4]] },
+    { "kind": "boundary", "description": "single node has no ancestors", "input": [1, [], [5]] },
+    { "kind": "trap", "description": "all ones make every product a perfect square", "input": [4, [[0, 1], [1, 2], [2, 3]], [1, 1, 1, 1]] },
+    { "kind": "trap", "description": "perfect squares all share signature one", "input": [3, [[0, 1], [1, 2]], [4, 9, 16]] },
+    { "kind": "edge", "description": "no qualifying pair anywhere", "input": [3, [[0, 1], [1, 2]], [2, 3, 5]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree with small values so squarefree collisions are frequent",
+      "seed": 17,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    edges = [[rng.randint(0, i - 1), i] for i in range(1, n)]\n    nums = [rng.randint(1, 50) for _ in range(n)]\n    return [n, edges, nums]\n",
+      "note": "small value range keeps signatures colliding to stress the counting"
+    }
+  ],
+  "oracle_python": "import math\nclass Solution:\n    def sumOfAncestors(self, n, edges, nums):\n        from collections import deque\n        g = [[] for _ in range(n)]\n        for u, v in edges:\n            g[u].append(v)\n            g[v].append(u)\n        par = [-1] * n\n        seen = [False] * n\n        seen[0] = True\n        q = deque([0])\n        while q:\n            u = q.popleft()\n            for w in g[u]:\n                if not seen[w]:\n                    seen[w] = True\n                    par[w] = u\n                    q.append(w)\n        def is_sq(x):\n            r = math.isqrt(x)\n            return r * r == x\n        total = 0\n        for i in range(1, n):\n            a = par[i]\n            while a != -1:\n                if is_sq(nums[i] * nums[a]):\n                    total += 1\n                a = par[a]\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def sumOfAncestors(self, n, edges, nums):\n        def squarefree(x):\n            res = 1\n            d = 2\n            while d * d <= x:\n                if x % d == 0:\n                    c = 0\n                    while x % d == 0:\n                        x //= d\n                        c += 1\n                    if c % 2:\n                        res *= d\n                d += 1\n            if x > 1:\n                res *= x\n            return res\n        g = [[] for _ in range(n)]\n        for u, v in edges:\n            g[u].append(v)\n            g[v].append(u)\n        sf = [squarefree(x) for x in nums]\n        from collections import defaultdict\n        cnt = defaultdict(int)\n        total = 0\n        stack = [(0, -1, False)]\n        while stack:\n            u, p, post = stack.pop()\n            if post:\n                cnt[sf[u]] -= 1\n                continue\n            if u != 0:\n                total += cnt[sf[u]]\n            cnt[sf[u]] += 1\n            stack.append((u, p, True))\n            for w in g[u]:\n                if w != p:\n                    stack.append((w, u, False))\n        return total\n",
+    "javascript": "var sumOfAncestors = function(n, edges, nums) {\n    const squarefree = (x) => {\n        let res = 1;\n        for (let d = 2; d * d <= x; d++) {\n            if (x % d === 0) {\n                let c = 0;\n                while (x % d === 0) { x = Math.floor(x / d); c++; }\n                if (c % 2) res *= d;\n            }\n        }\n        if (x > 1) res *= x;\n        return res;\n    };\n    const g = Array.from({ length: n }, () => []);\n    for (const [u, v] of edges) { g[u].push(v); g[v].push(u); }\n    const sf = nums.map(squarefree);\n    const cnt = new Map();\n    let total = 0;\n    const stack = [[0, -1, false]];\n    while (stack.length) {\n        const [u, p, post] = stack.pop();\n        if (post) {\n            cnt.set(sf[u], cnt.get(sf[u]) - 1);\n            continue;\n        }\n        if (u !== 0) total += cnt.get(sf[u]) || 0;\n        cnt.set(sf[u], (cnt.get(sf[u]) || 0) + 1);\n        stack.push([u, p, true]);\n        for (const w of g[u]) {\n            if (w !== p) stack.push([w, u, false]);\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n * sqrt(maxVal) + path)", "space": "O(n)" }
+}

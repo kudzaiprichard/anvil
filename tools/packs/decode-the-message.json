@@ -1,0 +1,37 @@
+{
+  "slug": "decode-the-message",
+  "judge": "exact",
+  "pattern": "Build a substitution table from the order in which the 26 letters first appear in the key, then translate each character of the message through it while leaving spaces untouched.",
+  "hints": [
+    "Walk the key once and note the order distinct letters first show up; that order is what maps onto a, b, c, and so on.",
+    "Each new letter in the key claims the next position in the plain alphabet, so the 1st unseen letter decodes to 'a', the 2nd to 'b'.",
+    "Construct a dict from key-letter to plain-letter, then map every message character (passing ' ' through verbatim) and join the result."
+  ],
+  "constraints": [
+    { "param": "key", "kind": "string", "len": [26, 2000] },
+    { "param": "message", "kind": "string", "len": [1, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "key is exactly the alphabet so the table is the identity", "input": ["abcdefghijklmnopqrstuvwxyz", "hello world"] },
+    { "kind": "edge", "description": "message of a single space", "input": ["bacdefghijklmnopqrstuvwxyz", " "] },
+    { "kind": "boundary", "description": "key with leading and repeated spaces, message hugging both ends", "input": ["  the quick brown fox jumps over the lazy dog", "abc xyz"] },
+    { "kind": "trap", "description": "repeated key letters must not reorder the table after first appearance", "input": ["zzzz the quick brown fox jumps over lazy dgi", "z az"] },
+    { "kind": "trap", "description": "every message character is a space", "input": ["bcdefghijklmnopqrstuvwxyza", "   "] },
+    { "kind": "edge", "description": "message uses only the last few letters claimed by the key", "input": ["abcdefghijklmnopqrstuvwxyz", "xyz zyx"] }
+  ],
+  "stress": [
+    {
+      "description": "random valid key (shuffled alphabet padded with spaces) and a random message of letters and spaces",
+      "seed": 7,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    import string\n    letters = list(string.ascii_lowercase)\n    rng.shuffle(letters)\n    # build a key that is the shuffled alphabet with some spaces sprinkled in\n    key_chars = []\n    for ch in letters:\n        if rng.random() < 0.3:\n            key_chars.append(' ')\n        key_chars.append(ch)\n    key = ''.join(key_chars)\n    m = max(1, min(size, 2000))\n    pool = string.ascii_lowercase + '     '\n    message = ''.join(rng.choice(pool) for _ in range(m))\n    return [key, message]\n",
+      "note": "key always contains all 26 letters because it is a permutation"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def decodeMessage(self, key, message):\n        table = {' ': ' '}\n        plain = 'abcdefghijklmnopqrstuvwxyz'\n        i = 0\n        for ch in key:\n            if ch != ' ' and ch not in table:\n                table[ch] = plain[i]\n                i += 1\n        out = ''\n        for ch in message:\n            out += table[ch]\n        return out\n",
+  "solutions": {
+    "python": "class Solution:\n    def decodeMessage(self, key, message):\n        table = {}\n        nxt = ord('a')\n        for ch in key:\n            if ch != ' ' and ch not in table:\n                table[ch] = chr(nxt)\n                nxt += 1\n        return ''.join(table.get(c, ' ') for c in message)\n",
+    "javascript": "var decodeMessage = function(key, message) {\n    const table = {};\n    let nxt = 'a'.charCodeAt(0);\n    for (const ch of key) {\n        if (ch !== ' ' && !(ch in table)) {\n            table[ch] = String.fromCharCode(nxt);\n            nxt++;\n        }\n    }\n    let out = '';\n    for (const ch of message) {\n        out += ch === ' ' ? ' ' : table[ch];\n    }\n    return out;\n};\n"
+  },
+  "complexity": { "time": "O(|key| + |message|)", "space": "O(1)" }
+}

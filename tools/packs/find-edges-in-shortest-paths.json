@@ -1,0 +1,36 @@
+{
+  "slug": "find-edges-in-shortest-paths",
+  "judge": "exact",
+  "pattern": "Run Dijkstra from node 0 and from node n-1; edge (a,b,w) is on a shortest path iff dist_from_0[a] + w + dist_from_n1[b] == shortest or dist_from_0[b] + w + dist_from_n1[a] == shortest.",
+  "hints": [
+    "Compute single-source shortest distances from node 0 (dist0) and from node n-1 (dist_n1) using Dijkstra on the undirected graph.",
+    "The shortest path length from 0 to n-1 is dist0[n-1]. An edge (a,b,w) lies on at least one shortest path when dist0[a] + w + dist_n1[b] == shortest OR dist0[b] + w + dist_n1[a] == shortest.",
+    "If n-1 is unreachable from 0, no edges lie on a shortest path; return all false."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 50000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single edge connecting 0 to n-1", "input": [2, [[0,1,5]]] },
+    { "kind": "edge", "description": "two parallel paths, only the shorter one's edges qualify", "input": [4, [[0,1,1],[1,3,1],[0,2,3],[2,3,1]]] },
+    { "kind": "trap", "description": "graph not connected — target unreachable", "input": [4, [[0,1,1],[2,3,1]]] },
+    { "kind": "trap", "description": "edge not on any shortest path due to detour", "input": [3, [[0,1,1],[1,2,1],[0,2,3]]] },
+    { "kind": "trap", "description": "multiple shortest paths sharing some edges", "input": [6, [[0,1,4],[0,2,1],[1,3,2],[1,4,3],[1,5,1],[2,3,1],[3,5,3],[4,5,2]]] },
+    { "kind": "boundary", "description": "self-loop node (a==b) — should never be on path", "input": [3, [[0,1,1],[1,2,1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random connected graph",
+      "seed": 31,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = size\n    edges = []\n    # chain to ensure connectivity\n    for i in range(n-1):\n        edges.append([i, i+1, rng.randint(1, 100)])\n    # extra random edges\n    seen = set((e[0], e[1]) for e in edges)\n    for _ in range(n // 2):\n        a = rng.randint(0, n-1)\n        b = rng.randint(0, n-1)\n        if a != b and (a,b) not in seen and (b,a) not in seen:\n            edges.append([a, b, rng.randint(1, 100)])\n            seen.add((a,b))\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findAnswer(self, n: int, edges) -> list:\n        import heapq\n        graph = [[] for _ in range(n)]\n        for idx, (a, b, w) in enumerate(edges):\n            graph[a].append((b, w, idx))\n            graph[b].append((a, w, idx))\n        def dijkstra(src):\n            dist = [float('inf')] * n\n            dist[src] = 0\n            heap = [(0, src)]\n            while heap:\n                d, u = heapq.heappop(heap)\n                if d > dist[u]: continue\n                for v, w, _ in graph[u]:\n                    if dist[u] + w < dist[v]:\n                        dist[v] = dist[u] + w\n                        heapq.heappush(heap, (dist[v], v))\n            return dist\n        d0 = dijkstra(0)\n        dn = dijkstra(n - 1)\n        shortest = d0[n - 1]\n        result = [False] * len(edges)\n        if shortest == float('inf'):\n            return result\n        for i, (a, b, w) in enumerate(edges):\n            if d0[a] + w + dn[b] == shortest or d0[b] + w + dn[a] == shortest:\n                result[i] = True\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def findAnswer(self, n: int, edges) -> list:\n        import heapq\n        graph = [[] for _ in range(n)]\n        for idx, (a, b, w) in enumerate(edges):\n            graph[a].append((b, w, idx))\n            graph[b].append((a, w, idx))\n        def dijkstra(src):\n            dist = [float('inf')] * n\n            dist[src] = 0\n            heap = [(0, src)]\n            while heap:\n                d, u = heapq.heappop(heap)\n                if d > dist[u]: continue\n                for v, w, _ in graph[u]:\n                    if dist[u] + w < dist[v]:\n                        dist[v] = dist[u] + w\n                        heapq.heappush(heap, (dist[v], v))\n            return dist\n        d0 = dijkstra(0)\n        dn = dijkstra(n - 1)\n        shortest = d0[n - 1]\n        result = [False] * len(edges)\n        if shortest == float('inf'):\n            return result\n        for i, (a, b, w) in enumerate(edges):\n            if d0[a] + w + dn[b] == shortest or d0[b] + w + dn[a] == shortest:\n                result[i] = True\n        return result\n",
+    "javascript": "var findAnswer = function(n, edges) {\n    const graph = Array.from({length: n}, () => []);\n    for (let idx = 0; idx < edges.length; idx++) {\n        const [a, b, w] = edges[idx];\n        graph[a].push([b, w, idx]);\n        graph[b].push([a, w, idx]);\n    }\n    function dijkstra(src) {\n        const dist = new Array(n).fill(Infinity);\n        dist[src] = 0;\n        const heap = [[0, src]];\n        while (heap.length > 0) {\n            heap.sort((a, b) => a[0] - b[0]);\n            const [d, u] = heap.shift();\n            if (d > dist[u]) continue;\n            for (const [v, w] of graph[u]) {\n                if (dist[u] + w < dist[v]) {\n                    dist[v] = dist[u] + w;\n                    heap.push([dist[v], v]);\n                }\n            }\n        }\n        return dist;\n    }\n    const d0 = dijkstra(0);\n    const dn = dijkstra(n - 1);\n    const shortest = d0[n - 1];\n    const result = new Array(edges.length).fill(false);\n    if (shortest === Infinity) return result;\n    for (let i = 0; i < edges.length; i++) {\n        const [a, b, w] = edges[i];\n        if (d0[a] + w + dn[b] === shortest || d0[b] + w + dn[a] === shortest)\n            result[i] = true;\n    }\n    return result;\n};"
+  },
+  "complexity": { "time": "O((E+N) log N)", "space": "O(E+N)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-rows-covered-by-columns",
+  "judge": "exact",
+  "pattern": "With at most a dozen columns, each row becomes a bitmask and every choice of numSelect columns is enumerated to count rows whose mask is a subset of the selection.",
+  "hints": [
+    "Encode each row as a bitmask of the columns where it has ones; an empty row is mask zero.",
+    "A row is covered by a chosen column set exactly when its mask has no bits outside that set.",
+    "Since n is tiny, iterate over all column subsets with exactly numSelect bits and count rows whose mask AND the subset equals the mask; keep the best."
+  ],
+  "constraints": [
+    { "param": "matrix", "kind": "int[][]", "len": [1, 12], "value": [0, 1] },
+    { "param": "numSelect", "kind": "int", "value": [1, 12] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "select two columns to cover three rows", "input": [[[0, 0, 0], [1, 0, 1], [0, 1, 1], [0, 0, 1]], 2] },
+    { "kind": "trap", "description": "single column covers both rows including an all-zero row", "input": [[[1], [0]], 1] },
+    { "kind": "boundary", "description": "selecting all columns covers everything", "input": [[[1, 1], [1, 0], [0, 1]], 2] },
+    { "kind": "edge", "description": "all-zero rows always covered regardless of choice", "input": [[[0, 0], [0, 0]], 1] },
+    { "kind": "trap", "description": "a row needing two columns is missed when only one is allowed", "input": [[[1, 1], [1, 0]], 1] },
+    { "kind": "edge", "description": "single row single column", "input": [[[1]], 1] }
+  ],
+  "stress": [
+    {
+      "description": "full-size random binary matrix with a mid-range numSelect",
+      "seed": 99,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = rng.randrange(1, 13)\n    n = rng.randrange(1, 13)\n    matrix = [[rng.randrange(0, 2) for _ in range(n)] for _ in range(m)]\n    numSelect = rng.randrange(1, n + 1)\n    return [matrix, numSelect]\n",
+      "note": "12x12 worst case still enumerates at most 4096 subsets cheaply"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumRows(self, matrix, numSelect):\n        from itertools import combinations\n        m = len(matrix)\n        n = len(matrix[0])\n        best = 0\n        for cols in combinations(range(n), numSelect):\n            sel = set(cols)\n            covered = 0\n            for row in matrix:\n                ok = True\n                for j in range(n):\n                    if row[j] == 1 and j not in sel:\n                        ok = False\n                        break\n                if ok:\n                    covered += 1\n            best = max(best, covered)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumRows(self, matrix, numSelect):\n        n = len(matrix[0])\n        row_masks = []\n        for row in matrix:\n            mask = 0\n            for j in range(n):\n                if row[j] == 1:\n                    mask |= (1 << j)\n            row_masks.append(mask)\n        best = 0\n        for subset in range(1 << n):\n            if bin(subset).count('1') != numSelect:\n                continue\n            covered = sum(1 for rm in row_masks if (rm & subset) == rm)\n            if covered > best:\n                best = covered\n        return best\n",
+    "javascript": "var maximumRows = function(matrix, numSelect) {\n    const n = matrix[0].length;\n    const rowMasks = [];\n    for (const row of matrix) {\n        let mask = 0;\n        for (let j = 0; j < n; j++) if (row[j] === 1) mask |= (1 << j);\n        rowMasks.push(mask);\n    }\n    let best = 0;\n    for (let subset = 0; subset < (1 << n); subset++) {\n        let bits = 0;\n        for (let x = subset; x > 0; x >>= 1) bits += x & 1;\n        if (bits !== numSelect) continue;\n        let covered = 0;\n        for (const rm of rowMasks) if ((rm & subset) === rm) covered++;\n        if (covered > best) best = covered;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(2^n * m)", "space": "O(m)" }
+}

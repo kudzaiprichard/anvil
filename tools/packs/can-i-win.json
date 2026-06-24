@@ -1,0 +1,46 @@
+{
+  "slug": "can-i-win",
+  "judge": "exact",
+  "pattern": "Because numbers are drawn without replacement, the game state is fully described by the set of still-available numbers; a memoized minimax over that set asks whether some move either wins immediately or hands the opponent a losing state.",
+  "hints": [
+    "The only thing that matters about the history is which numbers have already been taken, not who took them, so the remaining pool plus the remaining target define the position.",
+    "Encode the used numbers as a bitmask and recurse: the mover wins if any unused number reaches the target now or leaves the opponent in a position they cannot win.",
+    "Short-circuit two cases first (a non-positive target is an instant win, and an impossible total is an instant loss), then memoize on the bitmask of chosen integers."
+  ],
+  "constraints": [
+    { "param": "maxChoosableInteger", "kind": "int", "value": [1, 20] },
+    { "param": "desiredTotal", "kind": "int", "value": [0, 300] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first player is forced to lose", "input": [10, 11] },
+    { "kind": "boundary", "description": "a target of zero is already reached so the first player wins", "input": [10, 0] },
+    { "kind": "boundary", "description": "a target of one is met by any first move", "input": [10, 1] },
+    { "kind": "trap", "description": "the total exceeds the sum of all numbers, so neither player can ever win", "input": [5, 50] },
+    { "kind": "edge", "description": "only one number available and it suffices", "input": [1, 1] },
+    { "kind": "trap", "description": "one number available but insufficient is an impossible total", "input": [1, 2] },
+    { "kind": "edge", "description": "small pool where careful play matters", "input": [4, 6] },
+    { "kind": "trap", "description": "target exactly equals the full sum, a parity-sensitive position", "input": [4, 10] }
+  ],
+  "stress": [
+    {
+      "description": "random small games where both win and loss outcomes occur",
+      "seed": 3,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 14)\n    total = rng.randint(0, m * (m + 1) // 2 + 3)\n    return [m, total]\n",
+      "note": "max kept modest so the exponential oracle stays fast; targets straddle the achievable sum"
+    },
+    {
+      "description": "targets near the achievable boundary to probe edge outcomes",
+      "seed": 47,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 16)\n    s = m * (m + 1) // 2\n    total = max(0, min(300, s + rng.randint(-2, 2)))\n    return [m, total]\n",
+      "note": "concentrates targets around the full sum where minimax decisions are subtle"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canIWin(self, maxChoosableInteger, desiredTotal):\n        if desiredTotal <= 0:\n            return True\n        if maxChoosableInteger * (maxChoosableInteger + 1) // 2 < desiredTotal:\n            return False\n        memo = {}\n        def win(remaining, target):\n            if not remaining:\n                return False\n            key = tuple(remaining)\n            if key in memo:\n                return memo[key]\n            res = False\n            for i, v in enumerate(remaining):\n                if v >= target:\n                    res = True\n                    break\n                rest = remaining[:i] + remaining[i + 1:]\n                if not win(rest, target - v):\n                    res = True\n                    break\n            memo[key] = res\n            return res\n        return win(tuple(range(1, maxChoosableInteger + 1)), desiredTotal)\n",
+  "solutions": {
+    "python": "class Solution:\n    def canIWin(self, maxChoosableInteger, desiredTotal):\n        if desiredTotal <= 0:\n            return True\n        if maxChoosableInteger * (maxChoosableInteger + 1) // 2 < desiredTotal:\n            return False\n        memo = {}\n        def dfs(used, remaining):\n            if used in memo:\n                return memo[used]\n            for n in range(1, maxChoosableInteger + 1):\n                bit = 1 << (n - 1)\n                if used & bit:\n                    continue\n                if n >= remaining or not dfs(used | bit, remaining - n):\n                    memo[used] = True\n                    return True\n            memo[used] = False\n            return False\n        return dfs(0, desiredTotal)\n",
+    "javascript": "var canIWin = function(maxChoosableInteger, desiredTotal) {\n    if (desiredTotal <= 0) return true;\n    if (maxChoosableInteger * (maxChoosableInteger + 1) / 2 < desiredTotal) return false;\n    const memo = new Map();\n    const dfs = (used, remaining) => {\n        if (memo.has(used)) return memo.get(used);\n        for (let n = 1; n <= maxChoosableInteger; n++) {\n            const bit = 1 << (n - 1);\n            if (used & bit) continue;\n            if (n >= remaining || !dfs(used | bit, remaining - n)) {\n                memo.set(used, true);\n                return true;\n            }\n        }\n        memo.set(used, false);\n        return false;\n    };\n    return dfs(0, desiredTotal);\n};\n"
+  },
+  "complexity": { "time": "O(2^m * m)", "space": "O(2^m)" }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-absolute-difference-queries",
+  "judge": "exact",
+  "pattern": "Because values fall in a tiny fixed range, prefix counts per value let each query test which values are present and scan adjacent ones for the smallest gap.",
+  "hints": [
+    "The smallest absolute difference among distinct values comes from two values that are adjacent when all present values are sorted.",
+    "Values are bounded by a small constant, so precompute prefix counts of each possible value across nums.",
+    "For each query, use the prefix counts to list which values occur in the range, then take the minimum gap between consecutive present values, or -1 if fewer than two distinct values exist."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [1, 100] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 20000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": [[1, 3, 4, 8], [[0, 1], [1, 2], [2, 3], [0, 3]]] },
+    { "kind": "trap", "description": "range of all equal values returns -1", "input": [[4, 5, 2, 2, 7, 10], [[2, 3], [0, 2], [0, 5], [3, 5]]] },
+    { "kind": "boundary", "description": "minimal length and single query", "input": [[1, 100], [[0, 1]]] },
+    { "kind": "edge", "description": "all identical across whole array", "input": [[5, 5, 5, 5], [[0, 3], [1, 2]]] },
+    { "kind": "trap", "description": "adjacent values give the smallest gap", "input": [[10, 1, 11, 2, 12], [[0, 4], [0, 1]]] },
+    { "kind": "edge", "description": "duplicates around distinct neighbors", "input": [[3, 3, 1, 3, 3], [[0, 4], [0, 1], [1, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "large array with many random subrange queries",
+      "seed": 99,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    nums = [rng.randrange(1, 101) for _ in range(n)]\n    q = max(1, size // 2)\n    queries = []\n    for _ in range(q):\n        l = rng.randrange(0, n - 1)\n        r = rng.randrange(l + 1, n)\n        queries.append([l, r])\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minDifference(self, nums, queries):\n        ans = []\n        for l, r in queries:\n            present = sorted(set(nums[l:r + 1]))\n            if len(present) < 2:\n                ans.append(-1)\n            else:\n                best = min(present[i + 1] - present[i] for i in range(len(present) - 1))\n                ans.append(best)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def minDifference(self, nums, queries):\n        MAXV = 100\n        n = len(nums)\n        prefix = [[0] * (MAXV + 1) for _ in range(n + 1)]\n        for i in range(n):\n            row = prefix[i + 1]\n            prev = prefix[i]\n            for v in range(1, MAXV + 1):\n                row[v] = prev[v]\n            row[nums[i]] += 1\n        ans = []\n        for l, r in queries:\n            pl, pr = prefix[l], prefix[r + 1]\n            last = -1\n            best = float('inf')\n            for v in range(1, MAXV + 1):\n                if pr[v] - pl[v] > 0:\n                    if last != -1 and v - last < best:\n                        best = v - last\n                    last = v\n            ans.append(-1 if best == float('inf') else best)\n        return ans\n",
+    "javascript": "var minDifference = function(nums, queries) {\n    const MAXV = 100;\n    const n = nums.length;\n    const prefix = Array.from({length: n + 1}, () => new Int32Array(MAXV + 1));\n    for (let i = 0; i < n; i++) {\n        const row = prefix[i + 1];\n        const prev = prefix[i];\n        for (let v = 1; v <= MAXV; v++) row[v] = prev[v];\n        row[nums[i]] += 1;\n    }\n    const ans = [];\n    for (const [l, r] of queries) {\n        const pl = prefix[l], pr = prefix[r + 1];\n        let last = -1, best = Infinity;\n        for (let v = 1; v <= MAXV; v++) {\n            if (pr[v] - pl[v] > 0) {\n                if (last !== -1 && v - last < best) best = v - last;\n                last = v;\n            }\n        }\n        ans.push(best === Infinity ? -1 : best);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) * V)", "space": "O(n * V)" }
+}

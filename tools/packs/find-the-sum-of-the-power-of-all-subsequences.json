@@ -1,0 +1,37 @@
+{
+  "slug": "find-the-sum-of-the-power-of-all-subsequences",
+  "judge": "exact",
+  "pattern": "Each subset that sums to k contributes 2^(n-size) to the total; a DP over subset-sums accumulates these weighted counts modulo 1e9+7.",
+  "hints": [
+    "The power of a subsequence S is the count of its sub-subsequences summing to k. Think about how many times each subset T with sum=k gets counted across all larger subsequences containing it.",
+    "A subset T with sum k is a sub-subsequence of every superset of T. There are 2^(n-|T|) supersets (each of the n-|T| elements not in T can be included or not). So T contributes 2^(n-|T|) to the answer.",
+    "Run a standard subset-sum DP. For each way to reach sum s using exactly j elements, accumulate 2^(n-j) mod (1e9+7) at dp[s]. The answer is dp[k]."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100], "value": [1, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "no subset sums to k, answer is 0", "input": [[1, 2, 3], 7] },
+    { "kind": "edge", "description": "single element equals k", "input": [[5], 5] },
+    { "kind": "edge", "description": "single element not equal to k", "input": [[3], 5] },
+    { "kind": "boundary", "description": "all elements equal 1, k=1, many subsets", "input": [[1, 1, 1, 1], 1] },
+    { "kind": "trap", "description": "duplicate elements create multiple distinct subsets summing to k", "input": [[2, 3, 3], 5] },
+    { "kind": "trap", "description": "large n means large 2^(n-j) factors; answer must be taken modulo 1e9+7", "input": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 1] },
+    { "kind": "boundary", "description": "k larger than any element, impossible", "input": [[1, 2], 10] }
+  ],
+  "stress": [
+    {
+      "description": "random nums array with moderate n and k",
+      "seed": 31,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 50))\n    k = rng.randint(1, 100)\n    nums = [rng.randint(1, 100) for _ in range(n)]\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sumOfPower(self, nums, k):\n        MOD = 10**9 + 7\n        n = len(nums)\n        # Brute force: iterate all subsets, compute their sum,\n        # and if sum==k add 2^(n-size)\n        total = 0\n        for mask in range(1, 1 << n):\n            s = 0\n            cnt = 0\n            for i in range(n):\n                if mask >> i & 1:\n                    s += nums[i]\n                    cnt += 1\n            if s == k:\n                total = (total + pow(2, n - cnt, MOD)) % MOD\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def sumOfPower(self, nums, k):\n        MOD = 10**9 + 7\n        n = len(nums)\n        # dp[s] = sum of 2^(n-|T|) for all subsets T with sum s (considered so far)\n        # We process elements one by one.\n        # When we add nums[i], subsets not including nums[i] have their count doubled\n        # (the new element can be freely included or not in the superset),\n        # and subsets including nums[i] are newly formed.\n        # Equivalently: dp[s] = 2*dp[s] + dp[s - nums[i]] after including nums[i].\n        # But we must not double-count, so update from right.\n        dp = [0] * (k + 1)\n        dp[0] = 1  # empty subset, weight 2^n but we'll multiply at the end\n        # Actually track: dp[s] = number of subsets with sum s, weighted by 2^(elements not chosen)\n        # Standard approach: dp[s] starts at 1 (empty subset weight = 2^n)\n        # For each element x: dp[s] = 2*dp[s] + dp[s-x]\n        # This is because each existing subset either excludes x (doubles) or includes x (transfers)\n        # Start with dp[0] = 1 representing the empty subset weighted by 1 (we'll mult by 2^n)\n        # Actually the cleanest: dp[s] after processing i elements =\n        #   sum over subsets T of first i elements with sum s of 2^(i - |T|)\n        # Recurrence: dp[s] = 2*dp_prev[s] + dp_prev[s - x]\n        dp = [0] * (k + 1)\n        dp[0] = 1\n        for x in nums:\n            # traverse from high to low to avoid reuse within same element\n            for s in range(k, -1, -1):\n                dp[s] = dp[s] * 2 % MOD\n                if s >= x:\n                    dp[s] = (dp[s] + dp[s - x]) % MOD\n        return dp[k]\n",
+    "javascript": "var sumOfPower = function(nums, k) {\n    const MOD = 1000000007n;\n    const dp = new Array(k + 1).fill(0n);\n    dp[0] = 1n;\n    for (const x of nums) {\n        for (let s = k; s >= 0; s--) {\n            dp[s] = dp[s] * 2n % MOD;\n            if (s >= x) dp[s] = (dp[s] + dp[s - x]) % MOD;\n        }\n    }\n    return Number(dp[k]);\n};\n"
+  },
+  "complexity": { "time": "O(n*k)", "space": "O(k)" }
+}

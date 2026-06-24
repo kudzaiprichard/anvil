@@ -1,0 +1,46 @@
+{
+  "slug": "design-a-number-container-system",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Keep a forward map from index to its current number and, per number, a min-ordered set of the indices holding it, skipping indices whose current value no longer matches.",
+  "hints": [
+    "find must return the smallest index for a number quickly, so a linear scan over all indices on every query is too slow.",
+    "Maintain two views: what number currently sits at each index, and which indices currently hold a given number.",
+    "Use a min-heap (or sorted set) per number of candidate indices; when popping the smallest, confirm that index still maps to that number before accepting it."
+  ],
+  "constraints": [
+    { "param": "index", "kind": "int", "value": [1, 1000000000] },
+    { "param": "number", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: queries before/after fills and a replacement that moves the smallest index",
+      "input": [["NumberContainers", "find", "change", "change", "change", "change", "find", "change", "find"], [[], [10], [2, 10], [1, 10], [3, 10], [5, 10], [10], [1, 20], [10]]] },
+    { "kind": "edge", "description": "find on a number never inserted returns -1",
+      "input": [["NumberContainers", "find", "change", "find"], [[], [7], [4, 7], [7]]] },
+    { "kind": "trap", "description": "replacing the value at an index removes it from the old number's candidates",
+      "input": [["NumberContainers", "change", "change", "find", "change", "find"], [[], [1, 5], [2, 5], [5], [1, 9], [5]]] },
+    { "kind": "trap", "description": "after the last holder of a number is replaced, find returns -1",
+      "input": [["NumberContainers", "change", "find", "change", "find"], [[], [3, 8], [8], [3, 2], [8]]] },
+    { "kind": "trap", "description": "moving a number back to a smaller index must restore the smaller answer",
+      "input": [["NumberContainers", "change", "change", "find", "change", "find"], [[], [5, 4], [2, 4], [4], [2, 9], [4]]] },
+    { "kind": "boundary", "description": "two numbers tracked independently, lowest index per number",
+      "input": [["NumberContainers", "change", "change", "change", "find", "find"], [[], [10, 1], [3, 1], [7, 2], [1], [2]]] },
+    { "kind": "boundary", "description": "index and number at the constraint extremes",
+      "input": [["NumberContainers", "change", "change", "find", "find"], [[], [1000000000, 1000000000], [1, 1000000000], [1000000000], [1]]] }
+  ],
+  "stress": [
+    {
+      "description": "interleaved changes (many overwrites) and finds over a small index/number space",
+      "seed": 41,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    ops = ['NumberContainers']\n    args = [[]]\n    used_numbers = set()\n    for _ in range(max(1, size)):\n        if rng.random() < 0.6:\n            ops.append('change')\n            num = rng.randint(1, 12)\n            used_numbers.add(num)\n            args.append([rng.randint(1, 20), num])\n        else:\n            ops.append('find')\n            if used_numbers and rng.random() < 0.7:\n                args.append([rng.choice(sorted(used_numbers))])\n            else:\n                args.append([rng.randint(1, 15)])\n    return [ops, args]\n",
+      "note": "small index space forces frequent overwrites so stale candidates must be skipped"
+    }
+  ],
+  "oracle_python": "class NumberContainers:\n    def __init__(self):\n        self.at = {}\n    def change(self, index, number):\n        self.at[index] = number\n        return None\n    def find(self, number):\n        best = -1\n        for idx, num in self.at.items():\n            if num == number and (best == -1 or idx < best):\n                best = idx\n        return best\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass NumberContainers:\n    def __init__(self):\n        self.at = {}\n        self.heaps = {}\n    def change(self, index, number):\n        self.at[index] = number\n        self.heaps.setdefault(number, [])\n        heapq.heappush(self.heaps[number], index)\n        return None\n    def find(self, number):\n        h = self.heaps.get(number)\n        if not h:\n            return -1\n        while h:\n            idx = h[0]\n            if self.at.get(idx) == number:\n                return idx\n            heapq.heappop(h)\n        return -1\n",
+    "javascript": "class NumberContainers {\n    constructor() {\n        this.at = new Map();\n    }\n    change(index, number) {\n        this.at.set(index, number);\n        return null;\n    }\n    find(number) {\n        let best = -1;\n        for (const [idx, num] of this.at) {\n            if (num === number && (best === -1 || idx < best)) {\n                best = idx;\n            }\n        }\n        return best;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log m) amortized per op", "space": "O(n)" }
+}

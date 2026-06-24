@@ -1,0 +1,39 @@
+{
+  "slug": "subtree-of-another-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "tree"], "returns": "json" },
+  "pattern": "Try matching the smaller tree against the subtree rooted at every node of the larger one, where a match means identical structure and identical values all the way down.",
+  "hints": [
+    "Break it into two questions: at a given node, do two trees match exactly, and where do you anchor that check.",
+    "Write a helper that returns whether two trees are identical, then apply it starting from each node of the big tree.",
+    "Recurse through the big tree; at each node test for an exact match against the target, and answer yes if any anchor point matches."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 2000], "value": [-10000, 10000] },
+    { "param": "subRoot", "kind": "tree", "len": [1, 1000], "value": [-10000, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "subtree appears as a left branch", "input": [[3, 4, 5, 1, 2], [4, 1, 2]] },
+    { "kind": "trap", "description": "values match but an extra descendant breaks the structure", "input": [[3, 4, 5, 1, 2, null, null, null, null, 0], [4, 1, 2]] },
+    { "kind": "boundary", "description": "both single nodes with the same value", "input": [[1], [1]] },
+    { "kind": "boundary", "description": "single nodes with different values", "input": [[1], [2]] },
+    { "kind": "edge", "description": "the whole tree equals the target", "input": [[5, 3, 8], [5, 3, 8]] },
+    { "kind": "trap", "description": "matching value appears but its children differ", "input": [[1, 2, 3, 2], [2, null, 1]] },
+    { "kind": "trap", "description": "repeated value where only one occurrence is a real match", "input": [[1, 1, null, 1, null, 2], [1, null, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "build a random tree, then sometimes use an actual subtree as the target and sometimes a random one",
+      "seed": 53,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    def build(limit):\n        count = [0]\n        idx = [0]\n        def rec():\n            if count[0] >= limit or rng.random() < 0.35:\n                return None\n            count[0] += 1\n            v = rng.randint(-20, 20)\n            node = {'v': v, 'l': None, 'r': None}\n            node['l'] = rec()\n            node['r'] = rec()\n            return node\n        root = rec()\n        if root is None:\n            root = {'v': rng.randint(-20, 20), 'l': None, 'r': None}\n        return root\n    big = build(max(1, min(size, 60)))\n    # collect all subtree roots\n    subs = []\n    stack = [big]\n    while stack:\n        nd = stack.pop()\n        if nd is None:\n            continue\n        subs.append(nd)\n        stack.append(nd['l']); stack.append(nd['r'])\n    if rng.random() < 0.5 and subs:\n        target = rng.choice(subs)\n    else:\n        target = build(max(1, min(size // 3 + 1, 20)))\n    def serialize(root):\n        out = []\n        from collections import deque\n        q = deque([root])\n        while q:\n            nd = q.popleft()\n            if nd is None:\n                out.append(None); continue\n            out.append(nd['v'])\n            q.append(nd['l']); q.append(nd['r'])\n        while out and out[-1] is None:\n            out.pop()\n        return out\n    return [serialize(big), serialize(target)]\n",
+      "note": "mixing genuine subtrees and random targets exercises both outcomes"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isSubtree(self, root, subRoot):\n        def serial(node):\n            if not node:\n                return '#'\n            return '(' + str(node.val) + serial(node.left) + serial(node.right) + ')'\n        target = serial(subRoot)\n        nodes = []\n        stack = [root]\n        while stack:\n            nd = stack.pop()\n            if not nd:\n                continue\n            nodes.append(nd)\n            stack.append(nd.left); stack.append(nd.right)\n        for nd in nodes:\n            if serial(nd) == target:\n                return True\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def isSubtree(self, root, subRoot):\n        def same(a, b):\n            if not a and not b:\n                return True\n            if not a or not b or a.val != b.val:\n                return False\n            return same(a.left, b.left) and same(a.right, b.right)\n        def walk(node):\n            if not node:\n                return False\n            if same(node, subRoot):\n                return True\n            return walk(node.left) or walk(node.right)\n        return walk(root)\n",
+    "javascript": "var isSubtree = function(root, subRoot) {\n    function same(a, b) {\n        if (!a && !b) return true;\n        if (!a || !b || a.val !== b.val) return false;\n        return same(a.left, b.left) && same(a.right, b.right);\n    }\n    function walk(node) {\n        if (!node) return false;\n        if (same(node, subRoot)) return true;\n        return walk(node.left) || walk(node.right);\n    }\n    return walk(root);\n};\n"
+  },
+  "complexity": { "time": "O(n*m)", "space": "O(h)" }
+}

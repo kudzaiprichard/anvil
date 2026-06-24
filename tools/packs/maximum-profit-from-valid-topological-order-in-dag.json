@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-profit-from-valid-topological-order-in-dag",
+  "judge": "exact",
+  "pattern": "A bitmask DP over the set of already-placed nodes assigns the next position to any node whose predecessors are all placed, maximizing the score-times-position sum.",
+  "hints": [
+    "The position a node gets is one more than the number of nodes placed before it, so it only depends on how many are already chosen.",
+    "Track which subset of nodes has been placed; a node is eligible next only if every node with an edge into it is already in the subset.",
+    "Let dp[mask] be the best profit having placed exactly the nodes in mask. For each eligible next node v (its predecessor mask is a subset of mask), the new position is popcount(mask)+1; update dp[mask | (1<<v)]."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 22] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 231], "value": [0, 21] },
+    { "param": "score", "kind": "int[]", "len": [1, 22], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single chain forces the only order", "input": [2, [[0, 1]], [2, 3]] },
+    { "kind": "edge", "description": "one root with two free successors, higher score goes last", "input": [3, [[0, 1], [0, 2]], [1, 6, 3]] },
+    { "kind": "boundary", "description": "single node, no edges", "input": [1, [], [50]] },
+    { "kind": "trap", "description": "no edges, biggest score should take the last position", "input": [3, [], [5, 1, 9]] },
+    { "kind": "edge", "description": "diamond dependency", "input": [4, [[0, 1], [0, 2], [1, 3], [2, 3]], [3, 5, 2, 7]] },
+    { "kind": "trap", "description": "reversed-index edge still a DAG", "input": [3, [[2, 0], [2, 1]], [4, 8, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random DAG on up to 12 nodes with edges only from lower to higher index",
+      "seed": 22,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 12))\n    edges = []\n    for u in range(n):\n        for v in range(u + 1, n):\n            if rng.random() < 0.35:\n                edges.append([u, v])\n    score = [rng.randrange(1, 100001) for _ in range(n)]\n    return [n, edges, score]\n",
+      "note": "kept to <=12 nodes so the 2^n DP stays fast"
+    }
+  ],
+  "oracle_python": "import itertools\nclass Solution:\n    def maxProfit(self, n, edges, score):\n        es = [(u, v) for u, v in edges]\n        best = None\n        for perm in itertools.permutations(range(n)):\n            pos = {node: i + 1 for i, node in enumerate(perm)}\n            if all(pos[u] < pos[v] for u, v in es):\n                tot = sum(score[node] * pos[node] for node in range(n))\n                if best is None or tot > best:\n                    best = tot\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxProfit(self, n, edges, score):\n        pred = [0] * n\n        for u, v in edges:\n            pred[v] |= (1 << u)\n        NEG = float('-inf')\n        dp = [NEG] * (1 << n)\n        dp[0] = 0\n        for mask in range(1 << n):\n            if dp[mask] == NEG:\n                continue\n            pos = bin(mask).count('1') + 1\n            for v in range(n):\n                if mask & (1 << v):\n                    continue\n                if pred[v] & mask == pred[v]:\n                    nm = mask | (1 << v)\n                    cand = dp[mask] + score[v] * pos\n                    if cand > dp[nm]:\n                        dp[nm] = cand\n        return dp[(1 << n) - 1]\n",
+    "javascript": "var maxProfit = function(n, edges, score) {\n    const pred = new Array(n).fill(0);\n    for (const [u, v] of edges) pred[v] |= (1 << u);\n    const NEG = -Infinity;\n    const size = 1 << n;\n    const dp = new Array(size).fill(NEG);\n    dp[0] = 0;\n    for (let mask = 0; mask < size; mask++) {\n        if (dp[mask] === NEG) continue;\n        let bits = 0, m = mask;\n        while (m) { bits += m & 1; m >>= 1; }\n        const pos = bits + 1;\n        for (let v = 0; v < n; v++) {\n            if (mask & (1 << v)) continue;\n            if ((pred[v] & mask) === pred[v]) {\n                const nm = mask | (1 << v);\n                const cand = dp[mask] + score[v] * pos;\n                if (cand > dp[nm]) dp[nm] = cand;\n            }\n        }\n    }\n    return dp[size - 1];\n};\n"
+  },
+  "complexity": { "time": "O(n * 2^n)", "space": "O(2^n)" }
+}

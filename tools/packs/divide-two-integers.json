@@ -1,0 +1,40 @@
+{
+  "slug": "divide-two-integers",
+  "judge": "exact",
+  "pattern": "Integer division without the divide operator is repeated doubling-and-subtraction of the divisor, with the quotient clamped to the signed 32-bit range.",
+  "hints": [
+    "You may not use multiplication, division, or mod, and the result truncates toward zero, so think in terms of subtraction.",
+    "Subtracting the divisor one at a time is too slow; subtract the largest doubling of the divisor that still fits, like long division in binary.",
+    "Work with absolute values, repeatedly subtract divisor << k for the largest k that fits and add 1 << k to the quotient, fix the sign, then clamp to [-2^31, 2^31 - 1]."
+  ],
+  "constraints": [
+    { "param": "dividend", "kind": "int", "value": [-2147483648, 2147483647] },
+    { "param": "divisor", "kind": "int", "value": [-2147483648, 2147483647] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "positive truncating division", "input": [10, 3] },
+    { "kind": "edge", "description": "mixed signs truncate toward zero", "input": [7, -3] },
+    { "kind": "trap", "description": "INT_MIN divided by -1 overflows and must clamp", "input": [-2147483648, -1] },
+    { "kind": "boundary", "description": "INT_MIN divided by 1 stays in range", "input": [-2147483648, 1] },
+    { "kind": "trap", "description": "negative dividend truncates toward zero not down", "input": [-7, 3] },
+    { "kind": "edge", "description": "divisor larger than dividend yields zero", "input": [1, 2] },
+    { "kind": "edge", "description": "exact negative division", "input": [-12, 4] },
+    { "kind": "boundary", "description": "INT_MIN divided by INT_MIN is one", "input": [-2147483648, -2147483648] },
+    { "kind": "trap", "description": "both negative large values", "input": [-2147483648, 2] }
+  ],
+  "stress": [
+    {
+      "description": "random 32-bit dividend and nonzero divisor across all sign combinations",
+      "seed": 29,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    LO, HI = -2147483648, 2147483647\n    dividend = rng.randint(LO, HI)\n    divisor = 0\n    while divisor == 0:\n        divisor = rng.randint(LO, HI)\n    return [dividend, divisor]\n",
+      "note": "divisor forced nonzero per constraints; full 32-bit range exercises the clamp"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def divide(self, dividend, divisor):\n        INT_MIN, INT_MAX = -2147483648, 2147483647\n        q = abs(dividend) // abs(divisor)\n        if (dividend < 0) != (divisor < 0):\n            q = -q\n        if q < INT_MIN:\n            return INT_MIN\n        if q > INT_MAX:\n            return INT_MAX\n        return q\n",
+  "solutions": {
+    "python": "class Solution:\n    def divide(self, dividend, divisor):\n        INT_MIN, INT_MAX = -2147483648, 2147483647\n        if dividend == INT_MIN and divisor == -1:\n            return INT_MAX\n        negative = (dividend < 0) != (divisor < 0)\n        a, b = abs(dividend), abs(divisor)\n        quotient = 0\n        while a >= b:\n            temp, multiple = b, 1\n            while a >= (temp << 1):\n                temp <<= 1\n                multiple <<= 1\n            a -= temp\n            quotient += multiple\n        quotient = -quotient if negative else quotient\n        if quotient < INT_MIN:\n            return INT_MIN\n        if quotient > INT_MAX:\n            return INT_MAX\n        return quotient\n",
+    "javascript": "var divide = function(dividend, divisor) {\n    const INT_MIN = -2147483648, INT_MAX = 2147483647;\n    if (dividend === INT_MIN && divisor === -1) return INT_MAX;\n    const negative = (dividend < 0) !== (divisor < 0);\n    let a = Math.abs(dividend), b = Math.abs(divisor);\n    let quotient = 0;\n    while (a >= b) {\n        let temp = b, multiple = 1;\n        while (a >= temp * 2) {\n            temp *= 2;\n            multiple *= 2;\n        }\n        a -= temp;\n        quotient += multiple;\n    }\n    quotient = negative ? -quotient : quotient;\n    if (quotient < INT_MIN) return INT_MIN;\n    if (quotient > INT_MAX) return INT_MAX;\n    return quotient;\n};\n"
+  },
+  "complexity": { "time": "O((log n)^2)", "space": "O(1)" }
+}

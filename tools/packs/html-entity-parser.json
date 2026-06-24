@@ -1,0 +1,37 @@
+{
+  "slug": "html-entity-parser",
+  "judge": "exact",
+  "pattern": "Build a map of the six HTML entities and scan the string left-to-right, replacing each valid entity sequence found while leaving unrecognized ampersand sequences intact.",
+  "hints": [
+    "Create a lookup table mapping each entity string (including the surrounding & and ;) to its replacement character.",
+    "Scan character by character; when you encounter '&', check if the next characters form a known entity and replace if so.",
+    "Entities can appear adjacent to each other or in the middle of regular text — walk through replacing greedily from left to right."
+  ],
+  "constraints": [
+    { "param": "text", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single valid ampersand entity", "input": ["&amp;"] },
+    { "kind": "edge", "description": "all six entities concatenated", "input": ["&quot;&apos;&amp;&gt;&lt;&frasl;"] },
+    { "kind": "trap", "description": "invalid entity that looks like a valid prefix", "input": ["&ambassador;"] },
+    { "kind": "trap", "description": "entity inside a word", "input": ["Tom&amp;Jerry"] },
+    { "kind": "boundary", "description": "no entities at all, plain text", "input": ["hello world 123"] },
+    { "kind": "boundary", "description": "entity at end of string", "input": ["value &lt;"] },
+    { "kind": "trap", "description": "partial entity with no closing semicolon", "input": ["&amp no semicolon"] },
+    { "kind": "edge", "description": "repeated same entity", "input": ["&gt;&gt;&gt;"] }
+  ],
+  "stress": [
+    {
+      "description": "random mix of valid entities and plain text",
+      "seed": 42,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    entities = ['&quot;', '&apos;', '&amp;', '&gt;', '&lt;', '&frasl;']\n    parts = []\n    for _ in range(size):\n        if rng.random() < 0.4:\n            parts.append(rng.choice(entities))\n        else:\n            parts.append(rng.choice('abcdefghijklmnopqrstuvwxyz '))\n    return [''.join(parts)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def entityParser(self, text: str) -> str:\n        mapping = {'&quot;': '\"', '&apos;': \"'\", '&amp;': '&', '&gt;': '>', '&lt;': '<', '&frasl;': '/'}\n        result = []\n        i = 0\n        while i < len(text):\n            matched = False\n            if text[i] == '&':\n                for entity, char in mapping.items():\n                    if text[i:i+len(entity)] == entity:\n                        result.append(char)\n                        i += len(entity)\n                        matched = True\n                        break\n            if not matched:\n                result.append(text[i])\n                i += 1\n        return ''.join(result)\n",
+  "solutions": {
+    "python": "class Solution:\n    def entityParser(self, text: str) -> str:\n        import re\n        mapping = {'&quot;': '\"', '&apos;': \"'\", '&amp;': '&', '&gt;': '>', '&lt;': '<', '&frasl;': '/'}\n        pattern = re.compile('|'.join(re.escape(k) for k in mapping))\n        return pattern.sub(lambda m: mapping[m.group(0)], text)\n",
+    "javascript": "var entityParser = function(text) {\n    const mapping = {'&quot;': '\"', '&apos;': \"'\", '&amp;': '&', '&gt;': '>', '&lt;': '<', '&frasl;': '/'};\n    return text.replace(/&quot;|&apos;|&amp;|&gt;|&lt;|&frasl;/g, m => mapping[m]);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "largest-multiple-of-three",
+  "judge": "exact",
+  "pattern": "A digit sum is divisible by three iff the sum of its parts is; greedily keep as many digits as possible by removing the fewest, highest-remainder digits to fix a non-zero remainder.",
+  "hints": [
+    "The divisibility rule for 3: a number is divisible by 3 if and only if the sum of its digits is divisible by 3. Track the digit sum's remainder mod 3.",
+    "If the remainder is 0 use all digits; if it's 1, try removing one digit with remainder 1, or else two digits with remainder 2 — pick whichever keeps more digits; similarly for remainder 2.",
+    "After choosing which digits to drop, arrange the survivors in descending order to maximize the number, but guard against a leading zero (return '0' if all remaining digits are zero)."
+  ],
+  "constraints": [
+    { "param": "digits", "kind": "int[]", "len": [1, 10000], "value": [0, 9] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "digits sum already divisible by 3", "input": [[8, 1, 9]] },
+    { "kind": "edge", "description": "mixed digits needing one removal", "input": [[8, 6, 7, 1, 0]] },
+    { "kind": "edge", "description": "single digit not divisible by 3 returns empty", "input": [[1]] },
+    { "kind": "edge", "description": "all zeros — answer is a single zero", "input": [[0, 0, 0]] },
+    { "kind": "trap", "description": "single zero — valid answer is '0'", "input": [[0]] },
+    { "kind": "trap", "description": "must remove two digits of remainder-1 to restore divisibility", "input": [[1, 1, 1]] },
+    { "kind": "boundary", "description": "all nines — sum divisible by 3", "input": [[9, 9, 9]] },
+    { "kind": "trap", "description": "leading zero in result must be avoided when non-zero digits remain", "input": [[0, 0, 9, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random digit arrays up to length 10000",
+      "seed": 23,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randint(0, 9) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestMultipleOfThree(self, digits) -> str:\n        from itertools import combinations\n        digits_sorted = sorted(digits, reverse=True)\n        n = len(digits_sorted)\n        # brute force: try dropping 0, 1, 2 digits (fewest drops first for largest result)\n        for drop in range(n + 1):\n            for combo in combinations(range(n), drop):\n                remaining = [digits_sorted[i] for i in range(n) if i not in combo]\n                if sum(remaining) % 3 == 0:\n                    remaining.sort(reverse=True)\n                    s = ''.join(map(str, remaining))\n                    if not s:\n                        continue\n                    if s[0] == '0':\n                        return '0'\n                    return s\n        return ''\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestMultipleOfThree(self, digits) -> str:\n        digits.sort(reverse=True)\n        total = sum(digits)\n        rem = total % 3\n        if rem == 0:\n            pass\n        else:\n            # collect indices by their digit % 3 value\n            by_rem = {1: [], 2: []}\n            for i, d in enumerate(digits):\n                r = d % 3\n                if r in by_rem:\n                    by_rem[r].append(i)\n            # sort each bucket ascending by digit value (remove smallest first)\n            for r in by_rem:\n                by_rem[r].sort(key=lambda i: digits[i])\n            to_remove = set()\n            if rem == 1:\n                if by_rem[1]:\n                    to_remove = {by_rem[1][0]}\n                else:\n                    to_remove = set(by_rem[2][:2])\n            else:  # rem == 2\n                if by_rem[2]:\n                    to_remove = {by_rem[2][0]}\n                else:\n                    to_remove = set(by_rem[1][:2])\n            digits = [d for i, d in enumerate(digits) if i not in to_remove]\n        if not digits:\n            return ''\n        digits.sort(reverse=True)\n        if digits[0] == 0:\n            return '0'\n        return ''.join(map(str, digits))\n",
+    "javascript": "var largestMultipleOfThree = function(digits) {\n    digits.sort((a, b) => b - a);\n    const total = digits.reduce((s, d) => s + d, 0);\n    let rem = total % 3;\n    if (rem !== 0) {\n        const byRem = {1: [], 2: []};\n        for (let i = 0; i < digits.length; i++) {\n            const r = digits[i] % 3;\n            if (r === 1 || r === 2) byRem[r].push(i);\n        }\n        for (const r of [1, 2]) byRem[r].sort((a, b) => digits[a] - digits[b]);\n        let toRemove = new Set();\n        if (rem === 1) {\n            if (byRem[1].length) toRemove.add(byRem[1][0]);\n            else { toRemove.add(byRem[2][0]); toRemove.add(byRem[2][1]); }\n        } else {\n            if (byRem[2].length) toRemove.add(byRem[2][0]);\n            else { toRemove.add(byRem[1][0]); toRemove.add(byRem[1][1]); }\n        }\n        digits = digits.filter((_, i) => !toRemove.has(i));\n    }\n    if (!digits.length) return '';\n    digits.sort((a, b) => b - a);\n    if (digits[0] === 0) return '0';\n    return digits.join('');\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

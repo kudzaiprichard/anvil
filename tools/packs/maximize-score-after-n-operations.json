@@ -1,0 +1,37 @@
+{
+  "slug": "maximize-score-after-n-operations",
+  "judge": "exact",
+  "pattern": "Bitmask DP over which elements remain: the operation index is how many pairs are already formed plus one, and from each subset every possible next pair is tried so each matching can map any pair to any multiplier.",
+  "hints": [
+    "The score multiplier for the next pair you form depends only on how many pairs you have already removed, namely half the elements already taken plus one.",
+    "Represent the set of still-available indices as a bitmask and memoize the best total reachable from each subset.",
+    "From a subset, try every unordered pair of still-free indices as the next operation, add (pairsDone+1)*gcd, recurse on the smaller subset, and keep the maximum; do not lock the first free index into the earliest operation."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 14], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "smallest case, one pair", "input": [[1, 2]] },
+    { "kind": "edge", "description": "two pairs where grouping by divisibility wins", "input": [[3, 4, 6, 8]] },
+    { "kind": "trap", "description": "three pairs, naive largest-gcd-first is suboptimal because later multipliers matter more", "input": [[1, 2, 3, 4, 5, 6]] },
+    { "kind": "boundary", "description": "all identical so every gcd is the same value", "input": [[5, 5, 5, 5]] },
+    { "kind": "trap", "description": "coprime values force gcd of one in many pairs", "input": [[2, 3, 5, 7]] },
+    { "kind": "edge", "description": "powers of two reward saving the biggest shared factor for the last operation", "input": [[2, 4, 8, 16, 32, 64]] },
+    { "kind": "boundary", "description": "maximum size, seven operations", "input": [[6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84]] },
+    { "kind": "trap", "description": "large values stress gcd, mixed factors", "input": [[1000000, 999999, 524288, 6, 9, 15]] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays of even length up to 12 with moderate values to keep gcd structure rich",
+      "seed": 91,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, 7)\n    return [[rng.randrange(1, 200) for _ in range(2 * n)]]\n"
+    }
+  ],
+  "oracle_python": "import math\nclass Solution:\n    def maxScore(self, nums):\n        n = len(nums)\n        def pairings(items):\n            if not items:\n                yield []\n                return\n            a = items[0]\n            for i in range(1, len(items)):\n                b = items[i]\n                rest = items[1:i] + items[i + 1:]\n                for p in pairings(rest):\n                    yield [(a, b)] + p\n        best = 0\n        for p in pairings(list(range(n))):\n            gs = sorted(math.gcd(nums[i], nums[j]) for i, j in p)\n            sc = sum((k + 1) * gs[k] for k in range(len(gs)))\n            if sc > best:\n                best = sc\n        return best\n",
+  "solutions": {
+    "python": "import math\nfrom functools import lru_cache\nclass Solution:\n    def maxScore(self, nums):\n        n = len(nums)\n        @lru_cache(maxsize=None)\n        def dp(mask):\n            taken = bin(mask).count('1')\n            if taken == n:\n                return 0\n            op = taken // 2 + 1\n            best = 0\n            for i in range(n):\n                if mask & (1 << i):\n                    continue\n                for j in range(i + 1, n):\n                    if mask & (1 << j):\n                        continue\n                    nm = mask | (1 << i) | (1 << j)\n                    cand = op * math.gcd(nums[i], nums[j]) + dp(nm)\n                    if cand > best:\n                        best = cand\n            return best\n        return dp(0)\n",
+    "javascript": "var maxScore = function(nums) {\n    const n = nums.length;\n    const gcd = (a, b) => { while (b) { [a, b] = [b, a % b]; } return a; };\n    const memo = new Map();\n    const dp = (mask) => {\n        if (memo.has(mask)) return memo.get(mask);\n        let taken = 0;\n        for (let k = 0; k < n; k++) if (mask & (1 << k)) taken++;\n        if (taken === n) { memo.set(mask, 0); return 0; }\n        const op = ((taken / 2) | 0) + 1;\n        let best = 0;\n        for (let i = 0; i < n; i++) {\n            if (mask & (1 << i)) continue;\n            for (let j = i + 1; j < n; j++) {\n                if (mask & (1 << j)) continue;\n                const nm = mask | (1 << i) | (1 << j);\n                const cand = op * gcd(nums[i], nums[j]) + dp(nm);\n                if (cand > best) best = cand;\n            }\n        }\n        memo.set(mask, best);\n        return best;\n    };\n    return dp(0);\n};\n"
+  },
+  "complexity": { "time": "O(2^(2n) * n)", "space": "O(2^(2n))" }
+}

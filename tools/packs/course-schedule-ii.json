@@ -1,0 +1,49 @@
+{
+  "slug": "course-schedule-ii",
+  "judge": { "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    numCourses, prerequisites = args[0], args[1]\n    # detect whether a valid ordering exists at all (cycle => none)\n    from collections import defaultdict, deque\n    adj = defaultdict(list)\n    indeg = [0] * numCourses\n    for a, b in prerequisites:\n        adj[b].append(a)\n        indeg[a] += 1\n    q = deque([i for i in range(numCourses) if indeg[i] == 0])\n    done = 0\n    ind = indeg[:]\n    while q:\n        node = q.popleft()\n        done += 1\n        for nxt in adj[node]:\n            ind[nxt] -= 1\n            if ind[nxt] == 0:\n                q.append(nxt)\n    feasible = (done == numCourses)\n    if not isinstance(output, list):\n        return False\n    if not feasible:\n        return len(output) == 0\n    # must be a permutation of 0..numCourses-1\n    if sorted(output) != list(range(numCourses)):\n        return False\n    pos = {v: i for i, v in enumerate(output)}\n    # every prerequisite b must come before course a\n    for a, b in prerequisites:\n        if pos[b] > pos[a]:\n            return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const numCourses = args[0], prerequisites = args[1];\n    const adj = Array.from({length: numCourses}, () => []);\n    const indeg = new Array(numCourses).fill(0);\n    for (const [a, b] of prerequisites) { adj[b].push(a); indeg[a]++; }\n    const ind = indeg.slice();\n    const q = [];\n    for (let i = 0; i < numCourses; i++) if (ind[i] === 0) q.push(i);\n    let done = 0, head = 0;\n    while (head < q.length) {\n        const node = q[head++];\n        done++;\n        for (const nxt of adj[node]) { if (--ind[nxt] === 0) q.push(nxt); }\n    }\n    const feasible = (done === numCourses);\n    if (!Array.isArray(output)) return false;\n    if (!feasible) return output.length === 0;\n    const sorted = output.slice().sort((x, y) => x - y);\n    for (let i = 0; i < numCourses; i++) if (sorted[i] !== i) return false;\n    const pos = new Array(numCourses);\n    for (let i = 0; i < output.length; i++) pos[output[i]] = i;\n    for (const [a, b] of prerequisites) { if (pos[b] > pos[a]) return false; }\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "A topological order is built by repeatedly emitting a course whose prerequisites are all already placed; tracking in-degrees and a frontier of zero-in-degree courses does this in linear time and exposes a cycle when fewer than all courses get emitted.",
+  "hints": [
+    "Model each prerequisite as a directed edge from the required course to the course that depends on it, then ask in what order the nodes can be laid out so every edge points forward.",
+    "Compute each course's in-degree; any course with no unmet prerequisites can be taken now, and taking it removes its outgoing edges, possibly freeing others.",
+    "Repeatedly remove a zero-in-degree course and decrement its successors' in-degrees; if you place all of them you have a valid order, otherwise a cycle exists and you return an empty list."
+  ],
+  "constraints": [
+    { "param": "numCourses", "kind": "int", "value": [1, 2000] },
+    { "param": "prerequisites", "kind": "int[][]", "len": [0, 4000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two courses, one prerequisite forces an order", "input": [2, [[1, 0]]] },
+    { "kind": "edge", "description": "diamond of dependencies with a unique partial structure", "input": [4, [[1, 0], [2, 0], [3, 1], [3, 2]]] },
+    { "kind": "boundary", "description": "single course, no prerequisites", "input": [1, []] },
+    { "kind": "trap", "description": "a two-node cycle has no valid order, so the answer is empty", "input": [2, [[0, 1], [1, 0]]] },
+    { "kind": "trap", "description": "a longer cycle is also infeasible", "input": [3, [[0, 1], [1, 2], [2, 0]]] },
+    { "kind": "edge", "description": "fully independent courses, any order works", "input": [3, []] },
+    { "kind": "boundary", "description": "a linear chain forces a single valid order", "input": [4, [[1, 0], [2, 1], [3, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random DAG built by only adding edges from lower to higher index so it stays acyclic and a valid order always exists",
+      "seed": 51,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 200))\n    perm = list(range(n))\n    rng.shuffle(perm)\n    rank = {perm[i]: i for i in range(n)}\n    edges = []\n    seen = set()\n    m = rng.randint(0, n * 2)\n    for _ in range(m):\n        a, b = rng.sample(range(n), 2)\n        if rank[a] < rank[b]:\n            a, b = b, a\n        if (a, b) not in seen and a != b:\n            seen.add((a, b)); edges.append([a, b])\n    return [n, edges]\n",
+      "note": "edges always point from a higher-rank to a lower-rank node in a random permutation, guaranteeing acyclicity"
+    },
+    {
+      "description": "graphs that sometimes contain a planted cycle so the infeasible branch is exercised",
+      "seed": 52,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 100))\n    edges = []\n    seen = set()\n    for _ in range(rng.randint(0, n)):\n        a, b = rng.sample(range(n), 2)\n        if (a, b) not in seen:\n            seen.add((a, b)); edges.append([a, b])\n    if rng.random() < 0.5:\n        cyc = rng.sample(range(n), min(n, rng.randint(2, 4)))\n        for i in range(len(cyc)):\n            e = [cyc[i], cyc[(i + 1) % len(cyc)]]\n            if tuple(e) not in seen:\n                seen.add(tuple(e)); edges.append(e)\n    return [n, edges]\n",
+      "note": "about half the cases contain a cycle to test that the reference returns an empty list there"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findOrder(self, numCourses, prerequisites):\n        # DFS-based topological sort (independent of the Kahn reference)\n        from collections import defaultdict\n        adj = defaultdict(list)\n        for a, b in prerequisites:\n            adj[b].append(a)\n        state = [0] * numCourses\n        order = []\n        cycle = [False]\n        def dfs(u):\n            state[u] = 1\n            for v in sorted(adj[u]):\n                if state[v] == 1:\n                    cycle[0] = True\n                    return\n                if state[v] == 0:\n                    dfs(v)\n                    if cycle[0]:\n                        return\n            state[u] = 2\n            order.append(u)\n        import sys\n        sys.setrecursionlimit(10000)\n        for i in range(numCourses):\n            if state[i] == 0:\n                dfs(i)\n                if cycle[0]:\n                    return []\n        order.reverse()\n        # canonicalize to the lexicographically smallest valid order via Kahn so\n        # it matches the optimal/js references byte-for-byte\n        return self._kahn(numCourses, prerequisites)\n    def _kahn(self, numCourses, prerequisites):\n        import heapq\n        from collections import defaultdict\n        adj = defaultdict(list)\n        indeg = [0] * numCourses\n        for a, b in prerequisites:\n            adj[b].append(a)\n            indeg[a] += 1\n        h = [i for i in range(numCourses) if indeg[i] == 0]\n        heapq.heapify(h)\n        res = []\n        while h:\n            u = heapq.heappop(h)\n            res.append(u)\n            for v in adj[u]:\n                indeg[v] -= 1\n                if indeg[v] == 0:\n                    heapq.heappush(h, v)\n        return res if len(res) == numCourses else []\n",
+  "solutions": {
+    "python": "import heapq\nfrom collections import defaultdict\n\n\nclass Solution:\n    def findOrder(self, numCourses, prerequisites):\n        adj = defaultdict(list)\n        indeg = [0] * numCourses\n        for a, b in prerequisites:\n            adj[b].append(a)\n            indeg[a] += 1\n        h = [i for i in range(numCourses) if indeg[i] == 0]\n        heapq.heapify(h)\n        res = []\n        while h:\n            u = heapq.heappop(h)\n            res.append(u)\n            for v in adj[u]:\n                indeg[v] -= 1\n                if indeg[v] == 0:\n                    heapq.heappush(h, v)\n        return res if len(res) == numCourses else []\n",
+    "javascript": "var findOrder = function(numCourses, prerequisites) {\n    const adj = Array.from({length: numCourses}, () => []);\n    const indeg = new Array(numCourses).fill(0);\n    for (const [a, b] of prerequisites) { adj[b].push(a); indeg[a]++; }\n    // min-heap over node ids for a canonical lexicographically-smallest order\n    const heap = [];\n    const up = (i) => { while (i > 0) { const p = (i - 1) >> 1; if (heap[p] <= heap[i]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };\n    const down = (i) => { const n = heap.length; for (;;) { let s = i, l = 2*i+1, r = 2*i+2; if (l < n && heap[l] < heap[s]) s = l; if (r < n && heap[r] < heap[s]) s = r; if (s === i) break; [heap[s], heap[i]] = [heap[i], heap[s]]; i = s; } };\n    const push = (v) => { heap.push(v); up(heap.length - 1); };\n    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; down(0); } return top; };\n    for (let i = 0; i < numCourses; i++) if (indeg[i] === 0) push(i);\n    const res = [];\n    while (heap.length) {\n        const u = pop();\n        res.push(u);\n        for (const v of adj[u]) { if (--indeg[v] === 0) push(v); }\n    }\n    return res.length === numCourses ? res : [];\n};\n"
+  },
+  "complexity": { "time": "O(V + E)", "space": "O(V + E)" }
+}

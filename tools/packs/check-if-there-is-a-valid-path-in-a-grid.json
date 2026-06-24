@@ -1,0 +1,74 @@
+{
+  "slug": "check-if-there-is-a-valid-path-in-a-grid",
+  "judge": "exact",
+  "pattern": "BFS from the top-left, expanding only to neighbors that are bidirectionally connected via matching street tile openings.",
+  "hints": [
+    "Each tile type exposes exactly two openings (directions); a move from cell A to adjacent cell B is only valid when A's opening faces B and B's opening faces A.",
+    "Precompute for each tile type which two directions it connects, then BFS from (0,0) using a visited grid — only enqueue a neighbor when the connection is bidirectional.",
+    "Build a lookup: tile -> set of (dr,dc) it connects, and check that the neighbor tile also connects back in the opposite direction before adding it to the queue."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 300], "note": "m rows in [1,300], n cols in [1,300]" },
+    { "param": "grid[i][j]", "kind": "int", "value": [1, 6] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "1x1 grid — start equals end, always true",
+      "input": [[[1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "canonical example: connected path exists",
+      "input": [[[2, 4, 3], [6, 5, 2]]]
+    },
+    {
+      "kind": "edge",
+      "description": "canonical example: mismatched tiles break the path",
+      "input": [[[1, 2, 1], [1, 2, 1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "single row where last tile faces the wrong direction",
+      "input": [[[1, 1, 2]]]
+    },
+    {
+      "kind": "trap",
+      "description": "single row of left-right tiles connecting all the way",
+      "input": [[[1, 1, 1, 1, 1]]]
+    },
+    {
+      "kind": "trap",
+      "description": "single column of up-down tiles connecting all the way",
+      "input": [[[2], [2], [2], [2]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "2x2 where a corner-turn path reaches the end",
+      "input": [[[4, 2], [3, 2]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "2x2 where tiles look close but do not connect bidirectionally",
+      "input": [[[1, 4], [5, 1]]]
+    },
+    {
+      "kind": "trap",
+      "description": "path exists but requires a winding route, not the direct diagonal",
+      "input": [[[4, 4, 3], [6, 5, 2], [6, 5, 6]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random 20x20 grid of tiles 1-6, exercises BFS termination and visited tracking",
+      "seed": 42,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    m = max(1, size)\n    n = max(1, size)\n    grid = [[rng.randint(1, 6) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def hasValidPath(self, grid):\n        # Union-Find approach: for each cell union with right/down neighbor if connection is valid\n        CONNECTS = {\n            1: {(0, -1), (0, 1)},\n            2: {(-1, 0), (1, 0)},\n            3: {(0, -1), (1, 0)},\n            4: {(0, 1), (1, 0)},\n            5: {(0, -1), (-1, 0)},\n            6: {(0, 1), (-1, 0)},\n        }\n        m, n = len(grid), len(grid[0])\n        parent = list(range(m * n))\n\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n\n        def union(x, y):\n            px, py = find(x), find(y)\n            if px != py:\n                parent[px] = py\n\n        for r in range(m):\n            for c in range(n):\n                tile = grid[r][c]\n                for dr, dc in CONNECTS[tile]:\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < m and 0 <= nc < n:\n                        nbr_tile = grid[nr][nc]\n                        if (-dr, -dc) in CONNECTS[nbr_tile]:\n                            union(r * n + c, nr * n + nc)\n        return find(0) == find((m - 1) * n + (n - 1))\n",
+  "solutions": {
+    "python": "class Solution:\n    def hasValidPath(self, grid):\n        from collections import deque\n        CONNECTS = {\n            1: [(0, -1), (0, 1)],\n            2: [(-1, 0), (1, 0)],\n            3: [(0, -1), (1, 0)],\n            4: [(0, 1), (1, 0)],\n            5: [(0, -1), (-1, 0)],\n            6: [(0, 1), (-1, 0)],\n        }\n        m, n = len(grid), len(grid[0])\n        visited = [[False] * n for _ in range(m)]\n        visited[0][0] = True\n        q = deque([(0, 0)])\n        while q:\n            r, c = q.popleft()\n            if r == m - 1 and c == n - 1:\n                return True\n            for dr, dc in CONNECTS[grid[r][c]]:\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n and not visited[nr][nc]:\n                    if (-dr, -dc) in CONNECTS[grid[nr][nc]]:\n                        visited[nr][nc] = True\n                        q.append((nr, nc))\n        return visited[m - 1][n - 1]\n",
+    "javascript": "var hasValidPath = function(grid) {\n    const CONNECTS = {\n        1: [[0, -1], [0, 1]],\n        2: [[-1, 0], [1, 0]],\n        3: [[0, -1], [1, 0]],\n        4: [[0, 1], [1, 0]],\n        5: [[0, -1], [-1, 0]],\n        6: [[0, 1], [-1, 0]],\n    };\n    const m = grid.length, n = grid[0].length;\n    const visited = Array.from({length: m}, () => new Array(n).fill(false));\n    const queue = [[0, 0]];\n    visited[0][0] = true;\n    while (queue.length > 0) {\n        const [r, c] = queue.shift();\n        if (r === m - 1 && c === n - 1) return true;\n        for (const [dr, dc] of CONNECTS[grid[r][c]]) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < m && nc >= 0 && nc < n && !visited[nr][nc]) {\n                const nbr = CONNECTS[grid[nr][nc]];\n                if (nbr.some(([er, ec]) => er === -dr && ec === -dc)) {\n                    visited[nr][nc] = true;\n                    queue.push([nr, nc]);\n                }\n            }\n        }\n    }\n    return visited[m - 1][n - 1];\n};\n"
+  }
+}

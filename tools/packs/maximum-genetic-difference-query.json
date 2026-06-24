@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-genetic-difference-query",
+  "judge": "exact",
+  "pattern": "Answering each root-to-node path query offline during a DFS, with a bitwise trie that gains and loses values as the traversal enters and leaves nodes.",
+  "hints": [
+    "Every query asks for the best XOR against the set of ancestors of a node, which is exactly the nodes currently on the DFS stack.",
+    "Maintain a binary trie of the values on the active path, inserting a node's value when you enter it and removing it when you leave.",
+    "Group queries by their node, and while visiting that node use the trie to greedily pick bits that maximize XOR with the query value."
+  ],
+  "constraints": [
+    { "param": "parents", "kind": "int[]", "len": [2, 100000], "value": [-1, 99999] },
+    { "param": "queries", "kind": "int[][]" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "anchor example small tree three queries", "input": [[-1, 0, 1, 1], [[0, 2], [3, 2], [2, 5]]] },
+    { "kind": "edge", "description": "anchor example unrooted ordering", "input": [[3, 7, -1, 2, 0, 7, 0, 2], [[4, 6], [1, 15], [0, 5]]] },
+    { "kind": "boundary", "description": "two node chain", "input": [[-1, 0], [[1, 1], [0, 3]]] },
+    { "kind": "trap", "description": "root not at index zero", "input": [[1, -1, 1], [[0, 0], [2, 7]]] },
+    { "kind": "edge", "description": "query at the root only sees itself", "input": [[-1, 0, 0], [[0, 5]]] },
+    { "kind": "trap", "description": "value of zero forces choosing the largest ancestor", "input": [[-1, 0, 1, 2], [[3, 0]]] },
+    { "kind": "edge", "description": "deep chain maximize against an ancestor", "input": [[-1, 0, 1, 2, 3], [[4, 1], [2, 6]]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree with random queries, modest size",
+      "seed": 121,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    parents = [-1] * n\n    root = rng.randrange(n)\n    for i in range(n):\n        if i == root:\n            parents[i] = -1\n        else:\n            p = rng.randrange(n)\n            while p == i:\n                p = rng.randrange(n)\n            parents[i] = p\n    # break cycles: ensure it is a forest rooted at root by reassigning ancestors\n    # build by topological-ish fix: make parent index always smaller in a permutation\n    perm = list(range(n))\n    rng.shuffle(perm)\n    pos = {v: idx for idx, v in enumerate(perm)}\n    parents = [-1] * n\n    parents[perm[0]] = -1\n    for idx in range(1, n):\n        v = perm[idx]\n        u = perm[rng.randrange(idx)]\n        parents[v] = u\n    q = rng.randint(1, n)\n    queries = [[rng.randrange(n), rng.randint(0, 200000)] for _ in range(q)]\n    return [parents, queries]\n"
+    }
+  ],
+  "oracle_python": "import sys\nclass Solution:\n    def maxGeneticDifference(self, parents, queries):\n        n = len(parents)\n        par = parents\n        ans = []\n        for node, val in queries:\n            best = 0\n            cur = node\n            while cur != -1:\n                best = max(best, val ^ cur)\n                cur = par[cur]\n            ans.append(best)\n        return ans\n",
+  "solutions": {
+    "python": "import sys\nclass Solution:\n    def maxGeneticDifference(self, parents, queries):\n        sys.setrecursionlimit(300000)\n        n = len(parents)\n        BITS = 18\n        children = [[] for _ in range(n)]\n        root = -1\n        for i, p in enumerate(parents):\n            if p == -1:\n                root = i\n            else:\n                children[p].append(i)\n        from collections import defaultdict\n        qby = defaultdict(list)\n        for qi, (node, val) in enumerate(queries):\n            qby[node].append((val, qi))\n        ans = [0] * len(queries)\n        # trie stored as arrays\n        trie = [[0, 0]]\n        cnt = [0]\n        def insert(x, delta):\n            cur = 0\n            cnt[cur] += delta\n            for b in range(BITS, -1, -1):\n                bit = (x >> b) & 1\n                if trie[cur][bit] == 0:\n                    trie.append([0, 0])\n                    cnt.append(0)\n                    trie[cur][bit] = len(trie) - 1\n                cur = trie[cur][bit]\n                cnt[cur] += delta\n        def query(x):\n            cur = 0\n            res = 0\n            for b in range(BITS, -1, -1):\n                bit = (x >> b) & 1\n                want = 1 - bit\n                nxt = trie[cur][want]\n                if nxt != 0 and cnt[nxt] > 0:\n                    res |= (1 << b)\n                    cur = nxt\n                else:\n                    cur = trie[cur][bit]\n                    if cur == 0:\n                        break\n            return res\n        # iterative DFS\n        stack = [(root, 0)]\n        insert(root, 1)\n        while stack:\n            node, ci = stack[-1]\n            if ci == 0:\n                for val, qi in qby.get(node, []):\n                    ans[qi] = query(val)\n            if ci < len(children[node]):\n                stack[-1] = (node, ci + 1)\n                child = children[node][ci]\n                insert(child, 1)\n                stack.append((child, 0))\n            else:\n                insert(node, -1)\n                stack.pop()\n        return ans\n",
+    "javascript": "var maxGeneticDifference = function(parents, queries) {\n    const n = parents.length;\n    const BITS = 18;\n    const children = Array.from({length: n}, () => []);\n    let root = -1;\n    for (let i = 0; i < n; i++) {\n        if (parents[i] === -1) root = i;\n        else children[parents[i]].push(i);\n    }\n    const qby = Array.from({length: n}, () => []);\n    for (let qi = 0; qi < queries.length; qi++) {\n        qby[queries[qi][0]].push([queries[qi][1], qi]);\n    }\n    const ans = new Array(queries.length).fill(0);\n    const trie = [[0, 0]];\n    const cnt = [0];\n    function insert(x, delta) {\n        let cur = 0;\n        cnt[cur] += delta;\n        for (let b = BITS; b >= 0; b--) {\n            const bit = (x >> b) & 1;\n            if (trie[cur][bit] === 0) {\n                trie.push([0, 0]);\n                cnt.push(0);\n                trie[cur][bit] = trie.length - 1;\n            }\n            cur = trie[cur][bit];\n            cnt[cur] += delta;\n        }\n    }\n    function query(x) {\n        let cur = 0, res = 0;\n        for (let b = BITS; b >= 0; b--) {\n            const bit = (x >> b) & 1;\n            const want = 1 - bit;\n            const nxt = trie[cur][want];\n            if (nxt !== 0 && cnt[nxt] > 0) {\n                res |= (1 << b);\n                cur = nxt;\n            } else {\n                cur = trie[cur][bit];\n                if (cur === 0) break;\n            }\n        }\n        return res;\n    }\n    const stack = [[root, 0]];\n    insert(root, 1);\n    while (stack.length) {\n        const top = stack[stack.length - 1];\n        const node = top[0];\n        const ci = top[1];\n        if (ci === 0) {\n            for (const [val, qi] of qby[node]) ans[qi] = query(val);\n        }\n        if (ci < children[node].length) {\n            top[1] = ci + 1;\n            const child = children[node][ci];\n            insert(child, 1);\n            stack.push([child, 0]);\n        } else {\n            insert(node, -1);\n            stack.pop();\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) * BITS)", "space": "O(n * BITS)" }
+}

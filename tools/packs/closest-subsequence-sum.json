@@ -1,0 +1,37 @@
+{
+  "slug": "closest-subsequence-sum",
+  "judge": "exact",
+  "pattern": "Meet in the middle: enumerate all subset sums of each half, sort one, and binary search for the partner closest to the goal.",
+  "hints": [
+    "With up to forty elements, enumerating all subsets is too many, but splitting the array in two makes each half small enough to enumerate fully.",
+    "Generate every subset sum of the left half and every subset sum of the right half independently.",
+    "Sort one list of sums; for each sum in the other, binary search for the value that brings the combined total closest to the goal and track the minimum absolute difference."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 40], "value": [-10000000, 10000000] },
+    { "param": "goal", "kind": "int", "value": [-1000000000, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "whole array hits the goal exactly", "input": [[5, -7, 3, 5], 6] },
+    { "kind": "edge", "description": "closest is off by one", "input": [[7, -9, 15, -2], -5] },
+    { "kind": "trap", "description": "goal far below any reachable sum", "input": [[1, 2, 3], -7] },
+    { "kind": "boundary", "description": "single element", "input": [[10], 3] },
+    { "kind": "trap", "description": "empty subsequence (sum zero) is allowed", "input": [[100, 200], 0] },
+    { "kind": "edge", "description": "negatives let sums straddle the goal", "input": [[-5, -3, -2, 8], 1] },
+    { "kind": "trap", "description": "large magnitudes near the goal", "input": [[10000000, -10000000], 5] }
+  ],
+  "stress": [
+    {
+      "description": "moderate signed array (capped size so the brute oracle stays fast) with a random goal",
+      "seed": 67,
+      "size": 18,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 18))\n    nums = [rng.randrange(-10000000, 10000001) for _ in range(n)]\n    goal = rng.randrange(-1000000000, 1000000001)\n    return [nums, goal]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minAbsDifference(self, nums, goal):\n        n = len(nums)\n        best = abs(goal)\n        for mask in range(1 << n):\n            s = 0\n            m = mask\n            idx = 0\n            while m:\n                if m & 1:\n                    s += nums[idx]\n                m >>= 1\n                idx += 1\n            d = abs(s - goal)\n            if d < best:\n                best = d\n                if best == 0:\n                    return 0\n        return best\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def minAbsDifference(self, nums, goal):\n        n = len(nums)\n        mid = n // 2\n        left, right = nums[:mid], nums[mid:]\n\n        def subset_sums(arr):\n            sums = [0]\n            for v in arr:\n                sums += [x + v for x in sums]\n            return sums\n\n        ls = subset_sums(left)\n        rs = sorted(subset_sums(right))\n        best = float('inf')\n        for x in ls:\n            need = goal - x\n            i = bisect.bisect_left(rs, need)\n            for j in (i - 1, i):\n                if 0 <= j < len(rs):\n                    best = min(best, abs(x + rs[j] - goal))\n        return best\n",
+    "javascript": "var minAbsDifference = function(nums, goal) {\n    const n = nums.length;\n    const mid = n >> 1;\n    const left = nums.slice(0, mid), right = nums.slice(mid);\n    const subsetSums = (arr) => {\n        let sums = [0];\n        for (const v of arr) {\n            const next = [];\n            for (const x of sums) next.push(x + v);\n            sums = sums.concat(next);\n        }\n        return sums;\n    };\n    const ls = subsetSums(left);\n    const rs = subsetSums(right).sort((a, b) => a - b);\n    const lowerBound = (target) => {\n        let lo = 0, hi = rs.length;\n        while (lo < hi) {\n            const m = (lo + hi) >> 1;\n            if (rs[m] < target) lo = m + 1; else hi = m;\n        }\n        return lo;\n    };\n    let best = Infinity;\n    for (const x of ls) {\n        const need = goal - x;\n        const i = lowerBound(need);\n        for (const j of [i - 1, i]) {\n            if (j >= 0 && j < rs.length) {\n                best = Math.min(best, Math.abs(x + rs[j] - goal));\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(2^(n/2) * n/2)", "space": "O(2^(n/2))" }
+}

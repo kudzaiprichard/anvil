@@ -1,0 +1,51 @@
+{
+  "slug": "split-array-into-fibonacci-sequence",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    num = args[0]\n    if not isinstance(output, list):\n        return False\n    # does ANY valid split exist? brute-force search\n    LIMIT = 2**31 - 1\n    def find():\n        n = len(num)\n        def piece_ok(s):\n            if len(s) > 1 and s[0] == '0':\n                return None\n            v = int(s)\n            if v > LIMIT:\n                return None\n            return v\n        # try first two pieces, then deterministically extend\n        for i in range(1, n + 1):\n            a = piece_ok(num[:i])\n            if a is None:\n                continue\n            for j in range(i + 1, n + 1):\n                b = piece_ok(num[i:j])\n                if b is None:\n                    continue\n                seq = [a, b]\n                k = j\n                ok = True\n                while k < n:\n                    nxt = seq[-1] + seq[-2]\n                    s = str(nxt)\n                    if nxt > LIMIT or not num.startswith(s, k):\n                        ok = False\n                        break\n                    seq.append(nxt)\n                    k += len(s)\n                if ok and k == n and len(seq) >= 3:\n                    return True\n        return False\n    exists = find()\n    if len(output) == 0:\n        return not exists\n    # non-empty: it must be a genuinely valid split\n    if not exists:\n        return False\n    if len(output) < 3:\n        return False\n    for v in output:\n        if not isinstance(v, int) or isinstance(v, bool):\n            return False\n        if v < 0 or v > LIMIT:\n            return False\n    for i in range(len(output) - 2):\n        if output[i] + output[i + 1] != output[i + 2]:\n            return False\n    parts = []\n    for v in output:\n        s = str(v)\n        parts.append(s)\n    if ''.join(parts) != num:\n        return False\n    for s in parts:\n        if len(s) > 1 and s[0] == '0':\n            return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const num = args[0];\n    if (!Array.isArray(output)) return false;\n    const LIMIT = 2147483647;\n    function pieceOk(s) {\n        if (s.length > 1 && s[0] === '0') return null;\n        const v = Number(s);\n        if (v > LIMIT) return null;\n        return v;\n    }\n    function find() {\n        const n = num.length;\n        for (let i = 1; i <= n; i++) {\n            const a = pieceOk(num.slice(0, i));\n            if (a === null) continue;\n            for (let j = i + 1; j <= n; j++) {\n                const b = pieceOk(num.slice(i, j));\n                if (b === null) continue;\n                const seq = [a, b];\n                let k = j;\n                let ok = true;\n                while (k < n) {\n                    const nxt = seq[seq.length - 1] + seq[seq.length - 2];\n                    const s = String(nxt);\n                    if (nxt > LIMIT || !num.startsWith(s, k)) { ok = false; break; }\n                    seq.push(nxt);\n                    k += s.length;\n                }\n                if (ok && k === n && seq.length >= 3) return true;\n            }\n        }\n        return false;\n    }\n    const exists = find();\n    if (output.length === 0) return !exists;\n    if (!exists) return false;\n    if (output.length < 3) return false;\n    for (const v of output) {\n        if (typeof v !== 'number' || !Number.isInteger(v)) return false;\n        if (v < 0 || v > LIMIT) return false;\n    }\n    for (let i = 0; i < output.length - 2; i++) {\n        if (output[i] + output[i + 1] !== output[i + 2]) return false;\n    }\n    let joined = '';\n    for (const v of output) joined += String(v);\n    if (joined !== num) return false;\n    for (const v of output) {\n        const s = String(v);\n        if (s.length > 1 && s[0] === '0') return false;\n    }\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Once the first two pieces of the digit string are fixed, the entire Fibonacci-like sequence is forced, so trying every pair of opening pieces and extending greedily either reconstructs the whole string or proves no split exists.",
+  "hints": [
+    "After you commit to the first two numbers, every later number is determined by adding the previous two.",
+    "So the search is only over where the first and second pieces end; the rest must match exactly or the attempt fails.",
+    "Enumerate the split points of the first two pieces (rejecting leading zeros and values beyond a 32-bit signed range), then repeatedly append the sum of the last two and check it is the next substring; succeed when you consume the whole string with at least three numbers."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "string", "len": [1, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a valid split exists with a leading-zero single piece allowed", "input": ["1101111"] },
+    { "kind": "trap", "description": "no valid Fibonacci split is possible", "input": ["112358130"] },
+    { "kind": "trap", "description": "a leading zero on a multi-digit piece blocks all splits", "input": ["0123"] },
+    { "kind": "edge", "description": "the textbook Fibonacci string splits cleanly", "input": ["123456579"] },
+    { "kind": "edge", "description": "classic small Fibonacci run", "input": ["11235813"] },
+    { "kind": "boundary", "description": "too short to hold three pieces", "input": ["1"] },
+    { "kind": "edge", "description": "single zero pieces are allowed", "input": ["000"] },
+    { "kind": "trap", "description": "digits that never satisfy the recurrence", "input": ["1203"] },
+    { "kind": "edge", "description": "all same digit admits no valid sum chain", "input": ["1111111111"] }
+  ],
+  "stress": [
+    {
+      "description": "build a genuine Fibonacci sequence then concatenate its digits, so a split is guaranteed to exist",
+      "seed": 121,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    a = rng.randint(0, 50)\n    b = rng.randint(0, 50)\n    seq = [a, b]\n    while True:\n        nxt = seq[-1] + seq[-2]\n        if nxt > 2**31 - 1:\n            break\n        seq.append(nxt)\n        s = ''.join(str(v) for v in seq)\n        if len(s) >= max(3, min(size, 180)):\n            break\n    return [''.join(str(v) for v in seq)]\n",
+      "note": "guarantees a solvable instance; the optimal must find some valid split"
+    },
+    {
+      "description": "random short digit strings, usually unsolvable, to exercise the empty-output path",
+      "seed": 122,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 12)))\n    return [''.join(str(rng.randint(0, 9)) for _ in range(n))]\n",
+      "note": "most random strings have no Fibonacci split"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def splitIntoFibonacci(self, num):\n        LIMIT = 2**31 - 1\n        n = len(num)\n        result = []\n        def backtrack(idx, seq):\n            if idx == n:\n                return len(seq) >= 3\n            for end in range(idx + 1, n + 1):\n                s = num[idx:end]\n                if len(s) > 1 and s[0] == '0':\n                    break\n                v = int(s)\n                if v > LIMIT:\n                    break\n                if len(seq) >= 2 and v != seq[-1] + seq[-2]:\n                    if v > seq[-1] + seq[-2]:\n                        break\n                    continue\n                seq.append(v)\n                if backtrack(end, seq):\n                    return True\n                seq.pop()\n            return False\n        if backtrack(0, result):\n            return result\n        return []\n",
+  "solutions": {
+    "python": "class Solution:\n    def splitIntoFibonacci(self, num):\n        LIMIT = 2**31 - 1\n        n = len(num)\n        def piece(i, j):\n            if j - i > 1 and num[i] == '0':\n                return None\n            v = int(num[i:j])\n            if v > LIMIT:\n                return None\n            return v\n        for i in range(1, n + 1):\n            a = piece(0, i)\n            if a is None:\n                break\n            for j in range(i + 1, n + 1):\n                b = piece(i, j)\n                if b is None:\n                    break\n                seq = [a, b]\n                k = j\n                ok = True\n                while k < n:\n                    nxt = seq[-1] + seq[-2]\n                    s = str(nxt)\n                    if nxt > LIMIT or not num.startswith(s, k):\n                        ok = False\n                        break\n                    seq.append(nxt)\n                    k += len(s)\n                if ok and k == n and len(seq) >= 3:\n                    return seq\n        return []\n",
+    "javascript": "var splitIntoFibonacci = function(num) {\n    const LIMIT = 2147483647;\n    const n = num.length;\n    const piece = (i, j) => {\n        if (j - i > 1 && num[i] === '0') return null;\n        const v = Number(num.slice(i, j));\n        if (v > LIMIT) return null;\n        return v;\n    };\n    for (let i = 1; i <= n; i++) {\n        const a = piece(0, i);\n        if (a === null) break;\n        for (let j = i + 1; j <= n; j++) {\n            const b = piece(i, j);\n            if (b === null) break;\n            const seq = [a, b];\n            let k = j;\n            let ok = true;\n            while (k < n) {\n                const nxt = seq[seq.length - 1] + seq[seq.length - 2];\n                const s = String(nxt);\n                if (nxt > LIMIT || !num.startsWith(s, k)) { ok = false; break; }\n                seq.push(nxt);\n                k += s.length;\n            }\n            if (ok && k === n && seq.length >= 3) return seq;\n        }\n    }\n    return [];\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

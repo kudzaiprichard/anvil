@@ -1,0 +1,75 @@
+{
+  "slug": "number-of-ways-of-cutting-a-pizza",
+  "judge": "exact",
+  "pattern": "Precompute a 2-D apple suffix-sum so any rectangular region's apple count is O(1), then apply 3-D DP: dp[cuts][row][col] = number of valid ways to split the remaining sub-pizza starting at (row, col) into exactly 'cuts' pieces.",
+  "hints": [
+    "Build a 2-D suffix-sum table once so you can query 'how many apples are in rectangle (r1,c1)..(r2,c2)' in O(1); you will need this for every candidate cut.",
+    "Define dp[t][r][c] as the number of ways to divide the sub-pizza whose top-left corner is (r,c) into exactly t apple-containing pieces; a base case exists when t=1 and the remaining rectangle holds at least one apple.",
+    "For each state, try every horizontal cut (giving the top strip away if it has apples) and every vertical cut (giving the left strip away if it has apples), accumulating the counts from the resulting sub-problems modulo 10^9+7."
+  ],
+  "constraints": [
+    { "param": "pizza", "kind": "string[]", "len": [1, 50] },
+    { "param": "k", "kind": "int", "value": [1, 10] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single piece requested, whole pizza has one apple - exactly one way",
+      "input": [["A..","...","..."], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "single piece requested, apple in bottom-right corner only",
+      "input": [["...","...","..A"], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "k=2, one apple per half - only one horizontal cut works",
+      "input": [["A.","..","A."], 2]
+    },
+    {
+      "kind": "edge",
+      "description": "apple only in top-left corner, k=2, only cuts that keep that apple alone are valid",
+      "input": [["A..","...","..."], 2]
+    },
+    {
+      "kind": "trap",
+      "description": "cutting off an empty strip must be forbidden - all apples are in one row",
+      "input": [["...","AAA","..."], 3]
+    },
+    {
+      "kind": "trap",
+      "description": "apples scattered so that some candidate cuts produce an apple-free piece and must be skipped",
+      "input": [["A.A","...","A.A"], 3]
+    },
+    {
+      "kind": "boundary",
+      "description": "1x1 pizza with a single apple and k=1",
+      "input": [["A"], 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equals number of rows, forcing one horizontal cut per step in a single-column pizza",
+      "input": [["A","A","A","A","A"], 5]
+    },
+    {
+      "kind": "boundary",
+      "description": "k=10 (maximum) on a grid dense with apples - large count exercising modular arithmetic",
+      "input": [["AAAAAAAAAA","AAAAAAAAAA","AAAAAAAAAA","AAAAAAAAAA","AAAAAAAAAA","AAAAAAAAAA","AAAAAAAAAA","AAAAAAAAAA","AAAAAAAAAA","AAAAAAAAAA"], 10]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random pizza grids up to 50x50 with k up to 10, cells independently 'A' or '.' with roughly 40% apple density",
+      "seed": 7,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    rows = rng.randint(1, size)\n    cols = rng.randint(1, size)\n    k = rng.randint(1, 10)\n    pizza = [''.join('A' if rng.random() < 0.4 else '.' for _ in range(cols)) for _ in range(rows)]\n    return [pizza, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def ways(self, pizza, k):\n        from functools import lru_cache\n        rows, cols = len(pizza), len(pizza[0])\n        MOD = 10**9 + 7\n        suf = [[0]*(cols+1) for _ in range(rows+1)]\n        for r in range(rows-1, -1, -1):\n            for c in range(cols-1, -1, -1):\n                suf[r][c] = (1 if pizza[r][c]=='A' else 0) + suf[r+1][c] + suf[r][c+1] - suf[r+1][c+1]\n        def apples(r1, c1, r2, c2):\n            return suf[r1][c1] - suf[r2+1][c1] - suf[r1][c2+1] + suf[r2+1][c2+1]\n        @lru_cache(maxsize=None)\n        def dp(cuts, r, c):\n            if apples(r, c, rows-1, cols-1) == 0:\n                return 0\n            if cuts == 1:\n                return 1\n            ans = 0\n            for i in range(r, rows-1):\n                if apples(r, c, i, cols-1) > 0:\n                    ans = (ans + dp(cuts-1, i+1, c)) % MOD\n            for j in range(c, cols-1):\n                if apples(r, c, rows-1, j) > 0:\n                    ans = (ans + dp(cuts-1, r, j+1)) % MOD\n            return ans\n        return dp(k, 0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def ways(self, pizza, k):\n        rows, cols = len(pizza), len(pizza[0])\n        MOD = 10**9 + 7\n        suf = [[0]*(cols+1) for _ in range(rows+1)]\n        for r in range(rows-1, -1, -1):\n            for c in range(cols-1, -1, -1):\n                suf[r][c] = (1 if pizza[r][c]=='A' else 0) + suf[r+1][c] + suf[r][c+1] - suf[r+1][c+1]\n        def apples(r1, c1, r2, c2):\n            return suf[r1][c1] - suf[r2+1][c1] - suf[r1][c2+1] + suf[r2+1][c2+1]\n        dp = [[[0]*cols for _ in range(rows)] for _ in range(k+1)]\n        for r in range(rows):\n            for c in range(cols):\n                dp[1][r][c] = 1 if apples(r, c, rows-1, cols-1) > 0 else 0\n        for t in range(2, k+1):\n            for r in range(rows):\n                for c in range(cols):\n                    if apples(r, c, rows-1, cols-1) == 0:\n                        continue\n                    ans = 0\n                    for i in range(r, rows-1):\n                        if apples(r, c, i, cols-1) > 0:\n                            ans = (ans + dp[t-1][i+1][c]) % MOD\n                    for j in range(c, cols-1):\n                        if apples(r, c, rows-1, j) > 0:\n                            ans = (ans + dp[t-1][r][j+1]) % MOD\n                    dp[t][r][c] = ans\n        return dp[k][0][0]\n",
+    "javascript": "var ways = function(pizza, k) {\n    const rows = pizza.length, cols = pizza[0].length;\n    const MOD = 1000000007n;\n    const suf = Array.from({length: rows+1}, () => new Array(cols+1).fill(0n));\n    for (let r = rows-1; r >= 0; r--) {\n        for (let c = cols-1; c >= 0; c--) {\n            suf[r][c] = (pizza[r][c] === 'A' ? 1n : 0n) + suf[r+1][c] + suf[r][c+1] - suf[r+1][c+1];\n        }\n    }\n    function apples(r1, c1, r2, c2) {\n        return suf[r1][c1] - suf[r2+1][c1] - suf[r1][c2+1] + suf[r2+1][c2+1];\n    }\n    const dp = Array.from({length: k+1}, () =>\n        Array.from({length: rows}, () => new Array(cols).fill(0n))\n    );\n    for (let r = 0; r < rows; r++) {\n        for (let c = 0; c < cols; c++) {\n            dp[1][r][c] = apples(r, c, rows-1, cols-1) > 0n ? 1n : 0n;\n        }\n    }\n    for (let t = 2; t <= k; t++) {\n        for (let r = 0; r < rows; r++) {\n            for (let c = 0; c < cols; c++) {\n                if (apples(r, c, rows-1, cols-1) <= 0n) continue;\n                let ans = 0n;\n                for (let i = r; i < rows-1; i++) {\n                    if (apples(r, c, i, cols-1) > 0n) ans = (ans + dp[t-1][i+1][c]) % MOD;\n                }\n                for (let j = c; j < cols-1; j++) {\n                    if (apples(r, c, rows-1, j) > 0n) ans = (ans + dp[t-1][r][j+1]) % MOD;\n                }\n                dp[t][r][c] = ans;\n            }\n        }\n    }\n    return Number(dp[k][0][0]);\n};\n"
+  },
+  "complexity": { "time": "O(k * rows^2 * cols + k * rows * cols^2)", "space": "O(k * rows * cols)" }
+}

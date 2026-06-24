@@ -1,0 +1,37 @@
+{
+  "slug": "count-the-number-of-ideal-arrays",
+  "judge": "exact",
+  "pattern": "A non-decreasing divisibility chain of length n with d distinct values is fixed by choosing the d strictly-increasing distinct values and then placing the d-1 jumps among the n positions, so summing combinations over each starting value's chain lengths gives the count.",
+  "hints": [
+    "Each ideal array is a multiplicative chain; the distinct values that appear form a strictly increasing chain where each divides the next.",
+    "Once you know how many distinct values d a chain uses, the number of length-n arrays realizing it is the number of ways to choose where the d-1 increases happen, a binomial coefficient.",
+    "Count, for each starting value, how many strictly increasing divisibility chains of each length end at values up to maxValue, then weight by the binomial and sum modulo the prime."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 10000] },
+    { "param": "maxValue", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "length two over a small range", "input": [2, 5] },
+    { "kind": "edge", "description": "long arrays over a tiny value range", "input": [5, 3] },
+    { "kind": "boundary", "description": "maxValue one allows only the all-ones array", "input": [7, 1] },
+    { "kind": "trap", "description": "n much larger than maxValue limits chain depth", "input": [100, 4] },
+    { "kind": "boundary", "description": "minimum n with larger range", "input": [2, 50] },
+    { "kind": "edge", "description": "moderate both to exercise multi-step chains", "input": [10, 20] }
+  ],
+  "stress": [
+    {
+      "description": "random small n and maxValue so the brute-force oracle stays tractable",
+      "seed": 43,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 8)))\n    maxValue = rng.randint(1, max(1, min(size, 8)))\n    return [n, maxValue]\n",
+      "note": "kept tiny because the oracle enumerates chains explicitly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def idealArrays(self, n, maxValue):\n        MOD = 10**9 + 7\n        # brute: count distinct ideal arrays directly via DP over (length, last value)\n        # dp[v] = number of ideal arrays of current length ending in value v\n        dp = [0] * (maxValue + 1)\n        for v in range(1, maxValue + 1):\n            dp[v] = 1\n        for _ in range(n - 1):\n            ndp = [0] * (maxValue + 1)\n            for v in range(1, maxValue + 1):\n                if dp[v] == 0:\n                    continue\n                m = v\n                while m <= maxValue:\n                    ndp[m] = (ndp[m] + dp[v]) % MOD\n                    m += v\n            dp = ndp\n        return sum(dp) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def idealArrays(self, n, maxValue):\n        MOD = 10**9 + 7\n        # cnt[d][v]? instead: for each value v, count strictly-increasing divisibility\n        # chains (of distinct values) ending at v of each length; freq[d] aggregates\n        # across all chains ending anywhere with d distinct values.\n        # chains[v] = list where chains_len_count, but we accumulate by length.\n        # dp_len[v] for current number of distinct values\n        from math import comb\n        maxD = 0\n        # number of chains with exactly k distinct values, total over all end values\n        # build via: f[k][v] = number of strictly increasing divisibility chains of\n        # length k ending at v.\n        f = [[0] * (maxValue + 1) for _ in range(1)]\n        # length-1 chains: one per value\n        cur = [0] * (maxValue + 1)\n        for v in range(1, maxValue + 1):\n            cur[v] = 1\n        chain_counts = []  # chain_counts[k-1] = total chains of length k\n        chain_counts.append(sum(cur) % MOD)\n        k = 1\n        while True:\n            nxt = [0] * (maxValue + 1)\n            any_nonzero = False\n            for v in range(1, maxValue + 1):\n                if cur[v] == 0:\n                    continue\n                m = 2 * v\n                while m <= maxValue:\n                    nxt[m] = (nxt[m] + cur[v]) % MOD\n                    any_nonzero = True\n                    m += v\n            if not any_nonzero:\n                break\n            chain_counts.append(sum(nxt) % MOD)\n            cur = nxt\n            k += 1\n            if 2 ** k > maxValue:\n                # safety: max distinct values is log2(maxValue)+1\n                pass\n        ans = 0\n        for idx, c in enumerate(chain_counts):\n            d = idx + 1  # number of distinct values\n            if c == 0:\n                continue\n            ans = (ans + c * comb(n - 1, d - 1)) % MOD\n        return ans % MOD\n",
+    "javascript": "var idealArrays = function(n, maxValue) {\n    const MOD = 1000000007n;\n    let cur = new Array(maxValue + 1).fill(0n);\n    for (let v = 1; v <= maxValue; v++) cur[v] = 1n;\n    const chainCounts = [];\n    const sumArr = (a) => { let s = 0n; for (const x of a) s = (s + x) % MOD; return s; };\n    chainCounts.push(sumArr(cur));\n    while (true) {\n        const nxt = new Array(maxValue + 1).fill(0n);\n        let any = false;\n        for (let v = 1; v <= maxValue; v++) {\n            if (cur[v] === 0n) continue;\n            for (let m = 2 * v; m <= maxValue; m += v) {\n                nxt[m] = (nxt[m] + cur[v]) % MOD;\n                any = true;\n            }\n        }\n        if (!any) break;\n        chainCounts.push(sumArr(nxt));\n        cur = nxt;\n    }\n    // precompute binomials comb(n-1, d-1) mod p via multiplicative formula\n    const modpow = (b, e, m) => {\n        let r = 1n; b %= m;\n        while (e > 0n) { if (e & 1n) r = (r * b) % m; b = (b * b) % m; e >>= 1n; }\n        return r;\n    };\n    const inv = (a) => modpow(a, MOD - 2n, MOD);\n    let ans = 0n;\n    // comb(n-1, k) incremental\n    let combVal = 1n; // comb(n-1, 0)\n    const N = BigInt(n - 1);\n    for (let idx = 0; idx < chainCounts.length; idx++) {\n        const kk = BigInt(idx); // d-1\n        if (idx > 0) {\n            // comb(n-1, idx) = comb(n-1, idx-1) * (n-idx) / idx; zero once idx > n-1\n            if (kk > N) { combVal = 0n; }\n            else {\n                combVal = (combVal * ((N - kk + 1n) % MOD)) % MOD;\n                combVal = (combVal * inv(kk % MOD)) % MOD;\n            }\n        }\n        ans = (ans + (chainCounts[idx] * combVal) % MOD) % MOD;\n    }\n    return Number(ans % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(maxValue log(maxValue) log + n)", "space": "O(maxValue)" }
+}

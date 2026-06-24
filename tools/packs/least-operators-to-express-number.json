@@ -1,0 +1,38 @@
+{
+  "slug": "least-operators-to-express-number",
+  "judge": "exact",
+  "pattern": "Operators are paid per power of x, so walk the target through its base-x digits and at each level either spend that many copies of the current power or overshoot to the next power and subtract back, keeping the cheaper branch.",
+  "hints": [
+    "A term that is x raised to the k-th power costs more operators the higher k is, while a single x/x term gives you the value one.",
+    "Process the target digit by digit in base x: at each power you can supply the remainder directly or borrow one of the next power and subtract the shortfall.",
+    "Recurse on the quotient while the per-unit cost grows with the power level; at level k each copy costs k operators (and the lowest level uses x/x at cost two), then subtract one for the leading term."
+  ],
+  "constraints": [
+    { "param": "x", "kind": "int", "value": [2, 100] },
+    { "param": "target", "kind": "int", "value": [1, 200000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed powers and a division term", "input": [3, 19] },
+    { "kind": "edge", "description": "subtraction beats addition here", "input": [5, 501] },
+    { "kind": "trap", "description": "an exact power needs only multiplications", "input": [100, 100000000] },
+    { "kind": "boundary", "description": "target equals x itself, zero operators", "input": [7, 7] },
+    { "kind": "edge", "description": "target of one is a single division", "input": [4, 1] },
+    { "kind": "edge", "description": "small base, awkward target", "input": [2, 125046] },
+    { "kind": "trap", "description": "target just below a power favors borrowing", "input": [3, 26] }
+  ],
+  "stress": [
+    {
+      "description": "random base and target across the allowed ranges",
+      "seed": 47,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    x = rng.randint(2, 100)\n    target = rng.randint(1, 200000000)\n    return [x, target]\n",
+      "note": "recursion depth bounded by log_x(target), always fast"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def leastOpsExpressTarget(self, x, target):\n        terms = []\n        p = 1\n        k = 0\n        while p <= 2 * target:\n            terms.append((p, 1 if k == 0 else k - 1))\n            p *= x\n            k += 1\n        LO, HI = -target, 2 * target\n        best = {}\n        pq = [(bc, v) for (v, bc) in terms]\n        heapq.heapify(pq)\n        while pq:\n            c, val = heapq.heappop(pq)\n            if val == target:\n                return c\n            if val in best and best[val] <= c:\n                continue\n            best[val] = c\n            if c > 80:\n                continue\n            for v, bc in terms:\n                for sign in (1, -1):\n                    nv = val + sign * v\n                    if nv < LO or nv > HI:\n                        continue\n                    nc = c + 1 + bc\n                    if nv not in best or best[nv] > nc:\n                        heapq.heappush(pq, (nc, nv))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def leastOpsExpressTarget(self, x, target):\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(t, k):\n            if t == 0:\n                return 0\n            if k > 40:\n                return float('inf')\n            unit = 2 if k == 0 else k\n            q, r = divmod(t, x)\n            below = r * unit + dp(q, k + 1)\n            above = float('inf')\n            if r != 0:\n                above = (x - r) * unit + dp(q + 1, k + 1)\n            return min(below, above)\n        return dp(target, 0) - 1\n",
+    "javascript": "var leastOpsExpressTarget = function(x, target) {\n    const memo = new Map();\n    const dp = (t, k) => {\n        if (t === 0) return 0;\n        if (k > 40) return Infinity;\n        const key = t + ':' + k;\n        if (memo.has(key)) return memo.get(key);\n        const unit = k === 0 ? 2 : k;\n        const q = Math.floor(t / x);\n        const r = t - q * x;\n        let below = r * unit + dp(q, k + 1);\n        let above = Infinity;\n        if (r !== 0) above = (x - r) * unit + dp(q + 1, k + 1);\n        const res = Math.min(below, above);\n        memo.set(key, res);\n        return res;\n    };\n    return dp(target, 0) - 1;\n};\n"
+  },
+  "complexity": { "time": "O(log target)", "space": "O(log target)" }
+}

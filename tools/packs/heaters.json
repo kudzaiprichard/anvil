@@ -1,0 +1,47 @@
+{
+  "slug": "heaters",
+  "judge": "exact",
+  "pattern": "Sort the heaters, then for each house find its nearest heater on either side with binary search; the answer is the largest of those nearest-heater distances, because every house must be reachable by the common radius.",
+  "hints": [
+    "The radius has to be large enough for the single worst house — the one that is farthest from any heater — so think about the distance from each house to its closest heater.",
+    "Sort the heaters once. For a given house, the closest heater is either the first heater at or after it, or the last heater before it; binary search finds both candidates quickly.",
+    "For every house take the minimum of the distances to its left and right neighbouring heaters, then return the maximum of those per-house minimums across all houses."
+  ],
+  "constraints": [
+    { "param": "houses", "kind": "int[]", "len": [1, 30000], "value": [1, 1000000000] },
+    { "param": "heaters", "kind": "int[]", "len": [1, 30000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single heater centred between houses", "input": [[1, 2, 3], [2]] },
+    { "kind": "edge", "description": "two heaters at the ends cover everything with radius 1", "input": [[1, 2, 3, 4], [1, 4]] },
+    { "kind": "edge", "description": "house far from the only heater forces a large radius", "input": [[1, 5], [2]] },
+    { "kind": "boundary", "description": "single house and single coincident heater needs radius 0", "input": [[5], [5]] },
+    { "kind": "trap", "description": "all heaters sit to the left of every house, so only the left neighbour matters", "input": [[10, 20, 30], [1, 2, 3]] },
+    { "kind": "trap", "description": "all heaters sit to the right of every house, so only the right neighbour matters", "input": [[1, 2, 3], [40, 50]] },
+    { "kind": "trap", "description": "unsorted heaters must still be handled — the closest one wins after sorting", "input": [[5], [9, 1, 7, 3]] },
+    { "kind": "boundary", "description": "extreme coordinates at the value ceiling", "input": [[1, 1000000000], [1, 1000000000]] },
+    { "kind": "edge", "description": "duplicate houses and duplicate heaters", "input": [[3, 3, 3], [3, 3]] }
+  ],
+  "stress": [
+    {
+      "description": "many random houses and heaters scattered across a wide coordinate range",
+      "seed": 7,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    hn = max(1, size)\n    kn = max(1, rng.randint(1, size))\n    houses = [rng.randint(1, 1000000000) for _ in range(hn)]\n    heaters = [rng.randint(1, 1000000000) for _ in range(kn)]\n    return [houses, heaters]\n",
+      "note": "wide value range and independent counts exercise both binary-search neighbours and the max-of-mins"
+    },
+    {
+      "description": "houses packed densely with sparse heaters to stress the worst-gap house",
+      "seed": 21,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    houses = list(range(1, n + 1))\n    heaters = sorted(rng.sample(range(1, n + 1), min(n, 10)))\n    return [houses, heaters]\n",
+      "note": "contiguous houses with few heaters means many houses fall between distant heaters"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findRadius(self, houses, heaters):\n        # Naive: for each house scan every heater for the closest one.\n        ans = 0\n        for h in houses:\n            nearest = min(abs(h - x) for x in heaters)\n            if nearest > ans:\n                ans = nearest\n        return ans\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def findRadius(self, houses, heaters):\n        heaters = sorted(heaters)\n        ans = 0\n        for h in houses:\n            i = bisect.bisect_left(heaters, h)\n            best = float('inf')\n            if i < len(heaters):\n                best = min(best, heaters[i] - h)\n            if i > 0:\n                best = min(best, h - heaters[i - 1])\n            if best > ans:\n                ans = best\n        return ans\n",
+    "javascript": "var findRadius = function(houses, heaters) {\n    heaters.sort((a, b) => a - b);\n    const m = heaters.length;\n    let ans = 0;\n    for (const h of houses) {\n        let lo = 0, hi = m;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (heaters[mid] < h) lo = mid + 1;\n            else hi = mid;\n        }\n        let best = Infinity;\n        if (lo < m) best = Math.min(best, heaters[lo] - h);\n        if (lo > 0) best = Math.min(best, h - heaters[lo - 1]);\n        if (best > ans) ans = best;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((H + K) log K)", "space": "O(1)" }
+}

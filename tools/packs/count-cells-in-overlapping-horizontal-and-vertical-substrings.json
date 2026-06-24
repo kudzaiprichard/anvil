@@ -1,0 +1,38 @@
+{
+  "slug": "count-cells-in-overlapping-horizontal-and-vertical-substrings",
+  "judge": "exact",
+  "pattern": "Flatten the grid into a row-major and a column-major string, find every pattern occurrence with KMP, then mark the covered cells in each orientation and count their intersection.",
+  "hints": [
+    "Reading the grid left-to-right with wrap is just the cells in row-major order; reading top-to-bottom with wrap is the cells in column-major order. Each is one long string.",
+    "Find all start positions of the pattern in each long string. A match starting at flat index s covers the cells at flat indices s, s+1, ..., s+len(pattern)-1.",
+    "Map each flat index back to an (r, c) cell. Keep a set of cells covered horizontally and a set covered vertically, then count cells present in both."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "string[][]" },
+    { "param": "pattern", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single cell matching a length-1 pattern is covered both ways", "input": [[["a"]], "a"] },
+    { "kind": "edge", "description": "single cell that does not match the pattern", "input": [[["b"]], "a"] },
+    { "kind": "trap", "description": "horizontal match wraps across a row boundary but vertical does not align there", "input": [[["a", "b"], ["c", "a"]], "ab"] },
+    { "kind": "trap", "description": "pattern present horizontally but never vertically yields zero overlap", "input": [[["a", "b", "c"], ["d", "e", "f"]], "abc"] },
+    { "kind": "edge", "description": "uniform grid so every cell is covered both ways for a short pattern", "input": [[["a", "a"], ["a", "a"]], "aa"] },
+    { "kind": "boundary", "description": "pattern equals the whole row-major / column-major string only one way", "input": [[["a", "b"], ["a", "b"]], "abab"] },
+    { "kind": "edge", "description": "overlapping occurrences of the pattern in one orientation", "input": [[["a", "a", "a", "a"]], "aa"] }
+  ],
+  "stress": [
+    {
+      "description": "random small-alphabet grid with a short pattern so matches are dense in both orientations",
+      "seed": 7,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, size // 4))\n    n = rng.randint(1, max(1, size // 4))\n    alpha = 'ab'\n    grid = [[rng.choice(alpha) for _ in range(n)] for _ in range(m)]\n    plen = rng.randint(1, min(m * n, 5))\n    pattern = ''.join(rng.choice(alpha) for _ in range(plen))\n    return [grid, pattern]\n",
+      "note": "small alphabet keeps occurrences frequent so the overlap logic is exercised"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countCells(self, grid, pattern):\n        m = len(grid)\n        n = len(grid[0])\n        # row-major string and the cell each flat index maps to\n        row_cells = []\n        row_str = []\n        for r in range(m):\n            for c in range(n):\n                row_str.append(grid[r][c])\n                row_cells.append((r, c))\n        row_str = ''.join(row_str)\n        # column-major string\n        col_cells = []\n        col_str = []\n        for c in range(n):\n            for r in range(m):\n                col_str.append(grid[r][c])\n                col_cells.append((r, c))\n        col_str = ''.join(col_str)\n        L = len(pattern)\n        h = set()\n        v = set()\n        for s in range(0, len(row_str) - L + 1):\n            if row_str[s:s + L] == pattern:\n                for t in range(s, s + L):\n                    h.add(row_cells[t])\n        for s in range(0, len(col_str) - L + 1):\n            if col_str[s:s + L] == pattern:\n                for t in range(s, s + L):\n                    v.add(col_cells[t])\n        return len(h & v)\n",
+  "solutions": {
+    "python": "class Solution:\n    def countCells(self, grid, pattern):\n        m = len(grid)\n        n = len(grid[0])\n        L = len(pattern)\n        # KMP prefix function\n        pi = [0] * L\n        k = 0\n        for i in range(1, L):\n            while k > 0 and pattern[i] != pattern[k]:\n                k = pi[k - 1]\n            if pattern[i] == pattern[k]:\n                k += 1\n            pi[i] = k\n\n        def matches(getch, total):\n            res = []\n            k = 0\n            for i in range(total):\n                ch = getch(i)\n                while k > 0 and ch != pattern[k]:\n                    k = pi[k - 1]\n                if ch == pattern[k]:\n                    k += 1\n                if k == L:\n                    res.append(i - L + 1)\n                    k = pi[k - 1]\n            return res\n\n        total = m * n\n        row_get = lambda i: grid[i // n][i % n]\n        col_get = lambda i: grid[i % m][i // m]\n        h = set()\n        for s in matches(row_get, total):\n            for t in range(s, s + L):\n                h.add((t // n, t % n))\n        v = set()\n        for s in matches(col_get, total):\n            for t in range(s, s + L):\n                v.add((t % m, t // m))\n        return len(h & v)\n",
+    "javascript": "var countCells = function(grid, pattern) {\n    const m = grid.length, n = grid[0].length, L = pattern.length;\n    const pi = new Array(L).fill(0);\n    let k = 0;\n    for (let i = 1; i < L; i++) {\n        while (k > 0 && pattern[i] !== pattern[k]) k = pi[k - 1];\n        if (pattern[i] === pattern[k]) k++;\n        pi[i] = k;\n    }\n    const total = m * n;\n    const matches = (getch) => {\n        const res = [];\n        let k = 0;\n        for (let i = 0; i < total; i++) {\n            const ch = getch(i);\n            while (k > 0 && ch !== pattern[k]) k = pi[k - 1];\n            if (ch === pattern[k]) k++;\n            if (k === L) { res.push(i - L + 1); k = pi[k - 1]; }\n        }\n        return res;\n    };\n    const rowGet = (i) => grid[Math.floor(i / n)][i % n];\n    const colGet = (i) => grid[i % m][Math.floor(i / m)];\n    const h = new Set();\n    for (const s of matches(rowGet)) {\n        for (let t = s; t < s + L; t++) h.add(Math.floor(t / n) * n + (t % n));\n    }\n    const v = new Set();\n    for (const s of matches(colGet)) {\n        for (let t = s; t < s + L; t++) v.add((t % m) * n + Math.floor(t / m));\n    }\n    let cnt = 0;\n    for (const c of v) if (h.has(c)) cnt++;\n    return cnt;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

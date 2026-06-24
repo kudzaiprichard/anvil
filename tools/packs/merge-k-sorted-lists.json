@@ -1,0 +1,37 @@
+{
+  "slug": "merge-k-sorted-lists",
+  "judge": "exact",
+  "io_types": { "params": [{ "list_of": "linked_list" }], "returns": "linked_list" },
+  "pattern": "Merge many sorted lists into one by always emitting the globally smallest current head, using a heap keyed on node value to pick it in logarithmic time.",
+  "hints": [
+    "Each list is already sorted, so the next node of the merged result is always the smallest among the current heads of all the lists — you only ever compare front nodes.",
+    "Maintain a min-heap of the current head of every nonempty list; pop the smallest, append it, and push its successor so the heap always holds at most one node per list.",
+    "Tie-break the heap by a unique counter (not the node itself) so equal values never force an object comparison; build the answer behind a dummy head and return dummy.next."
+  ],
+  "constraints": [
+    { "param": "lists", "kind": "list_of_linked_list", "len": [0, 10000], "value": [-10000, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "no lists at all", "input": [[]] },
+    { "kind": "edge", "description": "a single empty list", "input": [[[]]] },
+    { "kind": "trap", "description": "mix of empty and nonempty lists", "input": [[[], [1], []]] },
+    { "kind": "boundary", "description": "three lists with cross-list duplicate values", "input": [[[1, 4, 5], [1, 3, 4], [2, 6]]] },
+    { "kind": "trap", "description": "disjoint ranges so one whole list precedes another", "input": [[[-5, -4], [10, 11], [0, 1]]] },
+    { "kind": "edge", "description": "many single-node lists, descending order across lists", "input": [[[5], [4], [3], [2], [1]]] }
+  ],
+  "stress": [
+    {
+      "description": "many sorted lists whose total length stays within the global cap",
+      "seed": 31,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(0, 50)\n    total_cap = max(0, min(size * 5, 10000))\n    remaining = total_cap\n    lists = []\n    for _ in range(k):\n        if remaining <= 0:\n            lists.append([])\n            continue\n        m = rng.randint(0, min(remaining, 500))\n        remaining -= m\n        lists.append(sorted(rng.randint(-10000, 10000) for _ in range(m)))\n    return [lists]\n",
+      "note": "each list sorted ascending; sum of lengths bounded"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mergeKLists(self, lists):\n        vals = []\n        for node in lists:\n            while node:\n                vals.append(node.val)\n                node = node.next\n        vals.sort()\n        head = None\n        for v in reversed(vals):\n            head = ListNode(v, head)\n        return head\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass Solution:\n    def mergeKLists(self, lists):\n        heap = []\n        counter = 0\n        for node in lists:\n            if node:\n                heapq.heappush(heap, (node.val, counter, node))\n                counter += 1\n        dummy = ListNode(0)\n        tail = dummy\n        while heap:\n            _, _, node = heapq.heappop(heap)\n            tail.next = node\n            tail = node\n            if node.next:\n                heapq.heappush(heap, (node.next.val, counter, node.next))\n                counter += 1\n        tail.next = None\n        return dummy.next\n",
+    "javascript": "var mergeKLists = function(lists) {\n    // simple binary min-heap of [val, counter, node]\n    const heap = [];\n    const less = (a, b) => a[0] !== b[0] ? a[0] < b[0] : a[1] < b[1];\n    const push = (item) => {\n        heap.push(item);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (less(heap[i], heap[p])) { [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; }\n            else break;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            const n = heap.length;\n            while (true) {\n                const l = 2 * i + 1, r = 2 * i + 2;\n                let s = i;\n                if (l < n && less(heap[l], heap[s])) s = l;\n                if (r < n && less(heap[r], heap[s])) s = r;\n                if (s === i) break;\n                [heap[i], heap[s]] = [heap[s], heap[i]];\n                i = s;\n            }\n        }\n        return top;\n    };\n    let counter = 0;\n    for (const node of lists) {\n        if (node) push([node.val, counter++, node]);\n    }\n    const dummy = new ListNode(0);\n    let tail = dummy;\n    while (heap.length) {\n        const [, , node] = pop();\n        tail.next = node;\n        tail = node;\n        if (node.next) push([node.next.val, counter++, node.next]);\n    }\n    tail.next = null;\n    return dummy.next;\n};\n"
+  },
+  "complexity": { "time": "O(N log k)", "space": "O(k)" }
+}

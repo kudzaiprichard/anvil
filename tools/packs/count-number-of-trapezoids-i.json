@@ -1,0 +1,37 @@
+{
+  "slug": "count-number-of-trapezoids-i",
+  "judge": "exact",
+  "pattern": "Each horizontal side is a pair of points sharing a y-value, so the count of horizontal trapezoids is the number of ways to pick two such pairs from two different rows.",
+  "hints": [
+    "A horizontal side is just two points with the same y-coordinate. Within a row of c points there are c-choose-2 horizontal segments.",
+    "Two horizontal segments taken from two different rows always close up into a horizontal trapezoid, so you need to count unordered pairs of segments drawn from distinct rows.",
+    "Let s_y be the segment count for each row. The answer is the sum over unordered row pairs of s_i * s_j, taken modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "points", "kind": "int[][]", "len": [4, 100000], "value": [-100000000, 100000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two rows give three trapezoids", "input": [[[1, 0], [2, 0], [3, 0], [2, 2], [3, 2]]] },
+    { "kind": "edge", "description": "single horizontal pair in each of two rows", "input": [[[0, 0], [1, 0], [0, 1], [2, 1]]] },
+    { "kind": "boundary", "description": "exactly four points forming one trapezoid", "input": [[[0, 0], [3, 0], [1, 2], [2, 2]]] },
+    { "kind": "trap", "description": "all four points on one horizontal line form no trapezoid", "input": [[[0, 0], [1, 0], [2, 0], [3, 0]]] },
+    { "kind": "trap", "description": "no two points share a y so the answer is zero", "input": [[[0, 0], [1, 1], [2, 2], [3, 3]]] },
+    { "kind": "edge", "description": "three rows each contributing one segment", "input": [[[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]]] },
+    { "kind": "edge", "description": "a row with three points gives three segments", "input": [[[0, 0], [1, 0], [2, 0], [0, 5], [1, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "small random distinct points on a tight grid so several rows share y-values",
+      "seed": 13,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    target = max(4, min(9, size))\n    pts = set()\n    while len(pts) < target:\n        pts.add((rng.randint(0, 4), rng.randint(0, 3)))\n    out = [list(p) for p in pts]\n    rng.shuffle(out)\n    return [out]\n",
+      "note": "kept tiny because the oracle enumerates all 4-point subsets"
+    }
+  ],
+  "oracle_python": "from itertools import combinations, permutations\n\nclass Solution:\n    def countTrapezoids(self, points):\n        MOD = 10**9 + 7\n        def cross(o, a, b):\n            return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0])\n        def convex(q):\n            signs = []\n            for i in range(4):\n                c = cross(q[i], q[(i+1) % 4], q[(i+2) % 4])\n                if c == 0:\n                    return False\n                signs.append(c > 0)\n            return all(signs) or not any(signs)\n        def horiz_pair(q):\n            for i in range(4):\n                a, b = q[i], q[(i+1) % 4]\n                c, d = q[(i+2) % 4], q[(i+3) % 4]\n                if a[1] == b[1] and c[1] == d[1]:\n                    return True\n            return False\n        cnt = 0\n        for four in combinations(points, 4):\n            for perm in permutations(four):\n                p = list(perm)\n                if convex(p) and horiz_pair(p):\n                    cnt += 1\n                    break\n        return cnt % MOD\n",
+  "solutions": {
+    "python": "from collections import Counter\nfrom math import comb\n\nclass Solution:\n    def countTrapezoids(self, points):\n        MOD = 10**9 + 7\n        by_y = Counter(p[1] for p in points)\n        seg = [comb(c, 2) for c in by_y.values()]\n        tot = sum(seg)\n        ans = 0\n        for s in seg:\n            ans += s * (tot - s)\n        return (ans // 2) % MOD\n",
+    "javascript": "var countTrapezoids = function(points) {\n    const MOD = 1000000007n;\n    const byY = new Map();\n    for (const [, y] of points) byY.set(y, (byY.get(y) || 0) + 1);\n    const seg = [];\n    for (const c of byY.values()) {\n        const bc = BigInt(c);\n        seg.push((bc * (bc - 1n)) / 2n);\n    }\n    let tot = 0n;\n    for (const s of seg) tot += s;\n    let ans = 0n;\n    for (const s of seg) ans += s * (tot - s);\n    ans = ans / 2n;\n    return Number(ans % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

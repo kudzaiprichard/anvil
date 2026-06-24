@@ -1,0 +1,71 @@
+{
+  "slug": "course-schedule",
+  "judge": "exact",
+  "pattern": "Finishing all courses is possible if and only if the prerequisite graph has no directed cycle; detect cycles with DFS state-coloring (white/gray/black) or by checking whether a topological sort (Kahn's BFS) can process all nodes.",
+  "hints": [
+    "Model the problem as a directed graph where an edge a → b means 'take b before a'; returning true requires that this graph is acyclic (a DAG).",
+    "DFS with three states per node — unvisited, currently in the recursion stack, fully processed — detects a cycle whenever a back-edge to a gray node is found.",
+    "Alternatively, count in-degrees and use a queue: repeatedly remove zero-in-degree nodes and reduce their neighbors' in-degrees; if all nodes are eventually removed, no cycle exists."
+  ],
+  "constraints": [
+    { "param": "numCourses",   "kind": "int",      "value": [1, 2000] },
+    { "param": "prerequisites","kind": "int[][]",  "len":   [0, 5000], "note": "each inner pair [a,b] with 0<=a,b<numCourses; all pairs unique" }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "one course, no prerequisites — trivially completable",
+      "input": [1, []]
+    },
+    {
+      "kind": "edge",
+      "description": "two courses, one prerequisite, no cycle — completable",
+      "input": [2, [[1, 0]]]
+    },
+    {
+      "kind": "edge",
+      "description": "two courses, mutual prerequisite — direct cycle, impossible",
+      "input": [2, [[1, 0], [0, 1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "no prerequisites at all — all courses independent",
+      "input": [5, []]
+    },
+    {
+      "kind": "edge",
+      "description": "linear chain without cycle — completable",
+      "input": [4, [[1, 0], [2, 1], [3, 2]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum courses with no prerequisites",
+      "input": [2000, []]
+    },
+    {
+      "kind": "trap",
+      "description": "cycle involving three nodes in a ring — not immediately obvious from the pair list",
+      "input": [3, [[0, 1], [1, 2], [2, 0]]]
+    },
+    {
+      "kind": "trap",
+      "description": "cycle buried deep in a mostly DAG graph — only one back-edge creates a cycle",
+      "input": [6, [[1, 0], [2, 1], [3, 2], [4, 3], [5, 4], [2, 5]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large DAG with a linear chain of 500 courses plus isolated nodes",
+      "seed": 13,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    # Chain 0->1->2->...->n-1 guarantees a DAG\n    prereqs = [[i+1, i] for i in range(n - 1)]\n    # Shuffle to avoid trivial ordering\n    rng.shuffle(prereqs)\n    return [n, prereqs]\n",
+      "note": "always a valid DAG — result is always True"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canFinish(self, numCourses, prerequisites):\n        from collections import deque\n        in_degree = [0] * numCourses\n        adj = [[] for _ in range(numCourses)]\n        for a, b in prerequisites:\n            adj[b].append(a)\n            in_degree[a] += 1\n        queue = deque(i for i in range(numCourses) if in_degree[i] == 0)\n        processed = 0\n        while queue:\n            node = queue.popleft()\n            processed += 1\n            for nbr in adj[node]:\n                in_degree[nbr] -= 1\n                if in_degree[nbr] == 0:\n                    queue.append(nbr)\n        return processed == numCourses\n",
+  "solutions": {
+    "python": "class Solution:\n    def canFinish(self, numCourses, prerequisites):\n        from collections import deque\n        in_degree = [0] * numCourses\n        adj = [[] for _ in range(numCourses)]\n        for a, b in prerequisites:\n            adj[b].append(a)\n            in_degree[a] += 1\n        queue = deque(i for i in range(numCourses) if in_degree[i] == 0)\n        processed = 0\n        while queue:\n            node = queue.popleft()\n            processed += 1\n            for nbr in adj[node]:\n                in_degree[nbr] -= 1\n                if in_degree[nbr] == 0:\n                    queue.append(nbr)\n        return processed == numCourses\n",
+    "javascript": "var canFinish = function(numCourses, prerequisites) {\n    const inDegree = new Int32Array(numCourses);\n    const adj = Array.from({length: numCourses}, () => []);\n    for (const [a, b] of prerequisites) {\n        adj[b].push(a);\n        inDegree[a]++;\n    }\n    const queue = [];\n    for (let i = 0; i < numCourses; i++) if (inDegree[i] === 0) queue.push(i);\n    let processed = 0;\n    let head = 0;\n    while (head < queue.length) {\n        const node = queue[head++];\n        processed++;\n        for (const nbr of adj[node]) {\n            if (--inDegree[nbr] === 0) queue.push(nbr);\n        }\n    }\n    return processed === numCourses;\n};\n"
+  },
+  "complexity": { "time": "O(V + E)", "space": "O(V + E)" }
+}

@@ -1,0 +1,45 @@
+{
+  "slug": "maximum-subarray-min-product",
+  "judge": "exact",
+  "pattern": "For each element treated as the subarray minimum, the best subarray is the maximal window where that element stays the minimum; monotonic stacks find those window boundaries and prefix sums give the window sum in constant time.",
+  "hints": [
+    "If you fix which element is the smallest one in the chosen subarray, the most profitable subarray is the widest contiguous span in which that element is still the minimum.",
+    "Use a stack to find, for every position, how far left and right you can extend before hitting a strictly smaller value; that span is the candidate window for that element as the minimum.",
+    "Precompute prefix sums so each window's sum is one subtraction, multiply by the window's minimum, track the maximum, and only then take the result modulo 1000000007."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 10000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element is its own subarray", "input": [[5]] },
+    { "kind": "edge", "description": "all equal so the whole array is best", "input": [[4, 4, 4, 4]] },
+    { "kind": "edge", "description": "strictly increasing favors a wide window with a small minimum or a narrow one with a large value", "input": [[1, 2, 3, 4, 5]] },
+    { "kind": "edge", "description": "strictly decreasing", "input": [[5, 4, 3, 2, 1]] },
+    { "kind": "boundary", "description": "minimum allowed value", "input": [[1]] },
+    { "kind": "boundary", "description": "large values that approach the 64-bit product limit", "input": [[10000000, 10000000, 10000000]] },
+    { "kind": "trap", "description": "a tall spike is worse than a wide moderate plateau", "input": [[3, 1, 5, 6, 4, 2]] },
+    { "kind": "trap", "description": "a valley splits two plateaus so the best window is on one side", "input": [[2, 3, 3, 1, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random small values to create many ties and nested windows",
+      "seed": 7,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randint(1, 10) for _ in range(n)]]\n",
+      "note": "small alphabet stresses equal-minimum boundary handling"
+    },
+    {
+      "description": "random wide-range values approaching the value cap",
+      "seed": 31,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randint(1, 10000000) for _ in range(n)]]\n",
+      "note": "large magnitudes stress the pre-modulo 64-bit arithmetic"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSumMinProduct(self, nums):\n        MOD = 10**9 + 7\n        n = len(nums)\n        best = 0\n        for i in range(n):\n            mn = nums[i]\n            total = 0\n            for j in range(i, n):\n                if nums[j] < mn:\n                    mn = nums[j]\n                total += nums[j]\n                cand = mn * total\n                if cand > best:\n                    best = cand\n        return best % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSumMinProduct(self, nums):\n        MOD = 10**9 + 7\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        left = [0] * n\n        right = [0] * n\n        stack = []\n        for i in range(n):\n            while stack and nums[stack[-1]] >= nums[i]:\n                stack.pop()\n            left[i] = stack[-1] + 1 if stack else 0\n            stack.append(i)\n        stack = []\n        for i in range(n - 1, -1, -1):\n            while stack and nums[stack[-1]] >= nums[i]:\n                stack.pop()\n            right[i] = stack[-1] - 1 if stack else n - 1\n            stack.append(i)\n        best = 0\n        for i in range(n):\n            total = prefix[right[i] + 1] - prefix[left[i]]\n            cand = nums[i] * total\n            if cand > best:\n                best = cand\n        return best % MOD\n",
+    "javascript": "var maxSumMinProduct = function(nums) {\n    const MOD = 1000000007n;\n    const n = nums.length;\n    const prefix = new Array(n + 1).fill(0n);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + BigInt(nums[i]);\n    const left = new Array(n).fill(0);\n    const right = new Array(n).fill(0);\n    let stack = [];\n    for (let i = 0; i < n; i++) {\n        while (stack.length && nums[stack[stack.length - 1]] >= nums[i]) stack.pop();\n        left[i] = stack.length ? stack[stack.length - 1] + 1 : 0;\n        stack.push(i);\n    }\n    stack = [];\n    for (let i = n - 1; i >= 0; i--) {\n        while (stack.length && nums[stack[stack.length - 1]] >= nums[i]) stack.pop();\n        right[i] = stack.length ? stack[stack.length - 1] - 1 : n - 1;\n        stack.push(i);\n    }\n    let best = 0n;\n    for (let i = 0; i < n; i++) {\n        const total = prefix[right[i] + 1] - prefix[left[i]];\n        const cand = BigInt(nums[i]) * total;\n        if (cand > best) best = cand;\n    }\n    return Number(best % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

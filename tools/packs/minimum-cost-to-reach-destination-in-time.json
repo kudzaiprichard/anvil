@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-cost-to-reach-destination-in-time",
+  "judge": "exact",
+  "pattern": "A shortest-path search over (city, time-elapsed) states minimizes total fees subject to the time budget.",
+  "hints": [
+    "The state needs both where you are and how much time you have spent so far.",
+    "Track the cheapest fee to reach each city at each total time, and only expand states within the time budget.",
+    "Run a Dijkstra-like search keyed on accumulated cost, relaxing neighbors when the new time stays within maxTime, and answer the cheapest arrival at the last city."
+  ],
+  "constraints": [
+    { "param": "maxTime", "kind": "int", "value": [1, 1000] },
+    { "param": "edges", "kind": "int[][]" },
+    { "param": "passingFees", "kind": "int[]", "len": [2, 1000], "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "anchor example cheap path fits in time", "input": [30, [[0, 1, 10], [1, 2, 10], [2, 5, 10], [0, 3, 1], [3, 4, 10], [4, 5, 15]], [5, 1, 2, 20, 20, 3]] },
+    { "kind": "trap", "description": "anchor example tighter time forces costlier path", "input": [29, [[0, 1, 10], [1, 2, 10], [2, 5, 10], [0, 3, 1], [3, 4, 10], [4, 5, 15]], [5, 1, 2, 20, 20, 3]] },
+    { "kind": "trap", "description": "anchor example unreachable in time", "input": [25, [[0, 1, 10], [1, 2, 10], [2, 5, 10], [0, 3, 1], [3, 4, 10], [4, 5, 15]], [5, 1, 2, 20, 20, 3]] },
+    { "kind": "boundary", "description": "two cities single direct edge", "input": [5, [[0, 1, 3]], [4, 7]] },
+    { "kind": "trap", "description": "direct edge too slow but no alternative", "input": [2, [[0, 1, 3]], [4, 7]] },
+    { "kind": "edge", "description": "multiple parallel edges pick the fast one", "input": [10, [[0, 1, 20], [0, 1, 5]], [2, 3]] },
+    { "kind": "trap", "description": "longer hop count but lower fees within time", "input": [10, [[0, 1, 5], [0, 2, 5], [1, 2, 5]], [1, 100, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random connected-ish graph with small node count and bounded edges",
+      "seed": 101,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, size))\n    fees = [rng.randint(1, 50) for _ in range(n)]\n    edges = []\n    for i in range(1, n):\n        j = rng.randrange(i)\n        edges.append([i, j, rng.randint(1, 20)])\n    extra = rng.randint(0, n)\n    for _ in range(extra):\n        a = rng.randrange(n)\n        b = rng.randrange(n)\n        if a != b:\n            edges.append([a, b, rng.randint(1, 20)])\n    maxTime = rng.randint(1, 200)\n    return [maxTime, edges, fees]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCost(self, maxTime, edges, passingFees):\n        n = len(passingFees)\n        INF = float('inf')\n        adj = [[] for _ in range(n)]\n        for x, y, t in edges:\n            adj[x].append((y, t))\n            adj[y].append((x, t))\n        best = [[INF] * (maxTime + 1) for _ in range(n)]\n        best[0][0] = passingFees[0]\n        changed = True\n        for _ in range(maxTime + 1):\n            ndone = False\n            for u in range(n):\n                for t in range(maxTime + 1):\n                    if best[u][t] == INF:\n                        continue\n                    cur = best[u][t]\n                    for v, w in adj[u]:\n                        nt = t + w\n                        if nt <= maxTime:\n                            nc = cur + passingFees[v]\n                            if nc < best[v][nt]:\n                                best[v][nt] = nc\n                                ndone = True\n            if not ndone:\n                break\n        ans = min(best[n - 1])\n        return ans if ans != INF else -1\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def minCost(self, maxTime, edges, passingFees):\n        n = len(passingFees)\n        INF = float('inf')\n        adj = [[] for _ in range(n)]\n        for x, y, t in edges:\n            adj[x].append((y, t))\n            adj[y].append((x, t))\n        best_time = [INF] * n\n        pq = [(passingFees[0], 0, 0)]\n        best_time[0] = 0\n        while pq:\n            cost, time, u = heapq.heappop(pq)\n            if u == n - 1:\n                return cost\n            for v, w in adj[u]:\n                nt = time + w\n                if nt <= maxTime and nt < best_time[v]:\n                    best_time[v] = nt\n                    heapq.heappush(pq, (cost + passingFees[v], nt, v))\n        return -1\n",
+    "javascript": "var minCost = function(maxTime, edges, passingFees) {\n    const n = passingFees.length;\n    const INF = Infinity;\n    const adj = Array.from({length: n}, () => []);\n    for (const [x, y, t] of edges) {\n        adj[x].push([y, t]);\n        adj[y].push([x, t]);\n    }\n    const bestTime = new Array(n).fill(INF);\n    bestTime[0] = 0;\n    const pq = [[passingFees[0], 0, 0]];\n    const cmp = (a, b) => a[0] - b[0];\n    while (pq.length) {\n        pq.sort(cmp);\n        const [cost, time, u] = pq.shift();\n        if (u === n - 1) return cost;\n        for (const [v, w] of adj[u]) {\n            const nt = time + w;\n            if (nt <= maxTime && nt < bestTime[v]) {\n                bestTime[v] = nt;\n                pq.push([cost + passingFees[v], nt, v]);\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(E log E)", "space": "O(n + E)" }
+}

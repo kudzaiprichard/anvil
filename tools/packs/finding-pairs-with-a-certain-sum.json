@@ -1,0 +1,91 @@
+{
+  "slug": "finding-pairs-with-a-certain-sum",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Precomputing a frequency map of the smaller array lets each count query scan only the larger array once, while updates touch a single frequency bucket.",
+  "hints": [
+    "A pair count for a target equals, for every value v in one array, how many elements equal target minus v in the other array.",
+    "Maintain a frequency map of one array so a query iterates the other array and sums looked-up counts in linear time.",
+    "Pick the array that gets mutated (nums2) to iterate during count, and keep a frequency map of the static array (nums1); add adjusts nums2 directly without rebuilding anything."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 1000], "value": [1, 1000000000] },
+    { "param": "nums2", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "index", "kind": "int", "value": [0, 99999] },
+    { "param": "val", "kind": "int", "value": [1, 100000] },
+    { "param": "tot", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example: counts before and after additions to nums2",
+      "input": [
+        ["FindSumPairs", "count", "add", "count", "count", "add", "add", "count"],
+        [[[1, 1, 2, 2, 2, 3], [1, 4, 5, 2, 5, 4]], [7], [3, 2], [8], [4], [0, 1], [1, 1], [7]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element arrays; count a matching and a non-matching total",
+      "input": [
+        ["FindSumPairs", "count", "count", "add", "count"],
+        [[[5], [3]], [8], [9], [0, 2], [10]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "no pair reaches the requested total",
+      "input": [
+        ["FindSumPairs", "count"],
+        [[[1, 2, 3], [1, 2, 3]], [100]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicates in both arrays mean a single total is hit many times; count multiplicities, not distinct pairs",
+      "input": [
+        ["FindSumPairs", "count"],
+        [[[2, 2, 2], [3, 3, 3]], [5]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an add changes which totals are reachable; the same query before and after must differ",
+      "input": [
+        ["FindSumPairs", "count", "add", "count"],
+        [[[1, 1], [1, 1]], [2], [0, 5], [2]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "repeated adds to the same index accumulate",
+      "input": [
+        ["FindSumPairs", "add", "add", "count"],
+        [[[10], [1]], [0, 4], [0, 5], [20]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "large values where the only matching pair uses the big nums1 element",
+      "input": [
+        ["FindSumPairs", "count", "count", "count"],
+        [[[1000000000, 1], [5, 6]], [1000000005], [1000000006], [11]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "randomised mix of add and count over moderate arrays drawn from a small value domain so totals are frequently hit",
+      "seed": 23,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n1 = rng.randint(1, 40)\n    n2 = rng.randint(1, 60)\n    nums1 = [rng.randint(1, 30) for _ in range(n1)]\n    nums2 = [rng.randint(1, 30) for _ in range(n2)]\n    ops = ['FindSumPairs']\n    args = [[nums1[:], nums2[:]]]\n    for _ in range(size):\n        if rng.random() < 0.4:\n            idx = rng.randint(0, n2 - 1)\n            val = rng.randint(1, 20)\n            ops.append('add')\n            args.append([idx, val])\n        else:\n            tot = rng.randint(2, 80)\n            ops.append('count')\n            args.append([tot])\n    return [ops, args]\n",
+      "note": "small value domain keeps many counts non-zero, exercising both operations"
+    }
+  ],
+  "oracle_python": "class FindSumPairs:\n    def __init__(self, nums1, nums2):\n        self.nums1 = list(nums1)\n        self.nums2 = list(nums2)\n    def add(self, index, val):\n        self.nums2[index] += val\n    def count(self, tot):\n        c = 0\n        for a in self.nums1:\n            for b in self.nums2:\n                if a + b == tot:\n                    c += 1\n        return c\n",
+  "solutions": {
+    "python": "from collections import Counter\nclass FindSumPairs:\n    def __init__(self, nums1, nums2):\n        self.nums2 = list(nums2)\n        self.cnt1 = Counter(nums1)\n        self.cnt2 = Counter(nums2)\n    def add(self, index: int, val: int) -> None:\n        old = self.nums2[index]\n        self.cnt2[old] -= 1\n        self.nums2[index] = old + val\n        self.cnt2[old + val] += 1\n    def count(self, tot: int) -> int:\n        total = 0\n        for v, c in self.cnt2.items():\n            need = tot - v\n            if need in self.cnt1:\n                total += c * self.cnt1[need]\n        return total\n",
+    "javascript": "var FindSumPairs = function(nums1, nums2) {\n    this.nums2 = nums2.slice();\n    this.cnt1 = new Map();\n    for (const v of nums1) this.cnt1.set(v, (this.cnt1.get(v) || 0) + 1);\n    this.cnt2 = new Map();\n    for (const v of nums2) this.cnt2.set(v, (this.cnt2.get(v) || 0) + 1);\n};\nFindSumPairs.prototype.add = function(index, val) {\n    const old = this.nums2[index];\n    this.cnt2.set(old, this.cnt2.get(old) - 1);\n    const nv = old + val;\n    this.nums2[index] = nv;\n    this.cnt2.set(nv, (this.cnt2.get(nv) || 0) + 1);\n};\nFindSumPairs.prototype.count = function(tot) {\n    let total = 0;\n    for (const [v, c] of this.cnt2.entries()) {\n        if (c === 0) continue;\n        const need = tot - v;\n        if (this.cnt1.has(need)) total += c * this.cnt1.get(need);\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(1) add, O(n2) count", "space": "O(n1 + n2)" }
+}

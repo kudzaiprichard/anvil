@@ -1,0 +1,38 @@
+{
+  "slug": "mark-elements-on-array-by-performing-queries",
+  "judge": "exact",
+  "pattern": "A min-heap keyed on (value, index) plus a marked-set lets each query greedily consume the smallest still-unmarked elements while a running total tracks the leftover sum.",
+  "hints": [
+    "After each query you only need the sum of the elements that remain unmarked, so keep a running total and subtract whenever you mark something.",
+    "To repeatedly pull the smallest-value, smallest-index unmarked elements, use a heap ordered by (value, index) and skip entries that were already marked.",
+    "Maintain total = sum(nums), a boolean marked array, and a heap of (value, index). For each query mark the given index (subtract if newly marked), then pop up to k unmarked heap entries, marking each and subtracting its value. Record total after the query."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "queries", "kind": "int[]", "len": [1, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": [[1, 2, 2, 1, 2, 3, 1], [[1, 2], [3, 3], [4, 2]]] },
+    { "kind": "edge", "description": "statement example two", "input": [[1, 4, 2, 3], [[0, 1]]] },
+    { "kind": "boundary", "description": "single element, single query marks everything", "input": [[5], [[0, 0]]] },
+    { "kind": "trap", "description": "query marks an already-marked index then k=0, total unchanged", "input": [[3, 1, 2], [[0, 1], [0, 0]]] },
+    { "kind": "trap", "description": "k larger than remaining unmarked marks all of them", "input": [[4, 4, 4, 4], [[0, 10]]] },
+    { "kind": "edge", "description": "ties broken by smallest index", "input": [[2, 2, 2, 2], [[3, 2]]] },
+    { "kind": "boundary", "description": "all equal values, several queries draining the array", "input": [[1, 1, 1, 1, 1], [[0, 1], [1, 1], [2, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "large random array with random index/k queries",
+      "seed": 7,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randrange(1, 100001) for _ in range(n)]\n    m = n\n    queries = [[rng.randrange(0, n), rng.randrange(0, n)] for _ in range(m)]\n    return [nums, queries]\n",
+      "note": "m == n; indices and k in [0, n-1]"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def unmarkedSumArray(self, nums, queries):\n        n = len(nums)\n        marked = [False] * n\n        ans = []\n        for idx, k in queries:\n            if not marked[idx]:\n                marked[idx] = True\n            order = sorted((i for i in range(n) if not marked[i]), key=lambda i: (nums[i], i))\n            for i in order[:k]:\n                marked[i] = True\n            ans.append(sum(nums[i] for i in range(n) if not marked[i]))\n        return ans\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def unmarkedSumArray(self, nums, queries):\n        n = len(nums)\n        marked = [False] * n\n        heap = [(nums[i], i) for i in range(n)]\n        heapq.heapify(heap)\n        total = sum(nums)\n        ans = []\n        for idx, k in queries:\n            if not marked[idx]:\n                marked[idx] = True\n                total -= nums[idx]\n            cnt = 0\n            while cnt < k and heap:\n                v, i = heapq.heappop(heap)\n                if marked[i]:\n                    continue\n                marked[i] = True\n                total -= v\n                cnt += 1\n            ans.append(total)\n        return ans\n",
+    "javascript": "var unmarkedSumArray = function(nums, queries) {\n    const n = nums.length;\n    const marked = new Array(n).fill(false);\n    const cmp = (a, b) => a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1];\n    const heap = [];\n    const push = (x) => {\n        heap.push(x);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (cmp(heap[i], heap[p]) < 0) { [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; }\n            else break;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                if (l < heap.length && cmp(heap[l], heap[s]) < 0) s = l;\n                if (r < heap.length && cmp(heap[r], heap[s]) < 0) s = r;\n                if (s === i) break;\n                [heap[i], heap[s]] = [heap[s], heap[i]]; i = s;\n            }\n        }\n        return top;\n    };\n    let total = 0;\n    for (let i = 0; i < n; i++) { push([nums[i], i]); total += nums[i]; }\n    const ans = [];\n    for (const [idx, k] of queries) {\n        if (!marked[idx]) { marked[idx] = true; total -= nums[idx]; }\n        let cnt = 0;\n        while (cnt < k && heap.length) {\n            const [v, i] = pop();\n            if (marked[i]) continue;\n            marked[i] = true; total -= v; cnt++;\n        }\n        ans.push(total);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + sum_k) log n)", "space": "O(n)" }
+}

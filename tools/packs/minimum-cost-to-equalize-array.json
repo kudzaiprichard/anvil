@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-cost-to-equalize-array",
+  "judge": "exact",
+  "pattern": "Greedy target-enumeration: when op2 is cheaper, raise the target to maximize pairing opportunities, being careful to account for the constraint that the hardest element cannot be paired with itself.",
+  "hints": [
+    "If 2*cost1 <= cost2, op2 is never beneficial; just use op1 for all deficits: answer = (max - min) * n... wait, total deficit to reach current max, computed as sum(max - nums[i]).",
+    "Otherwise, enumerate candidate target values from max(nums) up to max(nums, sum - 2*min) + 1. At each target, the deficit of the globally-minimum element (max_deficit) may exceed the combined deficits of all other elements (rest = total - max_deficit). In that case you must use op1 for the excess and pair the rest with max_deficit via op2.",
+    "The formula per target: if max_deficit > rest, cost = rest * cost2 + (max_deficit - rest) * cost1; else cost = (total // 2) * cost2 + (total % 2) * cost1. Take the minimum over all candidate targets."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000] },
+    { "param": "cost1", "kind": "int", "value": [1, 1000000] },
+    { "param": "cost2", "kind": "int", "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two elements op1 only because cost2 useless", "input": [[4, 1], 5, 2] },
+    { "kind": "edge", "description": "multiple elements op2 dominates", "input": [[2, 3, 3, 3, 5], 2, 1] },
+    { "kind": "edge", "description": "op1 cheaper per unit despite imbalance", "input": [[3, 5, 3], 1, 3] },
+    { "kind": "edge", "description": "single element - already equal, answer 0", "input": [[5], 3, 2] },
+    { "kind": "edge", "description": "all equal - no operations needed", "input": [[4, 4, 4], 3, 1] },
+    { "kind": "trap", "description": "need to raise target beyond max to maximize pairing", "input": [[6, 2, 7], 9, 1] },
+    { "kind": "trap", "description": "op2 is cheap but answer requires target beyond initial max", "input": [[1, 8, 9], 2, 7] },
+    { "kind": "boundary", "description": "large values requiring modular result", "input": [[1, 1000000], 1000000, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random small arrays with varied cost ratios",
+      "seed": 61,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, size)\n    nums = [rng.randint(1, 20) for _ in range(n)]\n    c1 = rng.randint(1, 10)\n    c2 = rng.randint(1, 10)\n    return [nums, c1, c2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCostToEqualizeArray(self, nums, cost1: int, cost2: int) -> int:\n        MOD = 10**9 + 7\n        n = len(nums)\n        if n == 1:\n            return 0\n        mx = max(nums)\n        mn = min(nums)\n        s = sum(nums)\n        best = float('inf')\n        # Try all targets in a generous range\n        for target in range(mx, max(mx, s - 2*mn) + 2):\n            total = target * n - s\n            max_d = target - mn\n            rest = total - max_d\n            if max_d > rest:\n                max_pairs = rest\n            else:\n                max_pairs = total // 2\n            # For each number of pairs, cost = p*cost2 + (total-2p)*cost1\n            # Minimized at max_pairs (since 2*cost1 > cost2 when op2 worth using)\n            # But if 2*cost1 <= cost2 don't use op2 at all\n            if 2 * cost1 <= cost2:\n                cost = total * cost1\n            else:\n                p = max_pairs\n                cost = p * cost2 + (total - 2*p) * cost1\n            best = min(best, cost)\n        return best % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCostToEqualizeArray(self, nums, cost1: int, cost2: int) -> int:\n        MOD = 10**9 + 7\n        n = len(nums)\n        if n == 1:\n            return 0\n        mx = max(nums)\n        mn = min(nums)\n        s = sum(nums)\n        \n        if 2 * cost1 <= cost2:\n            return (mx * n - s) * cost1 % MOD\n        \n        bound = max(mx, s - 2 * mn) + 1\n        best = float('inf')\n        for target in range(mx, bound + 1):\n            total = target * n - s\n            max_d = target - mn\n            rest = total - max_d\n            if max_d > rest:\n                cost = rest * cost2 + (max_d - rest) * cost1\n            else:\n                cost = (total // 2) * cost2 + (total % 2) * cost1\n            best = min(best, cost)\n        return best % MOD\n",
+    "javascript": "var minCostToEqualizeArray = function(nums, cost1, cost2) {\n    const MOD = 1000000007n;\n    const n = nums.length;\n    if (n === 1) return 0;\n    const mx = Math.max(...nums);\n    const mn = Math.min(...nums);\n    const s = nums.reduce((a, b) => a + b, 0);\n    \n    if (2 * cost1 <= cost2) {\n        return Number(BigInt(mx * n - s) * BigInt(cost1) % MOD);\n    }\n    \n    const bound = Math.max(mx, s - 2 * mn) + 1;\n    let best = Infinity;\n    for (let target = mx; target <= bound; target++) {\n        const total = target * n - s;\n        const maxD = target - mn;\n        const rest = total - maxD;\n        let cost;\n        if (maxD > rest) {\n            cost = rest * cost2 + (maxD - rest) * cost1;\n        } else {\n            cost = Math.floor(total / 2) * cost2 + (total % 2) * cost1;\n        }\n        if (cost < best) best = cost;\n    }\n    return Number(BigInt(best) % MOD);\n};"
+  },
+  "complexity": { "time": "O(n + max_val)", "space": "O(1)" }
+}

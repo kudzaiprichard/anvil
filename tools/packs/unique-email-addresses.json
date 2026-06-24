@@ -1,0 +1,37 @@
+{
+  "slug": "unique-email-addresses",
+  "judge": "exact",
+  "pattern": "Normalize each address by trimming the local part at the first plus, deleting its dots, and leaving the domain untouched, then count the distinct results with a set.",
+  "hints": [
+    "Two addresses that deliver to the same mailbox should collapse to one identical string before you count.",
+    "Split each address at the at-sign; only the local part is rewritten, while the domain is kept verbatim.",
+    "In the local part, cut everything from the first plus onward, then remove all dots; join with the domain and insert into a set, finally returning its size."
+  ],
+  "constraints": [
+    { "param": "emails", "kind": "string[]", "len": [1, 100], "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "dots and plus tags collapse several addresses to fewer mailboxes", "input": [["test.email+alex@leetcode.com", "test.e.mail+bob.cathy@leetcode.com", "testemail+david@lee.tcode.com"]] },
+    { "kind": "edge", "description": "distinct local names with no special characters stay distinct", "input": [["a@leetcode.com", "b@leetcode.com", "c@leetcode.com"]] },
+    { "kind": "boundary", "description": "single address counts as one", "input": [["x.y.z@a.com"]] },
+    { "kind": "trap", "description": "dots in the domain are significant and must not be stripped", "input": [["ab@x.y.com", "ab@xy.com"]] },
+    { "kind": "trap", "description": "plus with empty suffix still trims everything after it", "input": [["name+@d.com", "name@d.com"]] },
+    { "kind": "edge", "description": "all addresses normalize to the same single mailbox", "input": [["a.b+tag1@d.com", "ab+tag2@d.com", "a.b@d.com"]] },
+    { "kind": "trap", "description": "same local but different domains are different mailboxes", "input": [["q@one.com", "q@two.com"]] }
+  ],
+  "stress": [
+    {
+      "description": "random local parts with dots and plus tags over a small domain pool to force collisions",
+      "seed": 19,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = rng.randint(1, max(1, size))\n    domains = ['a.com', 'b.com', 'ab.com', 'x.y.com']\n    out = []\n    for _ in range(n):\n        base = ''.join(rng.choice(string.ascii_lowercase) for _ in range(rng.randint(1, 6)))\n        chars = []\n        for ch in base:\n            chars.append(ch)\n            if rng.random() < 0.4:\n                chars.append('.')\n        local = ''.join(chars)\n        if rng.random() < 0.5:\n            tag = ''.join(rng.choice(string.ascii_lowercase) for _ in range(rng.randint(1, 4)))\n            local = local + '+' + tag\n        out.append(local + '@' + rng.choice(domains))\n    return [out]\n",
+      "note": "small domain pool maximizes the chance of normalized collisions"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numUniqueEmails(self, emails):\n        seen = set()\n        for e in emails:\n            at = e.index('@')\n            local = e[:at]\n            domain = e[at + 1:]\n            result = ''\n            for ch in local:\n                if ch == '+':\n                    break\n                if ch != '.':\n                    result += ch\n            seen.add(result + '#' + domain)\n        return len(seen)\n",
+  "solutions": {
+    "python": "class Solution:\n    def numUniqueEmails(self, emails):\n        seen = set()\n        for e in emails:\n            local, domain = e.split('@')\n            local = local.split('+')[0].replace('.', '')\n            seen.add(local + '@' + domain)\n        return len(seen)\n",
+    "javascript": "var numUniqueEmails = function(emails) {\n    const seen = new Set();\n    for (const e of emails) {\n        const at = e.indexOf('@');\n        let local = e.slice(0, at);\n        const domain = e.slice(at + 1);\n        const plus = local.indexOf('+');\n        if (plus !== -1) local = local.slice(0, plus);\n        local = local.split('.').join('');\n        seen.add(local + '@' + domain);\n    }\n    return seen.size;\n};\n"
+  },
+  "complexity": { "time": "O(total characters)", "space": "O(distinct addresses)" }
+}

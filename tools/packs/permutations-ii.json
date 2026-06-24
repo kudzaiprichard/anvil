@@ -1,0 +1,42 @@
+{
+  "slug": "permutations-ii",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    nums = args[0]\n    n = len(nums)\n    if not isinstance(output, list):\n        return False\n    from collections import Counter\n    import math\n    target = Counter(nums)\n    seen = set()\n    for perm in output:\n        if not isinstance(perm, list) or len(perm) != n:\n            return False\n        if Counter(perm) != target:\n            return False\n        key = tuple(perm)\n        if key in seen:\n            return False\n        seen.add(key)\n    distinct = math.factorial(n)\n    for c in target.values():\n        distinct //= math.factorial(c)\n    return len(seen) == distinct\n",
+    "validator_javascript": "function validate(args, output) {\n    const nums = args[0];\n    const n = nums.length;\n    if (!Array.isArray(output)) return false;\n    function counts(arr) {\n        const m = new Map();\n        for (const v of arr) m.set(v, (m.get(v) || 0) + 1);\n        return m;\n    }\n    function sameCounts(a, b) {\n        if (a.size !== b.size) return false;\n        for (const [k, v] of a) if (b.get(k) !== v) return false;\n        return true;\n    }\n    const target = counts(nums);\n    const seen = new Set();\n    for (const perm of output) {\n        if (!Array.isArray(perm) || perm.length !== n) return false;\n        if (!sameCounts(counts(perm), target)) return false;\n        const key = perm.join(',');\n        if (seen.has(key)) return false;\n        seen.add(key);\n    }\n    let distinct = 1;\n    for (let i = 2; i <= n; i++) distinct *= i;\n    for (const c of target.values()) {\n        let f = 1;\n        for (let i = 2; i <= c; i++) f *= i;\n        distinct /= f;\n    }\n    return seen.size === distinct;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Listing only the distinct orderings of a multiset means backtracking with a per-level rule that skips an element identical to one already tried at that position.",
+  "hints": [
+    "Duplicates create repeated permutations, so the search must avoid choosing the same value twice for the same slot.",
+    "Sorting first puts equal values adjacent, which makes the skip condition a simple comparison with the previous element.",
+    "Sort nums; at each level, for equal values only the first unused one may be chosen (skip nums[i] when nums[i]==nums[i-1] and i-1 is currently unused), recurse, then backtrack."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 8], "value": [-10, 10] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one repeated value collapses duplicate orderings", "input": [[1, 1, 2]] },
+    { "kind": "edge", "description": "all distinct behaves like plain permutations", "input": [[1, 2, 3]] },
+    { "kind": "trap", "description": "all identical yields a single ordering", "input": [[2, 2, 2]] },
+    { "kind": "boundary", "description": "single element", "input": [[5]] },
+    { "kind": "trap", "description": "two distinct duplicated pairs", "input": [[1, 1, 2, 2]] },
+    { "kind": "edge", "description": "negatives with a duplicate", "input": [[-1, -1, 0]] },
+    { "kind": "boundary", "description": "largest allowed length with duplicates", "input": [[3, 3, 3, 1, 1, 2, 2, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "short array drawn from a tiny value pool so duplicates are common",
+      "seed": 47,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, 8)\n    return [[rng.randrange(0, 3) for _ in range(n)]]\n",
+      "note": "small value pool maximizes duplicate-suppression stress while keeping the count small"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def permuteUnique(self, nums):\n        from itertools import permutations\n        res = sorted(set(permutations(nums)))\n        return [list(p) for p in res]\n",
+  "solutions": {
+    "python": "class Solution:\n    def permuteUnique(self, nums):\n        nums = sorted(nums)\n        res = []\n        used = [False] * len(nums)\n        cur = []\n        def back():\n            if len(cur) == len(nums):\n                res.append(cur[:])\n                return\n            for i in range(len(nums)):\n                if used[i]:\n                    continue\n                if i > 0 and nums[i] == nums[i - 1] and not used[i - 1]:\n                    continue\n                used[i] = True\n                cur.append(nums[i])\n                back()\n                cur.pop()\n                used[i] = False\n        back()\n        res.sort()\n        return res\n",
+    "javascript": "var permuteUnique = function(nums) {\n    nums = nums.slice().sort((a, b) => a - b);\n    const res = [];\n    const used = new Array(nums.length).fill(false);\n    const cur = [];\n    function back() {\n        if (cur.length === nums.length) {\n            res.push(cur.slice());\n            return;\n        }\n        for (let i = 0; i < nums.length; i++) {\n            if (used[i]) continue;\n            if (i > 0 && nums[i] === nums[i - 1] && !used[i - 1]) continue;\n            used[i] = true;\n            cur.push(nums[i]);\n            back();\n            cur.pop();\n            used[i] = false;\n        }\n    }\n    back();\n    res.sort((a, b) => {\n        const n = Math.min(a.length, b.length);\n        for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return a.length - b.length;\n    });\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n*n!)", "space": "O(n)" }
+}

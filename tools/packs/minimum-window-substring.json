@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-window-substring",
+  "judge": "exact",
+  "pattern": "A sliding window that expands to satisfy the required character counts and then contracts to drop slack finds the shortest covering substring in one linear pass.",
+  "hints": [
+    "You are hunting the shortest stretch of the text that contains every required character with the right multiplicity, so a window that grows and shrinks fits naturally.",
+    "Track how many required characters are still unmet; extend the right edge until the window is valid, then pull in the left edge while it stays valid to minimize length.",
+    "Keep a frequency need-map and a satisfied counter; each time the window becomes valid record it if it beats the best so far, and on ties keep the one that started earlier."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 100000] },
+    { "param": "t", "kind": "str", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic window scattered across the text", "input": ["ADOBECODEBANC", "ABC"] },
+    { "kind": "boundary", "description": "single matching character", "input": ["a", "a"] },
+    { "kind": "trap", "description": "target longer than text, no window", "input": ["a", "aa"] },
+    { "kind": "trap", "description": "needs two copies of a character", "input": ["aa", "aa"] },
+    { "kind": "trap", "description": "no window exists at all", "input": ["abc", "xyz"] },
+    { "kind": "edge", "description": "earliest minimal window when two are equally short", "input": ["abxabc", "ab"] },
+    { "kind": "edge", "description": "whole string is the answer", "input": ["xyz", "zyx"] },
+    { "kind": "trap", "description": "duplicates in target with sparse coverage", "input": ["aabbcc", "abc"] }
+  ],
+  "stress": [
+    {
+      "description": "random text over a small alphabet with a short target",
+      "seed": 76,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    import string\n    alpha = string.ascii_lowercase[:5]\n    n = max(1, size)\n    s = ''.join(rng.choice(alpha) for _ in range(n))\n    tlen = rng.randint(1, 4)\n    t = ''.join(rng.choice(alpha) for _ in range(tlen))\n    return [s, t]\n",
+      "note": "small alphabet makes valid windows common; tie-break to earliest start is deterministic"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minWindow(self, s, t):\n        from collections import Counter\n        need = Counter(t)\n        n = len(s)\n        best = ''\n        for i in range(n):\n            cnt = Counter()\n            for j in range(i, n):\n                cnt[s[j]] += 1\n                if all(cnt[c] >= need[c] for c in need):\n                    cand = s[i:j + 1]\n                    if best == '' or len(cand) < len(best):\n                        best = cand\n                    break\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minWindow(self, s, t):\n        from collections import Counter\n        if not t or len(t) > len(s):\n            return ''\n        need = Counter(t)\n        missing = len(t)\n        left = 0\n        best_len = float('inf')\n        best_start = 0\n        for right, ch in enumerate(s):\n            if need[ch] > 0:\n                missing -= 1\n            need[ch] -= 1\n            while missing == 0:\n                if right - left + 1 < best_len:\n                    best_len = right - left + 1\n                    best_start = left\n                need[s[left]] += 1\n                if need[s[left]] > 0:\n                    missing += 1\n                left += 1\n        return '' if best_len == float('inf') else s[best_start:best_start + best_len]\n",
+    "javascript": "var minWindow = function(s, t) {\n    if (!t || t.length > s.length) return '';\n    const need = {};\n    for (const c of t) need[c] = (need[c] || 0) + 1;\n    let missing = t.length;\n    let left = 0;\n    let bestLen = Infinity;\n    let bestStart = 0;\n    for (let right = 0; right < s.length; right++) {\n        const ch = s[right];\n        if ((need[ch] || 0) > 0) missing--;\n        need[ch] = (need[ch] || 0) - 1;\n        while (missing === 0) {\n            if (right - left + 1 < bestLen) {\n                bestLen = right - left + 1;\n                bestStart = left;\n            }\n            const lc = s[left];\n            need[lc] = (need[lc] || 0) + 1;\n            if (need[lc] > 0) missing++;\n            left++;\n        }\n    }\n    return bestLen === Infinity ? '' : s.substring(bestStart, bestStart + bestLen);\n};\n"
+  },
+  "complexity": { "time": "O(m + n)", "space": "O(n)" }
+}

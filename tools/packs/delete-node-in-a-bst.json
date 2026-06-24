@@ -1,0 +1,46 @@
+{
+  "slug": "delete-node-in-a-bst",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    root_arr, key = args\n    # collect all values in the original tree (BFS level-order)\n    def bfs_values(arr):\n        vals = set()\n        for v in arr:\n            if v is not None:\n                vals.add(v)\n        return vals\n    original_vals = bfs_values(root_arr)\n    expected_vals = original_vals - {key}\n    # validate output tree: collect inorder and check BST property\n    def inorder(node):\n        if node is None:\n            return []\n        return inorder(node.left) + [node.val] + inorder(node.right)\n    def is_bst(node, lo=float('-inf'), hi=float('inf')):\n        if node is None:\n            return True\n        if not (lo < node.val < hi):\n            return False\n        return is_bst(node.left, lo, node.val) and is_bst(node.right, node.val, hi)\n    if output is None:\n        return len(expected_vals) == 0\n    if not is_bst(output):\n        return False\n    got_vals = set(inorder(output))\n    return got_vals == expected_vals\n",
+    "validator_javascript": "function validate(args, output) {\n    const [rootArr, key] = args;\n    function bfsValues(arr) {\n        const s = new Set();\n        for (const v of arr) if (v !== null) s.add(v);\n        return s;\n    }\n    const originalVals = bfsValues(rootArr);\n    originalVals.delete(key);\n    const expectedVals = originalVals;\n    function inorder(node) {\n        if (!node) return [];\n        return [...inorder(node.left), node.val, ...inorder(node.right)];\n    }\n    function isBst(node, lo = -Infinity, hi = Infinity) {\n        if (!node) return true;\n        if (node.val <= lo || node.val >= hi) return false;\n        return isBst(node.left, lo, node.val) && isBst(node.right, node.val, hi);\n    }\n    if (!output) return expectedVals.size === 0;\n    if (!isBst(output)) return false;\n    const gotVals = new Set(inorder(output));\n    if (gotVals.size !== expectedVals.size) return false;\n    for (const v of expectedVals) if (!gotVals.has(v)) return false;\n    return true;\n}"
+  },
+  "io_types": { "params": ["tree", "json"], "returns": "tree" },
+  "no_anchor_ok": true,
+  "pattern": "Search the BST for the target key, then restructure around the deleted node using the inorder successor to maintain BST order.",
+  "hints": [
+    "Recursively navigate left or right based on key comparison until the node to remove is found; when not found, return the subtree unchanged.",
+    "When the node to delete has only one child (or none), the answer is simple — return that child directly.",
+    "When the node has two children, find the smallest node in the right subtree (the inorder successor), copy its value up to the current node, then delete that successor from the right subtree."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [0, 10000], "value": [-100000, 100000] },
+    { "param": "key", "kind": "int", "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "delete the root of a three-node tree", "input": [[2, 1, 3], 2] },
+    { "kind": "edge", "description": "delete a leaf node", "input": [[5, 3, 6, 2, 4, null, 7], 4] },
+    { "kind": "edge", "description": "key not present — tree unchanged", "input": [[5, 3, 6, 2, 4, null, 7], 0] },
+    { "kind": "boundary", "description": "empty tree, key absent", "input": [[], 0] },
+    { "kind": "boundary", "description": "single-node tree, delete that node", "input": [[1], 1] },
+    { "kind": "trap", "description": "delete node with only a left child", "input": [[5, 3, null, 2], 3] },
+    { "kind": "trap", "description": "delete node with only a right child", "input": [[5, null, 8, null, null, 6], 8] },
+    { "kind": "edge", "description": "delete node with two children where successor has its own right child", "input": [[10, 5, 15, 3, 7, 12, 20, null, null, 6, 8], 5] },
+    { "kind": "trap", "description": "delete root when it has two children", "input": [[5, 3, 6, 2, 4, null, 7], 5] }
+  ],
+  "stress": [
+    {
+      "description": "randomly built BST of up to 200 nodes, delete a randomly chosen present key",
+      "seed": 42,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    vals = list(rng.sample(range(-100000, 100001), n))\n    # build level-order array by inserting into a BST\n    root_arr = []\n    def insert(arr, val):\n        if not arr:\n            arr.append(val)\n            return\n        idx = 0\n        while True:\n            if arr[idx] is None:\n                arr[idx] = val\n                return\n            if val < arr[idx]:\n                left = 2 * idx + 1\n                while len(arr) <= left:\n                    arr.append(None)\n                idx = left\n            else:\n                right = 2 * idx + 2\n                while len(arr) <= right:\n                    arr.append(None)\n                idx = right\n    for v in vals:\n        insert(root_arr, v)\n    while root_arr and root_arr[-1] is None:\n        root_arr.pop()\n    key = rng.choice(vals)\n    return [root_arr, key]\n",
+      "note": "key is always present so deletion always fires"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def deleteNode(self, root, key):\n        if root is None:\n            return None\n        if key < root.val:\n            root.left = self.deleteNode(root.left, key)\n        elif key > root.val:\n            root.right = self.deleteNode(root.right, key)\n        else:\n            # found: handle 0/1/2 children\n            if root.left is None:\n                return root.right\n            if root.right is None:\n                return root.left\n            # two children: find minimum in right subtree\n            m = root.right\n            while m.left:\n                m = m.left\n            root.val = m.val\n            root.right = self.deleteNode(root.right, m.val)\n        return root\n",
+  "solutions": {
+    "python": "class Solution:\n    def deleteNode(self, root, key):\n        if root is None:\n            return None\n        if key < root.val:\n            root.left = self.deleteNode(root.left, key)\n        elif key > root.val:\n            root.right = self.deleteNode(root.right, key)\n        else:\n            if root.left is None:\n                return root.right\n            if root.right is None:\n                return root.left\n            successor = root.right\n            while successor.left:\n                successor = successor.left\n            root.val = successor.val\n            root.right = self.deleteNode(root.right, successor.val)\n        return root\n",
+    "javascript": "var deleteNode = function(root, key) {\n    if (!root) return null;\n    if (key < root.val) {\n        root.left = deleteNode(root.left, key);\n    } else if (key > root.val) {\n        root.right = deleteNode(root.right, key);\n    } else {\n        if (!root.left) return root.right;\n        if (!root.right) return root.left;\n        let successor = root.right;\n        while (successor.left) successor = successor.left;\n        root.val = successor.val;\n        root.right = deleteNode(root.right, successor.val);\n    }\n    return root;\n};\n"
+  },
+  "complexity": { "time": "O(h)", "space": "O(h)" }
+}

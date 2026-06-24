@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-lines-to-represent-a-line-chart",
+  "judge": "exact",
+  "pattern": "After sorting points by day, a new line segment is needed only where the slope changes, so counting slope changes (via cross products to avoid division) gives the answer.",
+  "hints": [
+    "Sort the points by day first; consecutive points form the chart left to right.",
+    "Three consecutive points lie on one line when the segment slopes match. Compare slopes without floating point by cross-multiplying the deltas.",
+    "Start the count at one line for the first two points (if there are at least two), then add a line each time the slope of (i-1,i) differs from (i-2,i-1)."
+  ],
+  "constraints": [
+    { "param": "stockPrices", "kind": "int[][]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three direction changes produce three lines", "input": [[[1, 7], [2, 6], [3, 5], [4, 4], [5, 4], [6, 3], [7, 2], [8, 1]]] },
+    { "kind": "edge", "description": "unsorted collinear points form a single line", "input": [[[3, 4], [1, 2], [7, 8], [2, 3]]] },
+    { "kind": "boundary", "description": "single point draws no line", "input": [[[5, 5]]] },
+    { "kind": "boundary", "description": "two points always make exactly one line", "input": [[[1, 1], [9, 9]]] },
+    { "kind": "edge", "description": "flat horizontal run is one line", "input": [[[1, 5], [2, 5], [3, 5]]] },
+    { "kind": "trap", "description": "slope must be compared without division to dodge rounding", "input": [[[1, 1], [2, 2], [3, 4]]] },
+    { "kind": "trap", "description": "steep then shallow change forces a new line", "input": [[[1, 1], [2, 1000000000], [3, 1000000001]]] }
+  ],
+  "stress": [
+    {
+      "description": "many points with random days and prices, often collinear by chance",
+      "seed": 18,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    days = rng.sample(range(1, 10**9 + 1), n)\n    pts = [[d, rng.randint(1, 10**9)] for d in days]\n    return [pts]\n",
+      "note": "distinct days as required; cross-product slope comparison must hold at large magnitudes"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumLines(self, stockPrices):\n        from fractions import Fraction\n        pts = sorted(stockPrices)\n        if len(pts) < 2:\n            return 0\n        lines = 1\n        prev = None\n        for i in range(1, len(pts)):\n            dx = pts[i][0] - pts[i - 1][0]\n            dy = pts[i][1] - pts[i - 1][1]\n            slope = Fraction(dy, dx)\n            if prev is not None and slope != prev:\n                lines += 1\n            prev = slope\n        return lines\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumLines(self, stockPrices):\n        pts = sorted(stockPrices)\n        n = len(pts)\n        if n < 2:\n            return 0\n        lines = 1\n        for i in range(2, n):\n            x1, y1 = pts[i - 2]\n            x2, y2 = pts[i - 1]\n            x3, y3 = pts[i]\n            if (y2 - y1) * (x3 - x2) != (y3 - y2) * (x2 - x1):\n                lines += 1\n        return lines\n",
+    "javascript": "var minimumLines = function(stockPrices) {\n    const pts = stockPrices.slice().sort((a, b) => a[0] - b[0]);\n    const n = pts.length;\n    if (n < 2) return 0;\n    let lines = 1;\n    for (let i = 2; i < n; i++) {\n        const [x1, y1] = pts[i - 2];\n        const [x2, y2] = pts[i - 1];\n        const [x3, y3] = pts[i];\n        const lhs = BigInt(y2 - y1) * BigInt(x3 - x2);\n        const rhs = BigInt(y3 - y2) * BigInt(x2 - x1);\n        if (lhs !== rhs) lines++;\n    }\n    return lines;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

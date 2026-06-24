@@ -1,0 +1,37 @@
+{
+  "slug": "trapping-rain-water-ii",
+  "judge": "exact",
+  "pattern": "Water level at any cell is set by the lowest rim that surrounds it, so flooding inward from the border with a min-heap fixes each cell's height the first time it is reached.",
+  "hints": [
+    "Water can only be held where every escape path to the outside passes over a higher wall, so the boundary cells start the analysis.",
+    "Process cells from lowest current water level outward: a min-heap of border cells lets you always expand the weakest part of the rim first.",
+    "When you pop the lowest rim cell and visit a neighbour, the neighbour's water level is the max of its own height and the rim level; the trapped amount is that level minus the cell height, and the neighbour re-enters the heap at its water level."
+  ],
+  "constraints": [
+    { "param": "heightMap", "kind": "int[][]", "len": [1, 200], "value": [0, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small map with an interior dip", "input": [[[1,4,3,1,3,2],[3,2,1,3,2,4],[2,3,3,2,3,1]]] },
+    { "kind": "edge", "description": "single deep central cell surrounded by a wall", "input": [[[3,3,3,3,3],[3,2,2,2,3],[3,2,1,2,3],[3,2,2,2,3],[3,3,3,3,3]]] },
+    { "kind": "boundary", "description": "a 1xN strip can hold no water", "input": [[[5,3,4,2,6]]] },
+    { "kind": "trap", "description": "a notch in the rim lets all water drain out", "input": [[[5,5,5,5],[5,1,1,0],[5,5,5,5]]] },
+    { "kind": "boundary", "description": "all equal heights trap nothing", "input": [[[2,2,2],[2,2,2],[2,2,2]]] },
+    { "kind": "trap", "description": "the basin level is capped by the lowest surrounding wall, not the highest", "input": [[[9,9,9,9,9],[9,0,0,0,4],[9,9,9,9,9]]] },
+    { "kind": "edge", "description": "two separate basins of different depths", "input": [[[6,6,6,6,6],[6,1,6,2,6],[6,6,6,6,6]]] }
+  ],
+  "stress": [
+    {
+      "description": "random heights with a guaranteed high border so basins form",
+      "seed": 31,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    m = max(3, min(40, size))\n    n = max(3, min(40, size))\n    grid = [[rng.randint(0, 50) for _ in range(n)] for _ in range(m)]\n    for j in range(n):\n        grid[0][j] = 60; grid[m - 1][j] = 60\n    for i in range(m):\n        grid[i][0] = 60; grid[i][n - 1] = 60\n    return [grid]\n",
+      "note": "tall border maximises trapped water and exercises the heap ordering"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def trapRainWater(self, heightMap):\n        m = len(heightMap)\n        n = len(heightMap[0]) if m else 0\n        if m < 3 or n < 3:\n            return 0\n        H = max(max(row) for row in heightMap)\n        # independent relaxation: start every interior water level at H and repeatedly\n        # lower it to the min of neighbour water levels (bounded by own height).\n        INF = H\n        water = [[INF] * n for _ in range(m)]\n        for i in range(m):\n            for j in range(n):\n                if i == 0 or j == 0 or i == m - 1 or j == n - 1:\n                    water[i][j] = heightMap[i][j]\n        changed = True\n        while changed:\n            changed = False\n            for i in range(1, m - 1):\n                for j in range(1, n - 1):\n                    lo = min(water[i-1][j], water[i+1][j], water[i][j-1], water[i][j+1])\n                    cand = max(heightMap[i][j], lo)\n                    if cand < water[i][j]:\n                        water[i][j] = cand\n                        changed = True\n        return sum(water[i][j] - heightMap[i][j] for i in range(m) for j in range(n))\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def trapRainWater(self, heightMap):\n        m = len(heightMap)\n        n = len(heightMap[0]) if m else 0\n        if m < 3 or n < 3:\n            return 0\n        visited = [[False] * n for _ in range(m)]\n        heap = []\n        for i in range(m):\n            for j in range(n):\n                if i == 0 or j == 0 or i == m - 1 or j == n - 1:\n                    visited[i][j] = True\n                    heapq.heappush(heap, (heightMap[i][j], i, j))\n        total = 0\n        while heap:\n            h, i, j = heapq.heappop(heap)\n            for di, dj in ((1,0),(-1,0),(0,1),(0,-1)):\n                ni, nj = i + di, j + dj\n                if 0 <= ni < m and 0 <= nj < n and not visited[ni][nj]:\n                    visited[ni][nj] = True\n                    level = max(h, heightMap[ni][nj])\n                    total += level - heightMap[ni][nj]\n                    heapq.heappush(heap, (level, ni, nj))\n        return total\n",
+    "javascript": "var trapRainWater = function(heightMap) {\n    const m = heightMap.length;\n    const n = m ? heightMap[0].length : 0;\n    if (m < 3 || n < 3) return 0;\n    const visited = Array.from({length: m}, () => new Array(n).fill(false));\n    // simple binary min-heap of [height, i, j]\n    const heap = [];\n    const push = (item) => {\n        heap.push(item);\n        let c = heap.length - 1;\n        while (c > 0) {\n            const p = (c - 1) >> 1;\n            if (heap[p][0] <= heap[c][0]) break;\n            [heap[p], heap[c]] = [heap[c], heap[p]];\n            c = p;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let c = 0;\n            const N = heap.length;\n            while (true) {\n                let l = 2 * c + 1, r = 2 * c + 2, s = c;\n                if (l < N && heap[l][0] < heap[s][0]) s = l;\n                if (r < N && heap[r][0] < heap[s][0]) s = r;\n                if (s === c) break;\n                [heap[s], heap[c]] = [heap[c], heap[s]];\n                c = s;\n            }\n        }\n        return top;\n    };\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (i === 0 || j === 0 || i === m - 1 || j === n - 1) {\n                visited[i][j] = true;\n                push([heightMap[i][j], i, j]);\n            }\n        }\n    }\n    let total = 0;\n    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];\n    while (heap.length) {\n        const [h, i, j] = pop();\n        for (const [di, dj] of dirs) {\n            const ni = i + di, nj = j + dj;\n            if (ni >= 0 && ni < m && nj >= 0 && nj < n && !visited[ni][nj]) {\n                visited[ni][nj] = true;\n                const level = Math.max(h, heightMap[ni][nj]);\n                total += level - heightMap[ni][nj];\n                push([level, ni, nj]);\n            }\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(mn log(mn))", "space": "O(mn)" }
+}

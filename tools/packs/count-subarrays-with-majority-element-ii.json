@@ -1,0 +1,38 @@
+{
+  "slug": "count-subarrays-with-majority-element-ii",
+  "judge": "exact",
+  "pattern": "Scoring the target +1 and everything else -1 reduces majority to a positive subarray sum, and a Fenwick tree counts the strictly-increasing prefix-sum pairs in near-linear time.",
+  "hints": [
+    "Replace each element with +1 if it equals the target and -1 otherwise. The target is the strict majority of a subarray precisely when that subarray's sum is positive.",
+    "Using prefix sums P, the subarray [l, r] has positive score when P[r+1] > P[l], so the task is counting pairs i < j with P[j] > P[i].",
+    "Sweep the prefix sums left to right; with a Fenwick tree indexed by shifted prefix value, query how many earlier values are strictly less than the current one and add it in."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "target", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "five subarrays where 2 is the majority", "input": [[1, 2, 2, 3], 2] },
+    { "kind": "edge", "description": "all elements equal the target", "input": [[1, 1, 1, 1], 1] },
+    { "kind": "edge", "description": "target absent gives zero", "input": [[1, 2, 3], 4] },
+    { "kind": "boundary", "description": "single matching element", "input": [[9], 9] },
+    { "kind": "trap", "description": "alternating so no window has a strict majority of the target beyond singletons", "input": [[2, 8, 2, 8, 2, 8], 8] },
+    { "kind": "trap", "description": "exactly-half windows excluded", "input": [[4, 1, 4, 1], 4] },
+    { "kind": "edge", "description": "long run of the target inside noise", "input": [[7, 3, 3, 3, 3, 7], 3] }
+  ],
+  "stress": [
+    {
+      "description": "larger random small-alphabet array to exercise the Fenwick counting at scale",
+      "seed": 53,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(100000, size))\n    nums = [rng.randint(1, 5) for _ in range(n)]\n    target = rng.randint(1, 5)\n    return [nums, target]\n",
+      "note": "n log n approach handles this quickly while the oracle stays quadratic on smaller cases"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countMajoritySubarrays(self, nums, target):\n        n = len(nums)\n        pref = [0] * (n + 1)\n        for i in range(n):\n            pref[i + 1] = pref[i] + (1 if nums[i] == target else -1)\n        ans = 0\n        for j in range(n + 1):\n            pj = pref[j]\n            for i in range(j):\n                if pref[i] < pj:\n                    ans += 1\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def countMajoritySubarrays(self, nums, target):\n        n = len(nums)\n        offset = n + 1\n        size = 2 * n + 3\n        bit = [0] * (size + 2)\n        def upd(x):\n            x += 1\n            while x <= size:\n                bit[x] += 1\n                x += x & -x\n        def qry(x):\n            x += 1\n            s = 0\n            while x > 0:\n                s += bit[x]\n                x -= x & -x\n            return s\n        ans = 0\n        cur = 0\n        v = cur + offset\n        upd(v)\n        for i in range(n):\n            cur += 1 if nums[i] == target else -1\n            v = cur + offset\n            ans += qry(v - 1)\n            upd(v)\n        return ans\n",
+    "javascript": "var countMajoritySubarrays = function(nums, target) {\n    const n = nums.length;\n    const offset = n + 1;\n    const size = 2 * n + 3;\n    const bit = new Array(size + 2).fill(0);\n    const upd = (x) => {\n        x += 1;\n        while (x <= size) { bit[x] += 1; x += x & -x; }\n    };\n    const qry = (x) => {\n        x += 1;\n        let s = 0;\n        while (x > 0) { s += bit[x]; x -= x & -x; }\n        return s;\n    };\n    let ans = 0;\n    let cur = 0;\n    upd(cur + offset);\n    for (let i = 0; i < n; i++) {\n        cur += (nums[i] === target) ? 1 : -1;\n        const v = cur + offset;\n        ans += qry(v - 1);\n        upd(v);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

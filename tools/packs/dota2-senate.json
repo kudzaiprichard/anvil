@@ -1,0 +1,36 @@
+{
+  "slug": "dota2-senate",
+  "judge": "exact",
+  "pattern": "Each senator in turn bans the next opposing senator who would act after them, modeled by two queues of indices cycled forward by the senator count.",
+  "hints": [
+    "Process senators in the original order, repeatedly.",
+    "When a senator acts, they should ban the soonest-to-act senator of the other party.",
+    "Keep one index queue per party; the front-most index acts, bans the other party's front, and re-enters at the back offset by n."
+  ],
+  "constraints": [
+    { "param": "senate", "kind": "str", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one of each, radiant first", "input": ["RD"] },
+    { "kind": "trap", "description": "radiant outnumbered", "input": ["RDD"] },
+    { "kind": "edge", "description": "single radiant", "input": ["R"] },
+    { "kind": "edge", "description": "single dire", "input": ["D"] },
+    { "kind": "trap", "description": "interleaved equal counts", "input": ["RDRDRD"] },
+    { "kind": "trap", "description": "dire front loaded", "input": ["DDRR"] },
+    { "kind": "edge", "description": "all radiant", "input": ["RRRR"] }
+  ],
+  "stress": [
+    {
+      "description": "random R/D sequence",
+      "seed": 13,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(10000, size))\n    s = ''.join(rng.choice('RD') for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def predictPartyVictory(self, senate):\n        alive = list(senate)\n        active = list(range(len(senate)))\n        while True:\n            r = sum(1 for i in active if alive[i] == 'R')\n            d = sum(1 for i in active if alive[i] == 'D')\n            if d == 0:\n                return 'Radiant'\n            if r == 0:\n                return 'Dire'\n            order = list(active)\n            m = len(order)\n            for pos in range(m):\n                i = order[pos]\n                if alive[i] == 'X':\n                    continue\n                for step in range(1, m):\n                    j = order[(pos + step) % m]\n                    if alive[j] != 'X' and alive[j] != alive[i]:\n                        alive[j] = 'X'\n                        break\n            active = [i for i in active if alive[i] != 'X']\n",
+  "solutions": {
+    "python": "class Solution:\n    def predictPartyVictory(self, senate):\n        from collections import deque\n        n = len(senate)\n        radiant = deque(i for i, c in enumerate(senate) if c == 'R')\n        dire = deque(i for i, c in enumerate(senate) if c == 'D')\n        while radiant and dire:\n            r = radiant.popleft()\n            d = dire.popleft()\n            if r < d:\n                radiant.append(r + n)\n            else:\n                dire.append(d + n)\n        return 'Radiant' if radiant else 'Dire'\n",
+    "javascript": "var predictPartyVictory = function(senate) {\n    const n = senate.length;\n    const radiant = [];\n    const dire = [];\n    for (let i = 0; i < n; i++) {\n        if (senate[i] === 'R') radiant.push(i); else dire.push(i);\n    }\n    let ri = 0, di = 0;\n    while (ri < radiant.length && di < dire.length) {\n        const r = radiant[ri++];\n        const d = dire[di++];\n        if (r < d) radiant.push(r + n); else dire.push(d + n);\n    }\n    return ri < radiant.length ? 'Radiant' : 'Dire';\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

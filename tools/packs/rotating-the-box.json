@@ -1,0 +1,39 @@
+{
+  "slug": "rotating-the-box",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Apply gravity row by row before rotating, settling each stone against the nearest obstacle or floor, then transpose-and-flip the grid to produce the clockwise rotation.",
+  "hints": [
+    "Resolve gravity in the original orientation first: within each row a stone slides toward the right end (which becomes the bottom after rotation).",
+    "Obstacles split a row into independent segments; in each segment all stones pack against the segment's right boundary.",
+    "After settling stones per row, rotate the whole grid 90 degrees clockwise (the cell at row r, column c moves to row c, column rows-1-r)."
+  ],
+  "constraints": [
+    { "param": "boxGrid", "kind": "str[][]", "len": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single row, one stone falls to bottom", "input": [[["#", ".", "#"]]] },
+    { "kind": "edge", "description": "obstacle blocks part of the row", "input": [[["#", ".", "*", "."], ["#", "#", "*", "."]]] },
+    { "kind": "trap", "description": "multiple obstacles creating separate segments", "input": [[["#", "#", "*", ".", "*", "."], ["#", "#", "#", "*", ".", "."], ["#", "#", "#", ".", "#", "."]]] },
+    { "kind": "boundary", "description": "single cell empty", "input": [[["."]]] },
+    { "kind": "boundary", "description": "single cell obstacle", "input": [[["*"]]] },
+    { "kind": "edge", "description": "all empty grid", "input": [[[".", ".", "."], [".", ".", "."]]] },
+    { "kind": "trap", "description": "stone already against right wall", "input": [[[".", ".", "#"], ["*", ".", "#"]]] },
+    { "kind": "edge", "description": "column of stones with obstacle", "input": [[["#"], ["*"], ["#"], ["#"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random side-view box with stones, obstacles and empties",
+      "seed": 17,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    side = max(1, min(60, int(size ** 0.5) + 1))\n    rows = rng.randint(1, side)\n    cols = rng.randint(1, side)\n    grid = []\n    for _ in range(rows):\n        row = []\n        for _ in range(cols):\n            x = rng.random()\n            if x < 0.4:\n                row.append('#')\n            elif x < 0.6:\n                row.append('*')\n            else:\n                row.append('.')\n        grid.append(row)\n    return [grid]\n",
+      "note": "stones are re-settled by the solution so any starting layout is valid input"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def rotateTheBox(self, boxGrid):\n        rows = len(boxGrid)\n        cols = len(boxGrid[0])\n        g = [row[:] for row in boxGrid]\n        for r in range(rows):\n            # settle stones to the right, repeatedly bubbling each stone past empties\n            moved = True\n            while moved:\n                moved = False\n                for c in range(cols - 1):\n                    if g[r][c] == '#' and g[r][c + 1] == '.':\n                        g[r][c] = '.'\n                        g[r][c + 1] = '#'\n                        moved = True\n        res = [['' for _ in range(rows)] for _ in range(cols)]\n        for r in range(rows):\n            for c in range(cols):\n                res[c][rows - 1 - r] = g[r][c]\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def rotateTheBox(self, boxGrid):\n        rows = len(boxGrid)\n        cols = len(boxGrid[0])\n        g = [row[:] for row in boxGrid]\n        for r in range(rows):\n            write = cols - 1\n            for c in range(cols - 1, -1, -1):\n                if g[r][c] == '*':\n                    write = c - 1\n                elif g[r][c] == '#':\n                    g[r][c] = '.'\n                    g[r][write] = '#'\n                    write -= 1\n        res = [[None] * rows for _ in range(cols)]\n        for r in range(rows):\n            for c in range(cols):\n                res[c][rows - 1 - r] = g[r][c]\n        return res\n",
+    "javascript": "var rotateTheBox = function(boxGrid) {\n    const rows = boxGrid.length, cols = boxGrid[0].length;\n    const g = boxGrid.map(row => row.slice());\n    for (let r = 0; r < rows; r++) {\n        let write = cols - 1;\n        for (let c = cols - 1; c >= 0; c--) {\n            if (g[r][c] === '*') {\n                write = c - 1;\n            } else if (g[r][c] === '#') {\n                g[r][c] = '.';\n                g[r][write] = '#';\n                write--;\n            }\n        }\n    }\n    const res = Array.from({length: cols}, () => new Array(rows).fill(null));\n    for (let r = 0; r < rows; r++) {\n        for (let c = 0; c < cols; c++) {\n            res[c][rows - 1 - r] = g[r][c];\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

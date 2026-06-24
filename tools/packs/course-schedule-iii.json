@@ -1,0 +1,38 @@
+{
+  "slug": "course-schedule-iii",
+  "judge": "exact",
+  "pattern": "Process deadlines in ascending order and greedily keep courses in a max-heap, dropping the longest one whenever the running time overflows a deadline.",
+  "hints": [
+    "Sorting by deadline lets you consider courses in the order their windows close.",
+    "Maintain the set of chosen courses and the total time spent; if adding a course pushes total past its deadline, you may be able to swap out a longer already-chosen course.",
+    "Sort by lastDay. Keep a max-heap of chosen durations and a running sum. Add each course; if sum exceeds its deadline, pop the largest duration. The heap size is the answer."
+  ],
+  "constraints": [
+    { "param": "courses", "kind": "int[][]", "len": [1, 10000], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single feasible course", "input": [[[1, 2]]] },
+    { "kind": "trap", "description": "single course that cannot finish in time", "input": [[[3, 2]]] },
+    { "kind": "edge", "description": "first statement example, take three of four", "input": [[[100, 200], [200, 1300], [1000, 1250], [2000, 3200]]] },
+    { "kind": "edge", "description": "second statement example", "input": [[[1, 2]]] },
+    { "kind": "trap", "description": "third statement example, none can be taken", "input": [[[3, 2], [4, 3]]] },
+    { "kind": "trap", "description": "swapping a long early course for room enables more later courses", "input": [[[5, 5], [4, 6], [2, 6]]] },
+    { "kind": "boundary", "description": "all same deadline, only the shortest combination fits", "input": [[[7, 10], [3, 10], [2, 10], [9, 10]]] },
+    { "kind": "edge", "description": "chain of courses each fitting exactly", "input": [[[1, 1], [1, 2], [1, 3], [1, 4]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random courses with bounded duration and deadline",
+      "seed": 13,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    courses = []\n    for _ in range(n):\n        dur = rng.randint(1, 200)\n        last = rng.randint(1, 4000)\n        courses.append([dur, last])\n    return [courses]\n",
+      "note": "deadlines and durations stay within bounds; tests the heap-swap greedy"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def scheduleCourse(self, courses):\n        # exponential search over subsets is too slow; use a verified DP-style\n        # check by trying greedy on sorted order without the swap, then brute\n        # over small inputs. Independent approach: sort by deadline and DP on\n        # achievable end-times via a dict {count: min_total_time}.\n        courses = sorted(courses, key=lambda c: c[1])\n        best = {0: 0}\n        for dur, last in courses:\n            nxt = dict(best)\n            for cnt, t in best.items():\n                nt = t + dur\n                if nt <= last:\n                    if nt < nxt.get(cnt + 1, float('inf')):\n                        nxt[cnt + 1] = nt\n            best = nxt\n        return max(best.keys())\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def scheduleCourse(self, courses):\n        courses.sort(key=lambda c: c[1])\n        heap = []\n        total = 0\n        for dur, last in courses:\n            heapq.heappush(heap, -dur)\n            total += dur\n            if total > last:\n                total += heapq.heappop(heap)\n        return len(heap)\n",
+    "javascript": "var scheduleCourse = function(courses) {\n    courses.sort((a, b) => a[1] - b[1]);\n    // simple binary max-heap\n    const heap = [];\n    const up = (i) => { while (i > 0) { const p = (i - 1) >> 1; if (heap[p] >= heap[i]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };\n    const down = (i) => { const n = heap.length; while (true) { let l = 2*i+1, r = 2*i+2, m = i; if (l < n && heap[l] > heap[m]) m = l; if (r < n && heap[r] > heap[m]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } };\n    const push = (v) => { heap.push(v); up(heap.length - 1); };\n    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; down(0); } return top; };\n    let total = 0;\n    for (const [dur, last] of courses) {\n        push(dur);\n        total += dur;\n        if (total > last) total -= pop();\n    }\n    return heap.length;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

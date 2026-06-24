@@ -1,0 +1,35 @@
+{
+  "slug": "shortest-bridge",
+  "judge": "exact",
+  "pattern": "DFS to mark one island, then BFS expanding outward from every marked cell to find the shortest path to the second island.",
+  "hints": [
+    "Locate any cell of the first island with a simple scan, then use DFS/BFS to collect all its cells and add them to a BFS queue.",
+    "Run a multi-source BFS from all cells of the first island simultaneously, expanding into water. Track the number of water cells crossed (the bridge length).",
+    "The first time BFS reaches a cell belonging to the second island, the current distance is the answer."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [2, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge",     "description": "minimal 2x2 grid with diagonal islands", "input": [[[0,1],[1,0]]] },
+    { "kind": "edge",     "description": "two islands separated by a row of water", "input": [[[0,1,0],[0,0,0],[0,0,1]]] },
+    { "kind": "edge",     "description": "islands at opposite corners, need many flips", "input": [[[1,0,0],[0,0,0],[0,0,1]]] },
+    { "kind": "boundary", "description": "two single-cell islands adjacent horizontally", "input": [[[1,1,0,0,1]]] },
+    { "kind": "trap",     "description": "first island is a ring, second is inside — distance 1", "input": [[[1,1,1,1,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,0,0,1],[1,1,1,1,1]]] },
+    { "kind": "trap",     "description": "second island is large multi-cell block", "input": [[[0,1,0,0,0],[0,1,0,0,0],[0,0,0,1,1],[0,0,0,1,1],[0,0,0,0,0]]] }
+  ],
+  "stress": [
+    {
+      "description": "100x100 grid with two constructed rectangular islands",
+      "seed": 31,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(4, size)\n    grid = [[0]*n for _ in range(n)]\n    # island 1: top-left block\n    for r in range(2):\n        for c in range(2):\n            grid[r][c] = 1\n    # island 2: bottom-right block\n    for r in range(n-2, n):\n        for c in range(n-2, n):\n            grid[r][c] = 1\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shortestBridge(self, grid):\n        from collections import deque\n        n = len(grid)\n        dirs = [(0,1),(0,-1),(1,0),(-1,0)]\n        visited = [[False]*n for _ in range(n)]\n        queue = deque()\n        found = False\n        for r in range(n):\n            if found:\n                break\n            for c in range(n):\n                if grid[r][c] == 1:\n                    stack = [(r, c)]\n                    visited[r][c] = True\n                    while stack:\n                        x, y = stack.pop()\n                        queue.append((x, y, 0))\n                        for dx, dy in dirs:\n                            nx, ny = x+dx, y+dy\n                            if 0 <= nx < n and 0 <= ny < n and not visited[nx][ny] and grid[nx][ny] == 1:\n                                visited[nx][ny] = True\n                                stack.append((nx, ny))\n                    found = True\n                    break\n        while queue:\n            x, y, dist = queue.popleft()\n            for dx, dy in dirs:\n                nx, ny = x+dx, y+dy\n                if 0 <= nx < n and 0 <= ny < n and not visited[nx][ny]:\n                    if grid[nx][ny] == 1:\n                        return dist\n                    visited[nx][ny] = True\n                    queue.append((nx, ny, dist+1))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def shortestBridge(self, grid):\n        from collections import deque\n        n = len(grid)\n        dirs = [(0,1),(0,-1),(1,0),(-1,0)]\n        visited = [[False]*n for _ in range(n)]\n        bfs_queue = deque()\n        # find first island via DFS\n        def dfs(r, c):\n            if r < 0 or r >= n or c < 0 or c >= n or visited[r][c] or grid[r][c] == 0:\n                return\n            visited[r][c] = True\n            bfs_queue.append((r, c, 0))\n            for dr, dc in dirs:\n                dfs(r+dr, c+dc)\n        import sys\n        sys.setrecursionlimit(20000)\n        found = False\n        for r in range(n):\n            if found: break\n            for c in range(n):\n                if grid[r][c] == 1:\n                    dfs(r, c)\n                    found = True\n                    break\n        while bfs_queue:\n            x, y, dist = bfs_queue.popleft()\n            for dx, dy in dirs:\n                nx, ny = x+dx, y+dy\n                if 0 <= nx < n and 0 <= ny < n and not visited[nx][ny]:\n                    if grid[nx][ny] == 1:\n                        return dist\n                    visited[nx][ny] = True\n                    bfs_queue.append((nx, ny, dist+1))\n        return -1\n",
+    "javascript": "var shortestBridge = function(grid) {\n    const n = grid.length;\n    const dirs = [[0,1],[0,-1],[1,0],[-1,0]];\n    const visited = Array.from({length:n}, () => new Array(n).fill(false));\n    const bfsQueue = [];\n    let head = 0;\n    // iterative DFS to mark first island\n    let found = false;\n    for (let r = 0; r < n && !found; r++) {\n        for (let c = 0; c < n && !found; c++) {\n            if (grid[r][c] === 1) {\n                const stack = [[r, c]];\n                visited[r][c] = true;\n                while (stack.length) {\n                    const [x, y] = stack.pop();\n                    bfsQueue.push([x, y, 0]);\n                    for (const [dx, dy] of dirs) {\n                        const nx = x+dx, ny = y+dy;\n                        if (nx>=0&&nx<n&&ny>=0&&ny<n&&!visited[nx][ny]&&grid[nx][ny]===1) {\n                            visited[nx][ny] = true;\n                            stack.push([nx, ny]);\n                        }\n                    }\n                }\n                found = true;\n            }\n        }\n    }\n    while (head < bfsQueue.length) {\n        const [x, y, dist] = bfsQueue[head++];\n        for (const [dx, dy] of dirs) {\n            const nx = x+dx, ny = y+dy;\n            if (nx>=0&&nx<n&&ny>=0&&ny<n&&!visited[nx][ny]) {\n                if (grid[nx][ny] === 1) return dist;\n                visited[nx][ny] = true;\n                bfsQueue.push([nx, ny, dist+1]);\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

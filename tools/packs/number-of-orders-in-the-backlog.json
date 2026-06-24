@@ -1,0 +1,45 @@
+{
+  "slug": "number-of-orders-in-the-backlog",
+  "judge": "exact",
+  "pattern": "Matching a stream of batched buy and sell orders is a two-priority-queue problem: a max-heap of resting buys and a min-heap of resting sells, repeatedly settling the best opposing prices in bulk until they no longer cross.",
+  "hints": [
+    "Process the batches in the given order, keeping resting buy orders in a structure that exposes the highest price and resting sell orders in one that exposes the lowest price.",
+    "When a buy batch arrives, keep consuming the cheapest resting sell while its price is at most the buy price, decrementing whichever batch runs out first; mirror this for an arriving sell against the most expensive resting buy.",
+    "Whatever amount of the incoming batch is left after matching becomes a new resting order; at the end sum every resting amount modulo 1000000007."
+  ],
+  "constraints": [
+    { "param": "orders", "kind": "int[][]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first statement example with leftover buys", "input": [[[10, 5, 0], [15, 2, 1], [25, 1, 1], [30, 4, 0]]] },
+    { "kind": "edge", "description": "second statement example exercising the modulo", "input": [[[7, 1000000000, 1], [15, 3, 0], [5, 999999995, 0], [5, 1, 1]]] },
+    { "kind": "boundary", "description": "single buy order with nothing to match", "input": [[[5, 10, 0]]] },
+    { "kind": "boundary", "description": "single sell order with nothing to match", "input": [[[5, 10, 1]]] },
+    { "kind": "edge", "description": "buy and sell at equal price fully cancel", "input": [[[10, 4, 0], [10, 4, 1]]] },
+    { "kind": "trap", "description": "sell priced above all buys so nothing matches", "input": [[[10, 3, 0], [20, 3, 1]]] },
+    { "kind": "trap", "description": "incoming buy clears several resting sells of differing prices", "input": [[[1, 2, 1], [2, 2, 1], [3, 2, 1], [5, 5, 0]]] },
+    { "kind": "trap", "description": "partial match leaves part of the same batch resting", "input": [[[10, 5, 1], [12, 8, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random batches with small prices so many matches occur",
+      "seed": 17,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    orders = []\n    for _ in range(n):\n        price = rng.randint(1, 50)\n        amount = rng.randint(1, 1000000000)\n        otype = rng.randint(0, 1)\n        orders.append([price, amount, otype])\n    return [orders]\n",
+      "note": "tight price band forces frequent crossing"
+    },
+    {
+      "description": "wide price range so matches are rarer and the backlog grows",
+      "seed": 31,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    orders = []\n    for _ in range(n):\n        price = rng.randint(1, 1000000000)\n        amount = rng.randint(1, 1000000000)\n        otype = rng.randint(0, 1)\n        orders.append([price, amount, otype])\n    return [orders]\n",
+      "note": "sparse crossings stress the modulo accumulation"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getNumberOfBacklogOrders(self, orders):\n        MOD = 1000000007\n        # buys: dict price -> amount ; sells: dict price -> amount\n        buys = {}\n        sells = {}\n        for price, amount, otype in orders:\n            if otype == 0:\n                # buy: match against cheapest sell <= price\n                while amount > 0 and sells:\n                    best = min(sells)\n                    if best > price:\n                        break\n                    take = min(amount, sells[best])\n                    amount -= take\n                    sells[best] -= take\n                    if sells[best] == 0:\n                        del sells[best]\n                if amount > 0:\n                    buys[price] = buys.get(price, 0) + amount\n            else:\n                while amount > 0 and buys:\n                    best = max(buys)\n                    if best < price:\n                        break\n                    take = min(amount, buys[best])\n                    amount -= take\n                    buys[best] -= take\n                    if buys[best] == 0:\n                        del buys[best]\n                if amount > 0:\n                    sells[price] = sells.get(price, 0) + amount\n        total = sum(buys.values()) + sum(sells.values())\n        return total % MOD\n",
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def getNumberOfBacklogOrders(self, orders):\n        MOD = 1000000007\n        buy = []   # max-heap via negative price: (-price, amount)\n        sell = []  # min-heap: (price, amount)\n        for price, amount, otype in orders:\n            if otype == 0:\n                while amount > 0 and sell and sell[0][0] <= price:\n                    sp, sa = sell[0]\n                    take = min(amount, sa)\n                    amount -= take\n                    sa -= take\n                    if sa == 0:\n                        heapq.heappop(sell)\n                    else:\n                        sell[0] = (sp, sa)\n                if amount > 0:\n                    heapq.heappush(buy, (-price, amount))\n            else:\n                while amount > 0 and buy and -buy[0][0] >= price:\n                    bp, ba = buy[0]\n                    take = min(amount, ba)\n                    amount -= take\n                    ba -= take\n                    if ba == 0:\n                        heapq.heappop(buy)\n                    else:\n                        buy[0] = (bp, ba)\n                if amount > 0:\n                    heapq.heappush(sell, (price, amount))\n        total = sum(a for _, a in buy) + sum(a for _, a in sell)\n        return total % MOD\n",
+    "javascript": "var getNumberOfBacklogOrders = function(orders) {\n    const MOD = 1000000007n;\n    // simple binary heaps\n    const buy = [];  // max-heap by price; nodes {price, amount}\n    const sell = []; // min-heap by price\n    const up = (h, i, cmp) => {\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (cmp(h[i], h[p]) < 0) { [h[i], h[p]] = [h[p], h[i]]; i = p; } else break;\n        }\n    };\n    const down = (h, cmp) => {\n        let i = 0; const n = h.length;\n        while (true) {\n            let s = i, l = 2 * i + 1, r = 2 * i + 2;\n            if (l < n && cmp(h[l], h[s]) < 0) s = l;\n            if (r < n && cmp(h[r], h[s]) < 0) s = r;\n            if (s === i) break;\n            [h[i], h[s]] = [h[s], h[i]]; i = s;\n        }\n    };\n    const push = (h, node, cmp) => { h.push(node); up(h, h.length - 1, cmp); };\n    const pop = (h, cmp) => { const top = h[0]; const last = h.pop(); if (h.length) { h[0] = last; down(h, cmp); } return top; };\n    const buyCmp = (a, b) => b.price - a.price;  // max-heap on price\n    const sellCmp = (a, b) => a.price - b.price; // min-heap on price\n    for (const [price, amt, otype] of orders) {\n        let amount = amt;\n        if (otype === 0) {\n            while (amount > 0 && sell.length && sell[0].price <= price) {\n                const top = sell[0];\n                const take = Math.min(amount, top.amount);\n                amount -= take;\n                top.amount -= take;\n                if (top.amount === 0) pop(sell, sellCmp);\n            }\n            if (amount > 0) push(buy, { price, amount }, buyCmp);\n        } else {\n            while (amount > 0 && buy.length && buy[0].price >= price) {\n                const top = buy[0];\n                const take = Math.min(amount, top.amount);\n                amount -= take;\n                top.amount -= take;\n                if (top.amount === 0) pop(buy, buyCmp);\n            }\n            if (amount > 0) push(sell, { price, amount }, sellCmp);\n        }\n    }\n    let total = 0n;\n    for (const node of buy) total += BigInt(node.amount);\n    for (const node of sell) total += BigInt(node.amount);\n    return Number(total % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "best-time-to-buy-and-sell-stock-with-cooldown",
+  "judge": "exact",
+  "pattern": "A three-state machine over the days tracks the best profit when currently holding, just sold, or resting, where buying is forbidden the day after a sale, so the cooldown is encoded as a forced rest transition.",
+  "hints": [
+    "On each day you are in exactly one situation: holding a share, having just sold, or idle and free to buy.",
+    "You can only buy when you were idle the previous day, since selling forces a one-day cooldown before the next buy.",
+    "Track three running bests across the days, holding equals max of staying held or buying from yesterday's rest minus price, sold equals yesterday's holding plus price, and rest equals max of yesterday's rest or sold; the answer is the best of sold and rest at the end."
+  ],
+  "constraints": [
+    { "param": "prices", "kind": "int[]", "len": [1, 5000], "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "buy sell cooldown buy sell sequence", "input": [[1, 2, 3, 0, 2]] },
+    { "kind": "boundary", "description": "single day yields no profit", "input": [[1]] },
+    { "kind": "trap", "description": "monotonically decreasing prices, never trade", "input": [[5, 4, 3, 2, 1]] },
+    { "kind": "trap", "description": "monotonically increasing favours one hold", "input": [[1, 2, 3, 4, 5]] },
+    { "kind": "edge", "description": "two days with a gain", "input": [[1, 5]] },
+    { "kind": "trap", "description": "flat prices give zero", "input": [[3, 3, 3, 3]] },
+    { "kind": "edge", "description": "cooldown changes the optimal trade choice", "input": [[2, 1, 4, 5, 2, 9, 7]] },
+    { "kind": "boundary", "description": "two equal prices", "input": [[2, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate-length random price series within bounds",
+      "seed": 31,
+      "size": 18,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 18))\n    return [[rng.randrange(0, 1001) for _ in range(n)]]\n",
+      "note": "kept short so the exponential brute-force oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxProfit(self, prices):\n        n = len(prices)\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def best(i, holding):\n            if i >= n:\n                return 0\n            skip = best(i + 1, holding)\n            if holding:\n                act = prices[i] + best(i + 2, False)\n            else:\n                act = -prices[i] + best(i + 1, True)\n            return max(skip, act)\n        return best(0, False)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxProfit(self, prices):\n        hold = float('-inf')\n        sold = 0\n        rest = 0\n        for p in prices:\n            prev_sold = sold\n            sold = hold + p\n            hold = max(hold, rest - p)\n            rest = max(rest, prev_sold)\n        return max(sold, rest)\n",
+    "javascript": "var maxProfit = function(prices) {\n    let hold = -Infinity, sold = 0, rest = 0;\n    for (const p of prices) {\n        const prevSold = sold;\n        sold = hold + p;\n        hold = Math.max(hold, rest - p);\n        rest = Math.max(rest, prevSold);\n    }\n    return Math.max(sold, rest);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

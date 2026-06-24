@@ -1,0 +1,39 @@
+{
+  "slug": "shopping-offers",
+  "judge": "exact",
+  "pattern": "Memoized search over the remaining-needs vector tries every special offer that does not overshoot, falling back to buying leftovers at unit price.",
+  "hints": [
+    "The state is the vector of items still needed; from any state you either apply an applicable offer or stop and buy the rest individually.",
+    "An offer is applicable only if it does not make any need go negative, since you may not buy more than required.",
+    "Recurse on the remaining needs. For each offer that fits, subtract it, add its price, and recurse; also compute the baseline cost of buying every remaining item at unit price. Memoize on the needs tuple and return the minimum."
+  ],
+  "constraints": [
+    { "param": "price", "kind": "int[]", "len": [1, 6], "value": [0, 10] },
+    { "param": "special", "kind": "int[][]", "len": [1, 100], "value": [0, 50] },
+    { "param": "needs", "kind": "int[]", "len": [1, 6], "value": [0, 10] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two offers, one bundles items at a discount", "input": [[2, 5], [[3, 0, 5], [1, 2, 10]], [3, 2]] },
+    { "kind": "trap", "description": "an offer would overshoot a need and must be skipped", "input": [[2, 3, 4], [[1, 1, 0, 4], [2, 2, 1, 9]], [1, 2, 1]] },
+    { "kind": "boundary", "description": "single item, single offer, zero needs", "input": [[5], [[1, 5]], [0]] },
+    { "kind": "trap", "description": "offer is more expensive than buying singly", "input": [[1, 1], [[1, 1, 5]], [1, 1]] },
+    { "kind": "edge", "description": "free items via a zero-priced bundle", "input": [[3, 3], [[1, 1, 0]], [2, 2]] },
+    { "kind": "edge", "description": "repeated use of the same offer", "input": [[10], [[2, 5]], [6]] },
+    { "kind": "trap", "description": "no offer helps, pay unit price for all", "input": [[1, 2, 3], [[1, 1, 1, 100]], [2, 2, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "small random store with several offers and modest needs",
+      "seed": 55,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, 5)\n    price = [rng.randrange(0, 11) for _ in range(n)]\n    needs = [rng.randrange(0, 5) for _ in range(n)]\n    ns = rng.randrange(1, 8)\n    special = []\n    for _ in range(ns):\n        items = [rng.randrange(0, 4) for _ in range(n)]\n        if all(v == 0 for v in items):\n            items[rng.randrange(0, n)] = 1\n        offer = items + [rng.randrange(0, 30)]\n        special.append(offer)\n    return [price, special, needs]\n",
+      "note": "small needs keep the exponential search fast; every offer has a non-zero item"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shoppingOffers(self, price, special, needs):\n        n = len(price)\n        best = {}\n        def solve(state):\n            if state in best:\n                return best[state]\n            base = sum(state[i] * price[i] for i in range(n))\n            res = base\n            for off in special:\n                ns = list(state)\n                ok = True\n                for i in range(n):\n                    ns[i] -= off[i]\n                    if ns[i] < 0:\n                        ok = False\n                        break\n                if ok:\n                    res = min(res, off[n] + solve(tuple(ns)))\n            best[state] = res\n            return res\n        return solve(tuple(needs))\n",
+  "solutions": {
+    "python": "class Solution:\n    def shoppingOffers(self, price, special, needs):\n        n = len(price)\n        from functools import lru_cache\n        offers = [o for o in special]\n        @lru_cache(maxsize=None)\n        def dfs(state):\n            cost = sum(state[i] * price[i] for i in range(n))\n            for off in offers:\n                nxt = []\n                ok = True\n                for i in range(n):\n                    v = state[i] - off[i]\n                    if v < 0:\n                        ok = False\n                        break\n                    nxt.append(v)\n                if ok:\n                    cost = min(cost, off[n] + dfs(tuple(nxt)))\n            return cost\n        return dfs(tuple(needs))\n",
+    "javascript": "var shoppingOffers = function(price, special, needs) {\n    const n = price.length;\n    const memo = new Map();\n    const dfs = (state) => {\n        const key = state.join(',');\n        if (memo.has(key)) return memo.get(key);\n        let cost = 0;\n        for (let i = 0; i < n; i++) cost += state[i] * price[i];\n        for (const off of special) {\n            const nxt = [];\n            let ok = true;\n            for (let i = 0; i < n; i++) {\n                const v = state[i] - off[i];\n                if (v < 0) { ok = false; break; }\n                nxt.push(v);\n            }\n            if (ok) cost = Math.min(cost, off[n] + dfs(nxt));\n        }\n        memo.set(key, cost);\n        return cost;\n    };\n    return dfs(needs.slice());\n};\n"
+  },
+  "complexity": { "time": "O(states * offers * n)", "space": "O(states)" }
+}

@@ -1,0 +1,44 @@
+{
+  "slug": "longest-balanced-subarray-ii",
+  "judge": "exact",
+  "pattern": "A segment tree over left endpoints with range updates tracks the distinct-parity difference so the longest balanced window is found in near-linear time.",
+  "hints": [
+    "For a fixed right end, define for each left end the difference between distinct even and distinct odd counts of that window.",
+    "When the right end advances to a value v, that value newly appears only for left ends after its previous occurrence, so it adds plus or minus one to a contiguous range of left ends.",
+    "Maintain those differences in a segment tree with lazy range add; because neighboring differences change by at most one, you can descend to the leftmost index whose difference is zero and maximize the window length."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "full array already balanced", "input": [[2, 5, 4, 3]] },
+    { "kind": "edge", "description": "duplicate even keeps distinct count", "input": [[3, 2, 2, 5, 4]] },
+    { "kind": "edge", "description": "best window is interior", "input": [[1, 2, 3, 2]] },
+    { "kind": "trap", "description": "single element never balances", "input": [[5]] },
+    { "kind": "trap", "description": "all even values", "input": [[2, 4, 6, 8]] },
+    { "kind": "boundary", "description": "complementary parity pair", "input": [[1, 2]] },
+    { "kind": "trap", "description": "long run of duplicates", "input": [[7, 7, 7, 8]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate array over a narrow value range, sized to keep the build fast",
+      "seed": 37,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randrange(1, 30) for _ in range(n)]]\n",
+      "note": "narrow range gives many duplicates and parity mixing"
+    },
+    {
+      "description": "wider value spread to test distinct tracking with few repeats",
+      "seed": 38,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randrange(1, 100001) for _ in range(n)]]\n",
+      "note": "sparse duplicates stress the segment tree differently"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestBalanced(self, nums):\n        n = len(nums)\n        best = 0\n        for i in range(n):\n            ev = set()\n            od = set()\n            for j in range(i, n):\n                v = nums[j]\n                if v % 2 == 0:\n                    ev.add(v)\n                else:\n                    od.add(v)\n                if len(ev) == len(od):\n                    best = max(best, j - i + 1)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestBalanced(self, nums):\n        n = len(nums)\n        if n == 0:\n            return 0\n        size = 1\n        while size < n:\n            size *= 2\n        mn = [0] * (2 * size)\n        mx = [0] * (2 * size)\n        lazy = [0] * (2 * size)\n        def apply(node, val):\n            mn[node] += val\n            mx[node] += val\n            lazy[node] += val\n        def update(node, l, r, ql, qr, val):\n            if qr < l or r < ql:\n                return\n            if ql <= l and r <= qr:\n                apply(node, val)\n                return\n            if lazy[node]:\n                apply(2 * node, lazy[node])\n                apply(2 * node + 1, lazy[node])\n                lazy[node] = 0\n            m = (l + r) // 2\n            update(2 * node, l, m, ql, qr, val)\n            update(2 * node + 1, m + 1, r, ql, qr, val)\n            mn[node] = min(mn[2 * node], mn[2 * node + 1])\n            mx[node] = max(mx[2 * node], mx[2 * node + 1])\n        def query(R):\n            def rec(node, l, r):\n                if l > R:\n                    return -1\n                if mn[node] <= 0 <= mx[node]:\n                    if l == r:\n                        return l if mn[node] == 0 else -1\n                    if lazy[node]:\n                        apply(2 * node, lazy[node])\n                        apply(2 * node + 1, lazy[node])\n                        lazy[node] = 0\n                    m = (l + r) // 2\n                    left = rec(2 * node, l, m)\n                    if left != -1:\n                        return left\n                    return rec(2 * node + 1, m + 1, r)\n                return -1\n            return rec(1, 0, size - 1)\n        last = {}\n        best = 0\n        for j in range(n):\n            v = nums[j]\n            sgn = 1 if v % 2 == 0 else -1\n            lo = last.get(v, -1) + 1\n            update(1, 0, size - 1, lo, j, sgn)\n            last[v] = j\n            idx = query(j)\n            if idx != -1:\n                best = max(best, j - idx + 1)\n        return best\n",
+    "javascript": "var longestBalanced = function(nums) {\n    const n = nums.length;\n    if (n === 0) return 0;\n    let size = 1;\n    while (size < n) size *= 2;\n    const mn = new Int32Array(2 * size);\n    const mx = new Int32Array(2 * size);\n    const lazy = new Int32Array(2 * size);\n    const apply = (node, val) => { mn[node] += val; mx[node] += val; lazy[node] += val; };\n    const update = (node, l, r, ql, qr, val) => {\n        if (qr < l || r < ql) return;\n        if (ql <= l && r <= qr) { apply(node, val); return; }\n        if (lazy[node]) { apply(2 * node, lazy[node]); apply(2 * node + 1, lazy[node]); lazy[node] = 0; }\n        const m = (l + r) >> 1;\n        update(2 * node, l, m, ql, qr, val);\n        update(2 * node + 1, m + 1, r, ql, qr, val);\n        mn[node] = Math.min(mn[2 * node], mn[2 * node + 1]);\n        mx[node] = Math.max(mx[2 * node], mx[2 * node + 1]);\n    };\n    const query = (R) => {\n        const rec = (node, l, r) => {\n            if (l > R) return -1;\n            if (mn[node] <= 0 && 0 <= mx[node]) {\n                if (l === r) return mn[node] === 0 ? l : -1;\n                if (lazy[node]) { apply(2 * node, lazy[node]); apply(2 * node + 1, lazy[node]); lazy[node] = 0; }\n                const m = (l + r) >> 1;\n                const left = rec(2 * node, l, m);\n                if (left !== -1) return left;\n                return rec(2 * node + 1, m + 1, r);\n            }\n            return -1;\n        };\n        return rec(1, 0, size - 1);\n    };\n    const last = new Map();\n    let best = 0;\n    for (let j = 0; j < n; j++) {\n        const v = nums[j];\n        const sgn = (v % 2 === 0) ? 1 : -1;\n        const lo = (last.has(v) ? last.get(v) : -1) + 1;\n        update(1, 0, size - 1, lo, j, sgn);\n        last.set(v, j);\n        const idx = query(j);\n        if (idx !== -1) best = Math.max(best, j - idx + 1);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

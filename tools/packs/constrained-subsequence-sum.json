@@ -1,0 +1,37 @@
+{
+  "slug": "constrained-subsequence-sum",
+  "judge": "exact",
+  "pattern": "DP with a monotonic deque tracks the best reachable previous state within k steps in O(1) per element.",
+  "hints": [
+    "Define dp[i] as the maximum subsequence sum ending at index i; it equals nums[i] plus the best dp[j] for j in [i-k, i-1] that is positive.",
+    "You need the maximum of dp[i-k..i-1] efficiently — a sliding-window maximum via a monotonic deque gives O(1) per step.",
+    "After building the dp array, the answer is max(dp) since the subsequence must be non-empty."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [-10000, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all negative — must pick the single largest element", "input": [[-1, -2, -3], 1] },
+    { "kind": "edge", "description": "single element, positive", "input": [[42], 1] },
+    { "kind": "edge", "description": "k equals array length — can pick any subsequence", "input": [[10, 2, -10, 5, 20], 5] },
+    { "kind": "boundary", "description": "k=1 forces strict consecutive adjacency", "input": [[5, -3, 5, -3, 5], 1] },
+    { "kind": "boundary", "description": "alternating large positive and large negative with k=2", "input": [[10, -2, -10, -5, 20], 2] },
+    { "kind": "trap", "description": "large negatives between two distant positives — only reachable if k is large enough", "input": [[10, -100, -100, 5], 1] },
+    { "kind": "trap", "description": "skipping negatives via k window to chain positives", "input": [[10, 2, -10, 5, 20], 2] }
+  ],
+  "stress": [
+    {
+      "description": "100000 elements with k=50, mix of positive and negative",
+      "seed": 99,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    nums = [rng.randint(-10000, 10000) for _ in range(size)]\n    k = 50\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def constrainedSubsetSum(self, nums, k):\n        n = len(nums)\n        dp = [0] * n\n        for i in range(n):\n            dp[i] = nums[i]\n            best_prev = 0\n            for j in range(max(0, i - k), i):\n                best_prev = max(best_prev, dp[j])\n            dp[i] += best_prev\n        return max(dp)\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def constrainedSubsetSum(self, nums, k):\n        n = len(nums)\n        dp = [0] * n\n        dq = deque()  # stores indices, dp values descending\n        for i in range(n):\n            # best previous dp in window\n            best = dq[0][1] if dq and dq[0][1] > 0 else 0\n            dp[i] = nums[i] + best\n            # maintain deque\n            while dq and dq[-1][1] <= dp[i]:\n                dq.pop()\n            dq.append((i, dp[i]))\n            if dq[0][0] <= i - k:\n                dq.popleft()\n        return max(dp)\n",
+    "javascript": "var constrainedSubsetSum = function(nums, k) {\n    const n = nums.length;\n    const dp = new Array(n).fill(0);\n    const dq = [];  // [index, value]\n    for (let i = 0; i < n; i++) {\n        const best = (dq.length > 0 && dq[0][1] > 0) ? dq[0][1] : 0;\n        dp[i] = nums[i] + best;\n        while (dq.length > 0 && dq[dq.length - 1][1] <= dp[i]) dq.pop();\n        dq.push([i, dp[i]]);\n        if (dq[0][0] <= i - k) dq.shift();\n    }\n    return Math.max(...dp);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

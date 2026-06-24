@@ -1,0 +1,38 @@
+{
+  "slug": "smallest-range-covering-elements-from-k-lists",
+  "judge": "exact",
+  "pattern": "Merge the lists and sweep a min-heap that always holds one element per list, tracking the running maximum so each pop tests the tightest range covering all lists.",
+  "hints": [
+    "A valid range must contain at least one value from every list, so think about the current minimum across lists versus the current maximum.",
+    "Use a min-heap seeded with the first element of each list plus the overall maximum among them; the window [heap-min, max] is a candidate.",
+    "Pop the smallest element, update the candidate range if it is tighter, then push the next element from that same list and refresh the max. Stop when any list is exhausted. Apply the tie-break: smaller width wins, then smaller start."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[][]", "len": [1, 3500], "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first statement example", "input": [[[4, 10, 15, 24, 26], [0, 9, 12, 20], [5, 18, 22, 30]]] },
+    { "kind": "edge", "description": "second statement example, all identical lists", "input": [[[1, 2, 3], [1, 2, 3], [1, 2, 3]]] },
+    { "kind": "boundary", "description": "single list, range is just one element", "input": [[[5]]] },
+    { "kind": "edge", "description": "two lists each a single value", "input": [[[1], [100]]] },
+    { "kind": "trap", "description": "negative values across lists", "input": [[[-5, -2, 0], [-3, -1], [-4, 2]]] },
+    { "kind": "trap", "description": "tie in width resolved by smaller start", "input": [[[1, 5], [3], [2, 4]]] },
+    { "kind": "edge", "description": "lists with differing lengths", "input": [[[10, 20, 30], [15], [12, 25]]] },
+    { "kind": "boundary", "description": "extreme magnitude values", "input": [[[-100000, 0], [100000], [0]]] }
+  ],
+  "stress": [
+    {
+      "description": "several sorted lists of random integers",
+      "seed": 21,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(1, max(1, min(size, 30)))\n    nums = []\n    for _ in range(k):\n        m = rng.randint(1, 20)\n        lst = sorted(rng.randint(-1000, 1000) for _ in range(m))\n        nums.append(lst)\n    return [nums]\n",
+      "note": "each inner list is non-decreasing as required"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def smallestRange(self, nums):\n        # brute force: candidate endpoints are values; for each value as low,\n        # find minimal high so every list has an element in [low, high].\n        import bisect\n        all_vals = sorted(set(v for lst in nums for v in lst))\n        best = None\n        for low in all_vals:\n            high = low\n            ok = True\n            for lst in nums:\n                idx = bisect.bisect_left(lst, low)\n                if idx == len(lst):\n                    ok = False\n                    break\n                high = max(high, lst[idx])\n            if not ok:\n                break\n            cand = [low, high]\n            if best is None or (cand[1] - cand[0] < best[1] - best[0]) or (cand[1] - cand[0] == best[1] - best[0] and cand[0] < best[0]):\n                best = cand\n        return best\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def smallestRange(self, nums):\n        heap = []\n        cur_max = -10**18\n        for i, lst in enumerate(nums):\n            heapq.heappush(heap, (lst[0], i, 0))\n            cur_max = max(cur_max, lst[0])\n        best = None\n        while True:\n            low, i, j = heapq.heappop(heap)\n            cand = [low, cur_max]\n            if best is None or (cand[1] - cand[0] < best[1] - best[0]) or (cand[1] - cand[0] == best[1] - best[0] and cand[0] < best[0]):\n                best = cand\n            if j + 1 == len(nums[i]):\n                break\n            nxt = nums[i][j + 1]\n            cur_max = max(cur_max, nxt)\n            heapq.heappush(heap, (nxt, i, j + 1))\n        return best\n",
+    "javascript": "var smallestRange = function(nums) {\n    // min-heap of [value, listIdx, elemIdx]\n    const heap = [];\n    const cmp = (a, b) => a[0] - b[0];\n    const up = (i) => { while (i > 0) { const p = (i - 1) >> 1; if (cmp(heap[p], heap[i]) <= 0) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };\n    const down = (i) => { const n = heap.length; while (true) { let l = 2*i+1, r = 2*i+2, m = i; if (l < n && cmp(heap[l], heap[m]) < 0) m = l; if (r < n && cmp(heap[r], heap[m]) < 0) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } };\n    const push = (v) => { heap.push(v); up(heap.length - 1); };\n    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; down(0); } return top; };\n    let curMax = -Infinity;\n    for (let i = 0; i < nums.length; i++) { push([nums[i][0], i, 0]); curMax = Math.max(curMax, nums[i][0]); }\n    let best = null;\n    while (true) {\n        const [low, i, j] = pop();\n        const cand = [low, curMax];\n        if (best === null || (cand[1] - cand[0] < best[1] - best[0]) || (cand[1] - cand[0] === best[1] - best[0] && cand[0] < best[0])) best = cand;\n        if (j + 1 === nums[i].length) break;\n        const nxt = nums[i][j + 1];\n        curMax = Math.max(curMax, nxt);\n        push([nxt, i, j + 1]);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(N log k)", "space": "O(k)" }
+}

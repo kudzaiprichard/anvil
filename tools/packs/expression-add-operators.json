@@ -1,0 +1,44 @@
+{
+  "slug": "expression-add-operators",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    num, target = args[0], args[1]\n    if not isinstance(output, list):\n        return False\n    # Build the set of all correct expressions via brute force\n    def backtrack(idx, path, val, prev):\n        if idx == len(num):\n            if val == target:\n                correct.add(path)\n            return\n        for end in range(idx + 1, len(num) + 1):\n            s = num[idx:end]\n            if len(s) > 1 and s[0] == '0':\n                break  # no leading zeros\n            n = int(s)\n            if idx == 0:\n                backtrack(end, s, n, n)\n            else:\n                backtrack(end, path + '+' + s, val + n, n)\n                backtrack(end, path + '-' + s, val - n, -n)\n                backtrack(end, path + '*' + s, val - prev + prev * n, prev * n)\n    correct = set()\n    backtrack(0, '', 0, 0)\n    # Validate output\n    seen = set()\n    for expr in output:\n        if not isinstance(expr, str):\n            return False\n        if expr in seen:\n            return False  # no duplicates\n        seen.add(expr)\n        if expr not in correct:\n            return False\n    return seen == correct\n",
+    "validator_javascript": "function validate(args, output) {\n    const num = args[0], target = args[1];\n    if (!Array.isArray(output)) return false;\n    const correct = new Set();\n    function backtrack(idx, path, val, prev) {\n        if (idx === num.length) {\n            if (val === target) correct.add(path);\n            return;\n        }\n        for (let end = idx + 1; end <= num.length; end++) {\n            const s = num.slice(idx, end);\n            if (s.length > 1 && s[0] === '0') break;\n            const n = parseInt(s);\n            if (idx === 0) {\n                backtrack(end, s, n, n);\n            } else {\n                backtrack(end, path + '+' + s, val + n, n);\n                backtrack(end, path + '-' + s, val - n, -n);\n                backtrack(end, path + '*' + s, val - prev + prev * n, prev * n);\n            }\n        }\n    }\n    backtrack(0, '', 0, 0);\n    const seen = new Set();\n    for (const expr of output) {\n        if (typeof expr !== 'string') return false;\n        if (seen.has(expr)) return false;\n        seen.add(expr);\n        if (!correct.has(expr)) return false;\n    }\n    if (seen.size !== correct.size) return false;\n    for (const k of seen) if (!correct.has(k)) return false;\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Backtracking over every position inserts one operator at a time, tracking the running value and the last multiplicative term to correctly handle operator precedence without re-evaluating from scratch.",
+  "hints": [
+    "At each step choose a substring of remaining digits (no leading zeros for multi-digit numbers) as the next operand, then pick an operator to connect it.",
+    "Carry two accumulators: the total running value and the value of the most recent multiplicative segment, because a future multiplication must undo the additive contribution of that segment and replace it.",
+    "Only record an expression when all digits are consumed and the running value equals the target."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "string", "len": [1, 10] },
+    { "param": "target", "kind": "int", "value": [-2147483648, 2147483647] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two expressions yield target 6", "input": ["123", 6] },
+    { "kind": "edge", "description": "two expressions yield target 8 with multiplication", "input": ["232", 8] },
+    { "kind": "boundary", "description": "no valid expression exists", "input": ["3456237490", 9191] },
+    { "kind": "boundary", "description": "single digit equals target", "input": ["7", 7] },
+    { "kind": "trap", "description": "leading zero must not form multi-digit operand", "input": ["105", 5] },
+    { "kind": "trap", "description": "zero operand edge: 10*0 vs 1+0*0 etc.", "input": ["00", 0] },
+    { "kind": "trap", "description": "multiplication precedence trap: 2+3*2 not 10", "input": ["232", 8] },
+    { "kind": "edge", "description": "negative target reachable by subtraction", "input": ["11", -1] }
+  ],
+  "stress": [
+    {
+      "description": "8-digit string with moderate target to stress backtracking",
+      "seed": 13,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = min(max(1, size), 8)\n    digits = ''.join(str(rng.randint(1, 9)) for _ in range(n))\n    target = rng.randint(-100, 100)\n    return [digits, target]\n",
+      "note": "cap at 8 digits; 10 digits with all single-digit operands gives 4^9 paths"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def addOperators(self, num, target):\n        res = []\n        def bt(idx, path, val, prev):\n            if idx == len(num):\n                if val == target:\n                    res.append(path)\n                return\n            for end in range(idx + 1, len(num) + 1):\n                s = num[idx:end]\n                if len(s) > 1 and s[0] == '0':\n                    break\n                n = int(s)\n                if idx == 0:\n                    bt(end, s, n, n)\n                else:\n                    bt(end, path + '+' + s, val + n, n)\n                    bt(end, path + '-' + s, val - n, -n)\n                    bt(end, path + '*' + s, val - prev + prev * n, prev * n)\n        bt(0, '', 0, 0)\n        return sorted(res)\n",
+  "solutions": {
+    "python": "class Solution:\n    def addOperators(self, num, target):\n        res = []\n        def bt(idx, path, val, prev):\n            if idx == len(num):\n                if val == target:\n                    res.append(path)\n                return\n            for end in range(idx + 1, len(num) + 1):\n                s = num[idx:end]\n                if len(s) > 1 and s[0] == '0':\n                    break\n                n = int(s)\n                if idx == 0:\n                    bt(end, s, n, n)\n                else:\n                    bt(end, path + '+' + s, val + n, n)\n                    bt(end, path + '-' + s, val - n, -n)\n                    bt(end, path + '*' + s, val - prev + prev * n, prev * n)\n        bt(0, '', 0, 0)\n        return sorted(res)\n",
+    "javascript": "var addOperators = function(num, target) {\n    const res = [];\n    function bt(idx, path, val, prev) {\n        if (idx === num.length) {\n            if (val === target) res.push(path);\n            return;\n        }\n        for (let end = idx + 1; end <= num.length; end++) {\n            const s = num.slice(idx, end);\n            if (s.length > 1 && s[0] === '0') break;\n            const n = parseInt(s);\n            if (idx === 0) {\n                bt(end, s, n, n);\n            } else {\n                bt(end, path + '+' + s, val + n, n);\n                bt(end, path + '-' + s, val - n, -n);\n                bt(end, path + '*' + s, val - prev + prev * n, prev * n);\n            }\n        }\n    }\n    bt(0, '', 0, 0);\n    return res.sort();\n};\n"
+  },
+  "complexity": { "time": "O(n * 4^n)", "space": "O(n)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "equal-rational-numbers",
+  "judge": "exact",
+  "pattern": "Every finite-or-repeating decimal is exactly a fraction, so parse each string into a numerator/denominator and compare the reduced fractions instead of floating-point values.",
+  "hints": [
+    "Floating point cannot decide equality here; convert each string to an exact rational and compare those.",
+    "A repeating block (d) over m repeating digits contributes a fraction of the block over (10^m - 1), shifted by the non-repeating decimal places.",
+    "Split into integer, non-repeating, and repeating parts. Value = integer + nonrep/10^a + rep/((10^b - 1) * 10^a). Use exact integer arithmetic (e.g. fractions) and test for equality."
+  ],
+  "constraints": [],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two different repeating notations of the same value", "input": ["0.(52)", "0.5(25)"] },
+    { "kind": "edge", "description": "different placement of the repeating block", "input": ["0.1666(6)", "0.166(66)"] },
+    { "kind": "trap", "description": "nines repeating equals the next integer", "input": ["0.9(9)", "1."] },
+    { "kind": "trap", "description": "plain integers that differ", "input": ["12", "13"] },
+    { "kind": "edge", "description": "integer versus trailing-dot form", "input": ["5", "5."] },
+    { "kind": "edge", "description": "non-repeating decimals that are equal with trailing zeros", "input": ["0.50", "0.5"] },
+    { "kind": "trap", "description": "repeating zero equals a finite decimal", "input": ["1.5(0)", "1.5"] },
+    { "kind": "trap", "description": "close but unequal repeating values", "input": ["0.(3)", "0.(4)"] },
+    { "kind": "edge", "description": "integer part only on both sides, equal", "input": ["0", "0.(0)"] }
+  ],
+  "stress": [
+    {
+      "description": "random rational strings, sometimes equal by construction, in varied notations",
+      "seed": 19,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    def build():\n        ip = str(rng.randint(0, 9))\n        nr = ''.join(str(rng.randint(0, 9)) for _ in range(rng.randint(0, 3)))\n        rep = ''.join(str(rng.randint(0, 9)) for _ in range(rng.randint(0, 2)))\n        s = ip\n        if nr or rep or rng.random() < 0.3:\n            s += '.' + nr\n            if rep:\n                s += '(' + rep + ')'\n        return s\n    a = build()\n    if rng.random() < 0.5:\n        b = a\n    else:\n        b = build()\n    return [a, b]\n",
+      "note": "half the cases are exactly equal strings to test the true branch"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isRationalEqual(self, s, t):\n        # Independent approach: expand each number to many decimal digits as an\n        # exact integer scaled value, comparing far past any repeat period.\n        from fractions import Fraction\n        def to_fraction(x):\n            if '.' not in x:\n                return Fraction(int(x), 1)\n            intpart, rest = x.split('.')\n            base = Fraction(int(intpart) if intpart else 0, 1)\n            if '(' in rest:\n                nonrep, rep = rest.split('(')\n                rep = rep[:-1]\n            else:\n                nonrep, rep = rest, ''\n            a = len(nonrep)\n            if nonrep:\n                base += Fraction(int(nonrep), 10 ** a)\n            if rep:\n                b = len(rep)\n                base += Fraction(int(rep), (10 ** b - 1) * (10 ** a))\n            return base\n        return to_fraction(s) == to_fraction(t)\n",
+  "solutions": {
+    "python": "class Solution:\n    def isRationalEqual(self, s, t):\n        from fractions import Fraction\n        def parse(x):\n            if '.' not in x:\n                return Fraction(int(x))\n            i, r = x.split('.')\n            total = Fraction(int(i)) if i else Fraction(0)\n            if '(' in r:\n                nonrep, rep = r.split('(')\n                rep = rep.rstrip(')')\n            else:\n                nonrep, rep = r, ''\n            a = len(nonrep)\n            if nonrep:\n                total += Fraction(int(nonrep), 10 ** a)\n            if rep:\n                b = len(rep)\n                total += Fraction(int(rep), (10 ** b - 1) * 10 ** a)\n            return total\n        return parse(s) == parse(t)\n",
+    "javascript": "var isRationalEqual = function(s, t) {\n    function gcd(a, b) { while (b) { [a, b] = [b, a % b]; } return a < 0n ? -a : a; }\n    function frac(num, den) {\n        if (den < 0n) { num = -num; den = -den; }\n        const g = gcd(num < 0n ? -num : num, den) || 1n;\n        return [num / g, den / g];\n    }\n    function add(p, q) {\n        return frac(p[0] * q[1] + q[0] * p[1], p[1] * q[1]);\n    }\n    function parse(x) {\n        if (x.indexOf('.') === -1) return frac(BigInt(x), 1n);\n        const dot = x.indexOf('.');\n        const i = x.slice(0, dot);\n        let r = x.slice(dot + 1);\n        let total = frac(i === '' ? 0n : BigInt(i), 1n);\n        let nonrep = r, rep = '';\n        const open = r.indexOf('(');\n        if (open !== -1) {\n            nonrep = r.slice(0, open);\n            rep = r.slice(open + 1, r.length - 1);\n        }\n        const a = BigInt(nonrep.length);\n        if (nonrep.length > 0) {\n            total = add(total, frac(BigInt(nonrep), 10n ** a));\n        }\n        if (rep.length > 0) {\n            const b = BigInt(rep.length);\n            total = add(total, frac(BigInt(rep), (10n ** b - 1n) * (10n ** a)));\n        }\n        return total;\n    }\n    const p = parse(s), q = parse(t);\n    return p[0] === q[0] && p[1] === q[1];\n};\n"
+  },
+  "complexity": { "time": "O(L)", "space": "O(1)" }
+}

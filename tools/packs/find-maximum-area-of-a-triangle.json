@@ -1,0 +1,38 @@
+{
+  "slug": "find-maximum-area-of-a-triangle",
+  "judge": "exact",
+  "pattern": "An axis-parallel side fixes the base within a single row or column, so the best height is just the farthest point on the perpendicular axis.",
+  "hints": [
+    "A side parallel to an axis means two corners share an x-coordinate (vertical side) or a y-coordinate (horizontal side).",
+    "For a vertical side in a column, the base is the spread of y-values there, and the height is how far the third point's x reaches from that column.",
+    "For each column, pair its tallest base with the maximum horizontal reach (min or max x overall); do the symmetric thing for rows, and report twice the best area, which equals base times height as an integer."
+  ],
+  "constraints": [
+    { "param": "coords", "kind": "int[][]", "len": [1, 100000], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a vertical side gives a valid triangle", "input": [[[1,1],[1,2],[3,2],[3,3]]] },
+    { "kind": "trap", "description": "collinear diagonal points, no axis-parallel side", "input": [[[1,1],[2,2],[3,3]]] },
+    { "kind": "boundary", "description": "single point cannot form a triangle", "input": [[[5,5]]] },
+    { "kind": "edge", "description": "two points only, no triangle", "input": [[[1,1],[1,9]]] },
+    { "kind": "edge", "description": "horizontal base with distant third point", "input": [[[1,1],[5,1],[3,8]]] },
+    { "kind": "trap", "description": "shared column exists but no third point off it", "input": [[[2,1],[2,5]]] },
+    { "kind": "edge", "description": "both a row pair and a column pair available", "input": [[[1,1],[1,4],[4,1],[4,4]]] },
+    { "kind": "trap", "description": "axis pair present but zero-area degenerate alone", "input": [[[1,1],[1,1000000],[1000000,1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random unique points with planted shared rows and columns",
+      "seed": 71,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    seen = set()\n    pts = []\n    cap = 60\n    while len(pts) < n and len(seen) < cap * cap:\n        x = rng.randint(1, cap)\n        y = rng.randint(1, cap)\n        if (x, y) in seen:\n            continue\n        seen.add((x, y))\n        pts.append([x, y])\n    return [pts]\n",
+      "note": "small coordinate cap forces many shared rows/columns so axis-parallel sides arise"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def maxArea(self, coords):\n        best = -1\n        for a, b, c in combinations(coords, 3):\n            axis = (a[0] == b[0] or b[0] == c[0] or a[0] == c[0] or\n                    a[1] == b[1] or b[1] == c[1] or a[1] == c[1])\n            if not axis:\n                continue\n            twice = abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]))\n            if twice == 0:\n                continue\n            if twice > best:\n                best = twice\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxArea(self, coords):\n        min_x = min(p[0] for p in coords)\n        max_x = max(p[0] for p in coords)\n        min_y = min(p[1] for p in coords)\n        max_y = max(p[1] for p in coords)\n        by_x = {}\n        by_y = {}\n        for x, y in coords:\n            if x in by_x:\n                lo, hi = by_x[x]\n                by_x[x] = (min(lo, y), max(hi, y))\n            else:\n                by_x[x] = (y, y)\n            if y in by_y:\n                lo, hi = by_y[y]\n                by_y[y] = (min(lo, x), max(hi, x))\n            else:\n                by_y[y] = (x, x)\n        best = -1\n        for x, (lo, hi) in by_x.items():\n            base = hi - lo\n            if base == 0:\n                continue\n            height = max(max_x - x, x - min_x)\n            if height == 0:\n                continue\n            best = max(best, base * height)\n        for y, (lo, hi) in by_y.items():\n            base = hi - lo\n            if base == 0:\n                continue\n            height = max(max_y - y, y - min_y)\n            if height == 0:\n                continue\n            best = max(best, base * height)\n        return best\n",
+    "javascript": "var maxArea = function(coords) {\n    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;\n    for (const [x, y] of coords) {\n        if (x < minX) minX = x;\n        if (x > maxX) maxX = x;\n        if (y < minY) minY = y;\n        if (y > maxY) maxY = y;\n    }\n    const byX = new Map(), byY = new Map();\n    for (const [x, y] of coords) {\n        if (byX.has(x)) { const v = byX.get(x); v[0] = Math.min(v[0], y); v[1] = Math.max(v[1], y); }\n        else byX.set(x, [y, y]);\n        if (byY.has(y)) { const v = byY.get(y); v[0] = Math.min(v[0], x); v[1] = Math.max(v[1], x); }\n        else byY.set(y, [x, x]);\n    }\n    let best = -1;\n    for (const [x, [lo, hi]] of byX) {\n        const base = hi - lo;\n        if (base === 0) continue;\n        const height = Math.max(maxX - x, x - minX);\n        if (height === 0) continue;\n        best = Math.max(best, base * height);\n    }\n    for (const [y, [lo, hi]] of byY) {\n        const base = hi - lo;\n        if (base === 0) continue;\n        const height = Math.max(maxY - y, y - minY);\n        if (height === 0) continue;\n        best = Math.max(best, base * height);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,46 @@
+{
+  "slug": "minimum-skips-to-arrive-at-meeting-on-time",
+  "judge": "exact",
+  "pattern": "Work in time scaled by speed so every quantity is an integer, then run a DP over roads where the state is the number of skips used and the value is the minimum scaled arrival time, rounding up between roads only when no skip is taken.",
+  "hints": [
+    "Multiply all times by speed so distances become the scaled travel cost and the integer-hour rest becomes rounding up to the next multiple of speed.",
+    "Let dp[j] be the least scaled arrival time after the current road using exactly j skips; from each state you either rest (round up, no skip) or skip (no rounding, one more skip).",
+    "After processing all roads, return the smallest j whose scaled time is at most hoursBefore times speed, or -1 if none qualifies."
+  ],
+  "constraints": [
+    { "param": "dist", "kind": "int[]", "len": [1, 1000], "value": [1, 100000] },
+    { "param": "speed", "kind": "int", "value": [1, 1000000] },
+    { "param": "hoursBefore", "kind": "int", "value": [1, 10000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one skip suffices", "input": [[1,3,2], 4, 2] },
+    { "kind": "edge", "description": "two skips needed", "input": [[7,3,5,5], 2, 10] },
+    { "kind": "trap", "description": "impossible even skipping all rests", "input": [[7,3,5,5], 1, 10] },
+    { "kind": "boundary", "description": "single road, no rest ever required", "input": [[5], 5, 1] },
+    { "kind": "trap", "description": "single road too slow to make it", "input": [[10], 1, 5] },
+    { "kind": "edge", "description": "exact arrival with zero skips", "input": [[2,4], 2, 4] },
+    { "kind": "boundary", "description": "tight deadline forcing maximum skips", "input": [[1,1,1], 1, 3] }
+  ],
+  "stress": [
+    {
+      "description": "random short road lists with feasible deadlines",
+      "seed": 17,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 60)\n    dist = [rng.randint(1, 1000) for _ in range(n)]\n    speed = rng.randint(1, 50)\n    # generous deadline so many cases are feasible\n    hours = rng.randint(1, 5000)\n    return [dist, speed, hours]\n",
+      "note": "mix of feasible and infeasible"
+    },
+    {
+      "description": "tight deadlines to exercise the skip count search",
+      "seed": 18,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 40)\n    dist = [rng.randint(1, 200) for _ in range(n)]\n    speed = rng.randint(1, 30)\n    base = sum((d + speed - 1) // speed for d in dist)\n    hours = max(1, base - rng.randint(0, n))\n    return [dist, speed, hours]\n",
+      "note": "near the feasibility boundary"
+    }
+  ],
+  "oracle_python": "from fractions import Fraction\nclass Solution:\n    def minSkips(self, dist, speed, hoursBefore):\n        # Independent: exact rational arrival times, no scaling trick.\n        n = len(dist)\n        INF = None\n        # dp[j] = min exact arrival time (Fraction) using exactly j skips so far\n        dp = [None] * (n + 1)\n        dp[0] = Fraction(0)\n        for i in range(n):\n            travel = Fraction(dist[i], speed)\n            ndp = [None] * (n + 1)\n            last = (i == n - 1)\n            for j in range(i + 1):\n                if dp[j] is None:\n                    continue\n                t = dp[j] + travel\n                if last:\n                    arrive = t\n                else:\n                    # round up to next integer hour\n                    if t.denominator == 1:\n                        arrive = t\n                    else:\n                        arrive = Fraction(t.numerator // t.denominator + 1)\n                if ndp[j] is None or arrive < ndp[j]:\n                    ndp[j] = arrive\n                # skip this rest: keep fractional arrival, one more skip\n                if ndp[j + 1] is None or t < ndp[j + 1]:\n                    ndp[j + 1] = t\n            dp = ndp\n        target = Fraction(hoursBefore)\n        for j in range(n + 1):\n            if dp[j] is not None and dp[j] <= target:\n                return j\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSkips(self, dist, speed, hoursBefore):\n        n = len(dist)\n        INF = float('inf')\n        # dp[j] = min scaled (by speed) arrival time using j skips\n        dp = [0] + [INF] * n\n        for i in range(n):\n            d = dist[i]\n            ndp = [INF] * (n + 1)\n            last = (i == n - 1)\n            for j in range(i + 1):\n                if dp[j] == INF:\n                    continue\n                t = dp[j] + d\n                if last:\n                    if t < ndp[j]:\n                        ndp[j] = t\n                else:\n                    rest = -(-t // speed) * speed\n                    if rest < ndp[j]:\n                        ndp[j] = rest\n                if t < ndp[j + 1]:\n                    ndp[j + 1] = t\n            dp = ndp\n        limit = hoursBefore * speed\n        for j in range(n + 1):\n            if dp[j] <= limit:\n                return j\n        return -1\n",
+    "javascript": "var minSkips = function(dist, speed, hoursBefore) {\n    const n = dist.length;\n    const INF = Infinity;\n    let dp = new Array(n + 1).fill(INF);\n    dp[0] = 0;\n    for (let i = 0; i < n; i++) {\n        const d = dist[i];\n        const ndp = new Array(n + 1).fill(INF);\n        const last = (i === n - 1);\n        for (let j = 0; j <= i; j++) {\n            if (dp[j] === INF) continue;\n            const t = dp[j] + d;\n            if (last) {\n                if (t < ndp[j]) ndp[j] = t;\n            } else {\n                const rest = Math.ceil(t / speed) * speed;\n                if (rest < ndp[j]) ndp[j] = rest;\n            }\n            if (t < ndp[j + 1]) ndp[j + 1] = t;\n        }\n        dp = ndp;\n    }\n    const limit = hoursBefore * speed;\n    for (let j = 0; j <= n; j++) {\n        if (dp[j] <= limit) return j;\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

@@ -1,0 +1,90 @@
+{
+  "slug": "design-twitter",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Tracking post order globally and merging each followed user's most-recent tweets with a heap yields the 10 most recent news feed items in O(k log k) where k is the number of followees.",
+  "hints": [
+    "Each tweet needs a global timestamp so you can compare recency across different users without storing an absolute clock.",
+    "A user's news feed is the 10 most recent tweets from themselves and everyone they follow — gather those candidate lists and merge them by recency.",
+    "A min-heap of size 10 (or a merge of sorted per-user tweet lists) keeps the top-10 extraction efficient."
+  ],
+  "constraints": [
+    { "param": "userId", "kind": "int", "value": [1, 500] },
+    { "param": "followerId", "kind": "int", "value": [1, 500] },
+    { "param": "followeeId", "kind": "int", "value": [1, 500] },
+    { "param": "tweetId", "kind": "int", "value": [0, 10000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "standard sequence: post, read own feed, follow, post, read merged feed, unfollow, read own feed",
+      "input": [
+        ["Twitter", "postTweet", "getNewsFeed", "follow", "postTweet", "getNewsFeed", "unfollow", "getNewsFeed"],
+        [[], [1, 5], [1], [1, 2], [2, 6], [1], [1, 2], [1]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "news feed capped at 10 when more than 10 tweets exist",
+      "input": [
+        ["Twitter", "postTweet", "postTweet", "postTweet", "postTweet", "postTweet", "postTweet", "postTweet", "postTweet", "postTweet", "postTweet", "postTweet", "getNewsFeed"],
+        [[], [1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [1, 9], [1, 10], [1, 11], [1]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "getNewsFeed on a user who has never posted and follows nobody returns empty list",
+      "input": [
+        ["Twitter", "getNewsFeed"],
+        [[], [42]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a user always sees their own tweets without explicitly following themselves",
+      "input": [
+        ["Twitter", "postTweet", "getNewsFeed"],
+        [[], [7, 99], [7]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "unfollow a user you never followed is a no-op and subsequent feed is unaffected",
+      "input": [
+        ["Twitter", "postTweet", "unfollow", "getNewsFeed"],
+        [[], [1, 10], [1, 2], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "feed after follow correctly interleaves tweets from both users by recency",
+      "input": [
+        ["Twitter", "postTweet", "postTweet", "follow", "postTweet", "getNewsFeed"],
+        [[], [1, 100], [2, 200], [1, 2], [2, 300], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "following yourself is a no-op — duplicate tweets must not appear in feed",
+      "input": [
+        ["Twitter", "follow", "postTweet", "postTweet", "getNewsFeed"],
+        [[], [1, 1], [1, 10], [1, 20], [1]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "randomized sequence of posts, follows, unfollows, and feed reads over many users",
+      "seed": 42,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    ops = ['Twitter']\n    args = [[]]\n    tweet_id = [0]\n    for _ in range(max(1, size)):\n        r = rng.random()\n        u = rng.randint(1, 10)\n        if r < 0.35:\n            tweet_id[0] += 1\n            ops.append('postTweet')\n            args.append([u, tweet_id[0]])\n        elif r < 0.55:\n            ops.append('getNewsFeed')\n            args.append([u])\n        elif r < 0.75:\n            v = rng.randint(1, 10)\n            ops.append('follow')\n            args.append([u, v])\n        else:\n            v = rng.randint(1, 10)\n            ops.append('unfollow')\n            args.append([u, v])\n    return [ops, args]\n",
+      "note": "small user pool (1-10) causes many follow/unfollow cycles and feed merges; tweet_id always unique and increasing"
+    }
+  ],
+  "oracle_python": "class Twitter:\n    def __init__(self):\n        self.time = 0\n        self.tweets = {}  # userId -> list of (time, tweetId)\n        self.follows = {}  # followerId -> set of followeeId\n    def postTweet(self, userId, tweetId):\n        if userId not in self.tweets:\n            self.tweets[userId] = []\n        self.tweets[userId].append((self.time, tweetId))\n        self.time += 1\n    def getNewsFeed(self, userId):\n        all_tweets = list(self.tweets.get(userId, []))\n        for fid in self.follows.get(userId, set()):\n            all_tweets.extend(self.tweets.get(fid, []))\n        all_tweets.sort(key=lambda x: -x[0])\n        return [tid for _, tid in all_tweets[:10]]\n    def follow(self, followerId, followeeId):\n        if followerId == followeeId:\n            return\n        if followerId not in self.follows:\n            self.follows[followerId] = set()\n        self.follows[followerId].add(followeeId)\n    def unfollow(self, followerId, followeeId):\n        if followerId in self.follows:\n            self.follows[followerId].discard(followeeId)\n",
+  "solutions": {
+    "python": "import heapq\nfrom collections import defaultdict\n\n\nclass Twitter:\n    def __init__(self):\n        self.ts = 0\n        self.tweets = defaultdict(list)  # uid -> [(neg_time, tweetId)]\n        self.following = defaultdict(set)  # uid -> set of followees\n\n    def postTweet(self, userId, tweetId):\n        self.tweets[userId].append((-self.ts, tweetId))\n        self.ts += 1\n\n    def getNewsFeed(self, userId):\n        heap = []\n        candidates = [userId] + list(self.following[userId])\n        for uid in candidates:\n            lst = self.tweets[uid]\n            if lst:\n                idx = len(lst) - 1\n                neg_t, tid = lst[idx]\n                heapq.heappush(heap, (neg_t, tid, uid, idx))\n        result = []\n        while heap and len(result) < 10:\n            neg_t, tid, uid, idx = heapq.heappop(heap)\n            result.append(tid)\n            if idx > 0:\n                neg_t2, tid2 = self.tweets[uid][idx - 1]\n                heapq.heappush(heap, (neg_t2, tid2, uid, idx - 1))\n        return result\n\n    def follow(self, followerId, followeeId):\n        if followerId != followeeId:\n            self.following[followerId].add(followeeId)\n\n    def unfollow(self, followerId, followeeId):\n        self.following[followerId].discard(followeeId)\n",
+    "javascript": "class Twitter {\n    constructor() {\n        this.ts = 0;\n        this.tweets = new Map();\n        this.following = new Map();\n    }\n    postTweet(userId, tweetId) {\n        if (!this.tweets.has(userId)) this.tweets.set(userId, []);\n        this.tweets.get(userId).push([this.ts++, tweetId]);\n    }\n    getNewsFeed(userId) {\n        const candidates = [userId];\n        if (this.following.has(userId)) {\n            for (const f of this.following.get(userId)) candidates.push(f);\n        }\n        // collect all tweets from candidates, sort by ts desc, take 10\n        const all = [];\n        for (const uid of candidates) {\n            const lst = this.tweets.get(uid) || [];\n            for (const [t, tid] of lst) all.push([t, tid]);\n        }\n        all.sort((a, b) => b[0] - a[0]);\n        return all.slice(0, 10).map(x => x[1]);\n    }\n    follow(followerId, followeeId) {\n        if (followerId === followeeId) return;\n        if (!this.following.has(followerId)) this.following.set(followerId, new Set());\n        this.following.get(followerId).add(followeeId);\n    }\n    unfollow(followerId, followeeId) {\n        if (this.following.has(followerId)) this.following.get(followerId).delete(followeeId);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(k log k) per getNewsFeed where k is followee count; O(1) for other ops", "space": "O(total tweets + follows)" }
+}

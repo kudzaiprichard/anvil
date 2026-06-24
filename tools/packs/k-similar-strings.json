@@ -1,0 +1,38 @@
+{
+  "slug": "k-similar-strings",
+  "judge": "exact",
+  "pattern": "Treat each string as a graph state and breadth-first search over swaps, but only ever fix the first mismatched position by swapping in a character that belongs there, which keeps the branching small while guaranteeing the minimum swap count.",
+  "hints": [
+    "Each swap should make progress, so always target the leftmost position where the two strings still differ.",
+    "From a given arrangement, only consider swaps that place the correct character into that leftmost wrong spot; this prunes useless moves while preserving optimality.",
+    "Run a breadth-first search whose states are partially-corrected strings; the depth at which you first reach the target is the minimum number of swaps."
+  ],
+  "constraints": [
+    { "param": "s1", "kind": "string", "len": [1, 20] },
+    { "param": "s2", "kind": "string", "len": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single swap of two characters", "input": ["ab", "ba"] },
+    { "kind": "edge", "description": "cyclic rotation needs two swaps", "input": ["abc", "bca"] },
+    { "kind": "boundary", "description": "already equal needs zero swaps", "input": ["abcdef", "abcdef"] },
+    { "kind": "trap", "description": "two independent swaps, not a single chain", "input": ["abba", "baab"] },
+    { "kind": "edge", "description": "repeated letters allow a cheaper alignment", "input": ["aabbcc", "bbaacc"] },
+    { "kind": "trap", "description": "a long cycle costing length-minus-one swaps", "input": ["abcdef", "bcdefa"] },
+    { "kind": "edge", "description": "single character is trivially aligned", "input": ["a", "a"] }
+  ],
+  "stress": [
+    {
+      "description": "random anagram pairs over the six-letter alphabet; s2 is a shuffle of s1 so it is always a valid anagram",
+      "seed": 71,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 12))\n    alphabet = 'abcdef'\n    chars = [rng.choice(alphabet) for _ in range(n)]\n    s1 = ''.join(chars)\n    shuffled = chars[:]\n    rng.shuffle(shuffled)\n    s2 = ''.join(shuffled)\n    return [s1, s2]\n",
+      "note": "kept short because the BFS branches; s2 is a permutation of s1 by construction"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def kSimilarity(self, s1, s2):\n        # Brute BFS that considers every swap of the first mismatched index\n        # with any later index, exploring level by level.\n        from collections import deque\n        if s1 == s2:\n            return 0\n        start = s1\n        seen = {start}\n        q = deque([start])\n        k = 0\n        while q:\n            k += 1\n            for _ in range(len(q)):\n                cur = q.popleft()\n                i = 0\n                while cur[i] == s2[i]:\n                    i += 1\n                for j in range(i + 1, len(cur)):\n                    if cur[j] == s2[i] and cur[j] != s2[j]:\n                        nxt = list(cur)\n                        nxt[i], nxt[j] = nxt[j], nxt[i]\n                        nxt = ''.join(nxt)\n                        if nxt == s2:\n                            return k\n                        if nxt not in seen:\n                            seen.add(nxt)\n                            q.append(nxt)\n        return k\n",
+  "solutions": {
+    "python": "class Solution:\n    def kSimilarity(self, s1, s2):\n        from collections import deque\n        q = deque([(s1, 0)])\n        seen = {s1}\n        while q:\n            cur, swaps = q.popleft()\n            if cur == s2:\n                return swaps\n            i = 0\n            while cur[i] == s2[i]:\n                i += 1\n            for j in range(i + 1, len(cur)):\n                if cur[j] == s2[i] and cur[j] != s2[j]:\n                    lst = list(cur)\n                    lst[i], lst[j] = lst[j], lst[i]\n                    nxt = ''.join(lst)\n                    if nxt not in seen:\n                        seen.add(nxt)\n                        q.append((nxt, swaps + 1))\n        return 0\n",
+    "javascript": "var kSimilarity = function(s1, s2) {\n    const queue = [[s1, 0]];\n    const seen = new Set([s1]);\n    let head = 0;\n    while (head < queue.length) {\n        const [cur, swaps] = queue[head++];\n        if (cur === s2) return swaps;\n        let i = 0;\n        while (cur[i] === s2[i]) i++;\n        for (let j = i + 1; j < cur.length; j++) {\n            if (cur[j] === s2[i] && cur[j] !== s2[j]) {\n                const arr = cur.split('');\n                [arr[i], arr[j]] = [arr[j], arr[i]];\n                const nxt = arr.join('');\n                if (!seen.has(nxt)) {\n                    seen.add(nxt);\n                    queue.push([nxt, swaps + 1]);\n                }\n            }\n        }\n    }\n    return 0;\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * states)", "space": "O(states)" }
+}

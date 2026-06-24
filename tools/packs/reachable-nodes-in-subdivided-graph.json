@@ -1,0 +1,258 @@
+{
+  "slug": "reachable-nodes-in-subdivided-graph",
+  "judge": "exact",
+  "pattern": "Dijkstra from the origin node computes remaining move budget at each original node; the inserted nodes reachable along each edge are bounded by the budget at each endpoint, capped at the edge's inserted count.",
+  "hints": [
+    "Start by figuring out how many moves remain when you reach each original node — this is a shortest-path problem from node 0.",
+    "Once you know the remaining budget at each endpoint of an edge, the inserted nodes you can reach from the left end plus those from the right end together cover at most all inserted nodes on that edge.",
+    "Sum the original nodes whose shortest distance from 0 does not exceed maxMoves, then for every edge add min(dist[u], cnt) + min(dist[v], cnt) capped at cnt to count the reachable inserted nodes."
+  ],
+  "constraints": [
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        0,
+        10000
+      ],
+      "value": [
+        0,
+        9999
+      ]
+    },
+    {
+      "param": "maxMoves",
+      "kind": "int",
+      "value": [
+        0,
+        1000000000
+      ]
+    },
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        3000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "three-node graph where traversing subdivided edges from node 0 reaches thirteen total nodes",
+      "input": [
+        [
+          [
+            0,
+            1,
+            10
+          ],
+          [
+            0,
+            2,
+            1
+          ],
+          [
+            1,
+            2,
+            2
+          ]
+        ],
+        6,
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "four-node graph with enough budget to cover almost all inserted nodes",
+      "input": [
+        [
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            1,
+            2,
+            6
+          ],
+          [
+            0,
+            2,
+            8
+          ],
+          [
+            1,
+            3,
+            1
+          ]
+        ],
+        10,
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "node 0 is isolated so only it is reachable regardless of budget",
+      "input": [
+        [
+          [
+            1,
+            2,
+            4
+          ],
+          [
+            1,
+            4,
+            5
+          ],
+          [
+            1,
+            3,
+            1
+          ],
+          [
+            2,
+            3,
+            4
+          ],
+          [
+            3,
+            4,
+            5
+          ]
+        ],
+        17,
+        5
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node no edges only the start node is reachable",
+      "input": [
+        [],
+        0,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node with very large budget still just one node",
+      "input": [
+        [],
+        1000000000,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "zero moves means only node 0 itself is reachable",
+      "input": [
+        [
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            2,
+            3
+          ]
+        ],
+        0,
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "edges with zero inserted nodes each crossing costs exactly one move",
+      "input": [
+        [
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            1,
+            2,
+            0
+          ]
+        ],
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two paths to same destination shorter path allows more inserted-node coverage on the far edge",
+      "input": [
+        [
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            0,
+            2,
+            2
+          ],
+          [
+            1,
+            3,
+            1
+          ],
+          [
+            2,
+            3,
+            1
+          ]
+        ],
+        5,
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "budget exactly reaches an original node leaving zero spare for inserted nodes on adjacent edges",
+      "input": [
+        [
+          [
+            0,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            10
+          ]
+        ],
+        3,
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "sparse random graph with varying inserted-node counts and a moderate move budget",
+      "seed": 42,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 300))\n    seen = set()\n    edges = []\n    for v in range(1, min(n, 30)):\n        u = rng.randint(0, v - 1)\n        key = (min(u, v), max(u, v))\n        if key not in seen:\n            seen.add(key)\n            cnt = rng.randint(0, 50)\n            edges.append([u, v, cnt])\n    extra = rng.randint(0, min(20, n))\n    attempts = 0\n    while extra > 0 and attempts < extra * 10:\n        attempts += 1\n        u = rng.randint(0, n - 1)\n        v = rng.randint(0, n - 1)\n        if u == v:\n            continue\n        key = (min(u, v), max(u, v))\n        if key in seen:\n            continue\n        seen.add(key)\n        cnt = rng.randint(0, 100)\n        edges.append([u, v, cnt])\n        extra -= 1\n    maxMoves = rng.randint(0, 1000)\n    return [edges, maxMoves, n]\n",
+      "note": "random sparse graphs with various budgets to stress Dijkstra and the cap formula"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def reachableNodes(self, edges, maxMoves, n):\n        from collections import defaultdict\n        INF = float('inf')\n        adj = defaultdict(list)\n        for u, v, cnt in edges:\n            adj[u].append((v, cnt))\n            adj[v].append((u, cnt))\n        dist = [INF] * n\n        dist[0] = 0\n        for _ in range(n - 1):\n            changed = False\n            for u in range(n):\n                if dist[u] == INF:\n                    continue\n                for v, cnt in adj[u]:\n                    nd = dist[u] + cnt + 1\n                    if nd < dist[v]:\n                        dist[v] = nd\n                        changed = True\n            if not changed:\n                break\n        result = sum(1 for d in dist if d <= maxMoves)\n        for u, v, cnt in edges:\n            from_u = max(0, maxMoves - dist[u]) if dist[u] <= maxMoves else 0\n            from_v = max(0, maxMoves - dist[v]) if dist[v] <= maxMoves else 0\n            result += min(cnt, from_u + from_v)\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def reachableNodes(self, edges, maxMoves, n):\n        import heapq\n        from collections import defaultdict\n        adj = defaultdict(list)\n        for u, v, cnt in edges:\n            adj[u].append((v, cnt))\n            adj[v].append((u, cnt))\n        dist = [float('inf')] * n\n        dist[0] = 0\n        heap = [(0, 0)]\n        while heap:\n            d, u = heapq.heappop(heap)\n            if d > dist[u]:\n                continue\n            for v, cnt in adj[u]:\n                nd = d + cnt + 1\n                if nd < dist[v]:\n                    dist[v] = nd\n                    heapq.heappush(heap, (nd, v))\n        result = sum(1 for d in dist if d <= maxMoves)\n        for u, v, cnt in edges:\n            from_u = max(0, maxMoves - dist[u]) if dist[u] <= maxMoves else 0\n            from_v = max(0, maxMoves - dist[v]) if dist[v] <= maxMoves else 0\n            result += min(cnt, from_u + from_v)\n        return result\n",
+    "javascript": "var reachableNodes = function(edges, maxMoves, n) {\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v, cnt] of edges) {\n        adj[u].push([v, cnt]);\n        adj[v].push([u, cnt]);\n    }\n    const INF = Number.MAX_SAFE_INTEGER;\n    const dist = new Array(n).fill(INF);\n    dist[0] = 0;\n    const heap = [[0, 0]];\n    const push = (item) => {\n        heap.push(item);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p][0] <= heap[i][0]) break;\n            [heap[p], heap[i]] = [heap[i], heap[p]];\n            i = p;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                const l = 2 * i + 1, r = 2 * i + 2;\n                let s = i;\n                if (l < heap.length && heap[l][0] < heap[s][0]) s = l;\n                if (r < heap.length && heap[r][0] < heap[s][0]) s = r;\n                if (s === i) break;\n                [heap[s], heap[i]] = [heap[i], heap[s]];\n                i = s;\n            }\n        }\n        return top;\n    };\n    while (heap.length) {\n        const [d, u] = pop();\n        if (d > dist[u]) continue;\n        for (const [v, cnt] of adj[u]) {\n            const nd = d + cnt + 1;\n            if (nd < dist[v]) {\n                dist[v] = nd;\n                push([nd, v]);\n            }\n        }\n    }\n    let result = 0;\n    for (let i = 0; i < n; i++) if (dist[i] <= maxMoves) result++;\n    for (const [u, v, cnt] of edges) {\n        const fromU = dist[u] <= maxMoves ? Math.max(0, maxMoves - dist[u]) : 0;\n        const fromV = dist[v] <= maxMoves ? Math.max(0, maxMoves - dist[v]) : 0;\n        result += Math.min(cnt, fromU + fromV);\n    }\n    return result;\n};\n"
+  },
+  "complexity": {
+    "time": "O(E log V)",
+    "space": "O(V + E)"
+  }
+}

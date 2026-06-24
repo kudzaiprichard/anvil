@@ -1,0 +1,123 @@
+{
+  "slug": "print-binary-tree",
+  "judge": "exact",
+  "io_types": {
+    "params": [
+      "tree"
+    ],
+    "returns": "json"
+  },
+  "pattern": "The tree's height fixes the grid size, and placing each node at a column that halves the horizontal offset as depth increases lays the structure out symmetrically in a string matrix.",
+  "hints": [
+    "Before placing anything, you need the grid dimensions; the row count is the height plus one and the column count grows like a full tree of that height.",
+    "The root goes in the exact middle of the top row, and each child sits halfway between its parent's column and the edge of its half of the grid.",
+    "Recurse with the current row, the parent's column, and a shrinking offset; the left child uses column minus offset, the right child column plus offset, and the offset halves each level down."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        1,
+        1024
+      ],
+      "value": [
+        -99,
+        99
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two nodes, left child only",
+      "input": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "right grandchild present",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          null,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node fills a one-cell grid",
+      "input": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "negative values still occupy one cell each",
+      "input": [
+        [
+          -5,
+          -10,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "left-skewed chain widens the grid",
+      "input": [
+        [
+          1,
+          2,
+          null,
+          3,
+          null,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "perfect tree of height 2",
+      "input": [
+        [
+          5,
+          3,
+          8,
+          1,
+          4,
+          6,
+          9
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random tree of bounded depth serialized level-order",
+      "seed": 59,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    # bound the depth so the grid stays manageable (n up to 2^11-1)\n    max_depth = 8\n    class N:\n        __slots__ = ('v', 'l', 'r')\n        def __init__(self, v):\n            self.v = v; self.l = None; self.r = None\n    def build(depth):\n        if depth >= max_depth:\n            return None\n        if depth > 0 and rng.random() < 0.3:\n            return None\n        node = N(rng.randint(-99, 99))\n        node.l = build(depth + 1)\n        node.r = build(depth + 1)\n        return node\n    root = build(0)\n    if root is None:\n        root = N(rng.randint(-99, 99))\n    out = []\n    q = [root]\n    while q:\n        node = q.pop(0)\n        if node is None:\n            out.append(None)\n            continue\n        out.append(node.v)\n        q.append(node.l)\n        q.append(node.r)\n    while out and out[-1] is None:\n        out.pop()\n    return [out]\n",
+      "note": "bounded depth keeps the output matrix from blowing up"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def printTree(self, root):\n        def height(n):\n            if not n:\n                return -1\n            return 1 + max(height(n.left), height(n.right))\n        h = height(root)\n        m = h + 1\n        n = (1 << (h + 1)) - 1\n        res = [['' for _ in range(n)] for _ in range(m)]\n        nodes = [(root, 0, (n - 1) // 2)]\n        while nodes:\n            node, r, c = nodes.pop()\n            if node is None:\n                continue\n            res[r][c] = str(node.val)\n            gap = 1 << (h - r - 1) if h - r - 1 >= 0 else 0\n            if node.left:\n                nodes.append((node.left, r + 1, c - gap))\n            if node.right:\n                nodes.append((node.right, r + 1, c + gap))\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def printTree(self, root):\n        def height(n):\n            if not n:\n                return -1\n            return 1 + max(height(n.left), height(n.right))\n        h = height(root)\n        m = h + 1\n        n = (1 << (h + 1)) - 1\n        res = [['' for _ in range(n)] for _ in range(m)]\n        def place(node, r, c):\n            if not node:\n                return\n            res[r][c] = str(node.val)\n            offset = 1 << (h - r - 1) if h - r - 1 >= 0 else 0\n            place(node.left, r + 1, c - offset)\n            place(node.right, r + 1, c + offset)\n        place(root, 0, (n - 1) // 2)\n        return res\n",
+    "javascript": "var printTree = function(root) {\n    function height(n) {\n        if (!n) return -1;\n        return 1 + Math.max(height(n.left), height(n.right));\n    }\n    const h = height(root);\n    const m = h + 1;\n    const n = (1 << (h + 1)) - 1;\n    const res = [];\n    for (let i = 0; i < m; i++) {\n        res.push(new Array(n).fill(''));\n    }\n    function place(node, r, c) {\n        if (!node) return;\n        res[r][c] = String(node.val);\n        const offset = (h - r - 1) >= 0 ? (1 << (h - r - 1)) : 0;\n        place(node.left, r + 1, c - offset);\n        place(node.right, r + 1, c + offset);\n    }\n    place(root, 0, (n - 1) >> 1);\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(2^h)"
+  },
+  "no_anchor_ok": true
+}

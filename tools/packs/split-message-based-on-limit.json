@@ -1,0 +1,37 @@
+{
+  "slug": "split-message-based-on-limit",
+  "judge": "exact",
+  "pattern": "The total part count is found by searching for the smallest number of parts whose suffix overhead still leaves room for the whole message, then the parts are filled greedily under that fixed count.",
+  "hints": [
+    "The suffix length depends on the total number of parts, which is the very thing you are choosing, so test candidate counts.",
+    "For a fixed candidate count b, each part loses characters to its '<a/b>' suffix; sum the available content capacity across all b parts and check it covers the message length.",
+    "Increase b until the available capacity first reaches the message length (and each part can hold at least one content char), then slice the message into those parts attaching the correct suffixes; if no b works return an empty list."
+  ],
+  "constraints": [
+    { "param": "message", "kind": "str", "len": [1, 10000] },
+    { "param": "limit", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "many small parts of equal length", "input": ["this is really a very awesome message", 9] },
+    { "kind": "edge", "description": "two parts, last one shorter", "input": ["short message", 15] },
+    { "kind": "trap", "description": "limit too small for any suffix to fit, impossible", "input": ["abcde", 3] },
+    { "kind": "boundary", "description": "single character message", "input": ["a", 10] },
+    { "kind": "trap", "description": "crossing the digit-count boundary at part ten", "input": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaa", 6] },
+    { "kind": "edge", "description": "fits comfortably in one part", "input": ["hello world", 100] }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase-and-space messages with varied limits",
+      "seed": 80,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    alphabet = 'abcdefghijklmnopqrstuvwxyz '\n    msg = ''.join(rng.choice(alphabet) for _ in range(n))\n    limit = rng.randint(1, 40)\n    return [msg, limit]\n",
+      "note": "small limits frequently produce the impossible (empty) case"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def splitMessage(self, message, limit):\n        L = len(message)\n        for b in range(1, L + 1):\n            bdigits = len(str(b))\n            total_content = 0\n            ok = True\n            for a in range(1, b + 1):\n                suffix = len(str(a)) + bdigits + 3\n                content = limit - suffix\n                if content <= 0:\n                    ok = False\n                    break\n                total_content += content\n            if not ok:\n                continue\n            if total_content >= L:\n                res = []\n                pos = 0\n                for a in range(1, b + 1):\n                    suffix = '<' + str(a) + '/' + str(b) + '>'\n                    take = limit - len(suffix)\n                    chunk = message[pos:pos + take]\n                    res.append(chunk + suffix)\n                    pos += len(chunk)\n                    if pos >= L:\n                        break\n                if pos >= L:\n                    return res\n        return []\n",
+  "solutions": {
+    "python": "class Solution:\n    def splitMessage(self, message, limit):\n        n = len(message)\n        a = 1\n        b = 1\n        cap = 0\n        while True:\n            suffix_len = len(str(a)) + len(str(b)) + 3\n            avail = limit - suffix_len\n            if avail <= 0:\n                b += 1\n                if b > n:\n                    return []\n                a = 1\n                cap = 0\n                continue\n            cap += avail\n            if a == b:\n                if cap >= n:\n                    break\n                b += 1\n                if b > n:\n                    return []\n                a = 1\n                cap = 0\n            else:\n                a += 1\n        res = []\n        pos = 0\n        for i in range(1, b + 1):\n            suffix = '<%d/%d>' % (i, b)\n            take = limit - len(suffix)\n            chunk = message[pos:pos + take]\n            res.append(chunk + suffix)\n            pos += len(chunk)\n        return res\n",
+    "javascript": "var splitMessage = function(message, limit) {\n    const n = message.length;\n    let chosen = -1;\n    for (let b = 1; b <= n; b++) {\n        const bd = String(b).length;\n        let cap = 0;\n        let ok = true;\n        for (let a = 1; a <= b; a++) {\n            const suffix = String(a).length + bd + 3;\n            const avail = limit - suffix;\n            if (avail <= 0) { ok = false; break; }\n            cap += avail;\n        }\n        if (!ok) continue;\n        if (cap >= n) { chosen = b; break; }\n    }\n    if (chosen === -1) return [];\n    const res = [];\n    let pos = 0;\n    for (let i = 1; i <= chosen; i++) {\n        const suffix = '<' + i + '/' + chosen + '>';\n        const take = limit - suffix.length;\n        const chunk = message.slice(pos, pos + take);\n        res.push(chunk + suffix);\n        pos += chunk.length;\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,41 @@
+{
+  "slug": "find-duplicate-file-in-system",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    paths = args[0]\n    content_to_files = {}\n    for entry in paths:\n        parts = entry.split(' ')\n        directory = parts[0]\n        for f in parts[1:]:\n            name = f[:f.index('(')]\n            content = f[f.index('(') + 1:f.index(')')]\n            full = directory + '/' + name\n            content_to_files.setdefault(content, []).append(full)\n    expected = set()\n    for content, files in content_to_files.items():\n        if len(files) >= 2:\n            expected.add(frozenset(files))\n    seen = set()\n    for group in output:\n        if len(group) < 2:\n            return False\n        fs = frozenset(group)\n        if len(fs) != len(group):\n            return False\n        if fs in seen:\n            return False\n        seen.add(fs)\n        if fs not in expected:\n            return False\n    return seen == expected\n",
+    "validator_javascript": "function validate(args, output) {\n    const paths = args[0];\n    const contentToFiles = {};\n    for (const entry of paths) {\n        const parts = entry.split(' ');\n        const directory = parts[0];\n        for (let i = 1; i < parts.length; i++) {\n            const f = parts[i];\n            const op = f.indexOf('(');\n            const cp = f.indexOf(')');\n            const name = f.slice(0, op);\n            const content = f.slice(op + 1, cp);\n            const full = directory + '/' + name;\n            (contentToFiles[content] = contentToFiles[content] || []).push(full);\n        }\n    }\n    const expected = new Set();\n    const norm = (arr) => arr.slice().sort().join('\\u0001');\n    for (const content in contentToFiles) {\n        const files = contentToFiles[content];\n        if (files.length >= 2) expected.add(norm(files));\n    }\n    const seen = new Set();\n    for (const group of output) {\n        if (group.length < 2) return false;\n        const uniq = new Set(group);\n        if (uniq.size !== group.length) return false;\n        const key = norm(group);\n        if (seen.has(key)) return false;\n        if (!expected.has(key)) return false;\n        seen.add(key);\n    }\n    if (seen.size !== expected.size) return false;\n    for (const e of expected) if (!seen.has(e)) return false;\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Grouping files by their content string after parsing each directory entry, then keeping only the content buckets holding two or more files, reveals every duplicate group.",
+  "hints": [
+    "Each directory line names a folder followed by files written as name and parenthesized content.",
+    "Build the full path for every file and group those paths by their content string.",
+    "Any content shared by two or more files forms a duplicate group; discard buckets with a single file."
+  ],
+  "constraints": [
+    { "param": "paths", "kind": "string[]", "len": [1, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two duplicate groups across nested directories", "input": [["root/a 1.txt(abcd) 2.txt(efgh)", "root/c 3.txt(abcd)", "root/c/d 4.txt(efgh)", "root 4.txt(efgh)"]] },
+    { "kind": "edge", "description": "duplicates without a root-level file", "input": [["root/a 1.txt(abcd) 2.txt(efgh)", "root/c 3.txt(abcd)", "root/c/d 4.txt(efgh)"]] },
+    { "kind": "boundary", "description": "single file no duplicates", "input": [["root x.txt(only)"]] },
+    { "kind": "trap", "description": "same name different directories same content", "input": [["a f.txt(z)", "b f.txt(z)"]] },
+    { "kind": "trap", "description": "same content three copies one group", "input": [["d1 a.txt(k)", "d2 b.txt(k)", "d3 c.txt(k)"]] },
+    { "kind": "edge", "description": "all distinct contents", "input": [["r p.txt(one) q.txt(two) s.txt(three)"]] },
+    { "kind": "edge", "description": "root directory with no subfolders", "input": [["root a.txt(c1) b.txt(c1)"]] }
+  ],
+  "stress": [
+    {
+      "description": "random directories and files drawing content from a small pool to force duplicate groups",
+      "seed": 41,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 40))\n    contents = ['c%d' % i for i in range(5)]\n    paths = []\n    name_counter = 0\n    for d in range(n):\n        directory = 'root/dir%d' % d\n        nfiles = rng.randint(1, 3)\n        files = []\n        for _ in range(nfiles):\n            name = 'f%d.txt' % name_counter\n            name_counter += 1\n            content = rng.choice(contents)\n            files.append('%s(%s)' % (name, content))\n        paths.append(directory + ' ' + ' '.join(files))\n    return [paths]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findDuplicate(self, paths):\n        groups = {}\n        for entry in paths:\n            parts = entry.split(' ')\n            directory = parts[0]\n            for f in parts[1:]:\n                op = f.index('(')\n                cp = f.index(')')\n                name = f[:op]\n                content = f[op + 1:cp]\n                full = directory + '/' + name\n                groups.setdefault(content, []).append(full)\n        result = []\n        for content in sorted(groups):\n            files = groups[content]\n            if len(files) >= 2:\n                result.append(sorted(files))\n        result.sort()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def findDuplicate(self, paths):\n        from collections import defaultdict\n        buckets = defaultdict(list)\n        for entry in paths:\n            parts = entry.split(' ')\n            directory = parts[0]\n            for f in parts[1:]:\n                op = f.index('(')\n                cp = f.index(')')\n                name = f[:op]\n                content = f[op + 1:cp]\n                buckets[content].append(directory + '/' + name)\n        result = []\n        for content in sorted(buckets):\n            files = buckets[content]\n            if len(files) >= 2:\n                result.append(sorted(files))\n        result.sort()\n        return result\n",
+    "javascript": "var findDuplicate = function(paths) {\n    const buckets = {};\n    for (const entry of paths) {\n        const parts = entry.split(' ');\n        const directory = parts[0];\n        for (let i = 1; i < parts.length; i++) {\n            const f = parts[i];\n            const op = f.indexOf('(');\n            const cp = f.indexOf(')');\n            const name = f.slice(0, op);\n            const content = f.slice(op + 1, cp);\n            (buckets[content] = buckets[content] || []).push(directory + '/' + name);\n        }\n    }\n    const cmp = (a, b) => {\n        const n = Math.min(a.length, b.length);\n        for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;\n        return a.length - b.length;\n    };\n    const result = [];\n    for (const content of Object.keys(buckets).sort()) {\n        const files = buckets[content];\n        if (files.length >= 2) result.push(files.slice().sort());\n    }\n    result.sort(cmp);\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(total characters)", "space": "O(total characters)" }
+}

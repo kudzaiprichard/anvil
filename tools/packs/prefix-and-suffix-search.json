@@ -1,0 +1,39 @@
+{
+  "slug": "prefix-and-suffix-search",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Index every word by all of its (suffix, prefix) joined keys at construction time so a prefix-plus-suffix query becomes one dictionary lookup that returns the largest matching index.",
+  "hints": [
+    "A query pairs a prefix with a suffix; precomputing answers at build time turns each query into a fast lookup.",
+    "For each word, enumerate every suffix and every prefix and store a combined key (suffix marker prefix) mapped to that word's index.",
+    "Because later words should win ties, overwrite the stored index as you process words in order; a query then builds the same combined key and reads the stored index, or -1 if absent."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 10000] },
+    { "param": "pref", "kind": "string", "len": [1, 7] },
+    { "param": "suff", "kind": "string", "len": [1, 7] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single word matched by its prefix and suffix", "input": [["WordFilter", "f"], [[["apple"]], ["a", "e"]]] },
+    { "kind": "trap", "description": "later duplicate word wins the larger index", "input": [["WordFilter", "f", "f"], [[["abc", "abc"]], ["a", "c"], ["ab", "bc"]]] },
+    { "kind": "trap", "description": "no word has both the prefix and suffix", "input": [["WordFilter", "f"], [[["apple", "banana"]], ["a", "a"]]] },
+    { "kind": "edge", "description": "full-word prefix and suffix match", "input": [["WordFilter", "f"], [[["cat", "dog"]], ["dog", "dog"]]] },
+    { "kind": "trap", "description": "prefix matches but suffix does not", "input": [["WordFilter", "f"], [[["test"]], ["te", "xt"]]] },
+    { "kind": "edge", "description": "multiple queries against the same dictionary", "input": [["WordFilter", "f", "f", "f"], [[["aba", "aab", "baa"]], ["a", "a"], ["b", "a"], ["a", "b"]]] }
+  ],
+  "stress": [
+    {
+      "description": "many short words then random prefix/suffix queries",
+      "seed": 61,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    letters = 'abc'\n    nwords = rng.randint(1, min(size, 60))\n    words = [''.join(rng.choice(letters) for _ in range(rng.randint(1, 7))) for _ in range(nwords)]\n    ops = ['WordFilter']\n    args = [[words]]\n    nq = rng.randint(1, min(size, 60))\n    for _ in range(nq):\n        w = rng.choice(words)\n        pref = w[:rng.randint(1, len(w))]\n        suff = w[len(w) - rng.randint(1, len(w)):]\n        ops.append('f')\n        args.append([pref, suff])\n    return [ops, args]\n",
+      "note": "queries drawn from real words so matches are common; later-index tie-break exercised"
+    }
+  ],
+  "oracle_python": "class WordFilter:\n    def __init__(self, words):\n        self.words = list(words)\n    def f(self, pref, suff):\n        best = -1\n        for i, w in enumerate(self.words):\n            if w.startswith(pref) and w.endswith(suff):\n                best = i\n        return best\n",
+  "solutions": {
+    "python": "class WordFilter:\n    def __init__(self, words):\n        self.lookup = {}\n        for idx, w in enumerate(words):\n            n = len(w)\n            for i in range(n + 1):\n                suffix = w[i:]\n                for j in range(1, n + 1):\n                    prefix = w[:j]\n                    self.lookup[suffix + '#' + prefix] = idx\n    def f(self, pref, suff):\n        return self.lookup.get(suff + '#' + pref, -1)\n",
+    "javascript": "var WordFilter = function(words) {\n    this.lookup = new Map();\n    for (let idx = 0; idx < words.length; idx++) {\n        const w = words[idx];\n        const n = w.length;\n        for (let i = 0; i <= n; i++) {\n            const suffix = w.slice(i);\n            for (let j = 1; j <= n; j++) {\n                const prefix = w.slice(0, j);\n                this.lookup.set(suffix + '#' + prefix, idx);\n            }\n        }\n    }\n};\nWordFilter.prototype.f = function(pref, suff) {\n    const key = suff + '#' + pref;\n    return this.lookup.has(key) ? this.lookup.get(key) : -1;\n};\n"
+  },
+  "complexity": { "time": "O(N L^2) build, O(1) query", "space": "O(N L^2)" }
+}

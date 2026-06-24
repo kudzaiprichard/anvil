@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-operations-to-equalize-binary-string",
+  "judge": "exact",
+  "pattern": "Only the count of zeros matters, and one operation moves that count to z-2i+k for some legal split, so the answer is a shortest path over zero-counts.",
+  "hints": [
+    "The exact positions are irrelevant by symmetry; track only how many zeros remain.",
+    "Flipping i zeros and k-i ones changes the zero count to z minus 2i plus k, subject to availability bounds.",
+    "Run a breadth-first search over possible zero-counts from the start count down to zero."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single zero flipped directly", "input": ["110", 1] },
+    { "kind": "edge", "description": "two operations with k three", "input": ["0101", 3] },
+    { "kind": "edge", "description": "impossible parity", "input": ["101", 2] },
+    { "kind": "edge", "description": "already all ones", "input": ["1111", 2] },
+    { "kind": "boundary", "description": "all zeros k equals length", "input": ["0000", 4] },
+    { "kind": "trap", "description": "k larger than zero count needs detour", "input": ["10", 2] },
+    { "kind": "trap", "description": "all ones but k forces flips back", "input": ["11", 2] },
+    { "kind": "trap", "description": "mixed requiring multiple rounds", "input": ["001100", 2] }
+  ],
+  "stress": [
+    {
+      "description": "small binary strings so the exhaustive oracle stays fast",
+      "seed": 81,
+      "size": 11,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 11)))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    k = rng.randint(1, n)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\nfrom itertools import combinations\nclass Solution:\n    def minOperations(self, s, k):\n        n = len(s)\n        start = 0\n        for i, c in enumerate(s):\n            if c == '0':\n                start |= (1 << i)\n        if start == 0:\n            return 0\n        dist = {start: 0}\n        dq = deque([start])\n        idx = list(range(n))\n        while dq:\n            cur = dq.popleft()\n            if cur == 0:\n                return dist[cur]\n            for combo in combinations(idx, k):\n                nxt = cur\n                for b in combo:\n                    nxt ^= (1 << b)\n                if nxt not in dist:\n                    dist[nxt] = dist[cur] + 1\n                    dq.append(nxt)\n        return -1\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def minOperations(self, s, k):\n        n = len(s)\n        z = s.count('0')\n        if z == 0:\n            return 0\n        dist = [-1] * (n + 1)\n        dist[z] = 0\n        dq = deque([z])\n        while dq:\n            cur = dq.popleft()\n            if cur == 0:\n                return dist[0]\n            top = min(cur, k)\n            for i in range(top + 1):\n                if 0 <= k - i <= n - cur:\n                    nz = cur - 2 * i + k\n                    if 0 <= nz <= n and dist[nz] == -1:\n                        dist[nz] = dist[cur] + 1\n                        dq.append(nz)\n        return dist[0]\n",
+    "javascript": "var minOperations = function(s, k) {\n    const n = s.length;\n    let z = 0;\n    for (const c of s) if (c === '0') z++;\n    if (z === 0) return 0;\n    const dist = new Array(n + 1).fill(-1);\n    dist[z] = 0;\n    const dq = [z];\n    let head = 0;\n    while (head < dq.length) {\n        const cur = dq[head++];\n        if (cur === 0) return dist[0];\n        const top = Math.min(cur, k);\n        for (let i = 0; i <= top; i++) {\n            if (k - i >= 0 && k - i <= n - cur) {\n                const nz = cur - 2 * i + k;\n                if (nz >= 0 && nz <= n && dist[nz] === -1) {\n                    dist[nz] = dist[cur] + 1;\n                    dq.push(nz);\n                }\n            }\n        }\n    }\n    return dist[0];\n};\n"
+  },
+  "complexity": { "time": "O(n * k)", "space": "O(n)" }
+}

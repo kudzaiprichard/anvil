@@ -1,0 +1,37 @@
+{
+  "slug": "binary-tree-maximum-path-sum",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "A best path bends at its highest node; track the best single-sided gain each subtree can hand upward while separately recording the best full bend seen anywhere.",
+  "hints": [
+    "A path may start and end anywhere, so the optimum can live entirely inside a subtree and never touch the root.",
+    "From any node, what you can pass to your parent is the node's value plus the larger of its two child gains (and never a negative gain — drop it to zero).",
+    "While computing that upward gain, also consider the path that bends at this node (value + max(0,left) + max(0,right)) as a candidate for the global answer."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 30000], "value": [-1000, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "bend at the root through both children", "input": [[1, 2, 3]] },
+    { "kind": "trap", "description": "negative root is skipped; best path bends below it", "input": [[-10, 9, 20, null, null, 15, 7]] },
+    { "kind": "boundary", "description": "single node, the answer is that value", "input": [[5]] },
+    { "kind": "trap", "description": "single negative node — must still pick it, can't pick empty", "input": [[-3]] },
+    { "kind": "trap", "description": "all negatives — answer is the least-bad single node", "input": [[-2, -1]] },
+    { "kind": "edge", "description": "long positive chain, straight path wins", "input": [[2, 1, null, 4, null, 8]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree mixing positives and negatives",
+      "seed": 29,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    arr = [rng.randint(-30, 30)]\n    for _ in range(n - 1):\n        arr.append(rng.randint(-30, 30) if rng.random() < 0.8 else None)\n    return [arr]\n",
+      "note": "negatives exercise the drop-to-zero pruning"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPathSum(self, root):\n        # Brute force: enumerate every node as the bend point and, for each,\n        # find the best downward path on each side by full subtree search.\n        nodes = []\n        def collect(node):\n            if node is None:\n                return\n            nodes.append(node)\n            collect(node.left)\n            collect(node.right)\n        collect(root)\n        def best_down(node):\n            if node is None:\n                return 0\n            return node.val + max(0, best_down(node.left), best_down(node.right))\n        best = None\n        for node in nodes:\n            l = max(0, best_down(node.left))\n            r = max(0, best_down(node.right))\n            cand = node.val + l + r\n            best = cand if best is None else max(best, cand)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPathSum(self, root):\n        self.best = float('-inf')\n        def gain(node):\n            if node is None:\n                return 0\n            left = max(0, gain(node.left))\n            right = max(0, gain(node.right))\n            self.best = max(self.best, node.val + left + right)\n            return node.val + max(left, right)\n        gain(root)\n        return self.best\n",
+    "javascript": "var maxPathSum = function(root) {\n    let best = -Infinity;\n    function gain(node) {\n        if (!node) return 0;\n        const left = Math.max(0, gain(node.left));\n        const right = Math.max(0, gain(node.right));\n        best = Math.max(best, node.val + left + right);\n        return node.val + Math.max(left, right);\n    }\n    gain(root);\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

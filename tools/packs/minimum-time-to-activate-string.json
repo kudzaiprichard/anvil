@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-time-to-activate-string",
+  "judge": "exact",
+  "pattern": "Counting substrings that contain a star is easier as the total minus the star-free runs, and that count only grows with time, so binary search the activation moment.",
+  "hints": [
+    "Substrings with at least one star equal all substrings minus those lying entirely inside a star-free gap.",
+    "Each maximal run of unstarred characters of length L hides L*(L+1)/2 substrings.",
+    "The valid count never decreases as stars are added, so binary search the earliest time it reaches k."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 100000] },
+    { "param": "order", "kind": "int[]", "len": [1, 100000], "value": [0, 99999] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "active immediately", "input": ["abc", [1, 0, 2], 2] },
+    { "kind": "edge", "description": "needs all stars", "input": ["cat", [0, 2, 1], 6] },
+    { "kind": "edge", "description": "impossible threshold", "input": ["xy", [0, 1], 4] },
+    { "kind": "boundary", "description": "single char k one", "input": ["z", [0], 1] },
+    { "kind": "boundary", "description": "single char k two impossible", "input": ["z", [0], 2] },
+    { "kind": "trap", "description": "middle star splits gaps", "input": ["abcde", [2, 0, 4, 1, 3], 7] },
+    { "kind": "trap", "description": "exactly reaches k at last step", "input": ["aaaa", [0, 1, 2, 3], 10] }
+  ],
+  "stress": [
+    {
+      "description": "random permutations and thresholds",
+      "seed": 71,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    import string\n    s = ''.join(rng.choice(string.ascii_lowercase) for _ in range(n))\n    order = list(range(n))\n    rng.shuffle(order)\n    total = n * (n + 1) // 2\n    k = rng.randint(1, total + 2)\n    return [s, order, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minTime(self, s, order, k):\n        n = len(s)\n        for t in range(n):\n            star = [False] * n\n            for i in range(t + 1):\n                star[order[i]] = True\n            valid = 0\n            for i in range(n):\n                has = False\n                for j in range(i, n):\n                    if star[j]:\n                        has = True\n                    if has:\n                        valid += 1\n            if valid >= k:\n                return t\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minTime(self, s, order, k):\n        n = len(s)\n        total = n * (n + 1) // 2\n        def valid(t):\n            star = [False] * n\n            for i in range(t + 1):\n                star[order[i]] = True\n            gap = 0\n            blocked = 0\n            for i in range(n):\n                if star[i]:\n                    blocked += gap * (gap + 1) // 2\n                    gap = 0\n                else:\n                    gap += 1\n            blocked += gap * (gap + 1) // 2\n            return total - blocked\n        if valid(n - 1) < k:\n            return -1\n        lo, hi, ans = 0, n - 1, n - 1\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if valid(mid) >= k:\n                ans = mid\n                hi = mid - 1\n            else:\n                lo = mid + 1\n        return ans\n",
+    "javascript": "var minTime = function(s, order, k) {\n    const n = s.length;\n    const total = n * (n + 1) / 2;\n    const valid = (t) => {\n        const star = new Array(n).fill(false);\n        for (let i = 0; i <= t; i++) star[order[i]] = true;\n        let gap = 0, blocked = 0;\n        for (let i = 0; i < n; i++) {\n            if (star[i]) { blocked += gap * (gap + 1) / 2; gap = 0; }\n            else gap++;\n        }\n        blocked += gap * (gap + 1) / 2;\n        return total - blocked;\n    };\n    if (valid(n - 1) < k) return -1;\n    let lo = 0, hi = n - 1, ans = n - 1;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (valid(mid) >= k) { ans = mid; hi = mid - 1; }\n        else lo = mid + 1;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

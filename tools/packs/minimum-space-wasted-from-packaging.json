@@ -1,0 +1,45 @@
+{
+  "slug": "minimum-space-wasted-from-packaging",
+  "judge": "exact",
+  "pattern": "Sort packages once; for each supplier sort its boxes and, per box size, binary-search how many remaining packages fit, charging boxsize times that count and subtracting the prefix sum of those package sizes to get waste.",
+  "hints": [
+    "Each supplier is independent, so compute the total waste under each and take the minimum, returning -1 if even a supplier's largest box cannot hold the biggest package.",
+    "With packages sorted, a box of size b serves a contiguous prefix of yet-unserved packages whose end you find by binary search.",
+    "Total used capacity for a supplier is sum over its sorted boxes of b times (count of newly covered packages); waste is that minus the sum of all package sizes, taken modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "packages", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "boxes", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two suppliers, first is optimal", "input": [[2,3,5], [[4,8],[2,8]]] },
+    { "kind": "trap", "description": "package too large for every supplier returns -1", "input": [[2,3,5], [[1,4],[2,3],[3,4]]] },
+    { "kind": "edge", "description": "third supplier minimizes waste", "input": [[3,5,8,10,11,12], [[12],[11,9],[10,5,14]]] },
+    { "kind": "boundary", "description": "single package single box exact fit zero waste", "input": [[5], [[5]]] },
+    { "kind": "trap", "description": "box smaller than package, single supplier impossible", "input": [[10], [[9]]] },
+    { "kind": "edge", "description": "all packages equal, one box size covers them", "input": [[4,4,4], [[4],[10]]] },
+    { "kind": "trap", "description": "unsorted boxes within a supplier", "input": [[1,2,3], [[5,1,3]]] }
+  ],
+  "stress": [
+    {
+      "description": "many packages and several suppliers with random box sets",
+      "seed": 61,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 400)\n    packages = [rng.randint(1, 1000) for _ in range(n)]\n    m = rng.randint(1, 8)\n    boxes = []\n    for _ in range(m):\n        cnt = rng.randint(1, 30)\n        sizes = set()\n        while len(sizes) < cnt:\n            sizes.add(rng.randint(1, 1000))\n        boxes.append(sorted(sizes))\n    return [packages, boxes]\n",
+      "note": "mix of feasible and infeasible suppliers"
+    },
+    {
+      "description": "guarantee at least one feasible supplier by including a large box",
+      "seed": 62,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 400)\n    packages = [rng.randint(1, 1000) for _ in range(n)]\n    mx = max(packages)\n    m = rng.randint(1, 6)\n    boxes = []\n    for _ in range(m):\n        cnt = rng.randint(1, 20)\n        sizes = set([rng.randint(mx, 1000)])\n        while len(sizes) < cnt:\n            sizes.add(rng.randint(1, 1000))\n        boxes.append(sorted(sizes))\n    return [packages, boxes]\n",
+      "note": "feasible cases produce real waste values"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minWastedSpace(self, packages, boxes):\n        # Independent: sort packages, prefix sums; for each supplier and box, linear/bisect partition.\n        import bisect\n        MOD = 10 ** 9 + 7\n        packages = sorted(packages)\n        n = len(packages)\n        pre = [0] * (n + 1)\n        for i in range(n):\n            pre[i + 1] = pre[i] + packages[i]\n        total = pre[n]\n        best = None\n        for supplier in boxes:\n            bs = sorted(supplier)\n            if bs[-1] < packages[-1]:\n                continue\n            used = 0\n            idx = 0\n            for b in bs:\n                hi = bisect.bisect_right(packages, b, idx)\n                cnt = hi - idx\n                used += b * cnt\n                idx = hi\n                if idx == n:\n                    break\n            waste = used - total\n            if best is None or waste < best:\n                best = waste\n        if best is None:\n            return -1\n        return best % MOD\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def minWastedSpace(self, packages, boxes):\n        MOD = 10 ** 9 + 7\n        packages.sort()\n        n = len(packages)\n        pre = [0] * (n + 1)\n        for i in range(n):\n            pre[i + 1] = pre[i] + packages[i]\n        total = pre[n]\n        best = float('inf')\n        for supplier in boxes:\n            bs = sorted(supplier)\n            if bs[-1] < packages[-1]:\n                continue\n            used = 0\n            prev = 0\n            for b in bs:\n                hi = bisect.bisect_right(packages, b)\n                used += b * (hi - prev) - (pre[hi] - pre[prev])\n                prev = hi\n                if prev == n:\n                    break\n            if used < best:\n                best = used\n        if best == float('inf'):\n            return -1\n        return best % MOD\n",
+    "javascript": "var minWastedSpace = function(packages, boxes) {\n    const MOD = 1000000007n;\n    packages.sort((a, b) => a - b);\n    const n = packages.length;\n    const pre = new Array(n + 1).fill(0n);\n    for (let i = 0; i < n; i++) pre[i + 1] = pre[i] + BigInt(packages[i]);\n    const maxPkg = packages[n - 1];\n    const upperBound = (x) => {\n        let lo = 0, hi = n;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (packages[mid] <= x) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    };\n    let best = null;\n    for (const supplier of boxes) {\n        const bs = supplier.slice().sort((a, b) => a - b);\n        if (bs[bs.length - 1] < maxPkg) continue;\n        let used = 0n;\n        let prev = 0;\n        for (const b of bs) {\n            const hi = upperBound(b);\n            used += BigInt(b) * BigInt(hi - prev) - (pre[hi] - pre[prev]);\n            prev = hi;\n            if (prev === n) break;\n        }\n        if (best === null || used < best) best = used;\n    }\n    if (best === null) return -1;\n    return Number(((best % MOD) + MOD) % MOD);\n};\n"
+  },
+  "complexity": { "time": "O((n + sum boxes) log n)", "space": "O(n)" }
+}

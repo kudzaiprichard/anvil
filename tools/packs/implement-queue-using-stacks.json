@@ -1,0 +1,39 @@
+{
+  "slug": "implement-queue-using-stacks",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Two stacks emulate a FIFO queue: an inbox stack receives pushes, and only when the outbox is empty is the inbox poured into it, reversing the order so the oldest element ends up on top for amortized O(1) dequeues.",
+  "hints": [
+    "A stack returns the newest element, but a queue must return the oldest, so reversing the order exactly once is the key idea.",
+    "Keep two stacks: push always goes onto the first; transfer happens lazily toward a second stack that holds elements in front-to-back order.",
+    "When you need to peek or pop and the outbox stack is empty, move every element from the inbox into the outbox, then read or remove from the outbox's top."
+  ],
+  "constraints": [
+    { "param": "x", "kind": "int", "value": [1, 9] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "push two then peek, pop, and check emptiness",
+      "input": [["MyQueue", "push", "push", "peek", "pop", "empty"], [[], [1], [2], [], [], []]] },
+    { "kind": "boundary", "description": "single push leaves a non-empty queue whose peek and pop agree",
+      "input": [["MyQueue", "push", "peek", "pop", "empty"], [[], [5], [], [], []]] },
+    { "kind": "trap", "description": "pushing more after a partial drain must still dequeue in FIFO order",
+      "input": [["MyQueue", "push", "push", "pop", "push", "peek", "pop", "pop", "empty"], [[], [1], [2], [], [3], [], [], [], []]] },
+    { "kind": "trap", "description": "draining to empty then pushing again restarts the queue correctly",
+      "input": [["MyQueue", "push", "pop", "empty", "push", "push", "peek", "empty"], [[], [7], [], [], [4], [6], [], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized push/pop/peek/empty sequence, querying only when non-empty",
+      "seed": 41,
+      "size": 90,
+      "generator_python": "def gen(rng, size):\n    ops = ['MyQueue']\n    args = [[]]\n    depth = 0\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if depth > 0 and r < 0.4:\n            ops.append('pop'); args.append([]); depth -= 1\n        elif depth > 0 and r < 0.6:\n            ops.append(rng.choice(['peek', 'empty'])); args.append([])\n        else:\n            ops.append('push'); args.append([rng.randint(1, 9)]); depth += 1\n    ops.append('empty'); args.append([])\n    return [ops, args]\n",
+      "note": "peek/pop only issued when the queue is non-empty; at most ~90 ops per constraints"
+    }
+  ],
+  "oracle_python": "from collections import deque\n\n\nclass MyQueue:\n    def __init__(self):\n        self.data = deque()\n    def push(self, x):\n        self.data.append(x)\n    def pop(self):\n        return self.data.popleft()\n    def peek(self):\n        return self.data[0]\n    def empty(self):\n        return len(self.data) == 0\n",
+  "solutions": {
+    "python": "class MyQueue:\n    def __init__(self):\n        self.inbox = []\n        self.outbox = []\n    def push(self, x):\n        self.inbox.append(x)\n    def _shift(self):\n        if not self.outbox:\n            while self.inbox:\n                self.outbox.append(self.inbox.pop())\n    def pop(self):\n        self._shift()\n        return self.outbox.pop()\n    def peek(self):\n        self._shift()\n        return self.outbox[-1]\n    def empty(self):\n        return not self.inbox and not self.outbox\n",
+    "javascript": "class MyQueue {\n    constructor() {\n        this.inbox = [];\n        this.outbox = [];\n    }\n    push(x) {\n        this.inbox.push(x);\n    }\n    _shift() {\n        if (this.outbox.length === 0) {\n            while (this.inbox.length) this.outbox.push(this.inbox.pop());\n        }\n    }\n    pop() {\n        this._shift();\n        return this.outbox.pop();\n    }\n    peek() {\n        this._shift();\n        return this.outbox[this.outbox.length - 1];\n    }\n    empty() {\n        return this.inbox.length === 0 && this.outbox.length === 0;\n    }\n}\n"
+  },
+  "complexity": { "time": "amortized O(1) per op", "space": "O(n)" }
+}

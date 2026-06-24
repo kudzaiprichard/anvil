@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-deletions-to-make-string-k-special",
+  "judge": "exact",
+  "pattern": "Sort character frequencies and try each frequency as the minimum floor; count deletions needed to bring all others within [floor, floor+k].",
+  "hints": [
+    "A k-special string requires that max_freq - min_freq <= k among all characters still present; characters can be entirely removed (deleting all occurrences).",
+    "Sort the distinct character frequencies; for each candidate minimum frequency f, you must delete all occurrences of any character with freq < f, and trim any character with freq > f+k down to f+k.",
+    "Try all O(26) unique frequencies as the candidate minimum, compute total deletions for each, and take the minimum."
+  ],
+  "constraints": [
+    { "param": "word", "kind": "string", "len": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "basic: need to equalize three freqs", "input": ["aabcaba", 0] },
+    { "kind": "edge", "description": "k=2 allows spread of 2", "input": ["dabdcbdcdcd", 2] },
+    { "kind": "edge", "description": "k=2 single letter dominant", "input": ["aaabaaa", 2] },
+    { "kind": "edge", "description": "all same character, already k-special", "input": ["aaaa", 0] },
+    { "kind": "boundary", "description": "k=0 must equalize all freqs", "input": ["abcabc", 0] },
+    { "kind": "boundary", "description": "k large enough no deletions needed", "input": ["abc", 100000] },
+    { "kind": "trap", "description": "deleting entire char class can be optimal", "input": ["aaabb", 0] },
+    { "kind": "trap", "description": "must trim excess high-frequency chars", "input": ["aaabbb", 1] }
+  ],
+  "stress": [
+    {
+      "description": "random words and k values",
+      "seed": 13,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    import string\n    word = ''.join(rng.choice(string.ascii_lowercase[:8]) for _ in range(size))\n    k = rng.randint(0, 20)\n    return [word, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumDeletions(self, word, k):\n        from collections import Counter\n        freq = sorted(Counter(word).values())\n        best = float('inf')\n        n = len(freq)\n        for i in range(n):\n            floor_val = freq[i]\n            deletions = 0\n            for j in range(n):\n                if freq[j] < floor_val:\n                    deletions += freq[j]\n                elif freq[j] > floor_val + k:\n                    deletions += freq[j] - (floor_val + k)\n            best = min(best, deletions)\n        # also try deleting everything (0 deletions if empty is valid) - but 0-floor also handled\n        # also try floor=0: delete all chars below some threshold\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumDeletions(self, word, k):\n        from collections import Counter\n        freq = sorted(Counter(word).values())\n        best = float('inf')\n        n = len(freq)\n        # prefix sums for fast computation\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i+1] = prefix[i] + freq[i]\n        for i in range(n):\n            floor_val = freq[i]\n            # delete all chars with freq < floor_val (indices 0..i-1)\n            deletions = prefix[i]\n            # trim chars with freq > floor_val + k\n            ceiling = floor_val + k\n            for j in range(i, n):\n                if freq[j] > ceiling:\n                    deletions += freq[j] - ceiling\n            best = min(best, deletions)\n        return best\n",
+    "javascript": "var minimumDeletions = function(word, k) {\n    const freq = {};\n    for (const c of word) freq[c] = (freq[c] || 0) + 1;\n    const freqs = Object.values(freq).sort((a, b) => a - b);\n    const n = freqs.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i+1] = prefix[i] + freqs[i];\n    let best = Infinity;\n    for (let i = 0; i < n; i++) {\n        const floorVal = freqs[i];\n        let deletions = prefix[i];\n        const ceiling = floorVal + k;\n        for (let j = i; j < n; j++) {\n            if (freqs[j] > ceiling) deletions += freqs[j] - ceiling;\n        }\n        if (deletions < best) best = deletions;\n    }\n    return best;\n};"
+  },
+  "complexity": { "time": "O(n + 26^2)", "space": "O(26)" }
+}

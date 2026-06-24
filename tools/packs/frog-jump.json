@@ -1,0 +1,43 @@
+{
+  "slug": "frog-jump",
+  "judge": "exact",
+  "pattern": "The frog's state is its current stone plus the size of the jump that brought it there, so memoizing reachable (stone, jump) pairs and branching to jumps of k-1, k, and k+1 explores every option without revisiting a state.",
+  "hints": [
+    "The only thing that matters at a stone is which jump sizes can land you there, because the next jump must be one of k-1, k, or k+1.",
+    "Track, for each stone, the set of jump sizes that can reach it; the first jump from stone zero is fixed at one unit.",
+    "Propagate forward: from each reachable (stone, k) try landing on the stone at position stone + (k-1), stone + k, stone + (k+1); success is reaching the last stone."
+  ],
+  "constraints": [
+    { "param": "stones", "kind": "int[]", "len": [2, 2000], "value": [0, 2147483647] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a crossable river", "input": [[0, 1, 3, 5, 6, 8, 12, 17]] },
+    { "kind": "trap", "description": "a gap too wide to clear", "input": [[0, 1, 2, 3, 4, 8, 9, 11]] },
+    { "kind": "boundary", "description": "two adjacent stones, one unit apart, the minimal crossable river", "input": [[0, 1]] },
+    { "kind": "trap", "description": "two stones more than one unit apart cannot be crossed since the first jump must be one", "input": [[0, 2]] },
+    { "kind": "edge", "description": "jumps must grow then can hold or shrink", "input": [[0, 1, 3, 6, 10, 13, 14]] },
+    { "kind": "trap", "description": "a stone exactly two units after the start is unreachable on the mandatory first jump", "input": [[0, 1, 3, 4, 5, 7, 9, 10, 12]] }
+  ],
+  "stress": [
+    {
+      "description": "build a guaranteed-crossable river by taking a valid jump sequence, then sprinkle extra reachable stones",
+      "seed": 41,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(60, size))\n    pos = 0\n    k = 1\n    stones = [0]\n    for _ in range(n - 1):\n        choices = [j for j in (k - 1, k, k + 1) if j >= 1]\n        k = rng.choice(choices)\n        pos += k\n        stones.append(pos)\n    extra = sorted(set(rng.randint(1, pos) for _ in range(n // 3)))\n    stones = sorted(set(stones) | set(extra))\n    return [stones]\n",
+      "note": "embedding a real valid jump path keeps these instances crossable while extra stones add decoys"
+    },
+    {
+      "description": "random strictly increasing positions that are usually not crossable",
+      "seed": 42,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(30, size))\n    s = set([0])\n    while len(s) < n:\n        s.add(rng.randint(1, 200))\n    return [sorted(s)]\n",
+      "note": "random spacing typically produces uncrossable rivers, exercising the false path"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canCross(self, stones):\n        positions = set(stones)\n        last = stones[-1]\n        import sys\n        sys.setrecursionlimit(10000)\n        from functools import lru_cache\n        @lru_cache(None)\n        def dfs(pos, k):\n            if pos == last:\n                return True\n            for nk in (k - 1, k, k + 1):\n                if nk > 0 and (pos + nk) in positions:\n                    if dfs(pos + nk, nk):\n                        return True\n            return False\n        if len(stones) >= 2 and stones[1] != 1:\n            return False\n        return dfs(stones[0], 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def canCross(self, stones):\n        if stones[1] != 1:\n            return False\n        reach = {s: set() for s in stones}\n        reach[stones[0]].add(0)\n        last = stones[-1]\n        for s in stones:\n            for k in reach[s]:\n                for nk in (k - 1, k, k + 1):\n                    if nk > 0:\n                        nxt = s + nk\n                        if nxt == last:\n                            return True\n                        if nxt in reach:\n                            reach[nxt].add(nk)\n        return False\n",
+    "javascript": "var canCross = function(stones) {\n    if (stones[1] !== 1) return false;\n    const reach = new Map();\n    for (const s of stones) reach.set(s, new Set());\n    reach.get(stones[0]).add(0);\n    const last = stones[stones.length - 1];\n    for (const s of stones) {\n        for (const k of reach.get(s)) {\n            for (const nk of [k - 1, k, k + 1]) {\n                if (nk > 0) {\n                    const nxt = s + nk;\n                    if (nxt === last) return true;\n                    if (reach.has(nxt)) reach.get(nxt).add(nk);\n                }\n            }\n        }\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

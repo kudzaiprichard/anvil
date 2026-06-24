@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-sum-of-squared-difference",
+  "judge": "exact",
+  "pattern": "Only the absolute per-index gaps matter, so pool both budgets and greedily shave the largest gaps first, which is done efficiently by lowering all gaps to a common ceiling and distributing the remainder.",
+  "hints": [
+    "Modifying either array changes one term by adjusting its absolute difference, so reduce the problem to a multiset of absolute gaps and a single combined budget.",
+    "Spending one unit on the currently largest gap gives the biggest drop in the squared sum, so the optimal target is to flatten the top gaps to some level.",
+    "Binary search or sort to find the level the budget can flatten everything to, hand out any leftover units to the still-highest gaps, then sum the squares."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 100000], "value": [0, 100000] },
+    { "param": "nums2", "kind": "int[]", "len": [1, 100000], "value": [0, 100000] },
+    { "param": "k1", "kind": "int", "value": [0, 1000000000] },
+    { "param": "k2", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "no budget so the raw squared difference stands", "input": [[1, 2, 3, 4], [2, 10, 20, 19], 0, 0] },
+    { "kind": "edge", "description": "small budgets reduce two gaps", "input": [[1, 4, 10, 12], [5, 8, 6, 9], 1, 1] },
+    { "kind": "boundary", "description": "budget large enough to zero every gap", "input": [[5, 5], [0, 0], 100, 100] },
+    { "kind": "trap", "description": "already equal arrays leave nothing to do", "input": [[3, 3, 3], [3, 3, 3], 50, 50] },
+    { "kind": "trap", "description": "budget partially flattens, leftover hits a subset", "input": [[10, 0], [0, 0], 3, 0] },
+    { "kind": "edge", "description": "single element with ample budget", "input": [[100], [0], 40, 30] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays and modest budgets",
+      "seed": 37,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    nums1 = [rng.randint(0, 1000) for _ in range(n)]\n    nums2 = [rng.randint(0, 1000) for _ in range(n)]\n    total = sum(abs(a - b) for a, b in zip(nums1, nums2))\n    k1 = rng.randint(0, total + 5)\n    k2 = rng.randint(0, total + 5)\n    return [nums1, nums2, k1, k2]\n",
+      "note": "budgets bounded near total gap so both saturated and partial regimes appear"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSumSquareDiff(self, nums1, nums2, k1, k2):\n        import heapq\n        diffs = [abs(a - b) for a, b in zip(nums1, nums2)]\n        budget = k1 + k2\n        if budget >= sum(diffs):\n            return 0\n        # max-heap, spend one unit at a time on the largest gap\n        heap = [-d for d in diffs if d > 0]\n        heapq.heapify(heap)\n        while budget > 0 and heap:\n            top = -heap[0]\n            if top == 0:\n                break\n            # reduce the largest by one\n            heapq.heapreplace(heap, -(top - 1))\n            budget -= 1\n        return sum(v * v for v in (-x for x in heap))\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSumSquareDiff(self, nums1, nums2, k1, k2):\n        diffs = [abs(a - b) for a, b in zip(nums1, nums2)]\n        budget = k1 + k2\n        if budget >= sum(diffs):\n            return 0\n        n = len(diffs)\n        # find level L such that we can bring every gap down to <= L\n        # cost to bring all gaps down to level x is sum(max(0, d - x))\n        lo, hi = 0, max(diffs)\n        def cost(x):\n            return sum(d - x for d in diffs if d > x)\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if cost(mid) <= budget:\n                hi = mid\n            else:\n                lo = mid + 1\n        level = lo\n        # after flattening to 'level', leftover units push some gaps to level-1\n        remaining = budget - cost(level)\n        cnt_at_level = sum(1 for d in diffs if d > level)\n        # actually gaps strictly greater than level are now exactly 'level'; those equal to level stay\n        # number of gaps currently sitting at 'level' (and were >= level originally)\n        at_level = sum(1 for d in diffs if d >= level) if level > 0 else 0\n        total = 0\n        # build final gaps\n        finals = []\n        for d in diffs:\n            finals.append(min(d, level))\n        # spend remaining units lowering gaps that equal 'level' to level-1\n        idx = 0\n        finals.sort(reverse=True)\n        i = 0\n        while remaining > 0 and i < len(finals) and finals[i] > 0:\n            if finals[i] == level:\n                finals[i] -= 1\n                remaining -= 1\n                i += 1\n            else:\n                break\n        return sum(v * v for v in finals)\n",
+    "javascript": "var minSumSquareDiff = function(nums1, nums2, k1, k2) {\n    const diffs = nums1.map((a, i) => Math.abs(a - nums2[i]));\n    let budget = k1 + k2;\n    let totalGap = 0;\n    for (const d of diffs) totalGap += d;\n    if (budget >= totalGap) return 0;\n    const maxd = Math.max(...diffs);\n    const cost = (x) => {\n        let c = 0;\n        for (const d of diffs) if (d > x) c += d - x;\n        return c;\n    };\n    let lo = 0, hi = maxd;\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (cost(mid) <= budget) hi = mid; else lo = mid + 1;\n    }\n    const level = lo;\n    let remaining = budget - cost(level);\n    const finals = diffs.map(d => Math.min(d, level));\n    finals.sort((a, b) => b - a);\n    let i = 0;\n    while (remaining > 0 && i < finals.length && finals[i] > 0) {\n        if (finals[i] === level) {\n            finals[i] -= 1;\n            remaining -= 1;\n            i += 1;\n        } else {\n            break;\n        }\n    }\n    let res = 0n;\n    for (const v of finals) res += BigInt(v) * BigInt(v);\n    return Number(res);\n};\n"
+  },
+  "complexity": { "time": "O(n log(maxGap))", "space": "O(n)" }
+}

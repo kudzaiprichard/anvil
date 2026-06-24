@@ -1,0 +1,37 @@
+{
+  "slug": "naming-a-company",
+  "judge": "exact",
+  "pattern": "Bucket the words by first letter and compare buckets pairwise: a swap is valid only when neither word's swapped form already exists, so only suffixes unique to each bucket can pair, giving 2 times the product of the two buckets' non-shared suffix counts.",
+  "hints": [
+    "Swapping first letters only matters between two different starting letters, so group every word by its leading character.",
+    "A pair (a from group X, b from group Y) is valid only if a's suffix does not also appear in group Y and b's suffix does not appear in group X.",
+    "For each pair of buckets count how many suffixes they share; each bucket then contributes its size minus that overlap, and the ordered valid names are twice the product of those two reduced counts."
+  ],
+  "constraints": [
+    { "param": "ideas", "kind": "str[]", "len": [2, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "four words with several valid swaps", "input": [["coffee", "donuts", "time", "toffee"]] },
+    { "kind": "trap", "description": "swaps collide, no valid names", "input": [["lack", "back"]] },
+    { "kind": "boundary", "description": "two words with distinct first letters and suffixes", "input": [["ab", "cd"]] },
+    { "kind": "trap", "description": "same suffix blocks the pairing", "input": [["ax", "bx"]] },
+    { "kind": "edge", "description": "single-letter words", "input": [["a", "b", "c"]] },
+    { "kind": "edge", "description": "three groups all mutually compatible", "input": [["ax", "by", "cz"]] },
+    { "kind": "trap", "description": "shared suffix in one direction only", "input": [["az", "bz", "by"]] }
+  ],
+  "stress": [
+    {
+      "description": "many short lowercase words with shared suffixes",
+      "seed": 22,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(2, size)\n    seen = set()\n    words = []\n    letters = string.ascii_lowercase\n    while len(words) < n:\n        first = rng.choice(letters)\n        sufflen = rng.randrange(1, 4)\n        suffix = ''.join(rng.choice('abcde') for _ in range(sufflen))\n        w = first + suffix\n        if w in seen:\n            continue\n        seen.add(w)\n        words.append(w)\n    return [words]\n",
+      "note": "narrow suffix alphabet forces many shared suffixes"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def distinctNames(self, ideas):\n        from collections import defaultdict\n        groups = defaultdict(set)\n        for w in ideas:\n            groups[w[0]].add(w[1:])\n        keys = list(groups.keys())\n        total = 0\n        for a in range(len(keys)):\n            for b in range(a + 1, len(keys)):\n                ga = groups[keys[a]]\n                gb = groups[keys[b]]\n                shared = len(ga & gb)\n                ua = len(ga) - shared\n                ub = len(gb) - shared\n                total += 2 * ua * ub\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def distinctNames(self, ideas):\n        groups = [set() for _ in range(26)]\n        for w in ideas:\n            groups[ord(w[0]) - 97].add(w[1:])\n        total = 0\n        for i in range(26):\n            if not groups[i]:\n                continue\n            for j in range(i + 1, 26):\n                if not groups[j]:\n                    continue\n                shared = len(groups[i] & groups[j])\n                total += 2 * (len(groups[i]) - shared) * (len(groups[j]) - shared)\n        return total\n",
+    "javascript": "var distinctNames = function(ideas) {\n    const groups = Array.from({length: 26}, () => new Set());\n    for (const w of ideas) {\n        groups[w.charCodeAt(0) - 97].add(w.slice(1));\n    }\n    let total = 0;\n    for (let i = 0; i < 26; i++) {\n        if (groups[i].size === 0) continue;\n        for (let j = i + 1; j < 26; j++) {\n            if (groups[j].size === 0) continue;\n            let shared = 0;\n            const [small, large] = groups[i].size < groups[j].size ? [groups[i], groups[j]] : [groups[j], groups[i]];\n            for (const s of small) if (large.has(s)) shared++;\n            total += 2 * (groups[i].size - shared) * (groups[j].size - shared);\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(L * 26)", "space": "O(L)" }
+}

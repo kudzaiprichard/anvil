@@ -1,0 +1,37 @@
+{
+  "slug": "number-of-paths-with-max-score",
+  "judge": "exact",
+  "pattern": "A two-channel dynamic program over the grid carries both the best reachable score and how many ways achieve it, combining predecessors by taking the larger score and summing the ways that tie it.",
+  "hints": [
+    "Process cells from the start corner toward the end corner so that each cell's three possible predecessors (the moves up, left, and up-left) are already solved.",
+    "Keep two tables per cell: the maximum score to reach it and the number of distinct paths that attain that maximum.",
+    "When merging predecessors, take the highest predecessor score; among predecessors tied at that score, add their path counts (modulo 1e9+7), then add the cell's own digit. Obstacles and the start and end cells contribute no digit."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "string[]", "len": [2, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single best path", "input": [["E23", "2X2", "12S"]] },
+    { "kind": "edge", "description": "two paths tie for the maximum", "input": [["E12", "1X1", "21S"]] },
+    { "kind": "trap", "description": "obstacles wall off every route", "input": [["E11", "XXX", "11S"]] },
+    { "kind": "boundary", "description": "smallest grid with a direct diagonal", "input": [["E1", "1S"]] },
+    { "kind": "trap", "description": "obstacle right next to the start blocks one direction", "input": [["E11", "1X1", "11S"]] },
+    { "kind": "edge", "description": "open grid with many equal-score paths", "input": [["E111", "1111", "1111", "111S"]] },
+    { "kind": "trap", "description": "start boxed in entirely", "input": [["E1X", "1XS", "XXX"]] }
+  ],
+  "stress": [
+    {
+      "description": "moderately sized grid with sparse obstacles to exercise the two-channel dp",
+      "seed": 53,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 50))\n    rows = []\n    for r in range(n):\n        chars = []\n        for c in range(n):\n            if r == 0 and c == 0:\n                chars.append('E')\n            elif r == n - 1 and c == n - 1:\n                chars.append('S')\n            elif rng.random() < 0.15:\n                chars.append('X')\n            else:\n                chars.append(str(rng.randint(1, 9)))\n        rows.append(''.join(chars))\n    return [rows]\n",
+      "note": "fixed E and S corners; modest obstacle density keeps paths plentiful"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def pathsWithMaxScore(self, board):\n        MOD = 10**9 + 7\n        n = len(board)\n        from functools import lru_cache\n        import sys\n        sys.setrecursionlimit(1000000)\n        # best[r][c] = (maxscore, count) to go from (r,c) to E at (0,0)\n        @lru_cache(maxsize=None)\n        def solve(r, c):\n            if r == 0 and c == 0:\n                return (0, 1)\n            ch = board[r][c]\n            if ch == 'X':\n                return (-1, 0)\n            best = -1\n            ways = 0\n            for dr, dc in ((-1, 0), (0, -1), (-1, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < n and 0 <= nc < n:\n                    s, w = solve(nr, nc)\n                    if s < 0:\n                        continue\n                    if s > best:\n                        best = s\n                        ways = w\n                    elif s == best:\n                        ways = (ways + w) % MOD\n            if best < 0:\n                return (-1, 0)\n            add = 0 if ch in 'ES' else int(ch)\n            return (best + add, ways)\n        s, w = solve(n - 1, n - 1)\n        if s < 0 or w == 0:\n            return [0, 0]\n        return [s, w % MOD]\n",
+  "solutions": {
+    "python": "class Solution:\n    def pathsWithMaxScore(self, board):\n        MOD = 10**9 + 7\n        n = len(board)\n        NEG = -1\n        score = [[NEG] * n for _ in range(n)]\n        cnt = [[0] * n for _ in range(n)]\n        score[0][0] = 0\n        cnt[0][0] = 1\n        for r in range(n):\n            for c in range(n):\n                if r == 0 and c == 0:\n                    continue\n                ch = board[r][c]\n                if ch == 'X':\n                    continue\n                best = NEG\n                ways = 0\n                for dr, dc in ((-1, 0), (0, -1), (-1, -1)):\n                    pr, pc = r + dr, c + dc\n                    if 0 <= pr < n and 0 <= pc < n and score[pr][pc] != NEG:\n                        s = score[pr][pc]\n                        if s > best:\n                            best = s\n                            ways = cnt[pr][pc]\n                        elif s == best:\n                            ways = (ways + cnt[pr][pc]) % MOD\n                if best == NEG:\n                    continue\n                add = 0 if ch in 'ES' else int(ch)\n                score[r][c] = best + add\n                cnt[r][c] = ways\n        if score[n - 1][n - 1] == NEG or cnt[n - 1][n - 1] == 0:\n            return [0, 0]\n        return [score[n - 1][n - 1], cnt[n - 1][n - 1] % MOD]\n",
+    "javascript": "var pathsWithMaxScore = function(board) {\n    const MOD = 1000000007n;\n    const n = board.length;\n    const NEG = -1;\n    const score = Array.from({length: n}, () => new Array(n).fill(NEG));\n    const cnt = Array.from({length: n}, () => new Array(n).fill(0n));\n    score[0][0] = 0;\n    cnt[0][0] = 1n;\n    for (let r = 0; r < n; r++) {\n        for (let c = 0; c < n; c++) {\n            if (r === 0 && c === 0) continue;\n            const ch = board[r][c];\n            if (ch === 'X') continue;\n            let best = NEG;\n            let ways = 0n;\n            const moves = [[-1, 0], [0, -1], [-1, -1]];\n            for (const [dr, dc] of moves) {\n                const pr = r + dr, pc = c + dc;\n                if (pr >= 0 && pr < n && pc >= 0 && pc < n && score[pr][pc] !== NEG) {\n                    const s = score[pr][pc];\n                    if (s > best) { best = s; ways = cnt[pr][pc]; }\n                    else if (s === best) { ways = (ways + cnt[pr][pc]) % MOD; }\n                }\n            }\n            if (best === NEG) continue;\n            const add = (ch === 'E' || ch === 'S') ? 0 : parseInt(ch, 10);\n            score[r][c] = best + add;\n            cnt[r][c] = ways;\n        }\n    }\n    if (score[n - 1][n - 1] === NEG || cnt[n - 1][n - 1] === 0n) return [0, 0];\n    return [score[n - 1][n - 1], Number(cnt[n - 1][n - 1] % MOD)];\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

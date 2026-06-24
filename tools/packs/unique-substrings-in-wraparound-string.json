@@ -1,0 +1,45 @@
+{
+  "slug": "unique-substrings-in-wraparound-string",
+  "judge": "exact",
+  "pattern": "Every valid substring is determined by its last character and its length, so tracking, per ending letter, the longest consecutive wraparound run ending there counts all distinct valid substrings without enumerating them.",
+  "hints": [
+    "A substring qualifies only if each character is the alphabetical successor of the one before it (with z wrapping to a), so valid substrings are exactly the contiguous runs of that successor relation.",
+    "For a run of length L ending at some letter, the distinct valid substrings ending at that exact letter number L, and any shorter ending-letter elsewhere is counted separately.",
+    "Sweep left to right tracking the current run length; for each position update best[letter] to the maximum run length ending in that letter, then the answer is the sum over all 26 letters."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single character", "input": ["a"] },
+    { "kind": "edge", "description": "repeated character contributes only one distinct substring", "input": ["cac"] },
+    { "kind": "edge", "description": "wraparound run across the z to a boundary", "input": ["zab"] },
+    { "kind": "boundary", "description": "the full alphabet is one long run", "input": ["abcdefghijklmnopqrstuvwxyz"] },
+    { "kind": "trap", "description": "overlapping runs where the per-letter maximum must be taken, not summed naively", "input": ["abcabcabc"] },
+    { "kind": "trap", "description": "a break in succession splits the runs", "input": ["abdbc"] },
+    { "kind": "trap", "description": "repeated overlapping wraparound runs of differing length", "input": ["zaba"] },
+    { "kind": "edge", "description": "non-successor letters each stand alone", "input": ["aceg"] }
+  ],
+  "stress": [
+    {
+      "description": "random short strings the brute oracle can fully enumerate",
+      "seed": 27,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 120)\n    return [''.join(chr(ord('a') + rng.randint(0, 25)) for _ in range(n))]\n",
+      "note": "kept short so O(n^2) substring enumeration in the oracle stays fast"
+    },
+    {
+      "description": "strings biased toward consecutive successors to build long runs",
+      "seed": 59,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 150)\n    chars = []\n    cur = rng.randint(0, 25)\n    for _ in range(n):\n        if rng.random() < 0.6:\n            cur = (cur + 1) % 26\n        else:\n            cur = rng.randint(0, 25)\n        chars.append(chr(ord('a') + cur))\n    return [''.join(chars)]\n",
+      "note": "long successor runs stress the per-letter maximum bookkeeping"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findSubstringInWraproundString(self, s):\n        def ok(sub):\n            for i in range(1, len(sub)):\n                if (ord(sub[i]) - ord(sub[i - 1])) % 26 != 1:\n                    return False\n            return True\n        found = set()\n        n = len(s)\n        for i in range(n):\n            for j in range(i + 1, n + 1):\n                sub = s[i:j]\n                if ok(sub):\n                    found.add(sub)\n                else:\n                    break\n        return len(found)\n",
+  "solutions": {
+    "python": "class Solution:\n    def findSubstringInWraproundString(self, s):\n        best = {}\n        run = 0\n        for i, ch in enumerate(s):\n            if i > 0 and (ord(ch) - ord(s[i - 1])) % 26 == 1:\n                run += 1\n            else:\n                run = 1\n            if best.get(ch, 0) < run:\n                best[ch] = run\n        return sum(best.values())\n",
+    "javascript": "var findSubstringInWraproundString = function(s) {\n    const best = {};\n    let run = 0;\n    for (let i = 0; i < s.length; i++) {\n        const ch = s[i];\n        if (i > 0 && (((s.charCodeAt(i) - s.charCodeAt(i - 1)) % 26) + 26) % 26 === 1) {\n            run += 1;\n        } else {\n            run = 1;\n        }\n        if ((best[ch] || 0) < run) best[ch] = run;\n    }\n    let total = 0;\n    for (const k in best) total += best[k];\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

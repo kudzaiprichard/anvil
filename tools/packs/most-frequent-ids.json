@@ -1,0 +1,37 @@
+{
+  "slug": "most-frequent-ids",
+  "judge": "exact",
+  "pattern": "Maintain per-ID counts in a hash map and track the current maximum count in a heap; lazy-delete stale heap entries using the current count map as ground truth.",
+  "hints": [
+    "After each step you need the maximum count across all IDs. A heap can give you the max in O(log n) but removals are expensive — can you defer them?",
+    "Use a max-heap of (count, id) but never remove entries proactively; when you pop a top entry, check if it matches the current count in the map. If not, discard it and pop again.",
+    "Update the count map with each freq[i], push the new (count, id) pair onto the heap, then lazy-pop stale entries to find the true max for ans[i]."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "freq", "kind": "int[]", "len": [1, 100000], "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element, positive freq", "input": [[5], [3]] },
+    { "kind": "edge", "description": "same ID added then fully removed", "input": [[2, 2], [3, -3]] },
+    { "kind": "edge", "description": "two IDs alternate being most frequent", "input": [[1, 2, 1, 2], [2, 3, 1, -1]] },
+    { "kind": "edge", "description": "all same ID, monotonically increasing count", "input": [[7, 7, 7], [1, 2, 3]] },
+    { "kind": "boundary", "description": "single step gives zero IDs then one ID", "input": [[5, 5], [2, -2]] },
+    { "kind": "trap", "description": "ID reaches 0 count then re-appears; heap must not return stale positive entry", "input": [[3, 3, 3], [5, -5, 2]] },
+    { "kind": "trap", "description": "multiple IDs with same max count; any is fine but result must be non-negative", "input": [[1, 2, 3], [4, 4, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "10k steps on 100 distinct IDs to test heap correctness under many add/remove cycles",
+      "seed": 11,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = size\n    counts = {}\n    nums = []\n    freqs = []\n    for _ in range(n):\n        nid = rng.randint(1, 100)\n        current = counts.get(nid, 0)\n        # choose freq that won't make count negative\n        max_remove = current\n        if max_remove == 0:\n            f = rng.randint(1, 10)\n        else:\n            f = rng.randint(-max_remove, 10)\n        if f == 0:\n            f = 1\n        counts[nid] = current + f\n        nums.append(nid)\n        freqs.append(f)\n    return [nums, freqs]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mostFrequentIDs(self, nums, freq):\n        counts = {}\n        ans = []\n        for nid, f in zip(nums, freq):\n            counts[nid] = counts.get(nid, 0) + f\n        # recompute each step from scratch\n        counts2 = {}\n        for nid, f in zip(nums, freq):\n            counts2[nid] = counts2.get(nid, 0) + f\n            ans.append(max(counts2.values()) if any(v > 0 for v in counts2.values()) else 0)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def mostFrequentIDs(self, nums, freq):\n        import heapq\n        counts = {}\n        heap = []  # max-heap stored as negatives\n        ans = []\n        for nid, f in zip(nums, freq):\n            counts[nid] = counts.get(nid, 0) + f\n            heapq.heappush(heap, (-counts[nid], nid))\n            while heap and -heap[0][0] != counts.get(heap[0][1], 0):\n                heapq.heappop(heap)\n            ans.append(-heap[0][0] if heap else 0)\n        return ans\n",
+    "javascript": "var mostFrequentIDs = function(nums, freq) {\n    // Use a simple sorted approach for JS (no built-in max-heap)\n    // O(n log n) with Map + sorted extraction\n    const counts = new Map();\n    const ans = [];\n    // MinHeap implementation\n    class MaxHeap {\n        constructor() { this.h = []; }\n        push(val) {\n            this.h.push(val);\n            this._bubbleUp(this.h.length - 1);\n        }\n        pop() {\n            const top = this.h[0];\n            const last = this.h.pop();\n            if (this.h.length > 0) { this.h[0] = last; this._siftDown(0); }\n            return top;\n        }\n        peek() { return this.h[0]; }\n        size() { return this.h.length; }\n        _bubbleUp(i) {\n            while (i > 0) {\n                const p = (i - 1) >> 1;\n                if (this.h[p][0] >= this.h[i][0]) break;\n                [this.h[p], this.h[i]] = [this.h[i], this.h[p]];\n                i = p;\n            }\n        }\n        _siftDown(i) {\n            const n = this.h.length;\n            while (true) {\n                let largest = i;\n                const l = 2*i+1, r = 2*i+2;\n                if (l < n && this.h[l][0] > this.h[largest][0]) largest = l;\n                if (r < n && this.h[r][0] > this.h[largest][0]) largest = r;\n                if (largest === i) break;\n                [this.h[largest], this.h[i]] = [this.h[i], this.h[largest]];\n                i = largest;\n            }\n        }\n    }\n    const heap = new MaxHeap();\n    for (let i = 0; i < nums.length; i++) {\n        const nid = nums[i], f = freq[i];\n        counts.set(nid, (counts.get(nid) || 0) + f);\n        heap.push([counts.get(nid), nid]);\n        while (heap.size() > 0 && heap.peek()[0] !== counts.get(heap.peek()[1])) {\n            heap.pop();\n        }\n        ans.push(heap.size() > 0 ? heap.peek()[0] : 0);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

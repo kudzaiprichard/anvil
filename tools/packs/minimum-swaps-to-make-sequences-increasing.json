@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-swaps-to-make-sequences-increasing",
+  "judge": "exact",
+  "pattern": "A two-state dynamic program over positions: at each index decide swap-or-keep, carrying the best cost for both choices given the previous index's choices.",
+  "hints": [
+    "At each index you only ever choose to swap that column or leave it; the order of earlier choices does not matter, only their costs.",
+    "Keep two running minimums: the cheapest way to make the prefix valid ending with this column swapped, and the cheapest ending with it kept.",
+    "Transitions depend on comparing the two columns to their predecessors: when the strict-increase already holds you may keep both or swap both; when only the crossed comparison holds you must swap exactly one of the two adjacent columns."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [2, 100000], "value": [0, 200000] },
+    { "param": "nums2", "kind": "int[]", "len": [2, 100000], "value": [0, 200000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one swap at the tail fixes both sequences", "input": [[1, 3, 5, 4], [1, 2, 3, 7]] },
+    { "kind": "edge", "description": "second example, single swap mid-array", "input": [[0, 3, 5, 8, 9], [2, 1, 4, 6, 9]] },
+    { "kind": "boundary", "description": "minimum length already strictly increasing, no swaps", "input": [[1, 2], [1, 3]] },
+    { "kind": "trap", "description": "equal-valued columns force a swap to break the tie", "input": [[1, 5, 5, 7], [2, 3, 6, 8]] },
+    { "kind": "edge", "description": "swapping every column is the only fix", "input": [[5, 6, 7], [1, 2, 3]] },
+    { "kind": "trap", "description": "a position where both keep and swap stay valid", "input": [[1, 2, 4, 5], [1, 3, 4, 6]] }
+  ],
+  "stress": [
+    {
+      "description": "construct two strictly increasing arrays then randomly swap some columns so a valid solution always exists",
+      "seed": 88,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    a, b = [], []\n    ca = cb = 0\n    for _ in range(n):\n        ca += rng.randint(1, 4)\n        cb += rng.randint(1, 4)\n        a.append(ca)\n        b.append(cb)\n    for i in range(n):\n        if rng.random() < 0.5:\n            a[i], b[i] = b[i], a[i]\n    return [a, b]\n",
+      "note": "guarantees solvability since the arrays are a column-permutation of two increasing sequences"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSwap(self, nums1, nums2):\n        import sys\n        from functools import lru_cache\n        sys.setrecursionlimit(300000)\n        n = len(nums1)\n        INF = float('inf')\n        @lru_cache(None)\n        def f(i, prev1, prev2):\n            if i == n:\n                return 0\n            best = INF\n            # keep\n            if nums1[i] > prev1 and nums2[i] > prev2:\n                best = min(best, f(i + 1, nums1[i], nums2[i]))\n            # swap\n            if nums2[i] > prev1 and nums1[i] > prev2:\n                best = min(best, 1 + f(i + 1, nums2[i], nums1[i]))\n            return best\n        return f(0, -1, -1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSwap(self, nums1, nums2):\n        n = len(nums1)\n        INF = float('inf')\n        keep, swap = 0, 1\n        for i in range(1, n):\n            nkeep, nswap = INF, INF\n            if nums1[i] > nums1[i - 1] and nums2[i] > nums2[i - 1]:\n                nkeep = min(nkeep, keep)\n                nswap = min(nswap, swap + 1)\n            if nums1[i] > nums2[i - 1] and nums2[i] > nums1[i - 1]:\n                nkeep = min(nkeep, swap)\n                nswap = min(nswap, keep + 1)\n            keep, swap = nkeep, nswap\n        return min(keep, swap)\n",
+    "javascript": "var minSwap = function(nums1, nums2) {\n    const n = nums1.length;\n    const INF = Infinity;\n    let keep = 0, swap = 1;\n    for (let i = 1; i < n; i++) {\n        let nkeep = INF, nswap = INF;\n        if (nums1[i] > nums1[i - 1] && nums2[i] > nums2[i - 1]) {\n            nkeep = Math.min(nkeep, keep);\n            nswap = Math.min(nswap, swap + 1);\n        }\n        if (nums1[i] > nums2[i - 1] && nums2[i] > nums1[i - 1]) {\n            nkeep = Math.min(nkeep, swap);\n            nswap = Math.min(nswap, keep + 1);\n        }\n        keep = nkeep;\n        swap = nswap;\n    }\n    return Math.min(keep, swap);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

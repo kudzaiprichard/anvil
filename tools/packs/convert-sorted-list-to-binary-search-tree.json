@@ -1,0 +1,41 @@
+{
+  "slug": "convert-sorted-list-to-binary-search-tree",
+  "judge": { "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    head = args[0]\n    # collect the list's values in order from its wire form\n    vals = list(head) if head else []\n    # rebuild the returned tree from its level-order wire form\n    def deser(a):\n        if not a:\n            return None\n        root = [a[0], None, None]\n        q = [root]; i = 1\n        while q and i < len(a):\n            node = q.pop(0)\n            if i < len(a):\n                if a[i] is not None:\n                    node[1] = [a[i], None, None]; q.append(node[1])\n                i += 1\n            if i < len(a):\n                if a[i] is not None:\n                    node[2] = [a[i], None, None]; q.append(node[2])\n                i += 1\n        return root\n    root = deser(output)\n    # in-order traversal must reproduce the list's values in their original order\n    ino = []\n    st, node = [], root\n    while st or node:\n        while node:\n            st.append(node); node = node[1]\n        node = st.pop(); ino.append(node[0]); node = node[2]\n    if ino != vals:\n        return False\n    # every node's subtree heights differ by at most 1 (height-balanced)\n    def height(n):\n        if n is None:\n            return 0, True\n        hl, bl = height(n[1])\n        hr, br = height(n[2])\n        ok = bl and br and abs(hl - hr) <= 1\n        return max(hl, hr) + 1, ok\n    _, balanced = height(root)\n    return balanced\n",
+    "validator_javascript": "function validate(args, output) {\n    const head = args[0];\n    const vals = Array.isArray(head) ? head.slice() : [];\n    function deser(a) {\n        if (!a || a.length === 0) return null;\n        const root = [a[0], null, null];\n        const q = [root]; let i = 1;\n        while (q.length && i < a.length) {\n            const node = q.shift();\n            if (i < a.length) { if (a[i] !== null) { node[1] = [a[i], null, null]; q.push(node[1]); } i++; }\n            if (i < a.length) { if (a[i] !== null) { node[2] = [a[i], null, null]; q.push(node[2]); } i++; }\n        }\n        return root;\n    }\n    const root = deser(output);\n    const ino = [];\n    const st = []; let node = root;\n    while (st.length || node) {\n        while (node) { st.push(node); node = node[1]; }\n        node = st.pop(); ino.push(node[0]); node = node[2];\n    }\n    if (ino.length !== vals.length) return false;\n    for (let k = 0; k < ino.length; k++) if (ino[k] !== vals[k]) return false;\n    let balanced = true;\n    function height(n) {\n        if (n === null) return 0;\n        const hl = height(n[1]);\n        const hr = height(n[2]);\n        if (Math.abs(hl - hr) > 1) balanced = false;\n        return Math.max(hl, hr) + 1;\n    }\n    height(root);\n    return balanced;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "io_types": { "params": ["linked_list"], "returns": "tree" },
+  "pattern": "Reading the sorted list into order and taking each slice's middle as a root turns the chain into a height-balanced BST whose in-order reading is the original list.",
+  "hints": [
+    "A balanced tree needs each root to roughly halve what is left, so the middle element of the current run is the root.",
+    "Walk the list once into an indexable form, then recurse: middle becomes the node, the part before it becomes the left subtree, the part after it the right.",
+    "Any consistent middle (e.g. the lower middle of lo..hi) gives a valid height-balanced BST; the in-order traversal is just the list in order."
+  ],
+  "constraints": [
+    { "param": "head", "kind": "linked_list", "len": [0, 20000], "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "empty list yields an empty tree", "input": [[]] },
+    { "kind": "boundary", "description": "single node", "input": [[0]] },
+    { "kind": "edge", "description": "negatives through positives", "input": [[-10, -3, 0, 5, 9]] },
+    { "kind": "edge", "description": "two values", "input": [[1, 3]] },
+    { "kind": "trap", "description": "even length so the middle is ambiguous", "input": [[1, 2, 3, 4, 5, 6]] },
+    { "kind": "edge", "description": "power-of-two-minus-one length builds a perfect tree", "input": [[1, 2, 3, 4, 5, 6, 7]] }
+  ],
+  "stress": [
+    {
+      "description": "long sorted list of distinct values",
+      "seed": 71,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    return [sorted(rng.sample(range(-100000, 100001), n))]\n",
+      "note": "ascending sorted as the problem requires"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sortedListToBST(self, head):\n        # independent construction: copy the list to an array, same lower-middle\n        # choice so the canonical tree matches the optimal byte for byte\n        vals = []\n        node = head\n        while node:\n            vals.append(node.val)\n            node = node.next\n        def build(arr):\n            if not arr:\n                return None\n            mid = (len(arr) - 1) // 2\n            t = TreeNode(arr[mid])\n            t.left = build(arr[:mid])\n            t.right = build(arr[mid + 1:])\n            return t\n        return build(vals)\n",
+  "solutions": {
+    "python": "class Solution:\n    def sortedListToBST(self, head):\n        vals = []\n        node = head\n        while node:\n            vals.append(node.val)\n            node = node.next\n        def build(lo, hi):\n            if lo > hi:\n                return None\n            mid = (lo + hi) // 2\n            t = TreeNode(vals[mid])\n            t.left = build(lo, mid - 1)\n            t.right = build(mid + 1, hi)\n            return t\n        return build(0, len(vals) - 1)\n",
+    "javascript": "var sortedListToBST = function(head) {\n    const vals = [];\n    let node = head;\n    while (node) { vals.push(node.val); node = node.next; }\n    function build(lo, hi) {\n        if (lo > hi) return null;\n        const mid = Math.floor((lo + hi) / 2);\n        const t = new TreeNode(vals[mid]);\n        t.left = build(lo, mid - 1);\n        t.right = build(mid + 1, hi);\n        return t;\n    }\n    return build(0, vals.length - 1);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

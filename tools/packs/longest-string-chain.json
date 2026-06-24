@@ -1,0 +1,37 @@
+{
+  "slug": "longest-string-chain",
+  "judge": "exact",
+  "pattern": "Sort words by length and let each word extend the best chain among the words you get by deleting one of its characters, a dynamic program keyed on the strings themselves.",
+  "hints": [
+    "A predecessor is always exactly one character shorter, so process words from shortest to longest.",
+    "For a given word, every possible predecessor is obtained by deleting one of its letters — there are only as many candidates as the word is long.",
+    "Keep best[word] = longest chain ending at word; for each word try all single-deletion variants and take the best existing chain plus one."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "str[]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "chain of length four embedded among extras", "input": [["a", "b", "ba", "bca", "bda", "bdca"]] },
+    { "kind": "edge", "description": "all words form one chain", "input": [["xbc", "pcxbcf", "xb", "cxbc", "pcxbc"]] },
+    { "kind": "trap", "description": "letters reordered, no valid chain past length one", "input": [["abcd", "dbqca"]] },
+    { "kind": "boundary", "description": "single word, trivial chain", "input": [["abc"]] },
+    { "kind": "trap", "description": "same length words cannot chain", "input": [["aa", "bb", "cc"]] },
+    { "kind": "edge", "description": "duplicate words do not stack", "input": [["a", "a", "ab", "ab"]] },
+    { "kind": "edge", "description": "linear growth chain", "input": [["a", "ab", "abc", "abcd", "abcde"]] }
+  ],
+  "stress": [
+    {
+      "description": "random short words built mostly by single insertions to create chains",
+      "seed": 141,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    words = set()\n    seeds = [''.join(rng.choice('ab') for _ in range(rng.randint(1, 3))) for _ in range(5)]\n    for w in seeds:\n        words.add(w)\n    pool = list(seeds)\n    while len(words) < n and pool:\n        base = rng.choice(pool)\n        if len(base) >= 16:\n            continue\n        pos = rng.randint(0, len(base))\n        ch = rng.choice('ab')\n        nw = base[:pos] + ch + base[pos:]\n        words.add(nw)\n        pool.append(nw)\n        if rng.random() < 0.3:\n            words.add(''.join(rng.choice('ab') for _ in range(rng.randint(1, 5))))\n    return [list(words)]\n",
+      "note": "single-insertion growth seeds real chains; tiny alphabet for density"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestStrChain(self, words):\n        wset = set(words)\n        from functools import lru_cache\n        import sys\n        sys.setrecursionlimit(10000)\n        @lru_cache(maxsize=None)\n        def chain(w):\n            best = 1\n            for i in range(len(w)):\n                pred = w[:i] + w[i + 1:]\n                if pred in wset:\n                    best = max(best, 1 + chain(pred))\n            return best\n        return max(chain(w) for w in wset)\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestStrChain(self, words):\n        words = sorted(set(words), key=len)\n        best = {}\n        ans = 1\n        for w in words:\n            cur = 1\n            for i in range(len(w)):\n                pred = w[:i] + w[i + 1:]\n                if pred in best:\n                    cur = max(cur, best[pred] + 1)\n            best[w] = cur\n            ans = max(ans, cur)\n        return ans\n",
+    "javascript": "var longestStrChain = function(words) {\n    const uniq = [...new Set(words)].sort((a, b) => a.length - b.length);\n    const best = new Map();\n    let ans = 1;\n    for (const w of uniq) {\n        let cur = 1;\n        for (let i = 0; i < w.length; i++) {\n            const pred = w.slice(0, i) + w.slice(i + 1);\n            if (best.has(pred)) cur = Math.max(cur, best.get(pred) + 1);\n        }\n        best.set(w, cur);\n        ans = Math.max(ans, cur);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n*L^2)", "space": "O(n)" }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "maximum-difference-score-in-a-grid",
+  "judge": "exact",
+  "pattern": "The telescoping nature of a path score means the total equals the destination value minus the minimum value seen anywhere earlier (above or to the left), so a DP tracking the running minimum suffices.",
+  "hints": [
+    "The score of a path C0 -> C1 -> ... -> Ck telescopes: it equals Ck - C0, not a sum of individual differences. What does maximizing that mean?",
+    "You want the largest grid[r][c] - grid[r0][c0] over all valid (r0,c0) -> (r,c) with r0<=r, c0<=c and strict inequality. Track the minimum reachable value as you scan left-to-right, top-to-bottom.",
+    "DP: min_so_far[r][c] = min(grid[r][c], min from the cell above, min from the cell to the left). The best score ending at (r,c) is grid[r][c] - min_so_far_of_predecessors."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [2, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "2x2 grid, forced to pick the unique path", "input": [[[4, 3], [3, 2]]] },
+    { "kind": "edge", "description": "all values identical, must move so score is 0", "input": [[[5, 5], [5, 5]]] },
+    { "kind": "edge", "description": "monotone increasing grid, best is top-left to bottom-right", "input": [[[1, 2, 3], [4, 5, 6], [7, 8, 9]]] },
+    { "kind": "edge", "description": "best move jumps multiple rows and columns", "input": [[[9, 5, 7, 3], [8, 9, 6, 1], [6, 7, 14, 3], [2, 5, 3, 1]]] },
+    { "kind": "boundary", "description": "2-row grid where best is to go straight down", "input": [[[1, 100], [50, 2]]] },
+    { "kind": "trap", "description": "decreasing grid forces a negative best score", "input": [[[4, 3, 2], [3, 2, 1]]] },
+    { "kind": "trap", "description": "large value in the bottom-right, minimum is top-left", "input": [[[1, 2], [3, 100]]] }
+  ],
+  "stress": [
+    {
+      "description": "medium random grid within the product constraint",
+      "seed": 99,
+      "size": 316,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(2, min(size, 100))\n    n = rng.randint(2, min(size, 100))\n    grid = [[rng.randint(1, 100000) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxScore(self, grid):\n        m, n = len(grid), len(grid[0])\n        best = float('-inf')\n        for r in range(m):\n            for c in range(n):\n                for r0 in range(r + 1):\n                    for c0 in range(c + 1):\n                        if r0 == r and c0 == c:\n                            continue\n                        best = max(best, grid[r][c] - grid[r0][c0])\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxScore(self, grid):\n        m, n = len(grid), len(grid[0])\n        # dp_min[r][c] = min value reachable to reach (r,c) from top-left\n        INF = float('inf')\n        dp = [[INF] * n for _ in range(m)]\n        dp[0][0] = grid[0][0]\n        for c in range(1, n):\n            dp[0][c] = min(dp[0][c-1], grid[0][c])\n        for r in range(1, m):\n            dp[r][0] = min(dp[r-1][0], grid[r][0])\n        for r in range(1, m):\n            for c in range(1, n):\n                dp[r][c] = min(dp[r-1][c], dp[r][c-1], grid[r][c])\n        best = float('-inf')\n        for r in range(m):\n            for c in range(n):\n                # score of moving TO (r,c) from some earlier cell\n                if r == 0 and c == 0:\n                    continue\n                min_prev = dp[r-1][c] if r > 0 else INF\n                if c > 0:\n                    min_prev = min(min_prev, dp[r][c-1])\n                best = max(best, grid[r][c] - min_prev)\n        return best\n",
+    "javascript": "var maxScore = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const INF = Infinity;\n    const dp = Array.from({length: m}, () => new Array(n).fill(INF));\n    dp[0][0] = grid[0][0];\n    for (let c = 1; c < n; c++) dp[0][c] = Math.min(dp[0][c-1], grid[0][c]);\n    for (let r = 1; r < m; r++) dp[r][0] = Math.min(dp[r-1][0], grid[r][0]);\n    for (let r = 1; r < m; r++) {\n        for (let c = 1; c < n; c++) {\n            dp[r][c] = Math.min(dp[r-1][c], dp[r][c-1], grid[r][c]);\n        }\n    }\n    let best = -Infinity;\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            if (r === 0 && c === 0) continue;\n            let minPrev = r > 0 ? dp[r-1][c] : INF;\n            if (c > 0) minPrev = Math.min(minPrev, dp[r][c-1]);\n            best = Math.max(best, grid[r][c] - minPrev);\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

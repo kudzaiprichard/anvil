@@ -1,0 +1,37 @@
+{
+  "slug": "split-array-into-consecutive-subsequences",
+  "judge": "exact",
+  "pattern": "Greedily extend an existing run with each number when possible, otherwise start a fresh run that must reserve the next two consecutive values.",
+  "hints": [
+    "Process numbers in sorted order and decide for each copy whether it lengthens a chain that already ends one below it, or begins a new chain.",
+    "Track how many chains currently end at each value so you can prefer appending to an open chain before opening a new one.",
+    "A new chain is only valid if you can also claim the next two consecutive values; if neither appending nor opening works, the split is impossible."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10000], "value": [-1000, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two valid runs", "input": [[1, 2, 3, 3, 4, 5]] },
+    { "kind": "edge", "description": "one long run plus one short run", "input": [[1, 2, 3, 3, 4, 4, 5, 5]] },
+    { "kind": "trap", "description": "leftover cannot form length three", "input": [[1, 2, 3, 4, 4, 5]] },
+    { "kind": "boundary", "description": "too short to split", "input": [[1, 2]] },
+    { "kind": "edge", "description": "exactly three consecutive", "input": [[1, 2, 3]] },
+    { "kind": "trap", "description": "single repeated value", "input": [[5, 5, 5]] },
+    { "kind": "trap", "description": "negatives forming a run", "input": [[-3, -2, -1, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "concatenated consecutive runs of length >= 3, shuffled by sort",
+      "seed": 31,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    nums = []\n    target = rng.randint(1, max(3, size))\n    while len(nums) < target:\n        start = rng.randint(-1000, 990)\n        length = rng.randint(3, 8)\n        for i in range(length):\n            nums.append(start + i)\n    nums = nums[:target]\n    nums.sort()\n    return [nums]\n",
+      "note": "mostly splittable but truncation can break runs"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def isPossible(self, nums):\n        # Greedy by smallest open-chain length: each value either extends the\n        # shortest chain ending at value-1 or opens a new chain. At the end\n        # every chain must have length >= 3.\n        chains = {}\n        for x in sorted(nums):\n            prev = chains.get(x - 1)\n            if prev:\n                length = heapq.heappop(prev)\n                if not prev:\n                    del chains[x - 1]\n                chains.setdefault(x, [])\n                heapq.heappush(chains[x], length + 1)\n            else:\n                chains.setdefault(x, [])\n                heapq.heappush(chains[x], 1)\n        for heap in chains.values():\n            for length in heap:\n                if length < 3:\n                    return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def isPossible(self, nums):\n        from collections import Counter, defaultdict\n        count = Counter(nums)\n        ends = defaultdict(int)\n        for x in nums:\n            if count[x] == 0:\n                continue\n            if ends[x - 1] > 0:\n                ends[x - 1] -= 1\n                ends[x] += 1\n                count[x] -= 1\n            elif count[x + 1] > 0 and count[x + 2] > 0:\n                count[x] -= 1\n                count[x + 1] -= 1\n                count[x + 2] -= 1\n                ends[x + 2] += 1\n            else:\n                return False\n        return True\n",
+    "javascript": "var isPossible = function(nums) {\n    const count = new Map();\n    const ends = new Map();\n    const get = (m, k) => m.get(k) || 0;\n    for (const x of nums) count.set(x, get(count, x) + 1);\n    for (const x of nums) {\n        if (get(count, x) === 0) continue;\n        if (get(ends, x - 1) > 0) {\n            ends.set(x - 1, get(ends, x - 1) - 1);\n            ends.set(x, get(ends, x) + 1);\n            count.set(x, get(count, x) - 1);\n        } else if (get(count, x + 1) > 0 && get(count, x + 2) > 0) {\n            count.set(x, get(count, x) - 1);\n            count.set(x + 1, get(count, x + 1) - 1);\n            count.set(x + 2, get(count, x + 2) - 1);\n            ends.set(x + 2, get(ends, x + 2) + 1);\n        } else {\n            return false;\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

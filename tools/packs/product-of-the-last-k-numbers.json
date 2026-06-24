@@ -1,0 +1,42 @@
+{
+  "slug": "product-of-the-last-k-numbers",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Storing prefix products lets the product of any suffix be read as a single division, and resetting the prefix history whenever a zero arrives keeps every query O(1).",
+  "hints": [
+    "The product of the last k numbers is the whole-stream product divided by the product of everything before that window — if you have running products, that is one division.",
+    "Keep a list of prefix products where entry i is the product of the first i numbers. The last-k product is the final prefix divided by the prefix k positions back.",
+    "A zero makes every product through it zero, so clear the prefix list and start fresh on a zero. Then if a query reaches back past the reset boundary the answer is zero; otherwise it is last_prefix / prefix[len-k]."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "int", "value": [0, 100] },
+    { "param": "k", "kind": "int", "value": [1, 40000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "stream with a zero, then queries spanning and not spanning it",
+      "input": [["ProductOfNumbers", "add", "add", "add", "add", "add", "getProduct", "getProduct", "getProduct", "add", "getProduct"], [[], [3], [0], [2], [5], [4], [2], [3], [4], [8], [2]]] },
+    { "kind": "trap", "description": "a query whose window reaches back exactly to a zero returns zero",
+      "input": [["ProductOfNumbers", "add", "add", "add", "getProduct", "getProduct"], [[], [0], [2], [3], [2], [3]]] },
+    { "kind": "boundary", "description": "single value then product of one",
+      "input": [["ProductOfNumbers", "add", "getProduct"], [[], [7], [1]]] },
+    { "kind": "trap", "description": "two zeros in a row, window after the second is unaffected",
+      "input": [["ProductOfNumbers", "add", "add", "add", "getProduct", "getProduct"], [[], [0], [0], [6], [1], [2]]] },
+    { "kind": "edge", "description": "no zeros, nested window sizes",
+      "input": [["ProductOfNumbers", "add", "add", "add", "add", "getProduct", "getProduct", "getProduct", "getProduct"], [[], [2], [3], [4], [5], [1], [2], [3], [4]]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized add/getProduct sequence with occasional zeros, querying only valid window sizes",
+      "seed": 179,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    ops = ['ProductOfNumbers']\n    args = [[]]\n    count = 0\n    for _ in range(max(1, size)):\n        if count == 0 or rng.random() < 0.55:\n            v = 0 if rng.random() < 0.12 else rng.randint(1, 10)\n            ops.append('add'); args.append([v]); count += 1\n        else:\n            k = rng.randint(1, count)\n            ops.append('getProduct'); args.append([k])\n    return [ops, args]\n",
+      "note": "small values keep products within range; k never exceeds the stream length"
+    }
+  ],
+  "oracle_python": "class ProductOfNumbers:\n    def __init__(self):\n        self.stream = []\n    def add(self, num):\n        self.stream.append(num)\n    def getProduct(self, k):\n        p = 1\n        for v in self.stream[-k:]:\n            p *= v\n        return p\n",
+  "solutions": {
+    "python": "class ProductOfNumbers:\n    def __init__(self):\n        self.prefix = [1]\n    def add(self, num):\n        if num == 0:\n            self.prefix = [1]\n        else:\n            self.prefix.append(self.prefix[-1] * num)\n    def getProduct(self, k):\n        if k >= len(self.prefix):\n            return 0\n        return self.prefix[-1] // self.prefix[-k - 1]\n",
+    "javascript": "var ProductOfNumbers = function() {\n    this.prefix = [1];\n};\nProductOfNumbers.prototype.add = function(num) {\n    if (num === 0) {\n        this.prefix = [1];\n    } else {\n        this.prefix.push(this.prefix[this.prefix.length - 1] * num);\n    }\n};\nProductOfNumbers.prototype.getProduct = function(k) {\n    const n = this.prefix.length;\n    if (k >= n) return 0;\n    return this.prefix[n - 1] / this.prefix[n - 1 - k];\n};\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(n)" }
+}

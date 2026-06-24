@@ -1,0 +1,41 @@
+{
+  "slug": "distant-barcodes",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    barcodes = args[0]\n    if not isinstance(output, list):\n        return False\n    if len(output) != len(barcodes):\n        return False\n    from collections import Counter\n    if Counter(output) != Counter(barcodes):\n        return False\n    for i in range(1, len(output)):\n        if output[i] == output[i - 1]:\n            return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const barcodes = args[0];\n    if (!Array.isArray(output)) return false;\n    if (output.length !== barcodes.length) return false;\n    const a = new Map(), b = new Map();\n    for (const v of barcodes) a.set(v, (a.get(v) || 0) + 1);\n    for (const v of output) b.set(v, (b.get(v) || 0) + 1);\n    if (a.size !== b.size) return false;\n    for (const [k, v] of a) if (b.get(k) !== v) return false;\n    for (let i = 1; i < output.length; i++) {\n        if (output[i] === output[i - 1]) return false;\n    }\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Placing the most frequent values first into alternating slots guarantees identical values never land adjacent.",
+  "hints": [
+    "If any value appeared more than half the time you could not separate it, but the problem promises a valid arrangement exists.",
+    "Fill positions in the order 0, 2, 4, ... then 1, 3, 5, ... so that copies of the same value are spread out.",
+    "Order values by descending frequency, then drop them into the even indices first and the odd indices next, exhausting each value before moving on."
+  ],
+  "constraints": [
+    { "param": "barcodes", "kind": "int[]", "len": [1, 10000], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single barcode", "input": [[7]] },
+    { "kind": "edge", "description": "two distinct barcodes", "input": [[1, 2]] },
+    { "kind": "trap", "description": "one value dominates up to the limit", "input": [[1, 1, 1, 2, 2, 2]] },
+    { "kind": "edge", "description": "several values with mixed counts", "input": [[1, 1, 1, 1, 2, 2, 3, 3]] },
+    { "kind": "boundary", "description": "exactly half are the same value", "input": [[4, 4, 4, 1, 2, 3]] },
+    { "kind": "trap", "description": "two values with one extra of the majority", "input": [[5, 5, 5, 6, 6]] }
+  ],
+  "stress": [
+    {
+      "description": "large multiset where one value is near the maximum allowed frequency",
+      "seed": 505,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 600)))\n    half = (n + 1) // 2\n    major = rng.randint(1, 10000)\n    arr = [major] * min(half, n)\n    others = [v for v in range(1, 10001) if v != major]\n    rng.shuffle(others)\n    idx = 0\n    while len(arr) < n:\n        arr.append(others[idx % len(others)])\n        idx += 1\n    rng.shuffle(arr)\n    return [arr]\n",
+      "note": "majority value capped at ceil(n/2) so a valid arrangement always exists"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def rearrangeBarcodes(self, barcodes):\n        from collections import Counter\n        cnt = Counter(barcodes)\n        order = sorted(cnt.keys(), key=lambda v: (-cnt[v], v))\n        seq = []\n        for v in order:\n            seq.extend([v] * cnt[v])\n        n = len(barcodes)\n        res = [0] * n\n        pos = 0\n        for i in range(0, n, 2):\n            res[i] = seq[pos]; pos += 1\n        for i in range(1, n, 2):\n            res[i] = seq[pos]; pos += 1\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def rearrangeBarcodes(self, barcodes):\n        from collections import Counter\n        cnt = Counter(barcodes)\n        order = sorted(cnt.keys(), key=lambda v: (-cnt[v], v))\n        seq = []\n        for v in order:\n            seq.extend([v] * cnt[v])\n        n = len(barcodes)\n        res = [0] * n\n        pos = 0\n        for i in range(0, n, 2):\n            res[i] = seq[pos]; pos += 1\n        for i in range(1, n, 2):\n            res[i] = seq[pos]; pos += 1\n        return res\n",
+    "javascript": "var rearrangeBarcodes = function(barcodes) {\n    const cnt = new Map();\n    for (const v of barcodes) cnt.set(v, (cnt.get(v) || 0) + 1);\n    const order = [...cnt.keys()].sort((a, b) => {\n        const d = cnt.get(b) - cnt.get(a);\n        return d !== 0 ? d : a - b;\n    });\n    const seq = [];\n    for (const v of order) {\n        for (let k = 0; k < cnt.get(v); k++) seq.push(v);\n    }\n    const n = barcodes.length;\n    const res = new Array(n);\n    let pos = 0;\n    for (let i = 0; i < n; i += 2) res[i] = seq[pos++];\n    for (let i = 1; i < n; i += 2) res[i] = seq[pos++];\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

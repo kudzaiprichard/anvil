@@ -1,0 +1,37 @@
+{
+  "slug": "masking-personal-information",
+  "judge": "exact",
+  "pattern": "Detecting whether the input is an email or a phone number, then applying the fixed masking rule for that form, reduces the task to two independent string rewrites.",
+  "hints": [
+    "An at-sign tells you it is an email; otherwise it is a phone number to be stripped of separators.",
+    "For an email, lowercase everything and keep only the first and last letters of the name with five asterisks between them.",
+    "For a phone, keep only the digits; the trailing ten are the local number and any leading digits are the country code, which selects one of the four fixed output templates."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [8, 40] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example, mixed-case email name and domain", "input": ["LeetCode@LeetCode.com"] },
+    { "kind": "trap", "description": "second example, two-letter name still gets five asterisks", "input": ["AB@qq.com"] },
+    { "kind": "edge", "description": "third example, ten-digit phone with separators", "input": ["1(234)567-890"] },
+    { "kind": "boundary", "description": "plain ten-digit phone, zero country code", "input": ["1234567890"] },
+    { "kind": "edge", "description": "phone with a one-digit country code and plus sign", "input": ["+1 (234) 567-8900"] },
+    { "kind": "trap", "description": "three-digit country code, longest template", "input": ["+111 234 567 8900"] },
+    { "kind": "edge", "description": "two-digit country code phone", "input": ["+86-13-579-24680"] }
+  ],
+  "stress": [
+    {
+      "description": "alternating random emails and phone numbers within the length bounds",
+      "seed": 53,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    if rng.random() < 0.5:\n        letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'\n        name_len = rng.randint(2, 8)\n        name = ''.join(rng.choice(letters) for _ in range(name_len))\n        dom_a = ''.join(rng.choice(letters) for _ in range(rng.randint(2, 6)))\n        dom_b = ''.join(rng.choice(letters) for _ in range(rng.randint(2, 3)))\n        return [name + '@' + dom_a + '.' + dom_b]\n    cc = rng.randint(0, 3)\n    digits = [str(rng.randint(0, 9)) for _ in range(10 + cc)]\n    seps = ['+', '-', '(', ')', ' ']\n    out = ''\n    if cc > 0:\n        out += '+'\n    for i, d in enumerate(digits):\n        out += d\n        if i < len(digits) - 1 and rng.random() < 0.3:\n            out += rng.choice(seps)\n    return [out[:20]]\n",
+      "note": "generated forms stay valid emails or phones so masking is well defined"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maskPII(self, s):\n        if '@' in s:\n            t = s.lower()\n            at = t.index('@')\n            name = t[:at]\n            rest = t[at:]\n            return name[0] + '*****' + name[-1] + rest\n        digits = ''.join(c for c in s if c.isdigit())\n        local = digits[-10:]\n        cc = len(digits) - 10\n        tail = '***-***-' + local[-4:]\n        if cc == 0:\n            return tail\n        return '+' + ('*' * cc) + '-' + tail\n",
+  "solutions": {
+    "python": "class Solution:\n    def maskPII(self, s):\n        if '@' in s:\n            s = s.lower()\n            name, domain = s.split('@', 1)\n            masked = name[0] + '*****' + name[-1]\n            return masked + '@' + domain\n        digits = [c for c in s if c.isdigit()]\n        n = len(digits)\n        country = n - 10\n        last4 = ''.join(digits[-4:])\n        base = '***-***-' + last4\n        prefixes = {0: '', 1: '+*-', 2: '+**-', 3: '+***-'}\n        return prefixes[country] + base\n",
+    "javascript": "var maskPII = function(s) {\n    if (s.includes('@')) {\n        s = s.toLowerCase();\n        const at = s.indexOf('@');\n        const name = s.slice(0, at);\n        const domain = s.slice(at + 1);\n        const masked = name[0] + '*****' + name[name.length - 1];\n        return masked + '@' + domain;\n    }\n    const digits = s.replace(/[^0-9]/g, '');\n    const n = digits.length;\n    const country = n - 10;\n    const last4 = digits.slice(-4);\n    const base = '***-***-' + last4;\n    const prefixes = {0: '', 1: '+*-', 2: '+**-', 3: '+***-'};\n    return prefixes[country] + base;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

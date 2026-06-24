@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-time-to-complete-all-deliveries",
+  "judge": "exact",
+  "pattern": "Feasibility of finishing within T hours is monotone, so a binary search on T plus a Hall's-condition check on how many hours each drone (and the pair together) can work pins down the minimum.",
+  "hints": [
+    "If T hours suffice, so does any larger T, which means the answer can be binary searched.",
+    "Within T hours, drone i can work on every hour that is not a multiple of r_i, and an hour is wasted only when both drones are recharging at once.",
+    "Check three counts for a candidate T: drone 1's workable hours cover d1, drone 2's cover d2, and the hours where at least one drone is free cover d1 + d2; the wasted hours are multiples of lcm(r1, r2)."
+  ],
+  "constraints": [
+    { "param": "d", "kind": "int[]", "len": [2, 2], "value": [1, 1000000000] },
+    { "param": "r", "kind": "int[]", "len": [2, 2], "value": [2, 30000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "uneven loads, distinct recharge cycles", "input": [[3, 1], [2, 3]] },
+    { "kind": "edge", "description": "identical recharge cycles", "input": [[1, 3], [2, 2]] },
+    { "kind": "edge", "description": "small loads finishing early", "input": [[2, 1], [3, 4]] },
+    { "kind": "boundary", "description": "minimum loads", "input": [[1, 1], [2, 2]] },
+    { "kind": "trap", "description": "both recharge frequently so many hours are shared", "input": [[5, 5], [2, 2]] },
+    { "kind": "trap", "description": "one heavy load with frequent recharge", "input": [[8, 1], [2, 5]] },
+    { "kind": "boundary", "description": "large recharge interval rarely blocks", "input": [[10, 10], [30000, 30000]] }
+  ],
+  "stress": [
+    {
+      "description": "small random loads and cycles, validated by a per-hour assignment oracle",
+      "seed": 31,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    d = [rng.randrange(1, size + 1), rng.randrange(1, size + 1)]\n    r = [rng.randrange(2, 8), rng.randrange(2, 8)]\n    return [d, r]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTime(self, d, r):\n        d1, d2 = d\n        r1, r2 = r\n        T = 0\n        while True:\n            T += 1\n            only1 = only2 = both = 0\n            for t in range(1, T + 1):\n                a1 = (t % r1 != 0)\n                a2 = (t % r2 != 0)\n                if a1 and a2:\n                    both += 1\n                elif a1:\n                    only1 += 1\n                elif a2:\n                    only2 += 1\n            if d1 <= only1 + both and d2 <= only2 + both and d1 + d2 <= only1 + only2 + both:\n                return T\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumTime(self, d, r):\n        from math import gcd\n        d1, d2 = d\n        r1, r2 = r\n        l = r1 // gcd(r1, r2) * r2\n        def ok(T):\n            a1 = T - T // r1\n            a2 = T - T // r2\n            both = T - T // l\n            return d1 <= a1 and d2 <= a2 and d1 + d2 <= both\n        lo, hi = 1, 4 * (d1 + d2) + 100\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if ok(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var minimumTime = function(d, r) {\n    const gcd = (a, b) => { while (b) { [a, b] = [b, a % b]; } return a; };\n    const d1 = BigInt(d[0]), d2 = BigInt(d[1]);\n    const r1 = BigInt(r[0]), r2 = BigInt(r[1]);\n    const l = r1 / BigInt(gcd(Number(r1), Number(r2))) * r2;\n    const ok = (T) => {\n        const a1 = T - T / r1;\n        const a2 = T - T / r2;\n        const both = T - T / l;\n        return d1 <= a1 && d2 <= a2 && (d1 + d2) <= both;\n    };\n    let lo = 1n, hi = 4n * (d1 + d2) + 100n;\n    while (lo < hi) {\n        const mid = (lo + hi) / 2n;\n        if (ok(mid)) hi = mid; else lo = mid + 1n;\n    }\n    return Number(lo);\n};\n"
+  },
+  "complexity": { "time": "O(log(d1 + d2))", "space": "O(1)" }
+}

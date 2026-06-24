@@ -1,0 +1,38 @@
+{
+  "slug": "subsequence-sum-after-capping-elements",
+  "judge": "exact",
+  "pattern": "Splitting the capped array into small elements (kept) and capped-large elements (all equal to x), a single subset-sum table over the smalls grown as x rises answers every cap value, with the large elements contributing fixed multiples of x.",
+  "hints": [
+    "When you cap at x, elements at most x are unchanged while everything larger becomes exactly x, so the larger ones only contribute multiples of x.",
+    "So the question for each x is: can a subset of the unchanged (small) elements reach k minus j*x for some count j of capped-large elements you include?",
+    "Maintain a boolean subset-sum table over values up to k for the small elements, and as x increases by one, fold in the elements equal to x; then test k, k-x, k-2x, ... against the table, bounded by how many large elements exist."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 4000], "value": [1, 4000] },
+    { "param": "k", "kind": "int", "value": [1, 4000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "feasible only for larger caps", "input": [[4, 3, 2, 4], 5] },
+    { "kind": "edge", "description": "always feasible", "input": [[1, 2, 3, 4, 5], 3] },
+    { "kind": "boundary", "description": "single element equal to k", "input": [[1], 1] },
+    { "kind": "trap", "description": "single element smaller than k is never enough", "input": [[2], 5] },
+    { "kind": "trap", "description": "large elements only help via multiples of x", "input": [[3, 3, 3], 6] },
+    { "kind": "edge", "description": "all ones, only small sums reachable", "input": [[1, 1, 1, 1], 4] },
+    { "kind": "trap", "description": "k larger than any reachable sum for small caps", "input": [[2, 2, 2], 5] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays with values bounded by n and a mid-range target",
+      "seed": 20,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, n) for _ in range(n)]\n    k = rng.randint(1, min(4000, n))\n    return [nums, k]\n",
+      "note": "values capped at n per constraints; k kept within range"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def subsequenceSumAfterCapping(self, nums, k):\n        n = len(nums)\n        ans = []\n        for x in range(1, n + 1):\n            reach = 1  # bitmask of reachable sums\n            for v in nums:\n                w = v if v < x else x\n                reach |= reach << w\n                reach &= (1 << (k + 1)) - 1\n            ans.append(bool((reach >> k) & 1))\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def subsequenceSumAfterCapping(self, nums, k):\n        from collections import Counter\n        n = len(nums)\n        cnt = Counter(nums)\n        dp = [False] * (k + 1)\n        dp[0] = True\n        ans = []\n        cum_le = 0\n        for x in range(1, n + 1):\n            c = cnt.get(x, 0)\n            for _ in range(c):\n                for s in range(k, x - 1, -1):\n                    if dp[s - x]:\n                        dp[s] = True\n            cum_le += c\n            big = n - cum_le\n            ok = False\n            j = 0\n            while j * x <= k and j <= big:\n                if dp[k - j * x]:\n                    ok = True\n                    break\n                j += 1\n            ans.append(ok)\n        return ans\n",
+    "javascript": "var subsequenceSumAfterCapping = function(nums, k) {\n    const n = nums.length;\n    const cnt = new Map();\n    for (const v of nums) cnt.set(v, (cnt.get(v) || 0) + 1);\n    const dp = new Array(k + 1).fill(false);\n    dp[0] = true;\n    const ans = [];\n    let cumLe = 0;\n    for (let x = 1; x <= n; x++) {\n        const c = cnt.get(x) || 0;\n        for (let t = 0; t < c; t++) {\n            for (let s = k; s >= x; s--) {\n                if (dp[s - x]) dp[s] = true;\n            }\n        }\n        cumLe += c;\n        const big = n - cumLe;\n        let ok = false;\n        let j = 0;\n        while (j * x <= k && j <= big) {\n            if (dp[k - j * x]) { ok = true; break; }\n            j++;\n        }\n        ans.push(ok);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n * k)", "space": "O(k)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "additive-number",
+  "judge": "exact",
+  "pattern": "Once the first two numbers of the sequence are fixed by choosing two prefix splits, the rest of the string is forced, so the search only enumerates the two starting lengths and then verifies the deterministic continuation.",
+  "hints": [
+    "The whole sequence is determined the moment you commit to the first two numbers, because every later term must equal the sum of the two before it.",
+    "Try every way to carve a first number and a second number off the front of the string, rejecting any multi-digit piece that starts with a zero.",
+    "For each chosen first and second prefix, repeatedly append their sum's digits and check they match the next characters; if you consume the entire string with at least three terms, it is additive."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "string", "len": [1, 35] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "fibonacci-like single digits", "input": ["112358"] },
+    { "kind": "edge", "description": "growing multi-digit additive sequence", "input": ["199100199"] },
+    { "kind": "trap", "description": "leading zero makes a multi-digit term invalid", "input": ["1023"] },
+    { "kind": "trap", "description": "single zero pieces are allowed", "input": ["000"] },
+    { "kind": "trap", "description": "too short to form three terms", "input": ["1"] },
+    { "kind": "trap", "description": "valid prefix but trailing digit breaks the sum", "input": ["1124"] },
+    { "kind": "edge", "description": "two same digits then their sum", "input": ["11"] },
+    { "kind": "trap", "description": "not additive despite plausible start", "input": ["12122436"] }
+  ],
+  "stress": [
+    {
+      "description": "construct genuine additive strings and random noise strings",
+      "seed": 53,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    if rng.randrange(0, 2) == 0:\n        a = rng.randrange(0, 50)\n        b = rng.randrange(0, 50)\n        seq = [a, b]\n        s = str(a) + str(b)\n        while len(s) < 30:\n            c = seq[-1] + seq[-2]\n            seq.append(c)\n            s += str(c)\n        return [s[:rng.randrange(3, min(len(s), 35) + 1)]]\n    n = rng.randrange(1, 36)\n    return [''.join(str(rng.randrange(0, 10)) for _ in range(n))]\n",
+      "note": "half the cases are truly additive prefixes, half are random digit strings"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isAdditiveNumber(self, num):\n        L = len(num)\n        def valid(piece):\n            return piece == '0' or not piece.startswith('0')\n        for i in range(1, L):\n            for j in range(i + 1, L):\n                first = num[:i]\n                second = num[i:j]\n                if not valid(first) or not valid(second):\n                    continue\n                a, b = int(first), int(second)\n                rest = num[j:]\n                terms = 2\n                ok = True\n                while rest:\n                    nxt = str(a + b)\n                    if not rest.startswith(nxt):\n                        ok = False\n                        break\n                    rest = rest[len(nxt):]\n                    a, b = b, a + b\n                    terms += 1\n                if ok and terms >= 3:\n                    return True\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def isAdditiveNumber(self, num):\n        n = len(num)\n        def check(a, b, start):\n            if start == n:\n                return True\n            s = str(a + b)\n            if not num.startswith(s, start):\n                return False\n            return check(b, a + b, start + len(s))\n        for i in range(1, n):\n            if i > 1 and num[0] == '0':\n                break\n            for j in range(i + 1, n):\n                if j - i > 1 and num[i] == '0':\n                    break\n                a = int(num[:i])\n                b = int(num[i:j])\n                if check(a, b, j):\n                    return True\n        return False\n",
+    "javascript": "var isAdditiveNumber = function(num) {\n    const n = num.length;\n    const check = (a, b, start) => {\n        if (start === n) return true;\n        const s = (a + b).toString();\n        if (!num.startsWith(s, start)) return false;\n        return check(b, a + b, start + s.length);\n    };\n    for (let i = 1; i < n; i++) {\n        if (i > 1 && num[0] === '0') break;\n        for (let j = i + 1; j < n; j++) {\n            if (j - i > 1 && num[i] === '0') break;\n            const a = BigInt(num.slice(0, i));\n            const b = BigInt(num.slice(i, j));\n            if (check(a, b, j)) return true;\n        }\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n)" }
+}

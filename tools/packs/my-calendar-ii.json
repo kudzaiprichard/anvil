@@ -1,0 +1,44 @@
+{
+  "slug": "my-calendar-ii",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Allowing up to double bookings means rejecting only intervals that would create a region covered three times, which a running map of overlap-region deltas captures cleanly.",
+  "hints": [
+    "A request is fine as long as no point inside it would be covered by three events at once.",
+    "Track not just the events but also the regions that are already double-booked; a new event is rejected if it overlaps any double-booked region.",
+    "On each request, compute its intersection with every existing event to find new double-booked regions; if it intersects an already-double-booked region the request is rejected, otherwise commit both the event and the freshly created double regions."
+  ],
+  "constraints": [
+    { "param": "startTime", "kind": "int", "value": [0, 1000000000] },
+    { "param": "endTime", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: third overlapping event is rejected, later non-triple events accepted",
+      "input": [["MyCalendarTwo", "book", "book", "book", "book", "book", "book"], [[], [10, 20], [50, 60], [10, 40], [5, 15], [5, 10], [25, 55]]] },
+    { "kind": "boundary", "description": "first booking always succeeds",
+      "input": [["MyCalendarTwo", "book"], [[], [0, 5]]] },
+    { "kind": "trap", "description": "two overlaps allowed, the third stacked over the same point rejected",
+      "input": [["MyCalendarTwo", "book", "book", "book"], [[], [10, 30], [10, 30], [10, 30]]] },
+    { "kind": "trap", "description": "shared endpoints never count as overlap so triples of touching intervals are fine",
+      "input": [["MyCalendarTwo", "book", "book", "book", "book"], [[], [1, 2], [2, 3], [3, 4], [1, 4]]] },
+    { "kind": "edge", "description": "a triple booking only on a sub-region is still rejected",
+      "input": [["MyCalendarTwo", "book", "book", "book"], [[], [0, 100], [50, 150], [40, 60]]] },
+    { "kind": "edge", "description": "events that double-book disjoint regions stay acceptable",
+      "input": [["MyCalendarTwo", "book", "book", "book", "book"], [[], [0, 10], [0, 10], [20, 30], [20, 30]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random bookings over a tight coordinate space so triple-booking attempts are common",
+      "seed": 41,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    ops = ['MyCalendarTwo']\n    args = [[]]\n    for _ in range(max(1, size)):\n        s = rng.randint(0, 40)\n        e = s + rng.randint(1, 15)\n        ops.append('book'); args.append([s, e])\n    return [ops, args]\n",
+      "note": "narrow range guarantees frequent overlaps that push toward triples"
+    }
+  ],
+  "oracle_python": "class MyCalendarTwo:\n    def __init__(self):\n        self.delta = {}\n    def book(self, startTime, endTime):\n        self.delta[startTime] = self.delta.get(startTime, 0) + 1\n        self.delta[endTime] = self.delta.get(endTime, 0) - 1\n        active = 0\n        ok = True\n        for t in sorted(self.delta):\n            active += self.delta[t]\n            if active >= 3:\n                ok = False\n                break\n        if not ok:\n            self.delta[startTime] -= 1\n            self.delta[endTime] += 1\n            return False\n        return True\n",
+  "solutions": {
+    "python": "class MyCalendarTwo:\n    def __init__(self):\n        self.events = []\n        self.overlaps = []\n    def book(self, startTime, endTime):\n        for s, e in self.overlaps:\n            if startTime < e and s < endTime:\n                return False\n        for s, e in self.events:\n            if startTime < e and s < endTime:\n                self.overlaps.append((max(startTime, s), min(endTime, e)))\n        self.events.append((startTime, endTime))\n        return True\n",
+    "javascript": "class MyCalendarTwo {\n    constructor() {\n        this.events = [];\n        this.overlaps = [];\n    }\n    book(startTime, endTime) {\n        for (const [s, e] of this.overlaps) {\n            if (startTime < e && s < endTime) return false;\n        }\n        for (const [s, e] of this.events) {\n            if (startTime < e && s < endTime) {\n                this.overlaps.push([Math.max(startTime, s), Math.min(endTime, e)]);\n            }\n        }\n        this.events.push([startTime, endTime]);\n        return true;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) per book", "space": "O(n)" }
+}

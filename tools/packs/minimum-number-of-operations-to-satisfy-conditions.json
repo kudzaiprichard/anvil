@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-number-of-operations-to-satisfy-conditions",
+  "judge": "exact",
+  "pattern": "Column-independent DP: for each column pick a digit 0-9 to assign to all its cells; transitions enforce adjacent columns differ, and the cost is the number of cells not already equal to the chosen digit.",
+  "hints": [
+    "Each column must be uniform (all cells the same value 0-9); count the frequency of each digit in every column to compute assignment cost.",
+    "The problem decomposes into choosing one digit per column such that adjacent columns have different digits; use DP over columns with 10 states.",
+    "DP state: dp[j][d] = minimum operations to assign digits to columns 0..j where column j is assigned digit d. Transition: dp[j][d] = min over d2 != d of dp[j-1][d2] + cost(j, d)."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single cell grid already satisfying conditions", "input": [[[5]]] },
+    { "kind": "edge", "description": "1x2 grid with same values — must change one column", "input": [[[1,1],[1,1]]] },
+    { "kind": "edge", "description": "1x2 grid already different", "input": [[[0,1],[0,1]]] },
+    { "kind": "trap", "description": "alternating between two values", "input": [[[1,2,1,2],[1,2,1,2]]] },
+    { "kind": "boundary", "description": "all zeros — just need adjacent columns different", "input": [[[0,0,0],[0,0,0],[0,0,0]]] },
+    { "kind": "edge", "description": "single column needing all uniform", "input": [[[1],[2],[3]]] },
+    { "kind": "trap", "description": "each column already uniform and different", "input": [[[1,0,2],[1,0,2],[1,0,2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random 10x10 grid of digits 0-9",
+      "seed": 13,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    grid = [[rng.randint(0, 9) for _ in range(size)] for _ in range(size)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumOperations(self, grid) -> int:\n        m, n = len(grid), len(grid[0])\n        INF = float('inf')\n        # cost[j][d] = number of cells in column j != d\n        cost = []\n        for j in range(n):\n            freq = [0] * 10\n            for i in range(m):\n                freq[grid[i][j]] += 1\n            cost.append([m - freq[d] for d in range(10)])\n        # dp[d] = min ops for previous column assigned digit d\n        dp = cost[0][:]\n        for j in range(1, n):\n            new_dp = [INF] * 10\n            best = min(dp)\n            for d in range(10):\n                for d2 in range(10):\n                    if d2 != d:\n                        new_dp[d] = min(new_dp[d], dp[d2] + cost[j][d])\n            dp = new_dp\n        return min(dp)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumOperations(self, grid) -> int:\n        m, n = len(grid), len(grid[0])\n        # cost[j][d]: cells in col j that are not d\n        cost = []\n        for j in range(n):\n            freq = [0] * 10\n            for i in range(m):\n                freq[grid[i][j]] += 1\n            cost.append([m - freq[d] for d in range(10)])\n        # DP: track best and second-best of previous column\n        prev = cost[0][:]\n        for j in range(1, n):\n            # find the best and second best in prev\n            first_val, second_val = float('inf'), float('inf')\n            first_d = -1\n            for d, v in enumerate(prev):\n                if v < first_val:\n                    second_val = first_val\n                    first_val = v\n                    first_d = d\n                elif v < second_val:\n                    second_val = v\n            curr = [0] * 10\n            for d in range(10):\n                best_prev = first_val if d != first_d else second_val\n                curr[d] = best_prev + cost[j][d]\n            prev = curr\n        return min(prev)\n",
+    "javascript": "var minimumOperations = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const cost = [];\n    for (let j = 0; j < n; j++) {\n        const freq = new Array(10).fill(0);\n        for (let i = 0; i < m; i++) freq[grid[i][j]]++;\n        cost.push(Array.from({length:10}, (_, d) => m - freq[d]));\n    }\n    let prev = cost[0].slice();\n    for (let j = 1; j < n; j++) {\n        let fv = Infinity, sv = Infinity, fd = -1;\n        for (let d = 0; d < 10; d++) {\n            if (prev[d] < fv) { sv = fv; fv = prev[d]; fd = d; }\n            else if (prev[d] < sv) sv = prev[d];\n        }\n        const curr = new Array(10);\n        for (let d = 0; d < 10; d++) {\n            const bestPrev = d !== fd ? fv : sv;\n            curr[d] = bestPrev + cost[j][d];\n        }\n        prev = curr;\n    }\n    return Math.min(...prev);\n};"
+  },
+  "complexity": { "time": "O(m*n + n*100)", "space": "O(n*10)" }
+}

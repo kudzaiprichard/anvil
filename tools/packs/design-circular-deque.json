@@ -1,0 +1,40 @@
+{
+  "slug": "design-circular-deque",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Extending a ring buffer with operations at both ends lets a fixed-size deque insert and delete from front or rear in constant time by moving head and tail indices modulo the capacity.",
+  "hints": [
+    "Reuse the circular-buffer idea but allow growth from both ends; you still only need an array of size k, a head index, and a count.",
+    "Inserting at the front means stepping the head backward (with wrap), while inserting at the rear writes just past the last element.",
+    "Keep head and count. insertLast writes at (head + count) % k; insertFront moves head to (head - 1 + k) % k and writes there; deleteFront advances head; deleteLast just drops the count; both reject when full/empty."
+  ],
+  "constraints": [
+    { "param": "k", "kind": "int", "value": [1, 1000] },
+    { "param": "value", "kind": "int", "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mix front/rear inserts, overflow, peek, delete, then reuse",
+      "input": [["MyCircularDeque", "insertLast", "insertLast", "insertFront", "insertFront", "getRear", "isFull", "deleteLast", "insertFront", "getFront"], [[3], [1], [2], [3], [4], [], [], [], [4], []]] },
+    { "kind": "boundary", "description": "capacity one supports both insert directions but holds at most one item",
+      "input": [["MyCircularDeque", "insertFront", "isFull", "getFront", "getRear", "deleteFront", "insertLast", "getRear"], [[1], [5], [], [], [], [], [8], []]] },
+    { "kind": "trap", "description": "peeks on empty return -1 and deletes on empty fail",
+      "input": [["MyCircularDeque", "deleteFront", "deleteLast", "getFront", "getRear", "isEmpty"], [[2], [], [], [], [], []]] },
+    { "kind": "trap", "description": "front and rear inserts must wrap past both ends of the array consistently",
+      "input": [["MyCircularDeque", "insertFront", "insertFront", "insertLast", "getFront", "getRear", "deleteLast", "insertFront", "getFront", "getRear"], [[3], [1], [2], [3], [], [], [], [9], [], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of all eight operations against a small capacity",
+      "seed": 53,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    cap = rng.randint(1, 6)\n    ops = ['MyCircularDeque']\n    args = [[cap]]\n    methods = ['insertFront', 'insertLast', 'deleteFront', 'deleteLast', 'getFront', 'getRear', 'isEmpty', 'isFull']\n    for _ in range(max(1, size)):\n        m = rng.choice(methods)\n        if m in ('insertFront', 'insertLast'):\n            ops.append(m); args.append([rng.randint(0, 1000)])\n        else:\n            ops.append(m); args.append([])\n    return [ops, args]\n",
+      "note": "small capacity and both-end operations force frequent wrap-around and boundary checks"
+    }
+  ],
+  "oracle_python": "from collections import deque\n\n\nclass MyCircularDeque:\n    def __init__(self, k):\n        self.cap = k\n        self.dq = deque()\n    def insertFront(self, value):\n        if len(self.dq) >= self.cap:\n            return False\n        self.dq.appendleft(value)\n        return True\n    def insertLast(self, value):\n        if len(self.dq) >= self.cap:\n            return False\n        self.dq.append(value)\n        return True\n    def deleteFront(self):\n        if not self.dq:\n            return False\n        self.dq.popleft()\n        return True\n    def deleteLast(self):\n        if not self.dq:\n            return False\n        self.dq.pop()\n        return True\n    def getFront(self):\n        return self.dq[0] if self.dq else -1\n    def getRear(self):\n        return self.dq[-1] if self.dq else -1\n    def isEmpty(self):\n        return len(self.dq) == 0\n    def isFull(self):\n        return len(self.dq) == self.cap\n",
+  "solutions": {
+    "python": "class MyCircularDeque:\n    def __init__(self, k):\n        self.cap = k\n        self.buf = [0] * k\n        self.head = 0\n        self.count = 0\n    def insertFront(self, value):\n        if self.count == self.cap:\n            return False\n        self.head = (self.head - 1) % self.cap\n        self.buf[self.head] = value\n        self.count += 1\n        return True\n    def insertLast(self, value):\n        if self.count == self.cap:\n            return False\n        self.buf[(self.head + self.count) % self.cap] = value\n        self.count += 1\n        return True\n    def deleteFront(self):\n        if self.count == 0:\n            return False\n        self.head = (self.head + 1) % self.cap\n        self.count -= 1\n        return True\n    def deleteLast(self):\n        if self.count == 0:\n            return False\n        self.count -= 1\n        return True\n    def getFront(self):\n        if self.count == 0:\n            return -1\n        return self.buf[self.head]\n    def getRear(self):\n        if self.count == 0:\n            return -1\n        return self.buf[(self.head + self.count - 1) % self.cap]\n    def isEmpty(self):\n        return self.count == 0\n    def isFull(self):\n        return self.count == self.cap\n",
+    "javascript": "class MyCircularDeque {\n    constructor(k) {\n        this.cap = k;\n        this.buf = new Array(k).fill(0);\n        this.head = 0;\n        this.count = 0;\n    }\n    insertFront(value) {\n        if (this.count === this.cap) return false;\n        this.head = (this.head - 1 + this.cap) % this.cap;\n        this.buf[this.head] = value;\n        this.count += 1;\n        return true;\n    }\n    insertLast(value) {\n        if (this.count === this.cap) return false;\n        this.buf[(this.head + this.count) % this.cap] = value;\n        this.count += 1;\n        return true;\n    }\n    deleteFront() {\n        if (this.count === 0) return false;\n        this.head = (this.head + 1) % this.cap;\n        this.count -= 1;\n        return true;\n    }\n    deleteLast() {\n        if (this.count === 0) return false;\n        this.count -= 1;\n        return true;\n    }\n    getFront() {\n        if (this.count === 0) return -1;\n        return this.buf[this.head];\n    }\n    getRear() {\n        if (this.count === 0) return -1;\n        return this.buf[(this.head + this.count - 1) % this.cap];\n    }\n    isEmpty() {\n        return this.count === 0;\n    }\n    isFull() {\n        return this.count === this.cap;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(k)" }
+}

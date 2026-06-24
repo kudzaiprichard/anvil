@@ -1,0 +1,37 @@
+{
+  "slug": "k-th-smallest-prime-fraction",
+  "judge": "exact",
+  "pattern": "Because the array is sorted, the fractions form a structure where a binary search on the fraction value lets you count how many fractions fall below a threshold and track the largest one seen, converging on the k-th smallest without listing them all.",
+  "hints": [
+    "There are quadratically many fractions; sorting them all is wasteful, so think about how many fractions are below a chosen value.",
+    "For a candidate ratio, a single linear sweep counts how many fractions are smaller and remembers the largest fraction not exceeding it; this count is monotonic in the candidate.",
+    "Binary search the ratio in [0,1]: count fractions below the midpoint; if the count is at least k shrink the high bound while caching the best numerator/denominator, otherwise raise the low bound, and return the cached pair when the count equals k."
+  ],
+  "constraints": [
+    { "param": "arr", "kind": "int[]", "len": [2, 1000], "value": [1, 30000] },
+    { "param": "k", "kind": "int" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small array, third smallest fraction", "input": [[1, 2, 3, 5], 3] },
+    { "kind": "boundary", "description": "two elements, only fraction is the first over the second", "input": [[1, 7], 1] },
+    { "kind": "boundary", "description": "first fraction is the smallest possible, one over the largest", "input": [[1, 2, 3, 5], 1] },
+    { "kind": "boundary", "description": "last fraction is the largest possible", "input": [[1, 2, 3, 5], 6] },
+    { "kind": "trap", "description": "ties in value between distinct pairs must still pick a consistent pair", "input": [[1, 3, 5, 7, 11], 5] },
+    { "kind": "edge", "description": "longer prime list mid range", "input": [[1, 2, 3, 5, 7, 11, 13], 10] }
+  ],
+  "stress": [
+    {
+      "description": "random sorted array starting with one followed by distinct primes, random valid k",
+      "seed": 31,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    limit = 30000\n    sieve = bytearray([1]) * (limit + 1)\n    sieve[0] = sieve[1] = 0\n    for i in range(2, int(limit ** 0.5) + 1):\n        if sieve[i]:\n            for j in range(i * i, limit + 1, i):\n                sieve[j] = 0\n    primes = [i for i in range(2, limit + 1) if sieve[i]]\n    m = rng.randint(1, min(len(primes), max(1, size)))\n    chosen = sorted(rng.sample(primes, m))\n    arr = [1] + chosen\n    n = len(arr)\n    total = n * (n - 1) // 2\n    k = rng.randint(1, total)\n    return [arr, k]\n",
+      "note": "constructs a strictly increasing array of 1 plus primes and a valid k"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def kthSmallestPrimeFraction(self, arr, k):\n        fracs = []\n        n = len(arr)\n        for j in range(n):\n            for i in range(j):\n                fracs.append((arr[i] / arr[j], arr[i], arr[j]))\n        fracs.sort()\n        return [fracs[k - 1][1], fracs[k - 1][2]]\n",
+  "solutions": {
+    "python": "class Solution:\n    def kthSmallestPrimeFraction(self, arr, k):\n        n = len(arr)\n        lo, hi = 0.0, 1.0\n        while True:\n            mid = (lo + hi) / 2\n            count = 0\n            best_p, best_q = 0, 1\n            j = 1\n            for i in range(n):\n                while j < n and arr[i] > mid * arr[j]:\n                    j += 1\n                count += n - j\n                if j < n and best_p * arr[j] < arr[i] * best_q:\n                    best_p, best_q = arr[i], arr[j]\n            if count == k:\n                return [best_p, best_q]\n            elif count < k:\n                lo = mid\n            else:\n                hi = mid\n",
+    "javascript": "var kthSmallestPrimeFraction = function(arr, k) {\n    const n = arr.length;\n    let lo = 0.0, hi = 1.0;\n    while (true) {\n        const mid = (lo + hi) / 2;\n        let count = 0;\n        let bestP = 0, bestQ = 1;\n        let j = 1;\n        for (let i = 0; i < n; i++) {\n            while (j < n && arr[i] > mid * arr[j]) j++;\n            count += n - j;\n            if (j < n && bestP * arr[j] < arr[i] * bestQ) {\n                bestP = arr[i];\n                bestQ = arr[j];\n            }\n        }\n        if (count === k) return [bestP, bestQ];\n        else if (count < k) lo = mid;\n        else hi = mid;\n    }\n};\n"
+  },
+  "complexity": { "time": "O(n log(max))", "space": "O(1)" }
+}

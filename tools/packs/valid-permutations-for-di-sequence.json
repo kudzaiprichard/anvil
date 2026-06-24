@@ -1,0 +1,38 @@
+{
+  "slug": "valid-permutations-for-di-sequence",
+  "judge": "exact",
+  "pattern": "Count permutations of 0..n satisfying a D/I pattern by tracking the relative rank of the last placed element across a shrinking pool, updated with a running prefix or suffix sum.",
+  "hints": [
+    "Instead of tracking absolute values, track the rank of each placed element within the pool of values still available — this rank runs from 0 to (remaining pool size - 1) and resets cleanly at each step.",
+    "For an 'I' step, the new element's rank in the fresh pool must map to an old-pool rank strictly greater than the previous rank, which simplifies to a prefix sum over old dp values up to and including the new rank index.",
+    "Use prefix sums (for 'I') and suffix sums (for 'D') to compute each dp row in O(n) time, giving an overall O(n^2) algorithm."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single character D — only one decreasing permutation of [0,1]", "input": ["D"] },
+    { "kind": "boundary", "description": "single character I — only one increasing permutation of [0,1]", "input": ["I"] },
+    { "kind": "edge", "description": "two characters II — only strictly increasing [0,1,2]", "input": ["II"] },
+    { "kind": "edge", "description": "two characters DD — only strictly decreasing [2,1,0]", "input": ["DD"] },
+    { "kind": "edge", "description": "alternating DI — two valid permutations", "input": ["DI"] },
+    { "kind": "edge", "description": "alternating ID — two valid permutations", "input": ["ID"] },
+    { "kind": "trap", "description": "DID from the statement — a common wrong answer is 3 (off by prefix-sum direction)", "input": ["DID"] },
+    { "kind": "trap", "description": "all I then all D — tests boundary between rising and falling halves", "input": ["IIDD"] },
+    { "kind": "trap", "description": "longer alternating DIDI — answer grows rapidly, tests accumulation under modulo", "input": ["DIDI"] }
+  ],
+  "stress": [
+    {
+      "description": "random D/I string of length up to 200 — exercises the full n range with modular arithmetic",
+      "seed": 42,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, size)\n    s = ''.join(rng.choice(['D', 'I']) for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numPermsDISequence(self, s: str) -> int:\n        from itertools import permutations\n        MOD = 10**9 + 7\n        n = len(s)\n        if n > 8:\n            # brute force only feasible for small n; fall back to DP for larger\n            dp = [1] * (n + 1)\n            for i in range(1, n + 1):\n                new_dp = [0] * (n + 1 - i)\n                if s[i-1] == 'I':\n                    pre = 0\n                    for j in range(n + 1 - i):\n                        pre = (pre + dp[j]) % MOD\n                        new_dp[j] = pre\n                else:\n                    suf = 0\n                    for j in range(n - i, -1, -1):\n                        suf = (suf + dp[j+1]) % MOD\n                        new_dp[j] = suf\n                dp = new_dp\n            return sum(dp) % MOD\n        count = 0\n        for perm in permutations(range(n + 1)):\n            ok = True\n            for i in range(n):\n                if s[i] == 'D' and perm[i] <= perm[i+1]:\n                    ok = False; break\n                if s[i] == 'I' and perm[i] >= perm[i+1]:\n                    ok = False; break\n            if ok:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numPermsDISequence(self, s: str) -> int:\n        MOD = 10**9 + 7\n        n = len(s)\n        # dp[j] = number of valid placements of the first i+1 elements\n        # where the i-th element has rank j in the remaining pool of size (n+1-i)\n        dp = [1] * (n + 1)\n        for i in range(1, n + 1):\n            new_dp = [0] * (n + 1 - i)\n            if s[i - 1] == 'I':\n                # new element rank j must map to old-pool rank > prev rank k,\n                # which holds exactly when k <= j — accumulate as prefix sum\n                prefix = 0\n                for j in range(n + 1 - i):\n                    prefix = (prefix + dp[j]) % MOD\n                    new_dp[j] = prefix\n            else:  # 'D'\n                # new element rank j must map to old-pool rank < prev rank k,\n                # which holds exactly when k > j — accumulate as suffix sum\n                suffix = 0\n                for j in range(n - i, -1, -1):\n                    suffix = (suffix + dp[j + 1]) % MOD\n                    new_dp[j] = suffix\n            dp = new_dp\n        return sum(dp) % MOD\n",
+    "javascript": "var numPermsDISequence = function(s) {\n    const MOD = 1000000007n;\n    const n = s.length;\n    let dp = new Array(n + 1).fill(1n);\n    for (let i = 1; i <= n; i++) {\n        const newDp = new Array(n + 1 - i).fill(0n);\n        if (s[i - 1] === 'I') {\n            let prefix = 0n;\n            for (let j = 0; j < n + 1 - i; j++) {\n                prefix = (prefix + dp[j]) % MOD;\n                newDp[j] = prefix;\n            }\n        } else {\n            let suffix = 0n;\n            for (let j = n - i; j >= 0; j--) {\n                suffix = (suffix + dp[j + 1]) % MOD;\n                newDp[j] = suffix;\n            }\n        }\n        dp = newDp;\n    }\n    return Number(dp.reduce((a, b) => (a + b) % MOD, 0n));\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

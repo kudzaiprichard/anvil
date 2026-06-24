@@ -1,0 +1,37 @@
+{
+  "slug": "similar-string-groups",
+  "judge": "exact",
+  "pattern": "Connect every pair of strings that differ in at most two positions, then the number of connected components under union-find is the number of similarity groups.",
+  "hints": [
+    "Two strings belong together when they match everywhere or differ in exactly two spots that could be swapped.",
+    "Build connectivity: link each pair that is similar, even indirectly through a chain of similar strings.",
+    "Use union-find over the indices, joining any two strings whose differing positions number zero or two, then count distinct roots."
+  ],
+  "constraints": [
+    { "param": "strs", "kind": "string[]", "len": [1, 300] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a chain forms one group plus an isolated word", "input": [["tars", "rats", "arts", "star"]] },
+    { "kind": "edge", "description": "two similar anagrams collapse into one group", "input": [["omv", "ovm"]] },
+    { "kind": "boundary", "description": "single string is its own group", "input": [["abc"]] },
+    { "kind": "trap", "description": "identical duplicates are similar and merge", "input": [["aabb", "aabb"]] },
+    { "kind": "trap", "description": "differ in four positions, not connected", "input": [["abcd", "badc"]] },
+    { "kind": "edge", "description": "everything mutually similar, one group", "input": [["abc", "bac", "acb"]] },
+    { "kind": "trap", "description": "all distinct and pairwise dissimilar", "input": [["abcd", "dcba", "cdab"]] }
+  ],
+  "stress": [
+    {
+      "description": "permutations of a base anagram over a small letter pool so many pairs are similar",
+      "seed": 81,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    base = ['a', 'a', 'b', 'b', 'c', 'd']\n    out = []\n    for _ in range(n):\n        perm = base[:]\n        rng.shuffle(perm)\n        out.append(''.join(perm))\n    return [out]\n",
+      "note": "shared anagram pool makes adjacency dense, stressing union-find merges"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numSimilarGroups(self, strs):\n        n = len(strs)\n        def similar(a, b):\n            diff = 0\n            for x, y in zip(a, b):\n                if x != y:\n                    diff += 1\n                    if diff > 2:\n                        return False\n            return diff == 0 or diff == 2\n        # explicit BFS over the similarity graph, counting components\n        seen = [False] * n\n        groups = 0\n        for i in range(n):\n            if seen[i]:\n                continue\n            groups += 1\n            stack = [i]\n            seen[i] = True\n            while stack:\n                u = stack.pop()\n                for v in range(n):\n                    if not seen[v] and similar(strs[u], strs[v]):\n                        seen[v] = True\n                        stack.append(v)\n        return groups\n",
+  "solutions": {
+    "python": "class Solution:\n    def numSimilarGroups(self, strs):\n        n = len(strs)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        def similar(a, b):\n            diff = 0\n            for x, y in zip(a, b):\n                if x != y:\n                    diff += 1\n                    if diff > 2:\n                        return False\n            return True\n        for i in range(n):\n            for j in range(i + 1, n):\n                if similar(strs[i], strs[j]):\n                    union(i, j)\n        return len({find(i) for i in range(n)})\n",
+    "javascript": "var numSimilarGroups = function(strs) {\n    const n = strs.length;\n    const parent = Array.from({length: n}, (_, i) => i);\n    const find = (x) => {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    };\n    const union = (a, b) => {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent[ra] = rb;\n    };\n    const similar = (a, b) => {\n        let diff = 0;\n        for (let i = 0; i < a.length; i++) {\n            if (a[i] !== b[i]) {\n                diff++;\n                if (diff > 2) return false;\n            }\n        }\n        return true;\n    };\n    for (let i = 0; i < n; i++) {\n        for (let j = i + 1; j < n; j++) {\n            if (similar(strs[i], strs[j])) union(i, j);\n        }\n    }\n    const roots = new Set();\n    for (let i = 0; i < n; i++) roots.add(find(i));\n    return roots.size;\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * m)", "space": "O(n)" }
+}

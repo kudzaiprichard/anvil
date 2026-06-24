@@ -1,0 +1,37 @@
+{
+  "slug": "binary-tree-cameras",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "A greedy post-order labels each node as covered, holding a camera, or needing one, placing a camera only when a child is left uncovered — pushing cameras as high as possible.",
+  "hints": [
+    "A camera covers itself, its parent, and its direct children, so leaves are never the best place to put one — their parents are.",
+    "Process children before the node and track three states per node: it has a camera, it is covered by a child's camera, or it is uncovered and forces a camera above it.",
+    "Post-order: if any child is uncovered, place a camera here (count++) and mark this node as having one; else if any child has a camera, this node is covered; otherwise it is uncovered. After the recursion, if the root ends uncovered, add one final camera."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 1000], "value": [0, 0] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small tree needing one camera", "input": [[0, 0, null, 0, 0]] },
+    { "kind": "edge", "description": "deeper tree needing two cameras", "input": [[0, 0, null, 0, null, 0, null, null, 0]] },
+    { "kind": "boundary", "description": "single node still needs a camera", "input": [[0]] },
+    { "kind": "trap", "description": "root with two leaf children, camera goes on the root", "input": [[0, 0, 0]] },
+    { "kind": "edge", "description": "left chain of three nodes", "input": [[0, 0, null, 0]] },
+    { "kind": "trap", "description": "balanced depth-two tree, cameras on the middle layer", "input": [[0, 0, 0, 0, 0, 0, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree of zero-valued nodes",
+      "seed": 41,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    left = [None] * n\n    right = [None] * n\n    open_slots = [(0, 'L'), (0, 'R')]\n    for child in range(1, n):\n        idx = rng.randrange(len(open_slots))\n        parent, side = open_slots.pop(idx)\n        if side == 'L':\n            left[parent] = child\n        else:\n            right[parent] = child\n        open_slots.append((child, 'L'))\n        open_slots.append((child, 'R'))\n    out = []\n    queue = [0]\n    while queue:\n        idx = queue.pop(0)\n        if idx is None:\n            out.append(None)\n            continue\n        out.append(0)\n        if left[idx] is not None or right[idx] is not None:\n            queue.append(left[idx])\n            queue.append(right[idx])\n    return [out]\n",
+      "note": "all values are 0 per the constraint"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCameraCover(self, root):\n        # Independent approach: bottom-up DP returning, for each subtree, the\n        # minimum cameras under three exclusive conditions:\n        #   a = this node has a camera\n        #   b = this node is covered (by itself or a child) but has no camera\n        #   c = this node is NOT covered (allowed only if its parent will cover it)\n        INF = float('inf')\n        def dp(node):\n            if node is None:\n                # absent node: no camera, treat as covered, cannot 'need cover'\n                return (INF, 0, 0)\n            la, lb, lc = dp(node.left)\n            ra, rb, rc = dp(node.right)\n            # camera here: children may be in any state, +1\n            a = 1 + min(la, lb, lc) + min(ra, rb, rc)\n            # covered without a camera here: at least one child has a camera,\n            # the other is covered (has camera or covered)\n            b = min(la + min(ra, rb), ra + min(la, lb))\n            # not covered here: both children must be covered without a camera\n            c = lb + rb\n            return (a, b, c)\n        a, b, c = dp(root)\n        return min(a, b)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCameraCover(self, root):\n        # states: 0 = uncovered, 1 = covered (no camera), 2 = has camera\n        self.count = 0\n        def dfs(node):\n            if node is None:\n                return 1\n            l = dfs(node.left)\n            r = dfs(node.right)\n            if l == 0 or r == 0:\n                self.count += 1\n                return 2\n            if l == 2 or r == 2:\n                return 1\n            return 0\n        if dfs(root) == 0:\n            self.count += 1\n        return self.count\n",
+    "javascript": "var minCameraCover = function(root) {\n    let count = 0;\n    function dfs(node) {\n        if (!node) return 1;\n        const l = dfs(node.left);\n        const r = dfs(node.right);\n        if (l === 0 || r === 0) { count++; return 2; }\n        if (l === 2 || r === 2) return 1;\n        return 0;\n    }\n    if (dfs(root) === 0) count++;\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

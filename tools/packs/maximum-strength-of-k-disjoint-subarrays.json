@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-strength-of-k-disjoint-subarrays",
+  "judge": "exact",
+  "pattern": "DP over elements tracking how many groups are closed and whether the current group is open; closing a group happens between elements, then each element either starts, extends, or is skipped.",
+  "hints": [
+    "Each selected element in group j (1-indexed) carries weight (k+1-j)*sign where signs alternate +,-,+,... Rewrite the objective as a weighted element sum over the chosen elements.",
+    "Model the DP with two state arrays: closed[j] = best strength with j complete groups and current element excluded; opened[j] = best strength with group j currently open and current element included.",
+    "Process each element in two micro-steps: first allow any open group to close (transition opened[j]->closed[j]), then for each j try starting group j+1 from closed[j] or extending opened[j]. After all elements, close any open group and read closed[k]."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10000], "value": [-1000000000, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "k=1, all negatives, pick least negative single element", "input": [[-1, -2, -3], 1] },
+    { "kind": "edge", "description": "k=1, positive subarray wins", "input": [[1, 2, 3, -1, 2], 1] },
+    { "kind": "edge", "description": "k=3, exactly enough elements for one element per group", "input": [[1, 2, 3], 3] },
+    { "kind": "boundary", "description": "all same value positive, k=1", "input": [[5, 5, 5, 5], 1] },
+    { "kind": "trap", "description": "even-indexed groups subtract, so very negative elements there help", "input": [[12, -2, -2, -2, -2], 5] },
+    { "kind": "trap", "description": "classic example: three disjoint subarrays with alternating signs", "input": [[1, 2, 3, -1, 2], 3] },
+    { "kind": "boundary", "description": "two elements, k=1, must pick the better single-element subarray", "input": [[-5, 3], 1] }
+  ],
+  "stress": [
+    {
+      "description": "medium array with mixed values, odd k satisfying n*k <= 1e6",
+      "seed": 17,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(5, size)\n    nums = [rng.randint(-100, 100) for _ in range(n)]\n    # k must be odd, 1 <= k <= n, n*k <= 1e6\n    max_k = min(n, 10**6 // n)\n    # pick odd k in [1, max_k]\n    k_choices = list(range(1, max_k + 1, 2))\n    k = rng.choice(k_choices) if k_choices else 1\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumStrength(self, nums, k):\n        # Brute-force only correct for small n and small k\n        # Uses the same two-step DP but iterates naively O(n*k)\n        n = len(nums)\n        NEG_INF = float('-inf')\n        closed = [NEG_INF] * (k + 1)\n        opened = [NEG_INF] * (k + 1)\n        closed[0] = 0\n        for x in nums:\n            # Close open groups first (between elements)\n            for j in range(1, k + 1):\n                if opened[j] != NEG_INF:\n                    closed[j] = max(closed[j], opened[j])\n            new_opened = opened[:]\n            for j in range(1, k + 1):\n                sign = 1 if j % 2 == 1 else -1\n                weight = (k + 1 - j) * sign * x\n                if closed[j - 1] != NEG_INF:\n                    new_opened[j] = max(new_opened[j], closed[j - 1] + weight)\n                if opened[j] != NEG_INF:\n                    new_opened[j] = max(new_opened[j], opened[j] + weight)\n            opened = new_opened\n        for j in range(1, k + 1):\n            if opened[j] != NEG_INF:\n                closed[j] = max(closed[j], opened[j])\n        return closed[k]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumStrength(self, nums, k):\n        NEG_INF = float('-inf')\n        closed = [NEG_INF] * (k + 1)\n        opened = [NEG_INF] * (k + 1)\n        closed[0] = 0\n        for x in nums:\n            # Step 1: allow any open group to close between elements\n            for j in range(1, k + 1):\n                if opened[j] != NEG_INF:\n                    closed[j] = max(closed[j], opened[j])\n            # Step 2: incorporate current element\n            new_opened = opened[:]\n            for j in range(1, k + 1):\n                sign = 1 if j % 2 == 1 else -1\n                weight = (k + 1 - j) * sign * x\n                if closed[j - 1] != NEG_INF:\n                    new_opened[j] = max(new_opened[j], closed[j - 1] + weight)\n                if opened[j] != NEG_INF:\n                    new_opened[j] = max(new_opened[j], opened[j] + weight)\n            opened = new_opened\n        # Close any remaining open group at the end\n        for j in range(1, k + 1):\n            if opened[j] != NEG_INF:\n                closed[j] = max(closed[j], opened[j])\n        return closed[k]\n",
+    "javascript": "var maximumStrength = function(nums, k) {\n    const NEG_INF = -Infinity;\n    const closed = new Array(k + 1).fill(NEG_INF);\n    const opened = new Array(k + 1).fill(NEG_INF);\n    closed[0] = 0;\n    for (const x of nums) {\n        // Step 1: close any open group\n        for (let j = 1; j <= k; j++) {\n            if (opened[j] !== NEG_INF)\n                closed[j] = Math.max(closed[j], opened[j]);\n        }\n        // Step 2: incorporate current element\n        const newOpened = opened.slice();\n        for (let j = 1; j <= k; j++) {\n            const sign = j % 2 === 1 ? 1 : -1;\n            const weight = (k + 1 - j) * sign * x;\n            if (closed[j - 1] !== NEG_INF)\n                newOpened[j] = Math.max(newOpened[j], closed[j - 1] + weight);\n            if (opened[j] !== NEG_INF)\n                newOpened[j] = Math.max(newOpened[j], opened[j] + weight);\n        }\n        for (let j = 0; j <= k; j++) opened[j] = newOpened[j];\n    }\n    // Close remaining open groups\n    for (let j = 1; j <= k; j++) {\n        if (opened[j] !== NEG_INF)\n            closed[j] = Math.max(closed[j], opened[j]);\n    }\n    return closed[k];\n};\n"
+  },
+  "complexity": { "time": "O(n*k)", "space": "O(k)" }
+}

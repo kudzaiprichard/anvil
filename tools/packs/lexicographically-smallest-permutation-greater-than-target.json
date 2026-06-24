@@ -1,0 +1,38 @@
+{
+  "slug": "lexicographically-smallest-permutation-greater-than-target",
+  "judge": "exact",
+  "pattern": "Fixing the longest possible prefix equal to the target, then bumping one position up and sorting the rest, yields the smallest permutation that still exceeds the target.",
+  "hints": [
+    "To be smallest yet larger than target, agree with target for as long as you can and exceed it as late as possible.",
+    "For each candidate position, you must be able to spend the target's characters on the equal prefix, then place a strictly larger available character there.",
+    "Try every position from last to first as the place you first exceed target; using the remaining multiset, put the smallest available character greater than target at that spot and append the leftovers in ascending order, keeping the best overall."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 300] },
+    { "param": "target", "kind": "str", "len": [1, 300] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "exceed at the first position", "input": ["abc", "bba"] },
+    { "kind": "edge", "description": "rearrange to just clear the target", "input": ["leet", "code"] },
+    { "kind": "trap", "description": "no permutation can exceed the target", "input": ["baba", "bbaa"] },
+    { "kind": "trap", "description": "target larger than every arrangement", "input": ["aaa", "zzz"] },
+    { "kind": "boundary", "description": "single character that exceeds", "input": ["b", "a"] },
+    { "kind": "boundary", "description": "single character that cannot exceed", "input": ["a", "a"] },
+    { "kind": "edge", "description": "long equal prefix then a bump", "input": ["aabz", "aaby"] }
+  ],
+  "stress": [
+    {
+      "description": "small strings over a tiny alphabet so the brute force stays fast and ties abound",
+      "seed": 23,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, max(2, size) + 1)\n    s = ''.join(rng.choice('abc') for _ in range(n))\n    t = ''.join(rng.choice('abc') for _ in range(n))\n    return [s, t]\n",
+      "note": "small n keeps the exponential oracle quick"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def lexGreaterPermutation(self, s, target):\n        from collections import Counter\n        n = len(s)\n        cnt = Counter(s)\n        res = [None]\n        def dfs(pos, tight, acc):\n            if res[0] is not None:\n                return\n            if pos == n:\n                cand = ''.join(acc)\n                if cand > target:\n                    res[0] = cand\n                return\n            for c in sorted(k for k in cnt if cnt[k] > 0):\n                if tight and c < target[pos]:\n                    continue\n                cnt[c] -= 1\n                acc.append(c)\n                dfs(pos + 1, tight and c == target[pos], acc)\n                acc.pop()\n                cnt[c] += 1\n                if res[0] is not None:\n                    return\n        dfs(0, True, [])\n        return res[0] if res[0] is not None else ''\n",
+  "solutions": {
+    "python": "class Solution:\n    def lexGreaterPermutation(self, s, target):\n        from collections import Counter\n        n = len(s)\n        cnt = Counter(s)\n        best = None\n        for p in range(n - 1, -1, -1):\n            temp = Counter(cnt)\n            ok = True\n            for i in range(p):\n                if temp[target[i]] <= 0:\n                    ok = False\n                    break\n                temp[target[i]] -= 1\n            if not ok:\n                continue\n            chosen = None\n            for c in sorted(temp):\n                if c > target[p] and temp[c] > 0:\n                    chosen = c\n                    break\n            if chosen is None:\n                continue\n            temp[chosen] -= 1\n            rest = ''.join(c * temp[c] for c in sorted(temp))\n            cand = target[:p] + chosen + rest\n            if best is None or cand < best:\n                best = cand\n        return best if best is not None else ''\n",
+    "javascript": "var lexGreaterPermutation = function(s, target) {\n    const n = s.length;\n    const base = new Array(26).fill(0);\n    for (const ch of s) base[ch.charCodeAt(0) - 97]++;\n    let best = null;\n    for (let p = n - 1; p >= 0; p--) {\n        const temp = base.slice();\n        let ok = true;\n        for (let i = 0; i < p; i++) {\n            const idx = target.charCodeAt(i) - 97;\n            if (temp[idx] <= 0) { ok = false; break; }\n            temp[idx]--;\n        }\n        if (!ok) continue;\n        const tp = target.charCodeAt(p) - 97;\n        let chosen = -1;\n        for (let c = tp + 1; c < 26; c++) {\n            if (temp[c] > 0) { chosen = c; break; }\n        }\n        if (chosen === -1) continue;\n        temp[chosen]--;\n        let rest = '';\n        for (let c = 0; c < 26; c++) rest += String.fromCharCode(97 + c).repeat(temp[c]);\n        const cand = target.slice(0, p) + String.fromCharCode(97 + chosen) + rest;\n        if (best === null || cand < best) best = cand;\n    }\n    return best === null ? '' : best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

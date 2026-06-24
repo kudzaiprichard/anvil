@@ -1,0 +1,35 @@
+{
+  "slug": "snakes-and-ladders",
+  "judge": "exact",
+  "pattern": "BFS on the 1-to-n² board squares with dice-roll branching; convert square labels to row/column using boustrophedon numbering.",
+  "hints": [
+    "Model each square as a node; edges connect square s to the landing positions after rolling 1-6.",
+    "Convert a square label to (row, col) carefully: the bottom row goes left-to-right, the next right-to-left, alternating.",
+    "If a square has a snake or ladder, follow it immediately; BFS layer count gives the minimum dice rolls."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "int[][]", "len": [2, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "2x2 board, one ladder to last square", "input": [[[-1, -1], [-1, 3]]] },
+    { "kind": "edge", "description": "2x2 board, no special squares", "input": [[[-1, -1], [-1, -1]]] },
+    { "kind": "edge", "description": "snake sending back on direct roll", "input": [[[-1, 4], [-1, 3]]] },
+    { "kind": "boundary", "description": "6x6 board from example", "input": [[[-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1],[-1,35,-1,-1,13,-1],[-1,-1,-1,-1,-1,-1],[-1,15,-1,-1,-1,-1]]] },
+    { "kind": "trap", "description": "unreachable destination due to snakes forming cycle", "input": [[[-1,9,8,2],[-1,4,-1,-1],[-1,-1,-1,-1],[-1,-1,-1,-1]]] },
+    { "kind": "trap", "description": "snake at square reachable in one move creates suboptimal path", "input": [[[-1,-1,-1,-1],[-1,-1,-1,-1],[-1,-1,4,-1],[-1,-1,-1,-1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random board with random snakes and ladders, no cycles",
+      "seed": 88,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(20, size))\n    total = n * n\n    board = [[-1] * n for _ in range(n)]\n    # Place a random subset of snakes/ladders ensuring no cycles\n    candidates = list(range(2, total))  # squares 2..n^2-1 can have snakes/ladders\n    rng.shuffle(candidates)\n    used_src = set()\n    used_dst = set()\n    for sq in candidates[:max(0, total // 5)]:\n        dst = rng.randint(1, total)\n        if dst == sq or dst in used_dst or sq in used_src:\n            continue\n        # Convert sq to board coords\n        sq0 = sq - 1\n        row_from_bottom = sq0 // n\n        col = sq0 % n\n        if row_from_bottom % 2 == 1:\n            col = n - 1 - col\n        r = n - 1 - row_from_bottom\n        board[r][col] = dst\n        used_src.add(sq)\n        used_dst.add(dst)\n    return [board]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def snakesAndLadders(self, board):\n        from collections import deque\n        n = len(board)\n        total = n * n\n        def label_to_rc(label):\n            idx = label - 1\n            row_from_bottom = idx // n\n            col = idx % n\n            if row_from_bottom % 2 == 1:\n                col = n - 1 - col\n            r = n - 1 - row_from_bottom\n            return r, col\n        visited = {1}\n        q = deque([(1, 0)])\n        while q:\n            curr, moves = q.popleft()\n            for dice in range(1, 7):\n                nxt = curr + dice\n                if nxt > total:\n                    break\n                r, c = label_to_rc(nxt)\n                if board[r][c] != -1:\n                    nxt = board[r][c]\n                if nxt == total:\n                    return moves + 1\n                if nxt not in visited:\n                    visited.add(nxt)\n                    q.append((nxt, moves + 1))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def snakesAndLadders(self, board):\n        from collections import deque\n        n = len(board)\n        total = n * n\n        def label_to_rc(label):\n            idx = label - 1\n            row_from_bottom = idx // n\n            col = idx % n\n            if row_from_bottom % 2 == 1:\n                col = n - 1 - col\n            r = n - 1 - row_from_bottom\n            return r, col\n        visited = {1}\n        q = deque([(1, 0)])\n        while q:\n            curr, moves = q.popleft()\n            for dice in range(1, 7):\n                nxt = curr + dice\n                if nxt > total:\n                    break\n                r, c = label_to_rc(nxt)\n                if board[r][c] != -1:\n                    nxt = board[r][c]\n                if nxt == total:\n                    return moves + 1\n                if nxt not in visited:\n                    visited.add(nxt)\n                    q.append((nxt, moves + 1))\n        return -1\n",
+    "javascript": "var snakesAndLadders = function(board) {\n    const n = board.length;\n    const total = n * n;\n    function labelToRC(label) {\n        const idx = label - 1;\n        const rowFromBottom = Math.floor(idx / n);\n        let col = idx % n;\n        if (rowFromBottom % 2 === 1) col = n - 1 - col;\n        const r = n - 1 - rowFromBottom;\n        return [r, col];\n    }\n    const visited = new Set([1]);\n    const queue = [[1, 0]];\n    let head = 0;\n    while (head < queue.length) {\n        const [curr, moves] = queue[head++];\n        for (let dice = 1; dice <= 6; dice++) {\n            let nxt = curr + dice;\n            if (nxt > total) break;\n            const [r, c] = labelToRC(nxt);\n            if (board[r][c] !== -1) nxt = board[r][c];\n            if (nxt === total) return moves + 1;\n            if (!visited.has(nxt)) {\n                visited.add(nxt);\n                queue.push([nxt, moves + 1]);\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

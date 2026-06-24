@@ -1,0 +1,38 @@
+{
+  "slug": "split-and-merge-array-transformation",
+  "judge": "exact",
+  "pattern": "With only a handful of elements the transformation graph is tiny, so a breadth-first search over reachable arrangements finds the fewest split-and-merge moves.",
+  "hints": [
+    "Each operation lifts one contiguous block and drops it elsewhere; the array length never changes and stays a permutation of the original.",
+    "Treat every distinct arrangement as a node and every legal lift-and-drop as an edge, then the answer is a shortest path length.",
+    "Run BFS from nums1: from a state, for every subarray [L..R] and every insertion gap, build the next arrangement; the first time you reach nums2 gives the minimum count."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [2, 6], "value": [-100000, 100000] },
+    { "param": "nums2", "kind": "int[]", "len": [2, 6], "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single move suffices", "input": [[3, 1, 2], [1, 2, 3]] },
+    { "kind": "edge", "description": "full reversal needs several moves", "input": [[1, 1, 2, 3, 4, 5], [5, 4, 3, 2, 1, 1]] },
+    { "kind": "boundary", "description": "already equal needs zero moves", "input": [[1, 2], [1, 2]] },
+    { "kind": "edge", "description": "swap of two elements", "input": [[2, 1], [1, 2]] },
+    { "kind": "trap", "description": "duplicates make several targets identical", "input": [[1, 1, 2], [2, 1, 1]] },
+    { "kind": "trap", "description": "rotation by one", "input": [[1, 2, 3, 4], [4, 1, 2, 3]] },
+    { "kind": "edge", "description": "all identical elements need zero moves", "input": [[7, 7, 7], [7, 7, 7]] }
+  ],
+  "stress": [
+    {
+      "description": "random target permutations of a random base array of length up to 6",
+      "seed": 611,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(2, 7)\n    base = [rng.randrange(-5, 6) for _ in range(n)]\n    target = base[:]\n    rng.shuffle(target)\n    return [base, target]\n",
+      "note": "small value range introduces duplicate elements"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSplitMerge(self, nums1, nums2):\n        from itertools import permutations\n        start = tuple(nums1)\n        goal = tuple(nums2)\n        if start == goal:\n            return 0\n        n = len(nums1)\n        # explore all arrangements reachable within increasing move counts\n        from collections import deque\n        seen = {start}\n        q = deque([(start, 0)])\n        while q:\n            cur, d = q.popleft()\n            arr = list(cur)\n            for L in range(n):\n                for R in range(L, n):\n                    block = arr[L:R + 1]\n                    rest = arr[:L] + arr[R + 1:]\n                    for pos in range(len(rest) + 1):\n                        nxt = tuple(rest[:pos] + block + rest[pos:])\n                        if nxt == goal:\n                            return d + 1\n                        if nxt not in seen:\n                            seen.add(nxt)\n                            q.append((nxt, d + 1))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSplitMerge(self, nums1, nums2):\n        from collections import deque\n        start = tuple(nums1)\n        goal = tuple(nums2)\n        n = len(nums1)\n        seen = {start: 0}\n        q = deque([start])\n        while q:\n            cur = q.popleft()\n            d = seen[cur]\n            if cur == goal:\n                return d\n            arr = list(cur)\n            for L in range(n):\n                for R in range(L, n):\n                    rest = arr[:L] + arr[R + 1:]\n                    block = arr[L:R + 1]\n                    for pos in range(len(rest) + 1):\n                        nxt = tuple(rest[:pos] + block + rest[pos:])\n                        if nxt not in seen:\n                            seen[nxt] = d + 1\n                            q.append(nxt)\n        return seen.get(goal, -1)\n",
+    "javascript": "var minSplitMerge = function(nums1, nums2) {\n    const start = nums1.join(',');\n    const goal = nums2.join(',');\n    const n = nums1.length;\n    const seen = new Map();\n    seen.set(start, 0);\n    const queue = [nums1.slice()];\n    let head = 0;\n    while (head < queue.length) {\n        const arr = queue[head++];\n        const key = arr.join(',');\n        const d = seen.get(key);\n        if (key === goal) return d;\n        for (let L = 0; L < n; L++) {\n            for (let R = L; R < n; R++) {\n                const block = arr.slice(L, R + 1);\n                const rest = arr.slice(0, L).concat(arr.slice(R + 1));\n                for (let pos = 0; pos <= rest.length; pos++) {\n                    const nxt = rest.slice(0, pos).concat(block, rest.slice(pos));\n                    const nk = nxt.join(',');\n                    if (!seen.has(nk)) {\n                        seen.set(nk, d + 1);\n                        queue.push(nxt);\n                    }\n                }\n            }\n        }\n    }\n    return seen.has(goal) ? seen.get(goal) : -1;\n};\n"
+  },
+  "complexity": { "time": "O(n! * n^3)", "space": "O(n!)" }
+}

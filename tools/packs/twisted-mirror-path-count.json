@@ -1,0 +1,37 @@
+{
+  "slug": "twisted-mirror-path-count",
+  "judge": "exact",
+  "pattern": "Each right/down move resolves through any chain of mirror reflections to a single landing cell, so counting paths becomes a DP over the empty cells in increasing row-plus-column order.",
+  "hints": [
+    "The robot only ever rests on empty cells; a move into a mirror bounces (right becomes down, down becomes right) and may bounce again until it lands on an empty cell or leaves the grid.",
+    "Write a helper that, from an empty cell and a chosen direction, follows the reflection chain and returns the empty landing cell or reports going out of bounds.",
+    "Because every step and every reflection strictly increases row+column, process empty cells in that order, pushing each cell's path count forward to the (up to two) cells its right and down moves resolve to, all modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [2, 500], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mirrors create multiple bounce paths", "input": [[[0, 1, 0], [0, 0, 1], [1, 0, 0]]] },
+    { "kind": "edge", "description": "open grid, plain two paths", "input": [[[0, 0], [0, 0]]] },
+    { "kind": "edge", "description": "chained reflections, one valid path", "input": [[[0, 1, 1], [1, 1, 0]]] },
+    { "kind": "boundary", "description": "smallest grid", "input": [[[0, 0], [0, 0]]] },
+    { "kind": "trap", "description": "a reflection runs off the grid and is not counted", "input": [[[0, 1], [0, 0]]] },
+    { "kind": "trap", "description": "mirror wall blocks all but forces a single route", "input": [[[0, 0, 0], [1, 1, 0], [0, 0, 0]]] },
+    { "kind": "edge", "description": "tall thin grid", "input": [[[0, 0], [0, 1], [0, 0], [1, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random grid with sparse mirrors keeping start and end empty",
+      "seed": 21,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(2, max(2, size))\n    n = rng.randint(2, max(2, size))\n    grid = [[1 if rng.random() < 0.25 else 0 for _ in range(n)] for _ in range(m)]\n    grid[0][0] = 0\n    grid[m - 1][n - 1] = 0\n    return [grid]\n",
+      "note": "quarter density mirrors; corners forced empty per constraints"
+    }
+  ],
+  "oracle_python": "import sys\nclass Solution:\n    def uniquePaths(self, grid):\n        MOD = 10**9 + 7\n        m = len(grid)\n        n = len(grid[0])\n        sys.setrecursionlimit(1000000)\n        def resolve(i, j, d):\n            ci, cj = i, j\n            while True:\n                ni, nj = (ci, cj + 1) if d == 0 else (ci + 1, cj)\n                if ni < 0 or ni >= m or nj < 0 or nj >= n:\n                    return None\n                if grid[ni][nj] == 0:\n                    return (ni, nj)\n                d = 1 - d\n                ci, cj = ni, nj\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def ways(i, j):\n            if i == m - 1 and j == n - 1:\n                return 1\n            total = 0\n            for d in (0, 1):\n                nxt = resolve(i, j, d)\n                if nxt is not None:\n                    total += ways(nxt[0], nxt[1])\n            return total % MOD\n        return ways(0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def uniquePaths(self, grid):\n        MOD = 10**9 + 7\n        m = len(grid)\n        n = len(grid[0])\n        def resolve(i, j, d):\n            ci, cj = i, j\n            while True:\n                ni, nj = (ci, cj + 1) if d == 0 else (ci + 1, cj)\n                if ni < 0 or ni >= m or nj < 0 or nj >= n:\n                    return None\n                if grid[ni][nj] == 0:\n                    return (ni, nj)\n                d = 1 - d\n                ci, cj = ni, nj\n        dp = [[0] * n for _ in range(m)]\n        dp[0][0] = 1\n        cells = [(i, j) for i in range(m) for j in range(n) if grid[i][j] == 0]\n        cells.sort(key=lambda c: (c[0] + c[1], c[0]))\n        for (i, j) in cells:\n            w = dp[i][j]\n            if w == 0:\n                continue\n            for d in (0, 1):\n                nxt = resolve(i, j, d)\n                if nxt is not None:\n                    dp[nxt[0]][nxt[1]] = (dp[nxt[0]][nxt[1]] + w) % MOD\n        return dp[m - 1][n - 1] % MOD\n",
+    "javascript": "var uniquePaths = function(grid) {\n    const MOD = 1000000007n;\n    const m = grid.length, n = grid[0].length;\n    const resolve = (i, j, d) => {\n        let ci = i, cj = j;\n        while (true) {\n            let ni, nj;\n            if (d === 0) { ni = ci; nj = cj + 1; } else { ni = ci + 1; nj = cj; }\n            if (ni < 0 || ni >= m || nj < 0 || nj >= n) return null;\n            if (grid[ni][nj] === 0) return [ni, nj];\n            d = 1 - d;\n            ci = ni; cj = nj;\n        }\n    };\n    const dp = Array.from({ length: m }, () => new Array(n).fill(0n));\n    dp[0][0] = 1n;\n    const cells = [];\n    for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) if (grid[i][j] === 0) cells.push([i, j]);\n    cells.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]) || a[0] - b[0]);\n    for (const [i, j] of cells) {\n        const w = dp[i][j];\n        if (w === 0n) continue;\n        for (const d of [0, 1]) {\n            const nxt = resolve(i, j, d);\n            if (nxt !== null) {\n                dp[nxt[0]][nxt[1]] = (dp[nxt[0]][nxt[1]] + w) % MOD;\n            }\n        }\n    }\n    return Number(dp[m - 1][n - 1] % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(m * n)", "space": "O(m * n)" }
+}

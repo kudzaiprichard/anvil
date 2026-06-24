@@ -1,0 +1,36 @@
+{
+  "slug": "earliest-second-to-mark-indices-ii",
+  "judge": "exact",
+  "pattern": "Binary search on the answer combined with a greedy heap-based feasibility check: use a min-heap to always zero-out the index with the largest nums value at each changeIndices opportunity.",
+  "hints": [
+    "Binary search on the answer T in [1, m]; to check feasibility within T seconds, scan changeIndices[0..T-1] from right to left.",
+    "When we encounter the last occurrence of index i in changeIndices[0..T-1], we may choose to spend that second zero-ing it (free) instead of decrementing; greedily 'buy' the most expensive remaining index (use a max-heap of nums values for unmark indices that appear in changeIndices).",
+    "Each 'buy' (zero-out) costs 1 second and 1 marking second; if we don't buy, we get 1 free decrement second; track whether total free decrements + bought indices covers all requirements."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 5000], "value": [0, 1000000000] },
+    { "param": "changeIndices", "kind": "int[]", "len": [1, 5000], "value": [1, 5000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all nums zero — only marking seconds needed", "input": [[0, 0, 0], [1, 3, 2, 2, 2, 2, 3]] },
+    { "kind": "edge", "description": "impossible — not enough total seconds for all decrements and markings", "input": [[1, 2, 3], [1, 2, 3]] },
+    { "kind": "edge", "description": "single large-value element; zero-out via changeIndices is far cheaper than decrementing", "input": [[1000000000], [1, 1, 1, 1]] },
+    { "kind": "boundary", "description": "three elements needing zero-out, barely enough seconds", "input": [[3, 2, 3], [1, 3, 2, 2, 2, 2, 3]] },
+    { "kind": "trap", "description": "decrement vs zero-out tradeoff: some indices have nums=0 so zero-out does nothing useful", "input": [[0, 0, 1, 2], [1, 2, 1, 2, 1, 2, 1, 2]] },
+    { "kind": "trap", "description": "changeIndices never covers some indices — those must be decremented the slow way", "input": [[1, 5], [1, 1, 1, 1, 1, 1, 1, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random small nums and changeIndices arrays",
+      "seed": 13,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, min(size, 15))\n    m = size\n    nums = [rng.randint(0, 10) for _ in range(n)]\n    changeIndices = [rng.randint(1, n) for _ in range(m)]\n    # Ensure all indices appear\n    for i in range(1, n + 1):\n        changeIndices[rng.randint(0, m - 1)] = i\n    return [nums, changeIndices]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def earliestSecondToMarkIndices(self, nums, changeIndices):\n        import heapq\n        n, m = len(nums), len(changeIndices)\n        total = sum(nums)\n        def feasible(T):\n            last = {}\n            for s in range(T):\n                last[changeIndices[s]] = s\n            h = []\n            free = 0\n            total_saved = 0\n            for s in range(T - 1, -1, -1):\n                idx = changeIndices[s]\n                if last.get(idx) == s:\n                    heapq.heappush(h, -nums[idx - 1])\n                    top = -h[0]\n                    if top > 1:\n                        total_saved += top\n                        heapq.heappop(h)\n                    else:\n                        heapq.heappop(h)\n                        free += 1\n                else:\n                    free += 1\n            return free >= (total - total_saved) + n\n        for T in range(1, m + 1):\n            if feasible(T):\n                return T\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def earliestSecondToMarkIndices(self, nums, changeIndices):\n        import heapq\n        n, m = len(nums), len(changeIndices)\n        total = sum(nums)\n        def feasible(T):\n            last = {}\n            for s in range(T):\n                last[changeIndices[s]] = s\n            h = []\n            free = 0\n            total_saved = 0\n            for s in range(T - 1, -1, -1):\n                idx = changeIndices[s]\n                if last.get(idx) == s:\n                    heapq.heappush(h, -nums[idx - 1])\n                    top = -h[0]\n                    if top > 1:\n                        total_saved += top\n                        heapq.heappop(h)\n                    else:\n                        heapq.heappop(h)\n                        free += 1\n                else:\n                    free += 1\n            return free >= (total - total_saved) + n\n        lo, hi, ans = 1, m, -1\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                ans = mid\n                hi = mid - 1\n            else:\n                lo = mid + 1\n        return ans\n",
+    "javascript": "var earliestSecondToMarkIndices = function(nums, changeIndices) {\n    const n = nums.length, m = changeIndices.length;\n    const totalNums = nums.reduce((a, b) => a + b, 0);\n    // Max-heap via min-heap with negation\n    function heapPush(h, v) {\n        h.push(v);\n        let i = h.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (h[p] <= h[i]) break;\n            [h[p], h[i]] = [h[i], h[p]]; i = p;\n        }\n    }\n    function heapPop(h) {\n        const top = h[0], last = h.pop();\n        if (h.length > 0) {\n            h[0] = last;\n            let i = 0;\n            while (true) {\n                let s = i, l = 2*i+1, r = 2*i+2;\n                if (l < h.length && h[l] < h[s]) s = l;\n                if (r < h.length && h[r] < h[s]) s = r;\n                if (s === i) break;\n                [h[s], h[i]] = [h[i], h[s]]; i = s;\n            }\n        }\n        return top;\n    }\n    function feasible(T) {\n        const last = new Map();\n        for (let s = 0; s < T; s++) last.set(changeIndices[s], s);\n        const h = [];\n        let free = 0, saved = 0;\n        for (let s = T - 1; s >= 0; s--) {\n            const idx = changeIndices[s];\n            if (last.get(idx) === s) {\n                heapPush(h, -nums[idx - 1]);\n                const top = -h[0];\n                if (top > 1) { saved += top; heapPop(h); }\n                else { heapPop(h); free++; }\n            } else {\n                free++;\n            }\n        }\n        return free >= (totalNums - saved) + n;\n    }\n    let lo = 1, hi = m, ans = -1;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (feasible(mid)) { ans = mid; hi = mid - 1; }\n        else lo = mid + 1;\n    }\n    return ans;\n};"
+  },
+  "complexity": { "time": "O(m log m)", "space": "O(n)" }
+}

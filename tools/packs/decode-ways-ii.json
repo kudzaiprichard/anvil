@@ -1,0 +1,37 @@
+{
+  "slug": "decode-ways-ii",
+  "judge": "exact",
+  "pattern": "A linear DP counts decodings where each position contributes single-digit and two-digit options, with the wildcard expanding into its allowed digit ranges, all taken modulo 1e9+7.",
+  "hints": [
+    "Extend the classic decode-ways DP so a state counts the number of letter strings, not just groupings.",
+    "A single '*' stands for 9 letters; a two-character window's count depends on which digits or wildcards it contains.",
+    "Track ways ending at each index using contributions from one-char and two-char decodings, where '*' multiplies by the number of valid digits it can take in that context; keep everything mod 1e9+7."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single wildcard", "input": ["*"] },
+    { "kind": "edge", "description": "one then wildcard", "input": ["1*"] },
+    { "kind": "trap", "description": "two then wildcard", "input": ["2*"] },
+    { "kind": "trap", "description": "leading zero invalid", "input": ["0"] },
+    { "kind": "trap", "description": "zero after wildcard", "input": ["*0"] },
+    { "kind": "edge", "description": "plain digits", "input": ["11106"] },
+    { "kind": "trap", "description": "wildcard pair", "input": ["**"] },
+    { "kind": "trap", "description": "embedded zero needing pairing", "input": ["1*0"] }
+  ],
+  "stress": [
+    {
+      "description": "random short string of digits and wildcards (kept small for the brute-force oracle); avoids guaranteed-invalid lone zeros being too common",
+      "seed": 31,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(9, size)))\n    chars = '123456789*'\n    s = ''.join(rng.choice(chars) for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numDecodings(self, s):\n        MOD = 10 ** 9 + 7\n        digits = '123456789'\n        def expand(i, memo):\n            if i in memo:\n                return memo[i]\n            if i == len(s):\n                return 1\n            total = 0\n            opts1 = digits if s[i] == '*' else ([s[i]] if s[i] != '0' else [])\n            for d in opts1:\n                total += expand(i + 1, memo)\n            if i + 1 < len(s):\n                first_opts = '12' if s[i] == '*' else ([s[i]] if s[i] in '12' else [])\n                for a in first_opts:\n                    second_opts = '123456789' if s[i + 1] == '*' else [s[i + 1]]\n                    for b in second_opts:\n                        val = int(a + b)\n                        if 10 <= val <= 26:\n                            total += expand(i + 2, memo)\n            total %= MOD\n            memo[i] = total\n            return total\n        return expand(0, {}) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numDecodings(self, s):\n        MOD = 10 ** 9 + 7\n        n = len(s)\n        prev2 = 1\n        def ways1(ch):\n            if ch == '*':\n                return 9\n            if ch == '0':\n                return 0\n            return 1\n        prev1 = ways1(s[0])\n        for i in range(1, n):\n            cur = (prev1 * ways1(s[i])) % MOD\n            a, b = s[i - 1], s[i]\n            if a == '*' and b == '*':\n                cur = (cur + 15 * prev2) % MOD\n            elif a == '*':\n                if b <= '6':\n                    cur = (cur + 2 * prev2) % MOD\n                else:\n                    cur = (cur + prev2) % MOD\n            elif b == '*':\n                if a == '1':\n                    cur = (cur + 9 * prev2) % MOD\n                elif a == '2':\n                    cur = (cur + 6 * prev2) % MOD\n            else:\n                val = int(a + b)\n                if 10 <= val <= 26:\n                    cur = (cur + prev2) % MOD\n            prev2 = prev1\n            prev1 = cur\n        return prev1 % MOD\n",
+    "javascript": "var numDecodings = function(s) {\n    const MOD = 1000000007n;\n    const n = s.length;\n    const ways1 = (ch) => ch === '*' ? 9n : (ch === '0' ? 0n : 1n);\n    let prev2 = 1n;\n    let prev1 = ways1(s[0]);\n    for (let i = 1; i < n; i++) {\n        let cur = (prev1 * ways1(s[i])) % MOD;\n        const a = s[i - 1], b = s[i];\n        if (a === '*' && b === '*') {\n            cur = (cur + 15n * prev2) % MOD;\n        } else if (a === '*') {\n            if (b <= '6') cur = (cur + 2n * prev2) % MOD;\n            else cur = (cur + prev2) % MOD;\n        } else if (b === '*') {\n            if (a === '1') cur = (cur + 9n * prev2) % MOD;\n            else if (a === '2') cur = (cur + 6n * prev2) % MOD;\n        } else {\n            const val = parseInt(a + b, 10);\n            if (val >= 10 && val <= 26) cur = (cur + prev2) % MOD;\n        }\n        prev2 = prev1;\n        prev1 = cur;\n    }\n    return Number(prev1 % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

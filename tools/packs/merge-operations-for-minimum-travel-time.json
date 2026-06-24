@@ -1,0 +1,40 @@
+{
+  "slug": "merge-operations-for-minimum-travel-time",
+  "judge": "exact",
+  "pattern": "Each merge just deletes an internal sign and pushes its per-km time onto the next surviving sign, so the problem reduces to picking which k internal signs to drop; a DP over the last two kept signs and the removal count finds the cheapest choice.",
+  "hints": [
+    "The first and last signs can never be removed, and a merge only ever folds a sign's time into the sign immediately to its right.",
+    "After all merges the kept signs are a subsequence keeping endpoints; the segment leaving a kept sign costs its distance times the summed original times of the signs merged into it.",
+    "Run a DP over (previous kept sign, current kept sign, number removed so far): the segment leaving the current sign uses the time accumulated from the previous kept sign, and you advance to the next kept sign paying that segment, requiring exactly k removals at the end."
+  ],
+  "constraints": [
+    { "param": "l", "kind": "int", "value": [1, 100000] },
+    { "param": "n", "kind": "int", "value": [2, 50] },
+    { "param": "k", "kind": "int", "value": [0, 10] },
+    { "param": "position", "kind": "int[]", "len": [2, 50], "value": [0, 100000] },
+    { "param": "time", "kind": "int[]", "len": [2, 50], "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one merge of the cheap middle pair", "input": [10, 4, 1, [0, 3, 8, 10], [5, 8, 3, 6]] },
+    { "kind": "edge", "description": "one merge among four interior segments", "input": [5, 5, 1, [0, 1, 2, 3, 5], [8, 3, 9, 3, 3]] },
+    { "kind": "boundary", "description": "zero merges leaves the road unchanged", "input": [10, 4, 0, [0, 3, 8, 10], [5, 8, 3, 6]] },
+    { "kind": "trap", "description": "must remove the only removable interior sign", "input": [6, 3, 1, [0, 4, 6], [2, 5, 1]] },
+    { "kind": "edge", "description": "two merges collapse most interior signs", "input": [12, 5, 2, [0, 2, 5, 9, 12], [4, 1, 6, 2, 3]] },
+    { "kind": "trap", "description": "merging the wider segment is worse than the narrow one", "input": [10, 4, 1, [0, 1, 9, 10], [3, 5, 2, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random increasing positions and small times with a modest merge count",
+      "seed": 11,
+      "size": 14,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 14))\n    pts = sorted(rng.sample(range(1, 100000), n - 1))\n    position = [0] + pts\n    l = position[-1]\n    cap = 100\n    time = []\n    remaining = cap\n    for i in range(n):\n        slots = n - i\n        hi = max(1, min(8, remaining - (slots - 1)))\n        t = rng.randrange(1, hi + 1)\n        time.append(t)\n        remaining -= t\n    k = rng.randrange(0, min(n - 2, 6) + 1) if n > 2 else 0\n    return [l, n, k, position, time]\n",
+      "note": "n and k kept small so the combinations oracle stays fast and sum(time) <= 100"
+    }
+  ],
+  "oracle_python": "import itertools\nclass Solution:\n    def minTravelTime(self, l, n, k, position, time):\n        internal = list(range(1, n - 1))\n        best = float('inf')\n        for combo in itertools.combinations(internal, k):\n            removed = set(combo)\n            poscur = []\n            tmcur = []\n            carry = 0\n            for i in range(n):\n                if i in removed:\n                    carry += time[i]\n                else:\n                    poscur.append(position[i])\n                    tmcur.append(time[i] + carry)\n                    carry = 0\n            cost = sum((poscur[a + 1] - poscur[a]) * tmcur[a] for a in range(len(poscur) - 1))\n            if cost < best:\n                best = cost\n        return best\n",
+  "solutions": {
+    "python": "import sys\nfrom functools import lru_cache\nclass Solution:\n    def minTravelTime(self, l, n, k, position, time):\n        sys.setrecursionlimit(100000)\n        presum = [0] * (n + 1)\n        for i in range(n):\n            presum[i + 1] = presum[i] + time[i]\n        INF = float('inf')\n        def segtime(prev, cur):\n            if cur == 0:\n                return time[0]\n            return presum[cur + 1] - presum[prev + 1]\n        @lru_cache(maxsize=None)\n        def rec(prev, cur, r):\n            if cur == n - 1:\n                return 0 if r == k else INF\n            st = segtime(prev, cur)\n            best = INF\n            for nxt in range(cur + 1, n):\n                nr = r + (nxt - cur - 1)\n                if nr > k:\n                    break\n                cost = (position[nxt] - position[cur]) * st\n                sub = rec(cur, nxt, nr)\n                if sub < INF and cost + sub < best:\n                    best = cost + sub\n            return best\n        ans = rec(-1, 0, 0)\n        rec.cache_clear()\n        return ans\n",
+    "javascript": "var minTravelTime = function(l, n, k, position, time) {\n    const presum = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) presum[i + 1] = presum[i] + time[i];\n    const INF = Infinity;\n    function segtime(prev, cur) {\n        if (cur === 0) return time[0];\n        return presum[cur + 1] - presum[prev + 1];\n    }\n    const memo = new Map();\n    function rec(prev, cur, r) {\n        if (cur === n - 1) return r === k ? 0 : INF;\n        const key = prev * 10000 + cur * 100 + r;\n        if (memo.has(key)) return memo.get(key);\n        const st = segtime(prev, cur);\n        let best = INF;\n        for (let nxt = cur + 1; nxt < n; nxt++) {\n            const nr = r + (nxt - cur - 1);\n            if (nr > k) break;\n            const cost = (position[nxt] - position[cur]) * st;\n            const sub = rec(cur, nxt, nr);\n            if (sub < INF && cost + sub < best) best = cost + sub;\n        }\n        memo.set(key, best);\n        return best;\n    }\n    return rec(-1, 0, 0);\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * k)", "space": "O(n^2 * k)" }
+}

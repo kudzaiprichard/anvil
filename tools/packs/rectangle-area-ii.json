@@ -1,0 +1,37 @@
+{
+  "slug": "rectangle-area-ii",
+  "judge": "exact",
+  "pattern": "Compress the distinct x and y coordinates into a grid of elementary cells, then a cell counts once toward the area if any rectangle covers it, giving the union area before taking it modulo a large prime.",
+  "hints": [
+    "Overlaps make naive summation wrong; instead think of the plane sliced by every rectangle edge into small cells.",
+    "Collect all distinct x coordinates and all distinct y coordinates; consecutive pairs define elementary rectangles whose area is known.",
+    "Mark each elementary cell covered if it lies inside any rectangle, sum the areas of covered cells, and reduce the total modulo one billion seven."
+  ],
+  "constraints": [
+    { "param": "rectangles", "kind": "int[][]", "len": [1, 200], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three overlapping rectangles, union counted once", "input": [[[0, 0, 2, 2], [1, 0, 2, 3], [1, 0, 3, 1]]] },
+    { "kind": "boundary", "description": "one enormous rectangle exercises the modulo", "input": [[[0, 0, 1000000000, 1000000000]]] },
+    { "kind": "edge", "description": "two disjoint rectangles add directly", "input": [[[0, 0, 1, 1], [2, 2, 3, 3]]] },
+    { "kind": "trap", "description": "fully nested rectangle adds nothing", "input": [[[0, 0, 4, 4], [1, 1, 2, 2]]] },
+    { "kind": "trap", "description": "edge-sharing rectangles do not double count", "input": [[[0, 0, 2, 2], [2, 0, 4, 2]]] },
+    { "kind": "edge", "description": "identical rectangles count once", "input": [[[0, 0, 3, 3], [0, 0, 3, 3]]] },
+    { "kind": "boundary", "description": "single unit square", "input": [[[0, 0, 1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "many small random rectangles over a bounded grid so overlaps are frequent",
+      "seed": 111,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 40))\n    rects = []\n    for _ in range(m):\n        x1 = rng.randint(0, 20)\n        y1 = rng.randint(0, 20)\n        x2 = x1 + rng.randint(1, 10)\n        y2 = y1 + rng.randint(1, 10)\n        rects.append([x1, y1, x2, y2])\n    return [rects]\n",
+      "note": "small coordinate space forces heavy overlap, stressing union counting"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def rectangleArea(self, rectangles):\n        MOD = 10**9 + 7\n        xs = sorted(set([r[0] for r in rectangles] + [r[2] for r in rectangles]))\n        ys = sorted(set([r[1] for r in rectangles] + [r[3] for r in rectangles]))\n        xi = {x: i for i, x in enumerate(xs)}\n        yi = {y: i for i, y in enumerate(ys)}\n        covered = [[False] * (len(ys) - 1) for _ in range(len(xs) - 1)]\n        for x1, y1, x2, y2 in rectangles:\n            for i in range(xi[x1], xi[x2]):\n                for j in range(yi[y1], yi[y2]):\n                    covered[i][j] = True\n        total = 0\n        for i in range(len(xs) - 1):\n            w = xs[i + 1] - xs[i]\n            for j in range(len(ys) - 1):\n                if covered[i][j]:\n                    total += w * (ys[j + 1] - ys[j])\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def rectangleArea(self, rectangles):\n        MOD = 10**9 + 7\n        ys = sorted(set([r[1] for r in rectangles] + [r[3] for r in rectangles]))\n        yidx = {y: i for i, y in enumerate(ys)}\n        events = []\n        for x1, y1, x2, y2 in rectangles:\n            events.append((x1, y1, y2, 1))\n            events.append((x2, y1, y2, -1))\n        events.sort()\n        count = [0] * (len(ys) - 1) if len(ys) > 1 else []\n        total = 0\n        prev_x = events[0][0]\n        i = 0\n        n = len(events)\n        while i < n:\n            x = events[i][0]\n            covered = 0\n            for j in range(len(ys) - 1):\n                if count[j] > 0:\n                    covered += ys[j + 1] - ys[j]\n            total += covered * (x - prev_x)\n            prev_x = x\n            while i < n and events[i][0] == x:\n                _, y1, y2, sign = events[i]\n                for j in range(yidx[y1], yidx[y2]):\n                    count[j] += sign\n                i += 1\n        return total % MOD\n",
+    "javascript": "var rectangleArea = function(rectangles) {\n    const MOD = 1000000007n;\n    const ySet = new Set();\n    for (const r of rectangles) { ySet.add(r[1]); ySet.add(r[3]); }\n    const ys = [...ySet].sort((a, b) => a - b);\n    const yidx = new Map();\n    ys.forEach((y, i) => yidx.set(y, i));\n    const events = [];\n    for (const [x1, y1, x2, y2] of rectangles) {\n        events.push([x1, y1, y2, 1]);\n        events.push([x2, y1, y2, -1]);\n    }\n    events.sort((a, b) => a[0] - b[0]);\n    const count = new Array(Math.max(0, ys.length - 1)).fill(0);\n    let total = 0n;\n    let prevX = events[0][0];\n    let i = 0;\n    const n = events.length;\n    while (i < n) {\n        const x = events[i][0];\n        let covered = 0n;\n        for (let j = 0; j < ys.length - 1; j++) {\n            if (count[j] > 0) covered += BigInt(ys[j + 1] - ys[j]);\n        }\n        total += covered * BigInt(x - prevX);\n        prevX = x;\n        while (i < n && events[i][0] === x) {\n            const [, y1, y2, sign] = events[i];\n            for (let j = yidx.get(y1); j < yidx.get(y2); j++) count[j] += sign;\n            i++;\n        }\n    }\n    return Number(total % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

@@ -1,0 +1,44 @@
+{
+  "slug": "my-calendar-iii",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Reporting the peak overlap after every insertion is a running-maximum sweep over interval start/end deltas, the classic boundary-counting technique.",
+  "hints": [
+    "The largest number of simultaneous events is the highest the count of currently-open intervals ever reaches.",
+    "Represent each event as a +1 at its start and a -1 at its end, then the answer is the maximum prefix sum over all boundary points in order.",
+    "Keep a sorted multiset of deltas keyed by time; after adding the new event's two deltas, sweep the boundaries accumulating the count and return the largest value seen."
+  ],
+  "constraints": [
+    { "param": "startTime", "kind": "int", "value": [0, 1000000000] },
+    { "param": "endTime", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: peak climbs to 3 and stays there",
+      "input": [["MyCalendarThree", "book", "book", "book", "book", "book", "book"], [[], [10, 20], [50, 60], [10, 40], [5, 15], [5, 10], [25, 55]]] },
+    { "kind": "boundary", "description": "a single event gives a peak of one",
+      "input": [["MyCalendarThree", "book"], [[], [0, 5]]] },
+    { "kind": "trap", "description": "touching-only intervals never stack so the peak stays one",
+      "input": [["MyCalendarThree", "book", "book", "book"], [[], [1, 2], [2, 3], [3, 4]]] },
+    { "kind": "edge", "description": "fully identical intervals raise the peak by one each time",
+      "input": [["MyCalendarThree", "book", "book", "book", "book"], [[], [10, 20], [10, 20], [10, 20], [10, 20]]] },
+    { "kind": "trap", "description": "the peak is the historical maximum and never decreases even when later events are disjoint",
+      "input": [["MyCalendarThree", "book", "book", "book", "book"], [[], [0, 10], [0, 10], [0, 10], [100, 110]]] },
+    { "kind": "edge", "description": "nested intervals build up overlap at a shared inner point",
+      "input": [["MyCalendarThree", "book", "book", "book"], [[], [0, 100], [10, 90], [20, 80]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random events over a small coordinate space so the peak overlap grows steadily",
+      "seed": 47,
+      "size": 350,
+      "generator_python": "def gen(rng, size):\n    ops = ['MyCalendarThree']\n    args = [[]]\n    for _ in range(max(1, size)):\n        s = rng.randint(0, 30)\n        e = s + rng.randint(1, 12)\n        ops.append('book'); args.append([s, e])\n    return [ops, args]\n",
+      "note": "narrow range pushes overlaps high so the running maximum changes often"
+    }
+  ],
+  "oracle_python": "class MyCalendarThree:\n    def __init__(self):\n        self.events = []\n    def book(self, startTime, endTime):\n        self.events.append((startTime, endTime))\n        points = set()\n        for s, e in self.events:\n            points.add(s)\n            points.add(e)\n        best = 0\n        for p in points:\n            cnt = 0\n            for s, e in self.events:\n                if s <= p < e:\n                    cnt += 1\n            best = max(best, cnt)\n        return best\n",
+  "solutions": {
+    "python": "class MyCalendarThree:\n    def __init__(self):\n        self.delta = {}\n    def book(self, startTime, endTime):\n        self.delta[startTime] = self.delta.get(startTime, 0) + 1\n        self.delta[endTime] = self.delta.get(endTime, 0) - 1\n        active = 0\n        best = 0\n        for t in sorted(self.delta):\n            active += self.delta[t]\n            if active > best:\n                best = active\n        return best\n",
+    "javascript": "class MyCalendarThree {\n    constructor() {\n        this.delta = new Map();\n    }\n    book(startTime, endTime) {\n        this.delta.set(startTime, (this.delta.get(startTime) || 0) + 1);\n        this.delta.set(endTime, (this.delta.get(endTime) || 0) - 1);\n        const keys = [...this.delta.keys()].sort((a, b) => a - b);\n        let active = 0, best = 0;\n        for (const t of keys) {\n            active += this.delta.get(t);\n            if (active > best) best = active;\n        }\n        return best;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n log n) per book", "space": "O(n)" }
+}

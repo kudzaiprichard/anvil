@@ -1,0 +1,40 @@
+{
+  "slug": "wildcard-matching",
+  "judge": "exact",
+  "pattern": "Matching with '?' and '*' is a two-dimensional DP where '*' can absorb any run of characters, captured by carrying a single 'star covers everything so far' relation.",
+  "hints": [
+    "A '?' matches exactly one character while '*' can match an empty run or any number of characters.",
+    "Let dp[i][j] mean the first i characters of s match the first j of p; a '*' lets dp[i][j] inherit from either dp[i-1][j] or dp[i][j-1].",
+    "Initialize dp[0][j] true while p[:j] is all stars; for a literal or '?' require the previous diagonal and a character match, and for '*' take the OR of dropping the star or consuming one more character of s."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [0, 2000] },
+    { "param": "p", "kind": "string", "len": [0, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "literal too short to match", "input": ["aa", "a"] },
+    { "kind": "edge", "description": "single star matches the whole string", "input": ["aa", "*"] },
+    { "kind": "trap", "description": "question mark matches one but the literal then fails", "input": ["cb", "?a"] },
+    { "kind": "trap", "description": "star must be allowed to match an empty run", "input": ["", "*"] },
+    { "kind": "boundary", "description": "both empty match", "input": ["", ""] },
+    { "kind": "trap", "description": "empty pattern cannot match a nonempty string", "input": ["a", ""] },
+    { "kind": "trap", "description": "consecutive stars collapse to one", "input": ["adceb", "*a*b"] },
+    { "kind": "trap", "description": "stars and literals interleaved where greedy fails", "input": ["acdcb", "a*c?b"] },
+    { "kind": "edge", "description": "trailing star after exact prefix", "input": ["abc", "abc*"] }
+  ],
+  "stress": [
+    {
+      "description": "short strings and patterns over a tiny alphabet with frequent wildcards",
+      "seed": 44,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    cap = min(30, max(2, size))\n    sn = rng.randrange(0, cap + 1)\n    s = ''.join(rng.choice('ab') for _ in range(sn))\n    pn = rng.randrange(0, cap + 1)\n    p = ''.join(rng.choice(['a', 'b', '?', '*']) for _ in range(pn))\n    return [s, p]\n",
+      "note": "tiny alphabet with many stars stresses the empty-run and absorb branches"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isMatch(self, s, p):\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(i, j):\n            if j == len(p):\n                return i == len(s)\n            if p[j] == '*':\n                return dp(i, j + 1) or (i < len(s) and dp(i + 1, j))\n            if i < len(s) and (p[j] == '?' or p[j] == s[i]):\n                return dp(i + 1, j + 1)\n            return False\n        return dp(0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def isMatch(self, s, p):\n        m, n = len(s), len(p)\n        dp = [[False] * (n + 1) for _ in range(m + 1)]\n        dp[0][0] = True\n        for j in range(1, n + 1):\n            if p[j - 1] == '*':\n                dp[0][j] = dp[0][j - 1]\n        for i in range(1, m + 1):\n            for j in range(1, n + 1):\n                if p[j - 1] == '*':\n                    dp[i][j] = dp[i - 1][j] or dp[i][j - 1]\n                elif p[j - 1] == '?' or p[j - 1] == s[i - 1]:\n                    dp[i][j] = dp[i - 1][j - 1]\n        return dp[m][n]\n",
+    "javascript": "var isMatch = function(s, p) {\n    const m = s.length, n = p.length;\n    const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(false));\n    dp[0][0] = true;\n    for (let j = 1; j <= n; j++) {\n        if (p[j - 1] === '*') dp[0][j] = dp[0][j - 1];\n    }\n    for (let i = 1; i <= m; i++) {\n        for (let j = 1; j <= n; j++) {\n            if (p[j - 1] === '*') {\n                dp[i][j] = dp[i - 1][j] || dp[i][j - 1];\n            } else if (p[j - 1] === '?' || p[j - 1] === s[i - 1]) {\n                dp[i][j] = dp[i - 1][j - 1];\n            }\n        }\n    }\n    return dp[m][n];\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

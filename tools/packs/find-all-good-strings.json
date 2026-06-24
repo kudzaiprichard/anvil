@@ -1,0 +1,39 @@
+{
+  "slug": "find-all-good-strings",
+  "judge": "exact",
+  "pattern": "Digit-DP over string positions combined with KMP failure function to track progress toward the forbidden substring.",
+  "hints": [
+    "Enumerate valid strings using digit DP: for each position track whether you are still bounded below by s1, bounded above by s2, and how far into the evil pattern you have matched.",
+    "Build the KMP failure function for evil; after placing each character at position i, use it to compute the new evil-match length without scanning from scratch.",
+    "State is (position, kmp_state, tight_lo, tight_hi); when kmp_state reaches len(evil) the string is invalid; memoize on (pos, kmp, tight_lo, tight_hi) and sum modulo 10^9+7."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 500] },
+    { "param": "s1", "kind": "string" },
+    { "param": "s2", "kind": "string" },
+    { "param": "evil", "kind": "string" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "example 1: n=2 simple evil", "input": [2, "aa", "da", "b"] },
+    { "kind": "edge", "description": "example 2: evil is prefix of all strings in range, answer 0", "input": [8, "leetcode", "leetgoes", "leet"] },
+    { "kind": "edge", "description": "example 3: small range, one-char evil", "input": [2, "gx", "gz", "x"] },
+    { "kind": "boundary", "description": "n=1, full alphabet minus one evil char", "input": [1, "a", "z", "m"] },
+    { "kind": "boundary", "description": "s1 == s2, check if that single string is good", "input": [3, "abc", "abc", "abc"] },
+    { "kind": "trap", "description": "s1 == s2 and that string contains evil", "input": [5, "aabcd", "aabcd", "abc"] },
+    { "kind": "trap", "description": "evil longer than n, all strings trivially good", "input": [2, "aa", "zz", "aaa"] }
+  ],
+  "stress": [
+    {
+      "description": "n=20 with random s1<=s2 and random evil of length 5",
+      "seed": 23,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = size\n    chars = string.ascii_lowercase\n    s1 = ''.join(rng.choice(chars) for _ in range(n))\n    s2 = ''.join(rng.choice(chars) for _ in range(n))\n    if s1 > s2:\n        s1, s2 = s2, s1\n    evil = ''.join(rng.choice(chars) for _ in range(5))\n    return [n, s1, s2, evil]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findGoodStrings(self, n, s1, s2, evil):\n        MOD = 10**9 + 7\n        # Build KMP failure function\n        m = len(evil)\n        fail = [0] * m\n        j = 0\n        for i in range(1, m):\n            while j > 0 and evil[i] != evil[j]:\n                j = fail[j-1]\n            if evil[i] == evil[j]:\n                j += 1\n            fail[i] = j\n        def kmp_next(state, ch):\n            while state > 0 and ch != evil[state]:\n                state = fail[state-1]\n            if ch == evil[state]:\n                state += 1\n            return state\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(pos, kstate, tight_lo, tight_hi):\n            if kstate == m:\n                return 0\n            if pos == n:\n                return 1\n            lo = s1[pos] if tight_lo else 'a'\n            hi = s2[pos] if tight_hi else 'z'\n            total = 0\n            for c in map(chr, range(ord(lo), ord(hi)+1)):\n                nk = kmp_next(kstate, c)\n                if nk == m:\n                    continue\n                nl = tight_lo and c == lo\n                nh = tight_hi and c == hi\n                total += dp(pos+1, nk, nl, nh)\n            return total % MOD\n        return dp(0, 0, True, True)\n",
+  "solutions": {
+    "python": "class Solution:\n    def findGoodStrings(self, n, s1, s2, evil):\n        MOD = 10**9 + 7\n        m = len(evil)\n        fail = [0] * m\n        j = 0\n        for i in range(1, m):\n            while j > 0 and evil[i] != evil[j]:\n                j = fail[j-1]\n            if evil[i] == evil[j]:\n                j += 1\n            fail[i] = j\n        trans = {}\n        def kmp_next(state, ch):\n            key = (state, ch)\n            if key in trans:\n                return trans[key]\n            s = state\n            while s > 0 and ch != evil[s]:\n                s = fail[s-1]\n            if ch == evil[s]:\n                s += 1\n            trans[key] = s\n            return s\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(pos, kstate, tight_lo, tight_hi):\n            if kstate == m:\n                return 0\n            if pos == n:\n                return 1\n            lo = s1[pos] if tight_lo else 'a'\n            hi = s2[pos] if tight_hi else 'z'\n            total = 0\n            for c in map(chr, range(ord(lo), ord(hi)+1)):\n                nk = kmp_next(kstate, c)\n                if nk == m:\n                    continue\n                total += dp(pos+1, nk, tight_lo and c == lo, tight_hi and c == hi)\n            return total % MOD\n        return dp(0, 0, True, True)\n",
+    "javascript": "var findGoodStrings = function(n, s1, s2, evil) {\n    const MOD = 1000000007n;\n    const m = evil.length;\n    const fail = new Array(m).fill(0);\n    let j = 0;\n    for (let i = 1; i < m; i++) {\n        while (j > 0 && evil[i] !== evil[j]) j = fail[j-1];\n        if (evil[i] === evil[j]) j++;\n        fail[i] = j;\n    }\n    const transCache = new Map();\n    function kmpNext(state, ch) {\n        const key = state * 27 + ch.charCodeAt(0) - 97;\n        if (transCache.has(key)) return transCache.get(key);\n        let s = state;\n        while (s > 0 && ch !== evil[s]) s = fail[s-1];\n        if (ch === evil[s]) s++;\n        transCache.set(key, s);\n        return s;\n    }\n    const memo = new Map();\n    function dp(pos, kstate, tightLo, tightHi) {\n        if (kstate === m) return 0n;\n        if (pos === n) return 1n;\n        const key = pos * m * 4 + kstate * 4 + (tightLo ? 2 : 0) + (tightHi ? 1 : 0);\n        if (memo.has(key)) return memo.get(key);\n        const lo = tightLo ? s1[pos] : 'a';\n        const hi = tightHi ? s2[pos] : 'z';\n        let total = 0n;\n        for (let c = lo.charCodeAt(0); c <= hi.charCodeAt(0); c++) {\n            const ch = String.fromCharCode(c);\n            const nk = kmpNext(kstate, ch);\n            if (nk === m) continue;\n            total += dp(pos+1, nk, tightLo && ch === lo, tightHi && ch === hi);\n        }\n        total %= MOD;\n        memo.set(key, total);\n        return total;\n    }\n    return Number(dp(0, 0, true, true));\n};\n"
+  },
+  "complexity": { "time": "O(n * |evil| * 26)", "space": "O(n * |evil|)" }
+}
