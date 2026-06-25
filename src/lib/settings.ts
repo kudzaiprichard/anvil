@@ -31,6 +31,16 @@ export interface EditorPrefs {
   reduceMotion: boolean;
   /** Appearance: workspace pane arrangement. */
   workspaceLayout: WorkspaceLayout;
+  /** Workspace: show the per-problem practice stopwatch in the toolbar. */
+  showTimer: boolean;
+  /** Timer starts automatically when a problem opens (vs. manual start). */
+  timerAutoStart: boolean;
+  /** Workspace pane sizes, persisted on drag end so the layout survives. */
+  paneLeftPct: number;
+  paneResultsH: number;
+  paneResultsW: number;
+  /** WebView zoom factor (Ctrl+= / Ctrl+- / Ctrl+0), Tauri only. */
+  uiZoom: number;
 }
 
 export const DEFAULT_EDITOR_PREFS: EditorPrefs = {
@@ -39,6 +49,12 @@ export const DEFAULT_EDITOR_PREFS: EditorPrefs = {
   lineWrap: false,
   reduceMotion: false,
   workspaceLayout: "classic",
+  showTimer: true,
+  timerAutoStart: true,
+  paneLeftPct: 45,
+  paneResultsH: 304,
+  paneResultsW: 360,
+  uiZoom: 1,
 };
 
 const STORAGE_KEY = "anvil.editor-prefs";
@@ -58,6 +74,11 @@ function load(): EditorPrefs {
     cached = DEFAULT_EDITOR_PREFS;
   }
   return cached;
+}
+
+/** One-shot read for non-reactive call sites (state initializers). */
+export function getEditorPrefs(): EditorPrefs {
+  return load();
 }
 
 export function setEditorPrefs(patch: Partial<EditorPrefs>): void {

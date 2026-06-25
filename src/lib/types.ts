@@ -51,7 +51,15 @@ export interface TestCase {
   hidden: boolean;
 }
 
-export type FunctionSignature = Record<Language, string>;
+export interface FunctionSignature {
+  python: string;
+  javascript: string;
+  /** Starter stubs for languages beyond the runnable Python/JS pair, carried
+   *  from an imported catalog (`cpp`, `java`, …). Display-only today — the
+   *  runner still executes only Python/JS — but preserved across re-imports.
+   *  Omitted when the catalog ships no extra languages. */
+  extra?: Record<string, string>;
+}
 
 /**
  * Output comparison mode for a problem's test cases.
