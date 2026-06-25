@@ -11,10 +11,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   ArrowUp,
   Check,
   ChevronRight,
   CircleAlert,
+  Eye,
   Plus,
   Trash2,
   TriangleAlert,
@@ -28,6 +31,11 @@ import {
   validateDraft,
   type DraftValidation,
 } from "@/src/components/create/draft-validation";
+import { PreviewDialog } from "@/src/components/create/preview-dialog";
+import {
+  VerificationPanel,
+  type VerifyState,
+} from "@/src/components/create/verification-panel";
 import { Checkbox } from "@/src/components/shadcn/checkbox";
 import { Input } from "@/src/components/shadcn/input";
 import {
@@ -84,6 +92,35 @@ const DIFF_ACTIVE: Record<Difficulty, string> = {
   Hard: "bg-hard/10 font-semibold text-hard dark:bg-hard/15",
 };
 
+/** The Forge stepper. Navigation is free (no gating) — the sidebar marks
+ *  which steps still have issues; publishing enforces everything. */
+const STEPS: {
+  id: string;
+  label: string;
+  /** Section ids (validation anchors) that live in this step. */
+  sections: string[];
+  optional?: boolean;
+}[] = [
+  { id: "basics", label: "Basics", sections: ["sec-basics"] },
+  { id: "statement", label: "Statement", sections: ["sec-statement"] },
+  { id: "examples", label: "Examples", sections: ["sec-examples"] },
+  { id: "starter", label: "Starter code", sections: ["sec-signature"] },
+  { id: "tests", label: "Test cases", sections: ["sec-tests"] },
+  {
+    id: "extras",
+    label: "Hints & solution",
+    sections: ["sec-hints", "sec-solution"],
+    optional: true,
+  },
+  { id: "publish", label: "Verify & publish", sections: ["sec-warranty"] },
+];
+
+const stepForSection = (sectionId: string) =>
+  Math.max(
+    0,
+    STEPS.findIndex((s) => s.sections.includes(sectionId))
+  );
+
 function SectionCard({
   id,
   number,
@@ -93,7 +130,8 @@ function SectionCard({
   children,
 }: {
   id: string;
-  number: number;
+  /** Step number chip; omitted → neutral dot (auxiliary cards). */
+  number?: number;
   title: string;
   caption?: React.ReactNode;
   /** Flips the number chip to a green check once the section is complete. */
@@ -111,7 +149,11 @@ function SectionCard({
               : "bg-primary/10 text-primary dark:bg-primary/20"
           )}
         >
-          {done ? <Check className="size-3.5 stroke-[3]" /> : number}
+          {done ? (
+            <Check className="size-3.5 stroke-[3]" />
+          ) : (
+            (number ?? <span className="size-[7px] rounded-full bg-primary/60" />)
+          )}
         </span>
         <span className="text-sm font-semibold">{title}</span>
         {caption && (
@@ -209,6 +251,9 @@ function CreateForm() {
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   /** When set, "Save as draft" overwrites this draft instead of creating one. */
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const [verifyState, setVerifyState] = useState<VerifyState>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,6 +285,8 @@ function CreateForm() {
       }
       setDraft(resumed);
       setActiveDraftId(id);
+      setVerifyState(null);
+      setStep(0);
       toast(`Resumed draft "${resumed.title.trim() || "Untitled draft"}".`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not load draft");
@@ -304,11 +351,15 @@ function CreateForm() {
     };
   }, [editId, router]);
 
-  const patch = useCallback(
-    (partial: Partial<UserProblemDraft>) =>
-      setDraft((d) => ({ ...d, ...partial })),
-    []
-  );
+  const patch = useCallback((partial: Partial<UserProblemDraft>) => {
+    setDraft((d) => ({ ...d, ...partial }));
+    // Content changed → any earlier verification result is stale. The
+    // warranty checkbox is the one field that isn't verification input.
+    const keys = Object.keys(partial);
+    if (!(keys.length === 1 && keys[0] === "originalityWarranty")) {
+      setVerifyState(null);
+    }
+  }, []);
 
   const validation: DraftValidation = useMemo(
     () => validateDraft(draft),
@@ -322,10 +373,30 @@ function CreateForm() {
       draft.reference_solution.javascript?.trim()
   );
 
-  const scrollTo = (sectionId: string) =>
-    document
-      .getElementById(sectionId)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const runVerification = async () => {
+    setShowIssues(true);
+    const blocking = validation.issues.filter(
+      (i) => i.sectionId !== "sec-warranty"
+    );
+    if (blocking.length > 0) {
+      toast.error(
+        `Fix ${blocking.length} issue${blocking.length === 1 ? "" : "s"} before verifying.`
+      );
+      setStep(stepForSection(blocking[0].sectionId));
+      return;
+    }
+    setVerifyState("running");
+    try {
+      // The warranty is a publish-time requirement, not verification input —
+      // force it so the backend's schema check doesn't reject the dry run.
+      setVerifyState(
+        await validateUserProblem({ ...draft, originalityWarranty: true })
+      );
+    } catch (err) {
+      setVerifyState(null);
+      toast.error(err instanceof Error ? err.message : "Verification failed");
+    }
+  };
 
   const handleSave = async () => {
     setShowIssues(true);
@@ -333,18 +404,23 @@ function CreateForm() {
       toast.error(
         `${validation.issues.length} issue${validation.issues.length === 1 ? "" : "s"} to fix before saving.`
       );
-      scrollTo(validation.issues[0].sectionId);
+      setStep(stepForSection(validation.issues[0].sectionId));
       return;
     }
     setSaving(true);
     try {
       const result = await validateUserProblem(draft);
       if (!result.ok) {
-        toast.error("Validation failed — check the sidebar for details.");
+        // Surface the failure in the verification panel, not just a toast.
+        setVerifyState(result);
+        setStep(STEPS.length - 1);
+        toast.error("Verification failed — see the details below.");
         return;
       }
       const failed = result.caseResults?.filter((c) => !c.passed) ?? [];
       if (failed.length > 0) {
+        setVerifyState(result);
+        setStep(STEPS.length - 1);
         toast.error(
           `Reference solution failed ${failed.length} test case${failed.length === 1 ? "" : "s"}.`
         );
@@ -369,58 +445,41 @@ function CreateForm() {
 
   const hiddenCount = draft.test_cases.filter((tc) => tc.hidden).length;
   const visibleIssues = showIssues ? validation.issues : [];
-
   const visibleCount = draft.test_cases.length - hiddenCount;
-  const outline: {
-    id: string;
-    label: string;
-    done: boolean;
-    required: boolean;
-    hint?: string;
-  }[] = [
-    { id: "sec-basics", label: "Basics", done: sectionDone("sec-basics"), required: true },
-    { id: "sec-statement", label: "Statement", done: sectionDone("sec-statement"), required: true },
-    {
-      id: "sec-examples",
-      label: "Examples",
-      done: sectionDone("sec-examples"),
-      required: true,
-      hint: String(draft.examples.length),
-    },
-    {
-      id: "sec-signature",
-      label: "Function signature",
-      done: sectionDone("sec-signature"),
-      required: true,
-    },
-    {
-      id: "sec-tests",
-      label: "Test cases",
-      done: sectionDone("sec-tests"),
-      required: true,
-      hint: `${visibleCount} · ${hiddenCount} hidden`,
-    },
-    {
-      id: "sec-hints",
-      label: "Hints",
-      done: draft.hints.length > 0,
-      required: false,
-      hint: draft.hints.length ? String(draft.hints.length) : "optional",
-    },
-    {
-      id: "sec-solution",
-      label: "Reference solution",
-      done: solutionProvided,
-      required: false,
-      hint: solutionProvided ? undefined : "optional",
-    },
-    {
-      id: "sec-warranty",
-      label: "Originality warranty",
-      done: draft.originalityWarranty,
-      required: true,
-    },
-  ];
+
+  const verified =
+    typeof verifyState === "object" &&
+    verifyState !== null &&
+    verifyState.ok &&
+    (verifyState.caseResults?.every((c) => c.passed) ?? false);
+
+  const stepDone = (index: number): boolean => {
+    const s = STEPS[index];
+    if (s.id === "extras") return draft.hints.length > 0 || solutionProvided;
+    if (s.id === "publish") return draft.originalityWarranty;
+    return s.sections.every(sectionDone);
+  };
+  const stepHint = (index: number): string | undefined => {
+    switch (STEPS[index].id) {
+      case "examples":
+        return String(draft.examples.length);
+      case "tests":
+        return `${visibleCount} · ${hiddenCount} hidden`;
+      case "extras":
+        return draft.hints.length > 0 || solutionProvided
+          ? [
+              draft.hints.length > 0 ? `${draft.hints.length} hints` : null,
+              solutionProvided ? "solution" : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : "optional";
+      case "publish":
+        return verified ? "verified" : undefined;
+      default:
+        return undefined;
+    }
+  };
 
   if (loading) {
     return (
@@ -435,19 +494,26 @@ function CreateForm() {
 
   return (
     <div className="grid items-start gap-6 px-7 pb-10 pt-[26px] lg:grid-cols-[minmax(0,1fr)_304px]">
-      {/* ===== main form ===== */}
+      {/* ===== main form (one step at a time) ===== */}
       <div className="flex min-w-0 flex-col gap-[18px]">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">
-            {editId ? "Edit problem" : "Create a problem"}
+            {editId ? "Edit problem" : "Forge a problem"}
           </h1>
           <p className="mt-1 text-[13.5px] text-muted-foreground">
-            Author a problem that behaves exactly like a built-in one. Fields
-            marked <span className="text-fail">*</span> are required.
+            {STEPS[step].id === "publish"
+              ? "Prove the problem works, preview it, and publish it to your library."
+              : `Step ${step + 1} of ${STEPS.length} — ${STEPS[step].label}. Fields marked `}
+            {STEPS[step].id !== "publish" && (
+              <>
+                <span className="text-fail">*</span> are required.
+              </>
+            )}
           </p>
         </div>
 
         {/* 1. Basics */}
+        {step === 0 && (
         <SectionCard
           id="sec-basics"
           number={1}
@@ -508,8 +574,10 @@ function CreateForm() {
             </div>
           </div>
         </SectionCard>
+        )}
 
         {/* 2. Statement */}
+        {step === 1 && (
         <SectionCard
           id="sec-statement"
           number={2}
@@ -624,8 +692,10 @@ function CreateForm() {
             className="bg-editor"
           />
         </SectionCard>
+        )}
 
         {/* 3. Examples */}
+        {step === 2 && (
         <SectionCard
           id="sec-examples"
           number={3}
@@ -710,8 +780,10 @@ function CreateForm() {
             Add example
           </AddButton>
         </SectionCard>
+        )}
 
         {/* 4. Function signature */}
+        {step === 3 && (
         <SectionCard
           id="sec-signature"
           number={4}
@@ -736,8 +808,10 @@ function CreateForm() {
             />
           </div>
         </SectionCard>
+        )}
 
         {/* 5. Test cases */}
+        {step === 4 && (
         <SectionCard
           id="sec-tests"
           number={5}
@@ -831,11 +905,13 @@ function CreateForm() {
             Add test case
           </AddButton>
         </SectionCard>
+        )}
 
-        {/* 6. Hints */}
+        {/* 6. Hints + reference solution */}
+        {step === 5 && (
+        <>
         <SectionCard
           id="sec-hints"
-          number={6}
           title="Hints"
           caption="ordered · optional"
           done={draft.hints.length > 0}
@@ -898,12 +974,11 @@ function CreateForm() {
           </AddButton>
         </SectionCard>
 
-        {/* 7. Reference solution */}
+        {/* Reference solution (same step as hints) */}
         <SectionCard
           id="sec-solution"
-          number={7}
           title="Reference solution"
-          caption="validated against your test cases"
+          caption="powers the verification step — strongly recommended"
           done={solutionProvided}
         >
           <LangTabs value={solLang} onChange={setSolLang} />
@@ -967,34 +1042,120 @@ function CreateForm() {
             </div>
           </div>
         </SectionCard>
+        </>
+        )}
 
-        {/* 8. Originality warranty */}
-        <section
-          id="sec-warranty"
-          className={cn(
-            "flex scroll-mt-6 items-start gap-3 rounded-lg border bg-surface-2 px-[18px] py-4",
-            showIssues && !draft.originalityWarranty && "border-fail/50"
+        {/* 7. Verify & publish */}
+        {step === 6 && (
+          <>
+            <SectionCard
+              id="sec-verify"
+              title="Verify the problem works"
+              caption="sandboxed dry run — nothing is saved"
+              done={verified}
+            >
+              <VerificationPanel
+                solutionProvided={solutionProvided}
+                state={verifyState}
+                onRun={runVerification}
+              />
+            </SectionCard>
+
+            <SectionCard
+              id="sec-preview"
+              title="Preview"
+              caption="open the problem the way a solver will see it"
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(true)}
+                className="flex items-center gap-2 rounded-md border bg-card px-3.5 py-2 text-[13px] font-semibold transition-colors hover:bg-accent"
+              >
+                <Eye className="size-[15px]" />
+                Open workspace preview
+              </button>
+            </SectionCard>
+
+            <section
+              id="sec-warranty"
+              className={cn(
+                "flex scroll-mt-6 items-start gap-3 rounded-lg border bg-surface-2 px-[18px] py-4",
+                showIssues && !draft.originalityWarranty && "border-fail/50"
+              )}
+            >
+              <Checkbox
+                id="warranty"
+                checked={draft.originalityWarranty}
+                onCheckedChange={(checked) =>
+                  patch({ originalityWarranty: checked === true })
+                }
+                className="mt-0.5"
+              />
+              <label htmlFor="warranty" className="cursor-pointer text-[13px] leading-relaxed">
+                <span className="font-semibold">
+                  Originality warranty <span className="text-fail">*</span>
+                </span>
+                <br />
+                <span className="text-muted-foreground">
+                  I warrant this content is original, or that I have the right
+                  to share it. Required to publish.
+                </span>
+              </label>
+            </section>
+
+            <div className="flex items-center gap-3 rounded-lg border bg-card p-5">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center justify-center gap-1.5 rounded-md bg-primary px-5 py-[10px] text-[13.5px] font-semibold text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
+              >
+                {saving ? (
+                  <Spinner className="size-3.5 border-primary-foreground/40 border-t-primary-foreground" />
+                ) : (
+                  <Check className="size-[15px] stroke-[2.2]" />
+                )}
+                {saving
+                  ? "Validating…"
+                  : editId
+                    ? "Save changes"
+                    : "Publish to library"}
+              </button>
+              <span className="text-[11.5px] leading-relaxed text-muted-foreground">
+                Publishing re-runs verification server-side — an unverified or
+                failing problem never lands in your library silently.
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* step navigation */}
+        <div className="mt-1 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0}
+            className="flex items-center gap-1.5 rounded-md border bg-card px-3.5 py-2 text-[13px] font-medium transition-colors hover:bg-accent disabled:opacity-40"
+          >
+            <ArrowLeft className="size-3.5" />
+            Back
+          </button>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {step + 1} / {STEPS.length}
+          </span>
+          {step < STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => s + 1)}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground transition-[filter] hover:brightness-110"
+            >
+              Continue
+              <ArrowRight className="size-3.5" />
+            </button>
+          ) : (
+            <span className="w-[92px]" />
           )}
-        >
-          <Checkbox
-            id="warranty"
-            checked={draft.originalityWarranty}
-            onCheckedChange={(checked) =>
-              patch({ originalityWarranty: checked === true })
-            }
-            className="mt-0.5"
-          />
-          <label htmlFor="warranty" className="cursor-pointer text-[13px] leading-relaxed">
-            <span className="font-semibold">
-              Originality warranty <span className="text-fail">*</span>
-            </span>
-            <br />
-            <span className="text-muted-foreground">
-              I warrant this content is original, or that I have the right to
-              share it. Required to save.
-            </span>
-          </label>
-        </section>
+        </div>
       </div>
 
       {/* ===== sticky sidebar ===== */}
@@ -1019,47 +1180,63 @@ function CreateForm() {
             </span>
           </div>
 
-          {/* section outline — live status, click to jump */}
-          <div className="microlabel mt-4">Sections</div>
+          {/* steps — live status, click to jump */}
+          <div className="microlabel mt-4">Steps</div>
           <div className="mt-1.5 flex flex-col gap-px">
-            {outline.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => scrollTo(s.id)}
-                className="group flex items-center gap-2.5 rounded-md px-2 py-[5px] text-left transition-colors hover:bg-accent"
-              >
-                {s.done ? (
-                  <Check className="size-[13px] shrink-0 stroke-[2.8] text-pass" />
-                ) : showIssues && s.required ? (
-                  <CircleAlert className="size-[13px] shrink-0 stroke-[2.2] text-fail" />
-                ) : (
-                  <span
-                    className={cn(
-                      "mx-[3px] block size-[7px] shrink-0 rounded-full border-[1.5px]",
-                      s.required
-                        ? "border-muted-foreground/60"
-                        : "border-muted-foreground/35"
-                    )}
-                  />
-                )}
-                <span
+            {STEPS.map((s, i) => {
+              const done = stepDone(i);
+              const active = i === step;
+              const hint = stepHint(i);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setStep(i)}
+                  aria-current={active ? "step" : undefined}
                   className={cn(
-                    "min-w-0 flex-1 truncate text-[12.5px] font-medium",
-                    s.done
-                      ? "text-foreground"
-                      : "text-muted-foreground group-hover:text-foreground"
+                    "group flex items-center gap-2.5 rounded-md px-2 py-[5px] text-left transition-colors",
+                    active ? "bg-accent" : "hover:bg-accent"
                   )}
                 >
-                  {s.label}
-                </span>
-                {s.hint && (
-                  <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
-                    {s.hint}
+                  {done ? (
+                    <Check className="size-[13px] shrink-0 stroke-[2.8] text-pass" />
+                  ) : showIssues && !s.optional ? (
+                    <CircleAlert className="size-[13px] shrink-0 stroke-[2.2] text-fail" />
+                  ) : (
+                    <span
+                      className={cn(
+                        "flex size-[13px] shrink-0 items-center justify-center font-mono text-[9.5px] font-semibold",
+                        active ? "text-primary" : "text-muted-foreground/70"
+                      )}
+                    >
+                      {i + 1}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-[12.5px]",
+                      active
+                        ? "font-semibold text-foreground"
+                        : done
+                          ? "font-medium text-foreground"
+                          : "font-medium text-muted-foreground group-hover:text-foreground"
+                    )}
+                  >
+                    {s.label}
                   </span>
-                )}
-              </button>
-            ))}
+                  {hint && (
+                    <span
+                      className={cn(
+                        "shrink-0 font-mono text-[10.5px]",
+                        hint === "verified" ? "text-pass" : "text-muted-foreground"
+                      )}
+                    >
+                      {hint}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {visibleIssues.length > 0 && (
@@ -1070,7 +1247,7 @@ function CreateForm() {
                   <button
                     key={`${issue.field}-${i}`}
                     type="button"
-                    onClick={() => scrollTo(issue.sectionId)}
+                    onClick={() => setStep(stepForSection(issue.sectionId))}
                     className="flex items-start gap-2 text-left"
                   >
                     <CircleAlert className="mt-px size-3.5 shrink-0 stroke-[2.2] text-fail" />
@@ -1089,16 +1266,11 @@ function CreateForm() {
 
         <button
           type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-[10px] text-[13.5px] font-semibold text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
+          onClick={() => setPreviewOpen(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border bg-card px-4 py-2.5 text-[13px] font-medium transition-colors hover:bg-accent"
         >
-          {saving ? (
-            <Spinner className="size-3.5 border-primary-foreground/40 border-t-primary-foreground" />
-          ) : (
-            <Check className="size-[15px] stroke-[2.2]" />
-          )}
-          {saving ? "Validating…" : "Validate & Save"}
+          <Eye className="size-[14px]" />
+          Preview in workspace
         </button>
         <button
           type="button"
@@ -1108,7 +1280,8 @@ function CreateForm() {
           Save as draft
         </button>
         <p className="text-center text-[11.5px] leading-relaxed text-muted-foreground">
-          Saving runs your reference solution against all test cases.
+          Publish from the final step — it verifies your reference solution
+          against every test case first.
         </p>
 
         {drafts.length > 0 && (
@@ -1146,6 +1319,12 @@ function CreateForm() {
           </div>
         )}
       </div>
+
+      <PreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        draft={draft}
+      />
     </div>
   );
 }
