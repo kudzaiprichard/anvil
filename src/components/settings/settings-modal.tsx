@@ -201,6 +201,36 @@ function AppearancePane() {
       </div>
       <div className="mt-[22px] flex items-center justify-between border-t py-[13px]">
         <div>
+          <div className="text-[13px] font-semibold">Practice timer</div>
+          <div className="mt-px text-xs text-muted-foreground">
+            Per-problem stopwatch; stops and records when all tests pass.
+          </div>
+        </div>
+        <Switch
+          checked={prefs.showTimer}
+          onCheckedChange={(showTimer) => setEditorPrefs({ showTimer })}
+        />
+      </div>
+      <div
+        className={cn(
+          "flex items-center justify-between border-t py-[13px]",
+          !prefs.showTimer && "opacity-50"
+        )}
+      >
+        <div>
+          <div className="text-[13px] font-semibold">Auto-start timer</div>
+          <div className="mt-px text-xs text-muted-foreground">
+            Start the clock when a problem opens; off = press play yourself.
+          </div>
+        </div>
+        <Switch
+          disabled={!prefs.showTimer}
+          checked={prefs.timerAutoStart}
+          onCheckedChange={(timerAutoStart) => setEditorPrefs({ timerAutoStart })}
+        />
+      </div>
+      <div className="flex items-center justify-between border-t py-[13px]">
+        <div>
           <div className="text-[13px] font-semibold">Reduce motion</div>
           <div className="mt-px text-xs text-muted-foreground">
             Minimize transitions and the pass celebration.
@@ -362,39 +392,86 @@ function RuntimePane() {
   );
 }
 
-const SHORTCUTS: { action: string; keys: string[] }[] = [
-  { action: "Run visible tests", keys: ["Ctrl", "'"] },
-  { action: "Submit (all tests)", keys: ["Ctrl", "Enter"] },
-  { action: "Previous problem", keys: ["Ctrl", "["] },
-  { action: "Next problem", keys: ["Ctrl", "]"] },
-  { action: "Problem list", keys: ["Ctrl", "P"] },
-  { action: "Reset to starter code", keys: ["Ctrl", "Alt", "R"] },
+const SHORTCUT_GROUPS: {
+  title: string;
+  items: { action: string; keys: string[] }[];
+}[] = [
+  {
+    title: "Everywhere",
+    items: [
+      { action: "Command palette", keys: ["Ctrl", "K"] },
+      { action: "Open settings", keys: ["Ctrl", ","] },
+      { action: "Toggle light / dark theme", keys: ["Ctrl", "Shift", "T"] },
+      { action: "Cycle workspace layout", keys: ["Ctrl", "Shift", "L"] },
+      { action: "Go to Dashboard / Library / Forge", keys: ["Ctrl", "1–3"] },
+      { action: "Zoom in / out / reset", keys: ["Ctrl", "+ − 0"] },
+    ],
+  },
+  {
+    title: "Library",
+    items: [
+      { action: "Focus search", keys: ["/"] },
+      { action: "Move selection", keys: ["↑", "↓"] },
+      { action: "Open selected problem", keys: ["Enter"] },
+    ],
+  },
+  {
+    title: "Workspace",
+    items: [
+      { action: "Run all tests", keys: ["Ctrl", "Enter"] },
+      { action: "Previous problem", keys: ["Ctrl", "["] },
+      { action: "Next problem", keys: ["Ctrl", "]"] },
+      { action: "Problem list", keys: ["Ctrl", "P"] },
+      { action: "Maximize / restore editor", keys: ["Ctrl", "Shift", "M"] },
+      { action: "Reset to starter code", keys: ["Ctrl", "Alt", "R"] },
+    ],
+  },
+  {
+    title: "Editor",
+    items: [
+      { action: "Indent / outdent selection", keys: ["Tab", "Shift+Tab"] },
+      { action: "Toggle line comment", keys: ["Ctrl", "/"] },
+      { action: "Move line up / down", keys: ["Alt", "↑ ↓"] },
+      { action: "Duplicate line up / down", keys: ["Shift", "Alt", "↑ ↓"] },
+      { action: "Select next occurrence (multi-cursor)", keys: ["Ctrl", "D"] },
+      { action: "Add cursor", keys: ["Alt", "Click"] },
+      { action: "Delete line", keys: ["Ctrl", "Shift", "K"] },
+      { action: "Find / find & replace", keys: ["Ctrl", "F"] },
+      { action: "Select all occurrences of selection", keys: ["Ctrl", "Shift", "L"] },
+      { action: "Undo / redo", keys: ["Ctrl", "Z / Y"] },
+    ],
+  },
 ];
 
 function ShortcutsPane() {
   return (
     <div>
       <PaneTitle title="Shortcuts" sub="Key bindings (not editable yet)." />
-      <div className="mt-[18px] flex flex-col">
-        {SHORTCUTS.map((sc) => (
-          <div
-            key={sc.action}
-            className="flex items-center justify-between border-b py-2.5 text-[13px] last:border-b-0"
-          >
-            <span>{sc.action}</span>
-            <span className="flex items-center gap-1">
-              {sc.keys.map((k) => (
-                <kbd
-                  key={k}
-                  className="rounded-md border bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground"
-                >
-                  {k}
-                </kbd>
-              ))}
-            </span>
+      {SHORTCUT_GROUPS.map((group) => (
+        <div key={group.title} className="mt-[18px]">
+          <div className="microlabel">{group.title}</div>
+          <div className="mt-1 flex flex-col">
+            {group.items.map((sc) => (
+              <div
+                key={sc.action}
+                className="flex items-center justify-between border-b py-2.5 text-[13px] last:border-b-0"
+              >
+                <span>{sc.action}</span>
+                <span className="flex items-center gap-1">
+                  {sc.keys.map((k) => (
+                    <kbd
+                      key={k}
+                      className="rounded-md border bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground"
+                    >
+                      {k}
+                    </kbd>
+                  ))}
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -411,7 +488,10 @@ export function SettingsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[480px] w-[740px] max-w-[740px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[740px]">
+      <DialogContent
+        aria-describedby={undefined}
+        className="flex h-[480px] w-[740px] max-w-[740px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[740px]"
+      >
         <div className="flex shrink-0 items-center border-b px-[18px] py-[15px]">
           <DialogTitle className="text-[15px] font-semibold tracking-tight">
             Settings
