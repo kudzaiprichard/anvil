@@ -150,10 +150,17 @@ pub struct TestCase {
     pub hidden: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct FunctionSignature {
     pub python: String,
     pub javascript: String,
+    /// Starter stubs for languages beyond the runnable Python/JS pair, captured
+    /// verbatim from an imported catalog (`cpp`, `java`, `go`, …). Display-only
+    /// for now — the runner still executes only Python/JS — but preserved so
+    /// re-importing a catalog that adds languages never drops them, and adding
+    /// a runnable language later needs no schema change. Omitted when empty.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

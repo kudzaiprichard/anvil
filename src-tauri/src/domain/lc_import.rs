@@ -1,6 +1,6 @@
 //! LeetCode import domain (task 0005, CONTENT_DESIGN.md §6–8). Two halves:
 //!
-//! 1. The **scrape file** shape (`my_questions.json`) — the user's own export,
+//! 1. The **scrape file** shape (`catalog_leetcode.json`) — the user's own export,
 //!    deserialized leniently (the external scraper owns this format; unknown
 //!    fields are ignored so a scraper revision never breaks import). This is
 //!    the user's data; it is never shipped, committed, or sent anywhere but
@@ -49,7 +49,7 @@ impl ImportTier {
     }
 }
 
-/* ---------------- scrape file (`my_questions.json`) ---------------- */
+/* ---------------- scrape file (`catalog_leetcode.json`) ---------------- */
 
 /// Top-level envelope. `schema_version` is accepted as string or number; we
 /// only require the `questions` array to be present and well-formed.
@@ -97,6 +97,12 @@ pub struct CodeStubs {
     pub python: String,
     #[serde(default)]
     pub javascript: String,
+    /// Any additional languages the scrape carries (`cpp`, `java`, `go`, …).
+    /// Python + JavaScript are the runnable pair pulled out explicitly;
+    /// everything else is captured verbatim via flatten so a richer uploaded
+    /// catalog never loses stubs and future languages need no schema change.
+    #[serde(flatten, default)]
+    pub extra: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
