@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileDown, FileUp, Search, X } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +32,11 @@ const SORT_LABELS: Record<ProblemSort, string> = {
 
 const GRID = "grid grid-cols-[32px_44px_minmax(0,1fr)_170px_88px_100px] gap-3.5";
 
+/** Fixed row height — the whole catalog is one virtualized list. */
+const ROW_H = 38;
+/** Rows rendered beyond the viewport on each side. */
+const OVERSCAN = 8;
+
 function LibraryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,6 +67,79 @@ function LibraryContent() {
   };
 
   const { rows, allRows, solvedCount, loading, reload } = useProblemList(filters);
+
+  // ---- keyboard flow: "/" focuses search, arrows move, Enter opens ----
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [selected, setSelected] = useState(0);
+  // Filter results changed → selection back to the top (render-time adjust).
+  const [prevRows, setPrevRows] = useState(rows);
+  if (rows !== prevRows) {
+    setPrevRows(rows);
+    setSelected(0);
+  }
+
+  // ---- windowing over the fixed-height rows (the catalog is ~3k rows) ----
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewH, setViewH] = useState(600);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setViewH(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading]);
+
+  const firstRow = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
+  const lastRow = Math.min(
+    rows.length,
+    Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN
+  );
+
+  // Keep the keyboard selection on screen.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const top = selected * ROW_H;
+    if (top < el.scrollTop) el.scrollTop = top;
+    else if (top + ROW_H > el.scrollTop + el.clientHeight) {
+      el.scrollTop = top + ROW_H - el.clientHeight;
+    }
+  }, [selected]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const inField = target?.closest(
+        'input, textarea, [contenteditable="true"]'
+      );
+      if (e.key === "/" && !inField) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+      // Arrows/Enter drive the list from anywhere on the page except open
+      // menus/dialogs (their own widgets own those keys there).
+      const inWidget = target?.closest('[role="menu"], [role="dialog"]');
+      if (inWidget) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelected((i) => Math.min(rows.length - 1, i + 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelected((i) => Math.max(0, i - 1));
+      } else if (e.key === "Enter") {
+        const ok = !target || target === document.body || target === searchRef.current;
+        if (ok && rows[selected]) {
+          e.preventDefault();
+          router.push(`/problem?id=${rows[selected].id}`);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [rows, selected, router]);
 
   const handleImport = async () => {
     try {
@@ -178,6 +256,7 @@ function LibraryContent() {
             <div className="mt-3 flex items-center gap-2">
               <SearchInput
                 className="flex-1"
+                inputRef={searchRef}
                 value={filters.search}
                 onChange={(search) => setFilters({ ...filters, search })}
               />
@@ -232,7 +311,11 @@ function LibraryContent() {
           </div>
 
           {/* rows / empty */}
-          <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
+          <div
+            ref={scrollRef}
+            onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+            className="min-h-0 flex-1 overflow-auto px-6 pb-6"
+          >
             {loading ? (
               <div className="flex h-40 items-center justify-center">
                 <Spinner className="size-5" />
@@ -263,46 +346,65 @@ function LibraryContent() {
                 className="h-full"
               />
             ) : (
-              rows.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  onClick={() => router.push(`/problem?id=${row.id}`)}
-                  className={cn(
-                    GRID,
-                    "group w-full items-center border-b border-border/60 px-3 py-[9px] text-left transition-colors last:border-b-0 hover:bg-accent/60"
-                  )}
+              /* virtualized: one spacer sized for every row, only the
+                 window near the viewport actually renders */
+              <div
+                className="relative"
+                style={{ height: rows.length * ROW_H }}
+              >
+                <div
+                  className="absolute inset-x-0"
+                  style={{ top: firstRow * ROW_H }}
                 >
-                  <span className="flex items-center justify-center">
-                    <StatusIndicator status={row.status} />
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {row.number}
-                  </span>
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-[13px] font-medium group-hover:text-foreground">
-                      {row.title}
-                    </span>
-                    {row.source === "imported" && (
-                      <span className="shrink-0 rounded-full border border-primary/40 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
-                        imported
-                      </span>
-                    )}
-                    {row.source === "user" && (
-                      <span className="shrink-0 rounded-full border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        yours
-                      </span>
-                    )}
-                  </span>
-                  <span className="truncate text-[12.5px] text-muted-foreground">
-                    {row.pattern}
-                  </span>
-                  <DifficultyBadge difficulty={row.difficulty} />
-                  <span className="font-mono text-[11.5px] text-muted-foreground">
-                    {row.lastAttempted ?? "—"}
-                  </span>
-                </button>
-              ))
+                  {rows.slice(firstRow, lastRow).map((row, i) => {
+                    const index = firstRow + i;
+                    const isSelected = index === selected;
+                    return (
+                      <button
+                        key={row.id}
+                        type="button"
+                        onClick={() => router.push(`/problem?id=${row.id}`)}
+                        onMouseMove={() => setSelected(index)}
+                        style={{ height: ROW_H }}
+                        className={cn(
+                          GRID,
+                          "group w-full items-center border-b border-border/60 px-3 text-left transition-colors",
+                          isSelected && "bg-accent/60"
+                        )}
+                      >
+                        <span className="flex items-center justify-center">
+                          <StatusIndicator status={row.status} />
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {row.number}
+                        </span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-[13px] font-medium group-hover:text-foreground">
+                            {row.title}
+                          </span>
+                          {row.source === "imported" && (
+                            <span className="shrink-0 rounded-full border border-primary/40 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
+                              imported
+                            </span>
+                          )}
+                          {row.source === "user" && (
+                            <span className="shrink-0 rounded-full border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              yours
+                            </span>
+                          )}
+                        </span>
+                        <span className="truncate text-[12.5px] text-muted-foreground">
+                          {row.pattern}
+                        </span>
+                        <DifficultyBadge difficulty={row.difficulty} />
+                        <span className="font-mono text-[11.5px] text-muted-foreground">
+                          {row.lastAttempted ?? "—"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </div>

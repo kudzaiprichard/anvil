@@ -33,12 +33,21 @@ import {
   getProblem,
   getProblemUserState,
   listProblems,
-  runCode,
   setProblemStatus,
   submitCode,
   toggleBookmark,
 } from "@/src/lib/api";
-import { useEditorPrefs, type WorkspaceLayout } from "@/src/lib/settings";
+import { loadAutosave, saveAutosave } from "@/src/lib/code-autosave";
+import {
+  getEditorPrefs,
+  setEditorPrefs,
+  useEditorPrefs,
+  type WorkspaceLayout,
+} from "@/src/lib/settings";
+import {
+  PracticeTimer,
+  type PracticeTimerHandle,
+} from "@/src/components/workspace/practice-timer";
 import type { Language, Problem, ProblemSummary } from "@/src/lib/types";
 import { LANGUAGE_LABELS, LANGUAGES } from "@/src/lib/types";
 
@@ -213,13 +222,18 @@ function Workspace() {
   const [maximized, setMaximized] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
 
-  // pane sizes
+  // pane sizes — restored from prefs, persisted when a divider drag ends
   const bodyRef = useRef<HTMLDivElement>(null);
-  const [leftPct, setLeftPct] = useState(45);
-  const [resultsH, setResultsH] = useState(304);
-  const [resultsW, setResultsW] = useState(360);
+  const [leftPct, setLeftPct] = useState(() => getEditorPrefs().paneLeftPct);
+  const [resultsH, setResultsH] = useState(() => getEditorPrefs().paneResultsH);
+  const [resultsW, setResultsW] = useState(() => getEditorPrefs().paneResultsW);
+  const sizesRef = useRef({ leftPct, resultsH, resultsW });
+  useEffect(() => {
+    sizesRef.current = { leftPct, resultsH, resultsW };
+  });
 
   const prefs = useEditorPrefs();
+  const timerRef = useRef<PracticeTimerHandle>(null);
 
   useEffect(() => {
     listProblems().then(setSummaries);
@@ -243,14 +257,17 @@ function Workspace() {
         return;
       }
       setLoaded({ id, problem: p });
-      // Start from the per-language starter, then restore the user's last
-      // attempt for the language they last ran (LeetCode-style continuity).
+      // Restore priority per language: live autosave (survives navigating
+      // away without running) > last-run snapshot > per-language starter.
       const next: Record<Language, string> = {
-        python: p.function_signature.python,
-        javascript: p.function_signature.javascript,
+        python: loadAutosave(id, "python") ?? p.function_signature.python,
+        javascript:
+          loadAutosave(id, "javascript") ?? p.function_signature.javascript,
       };
       if (s.lastCode && s.lastLanguage) {
-        next[s.lastLanguage] = s.lastCode;
+        if (loadAutosave(id, s.lastLanguage) === null) {
+          next[s.lastLanguage] = s.lastCode;
+        }
         setLanguage(s.lastLanguage);
       }
       setCodeByLang(next);
@@ -286,6 +303,17 @@ function Workspace() {
   }, [id]);
 
   const code = codeByLang[language];
+
+  // Debounced autosave — typing then navigating away never loses work.
+  useEffect(() => {
+    if (!problem) return;
+    const handle = setTimeout(
+      () => saveAutosave(problem.id, language, code),
+      600
+    );
+    return () => clearTimeout(handle);
+  }, [problem, language, code]);
+
   const setCode = useCallback(
     (next: string) =>
       setCodeByLang((prev) =>
@@ -305,36 +333,39 @@ function Workspace() {
     [router]
   );
 
-  const execute = useCallback(
-    async (kind: "run" | "submit") => {
-      if (!problem || runState === "running") return;
-      setRunState("running");
-      setResultsTab("result");
-      try {
-        const fn = kind === "run" ? runCode : submitCode;
-        const result = await fn({ id: problem.id, language, code });
-        setRunState(result);
-        if (kind === "submit") {
-          if (result.status === "pass") {
-            toast.success("Accepted — all tests passed.");
-          }
-          // statuses changed — refresh the rows that feed the problem sheet
-          listProblems().then(setSummaries);
-        }
-      } catch (err) {
-        setRunState("idle");
-        toast.error(err instanceof Error ? err.message : "Run failed");
+  // The one Run action: the app is fully offline, so there is no separate
+  // Submit — every run executes the full suite (visible + hidden) and
+  // records the attempt toward progress.
+  const execute = useCallback(async () => {
+    if (!problem || runState === "running") return;
+    setRunState("running");
+    setResultsTab("result");
+    try {
+      const result = await submitCode({ id: problem.id, language, code });
+      setRunState(result);
+      if (result.status === "pass") {
+        // Freeze the practice clock and record this problem's solve time.
+        const solveTime = timerRef.current?.solvedNow() ?? null;
+        toast.success(
+          solveTime
+            ? `Accepted — solved in ${solveTime}.`
+            : "Accepted — all tests passed."
+        );
       }
-    },
-    [problem, runState, language, code]
-  );
+      // statuses changed — refresh the rows that feed the problem sheet
+      listProblems().then(setSummaries);
+    } catch (err) {
+      setRunState("idle");
+      toast.error(err instanceof Error ? err.message : "Run failed");
+    }
+  }, [problem, runState, language, code]);
 
   useWorkspaceShortcuts({
-    onRun: () => execute("run"),
-    onSubmit: () => execute("submit"),
+    onRun: execute,
     onPrev: () => goTo(summaries[index - 1] ?? summaries[summaries.length - 1]),
     onNext: () => goTo(summaries[index + 1] ?? summaries[0]),
     onToggleList: () => setSheetOpen((open) => !open),
+    onToggleMaximize: () => setMaximized((m) => !m),
     onReset: () => {
       if (!problem) return;
       setCode(problem.function_signature[language]);
@@ -355,6 +386,13 @@ function Workspace() {
         const up = () => {
           window.removeEventListener("pointermove", onMove);
           window.removeEventListener("pointerup", up);
+          // drag finished — remember the arrangement for next time
+          const s = sizesRef.current;
+          setEditorPrefs({
+            paneLeftPct: s.leftPct,
+            paneResultsH: s.resultsH,
+            paneResultsW: s.resultsW,
+          });
         };
         window.addEventListener("pointermove", onMove);
         window.addEventListener("pointerup", up);
@@ -385,7 +423,6 @@ function Workspace() {
           onNext={() => undefined}
           onShuffle={() => undefined}
           onRun={() => undefined}
-          onSubmit={() => undefined}
         />
         <div className="flex flex-1 items-center justify-center">
           <Spinner className="size-6" />
@@ -412,8 +449,17 @@ function Workspace() {
           const others = summaries.filter((s) => s.id !== id);
           goTo(others[Math.floor(Math.random() * others.length)]);
         }}
-        onRun={() => execute("run")}
-        onSubmit={() => execute("submit")}
+        onRun={execute}
+        timer={
+          prefs.showTimer ? (
+            <PracticeTimer
+              key={problem.id}
+              ref={timerRef}
+              problemId={problem.id}
+              autoStart={prefs.timerAutoStart}
+            />
+          ) : undefined
+        }
       />
 
       <WorkspaceBody
