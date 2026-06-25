@@ -70,7 +70,9 @@ function DescriptionTab({
     <>
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-xl font-semibold leading-snug tracking-tight">
-          {problem.number}. {problem.title}
+          {/* number 0 = unsaved preview from the Forge page */}
+          {problem.number > 0 ? `${problem.number}. ` : ""}
+          {problem.title}
         </h1>
         <div className="flex shrink-0 items-center gap-1.5">
           {problem.source !== "built-in" && (
@@ -93,22 +95,24 @@ function DescriptionTab({
               <FileUp className="size-[15px]" />
             </button>
           )}
-          <button
-            type="button"
-            title={bookmarked ? "Remove bookmark" : "Bookmark"}
-            aria-pressed={bookmarked}
-            onClick={onToggleBookmark}
-            className={cn(
-              "flex size-[30px] items-center justify-center rounded-lg border bg-card transition-colors hover:bg-muted",
-              bookmarked
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Bookmark
-              className={cn("size-[15px]", bookmarked && "fill-primary")}
-            />
-          </button>
+          {onToggleBookmark && (
+            <button
+              type="button"
+              title={bookmarked ? "Remove bookmark" : "Bookmark"}
+              aria-pressed={bookmarked}
+              onClick={onToggleBookmark}
+              className={cn(
+                "flex size-[30px] items-center justify-center rounded-lg border bg-card transition-colors hover:bg-muted",
+                bookmarked
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Bookmark
+                className={cn("size-[15px]", bookmarked && "fill-primary")}
+              />
+            </button>
+          )}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
