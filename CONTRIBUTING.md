@@ -50,7 +50,13 @@ All problem content must be **100% original**:
 
 LLM-assisted drafting is allowed only **from the abstract concept** ("write an original problem teaching
 the monotonic-stack technique"), never "rewrite this problem." This keeps the project legally clean for
-everyone.
+everyone. For the full content & licensing policy — including how user-supplied (non-shipped) catalogs
+work — see [DISCLAIMER.md](./DISCLAIMER.md).
+
+A contributed problem is two original parts: a **statement** (an entry in an original `catalog.json`)
+and a **test pack** (`tools/packs/<slug>.json` — reference solution, brute-force oracle, generators,
+hints). The build (`tools/build_packs.py`) computes expected outputs by *executing* your references in
+the sandbox and cross-checking them; a pack whose solutions disagree is quarantined, never frozen.
 
 ## Reporting bugs & requesting features
 
