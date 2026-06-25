@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState, Prec } from "@codemirror/state";
-import { keymap } from "@codemirror/view";
+import { keymap, scrollPastEnd } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
 import {
   HighlightStyle,
@@ -110,20 +110,114 @@ function buildTheme(fontSize: number, readOnly: boolean) {
         "color-mix(in oklab, var(--primary) 20%, transparent) !important",
     },
     ".cm-cursor": { borderLeftColor: "var(--foreground)" },
+
+    /* IDE surfaces — search panel, tooltips, autocomplete, folding. The
+       defaults ship browser-gray chrome that instantly breaks the theme. */
+    ".cm-panels": {
+      backgroundColor: "var(--card)",
+      color: "var(--foreground)",
+    },
+    ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--border)" },
+    ".cm-panels.cm-panels-bottom": { borderTop: "1px solid var(--border)" },
+    ".cm-panel.cm-search": {
+      padding: "6px 10px",
+      fontFamily: "var(--font-spline-sans), system-ui, sans-serif",
+      fontSize: "12px",
+    },
+    ".cm-panel.cm-gotoLine": { padding: "6px 10px", fontSize: "12px" },
+    ".cm-textfield": {
+      backgroundColor: "var(--editor)",
+      border: "1px solid var(--input)",
+      borderRadius: "6px",
+      padding: "3px 8px",
+      fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+      fontSize: "12px",
+    },
+    ".cm-button": {
+      backgroundImage: "none",
+      backgroundColor: "var(--secondary)",
+      color: "var(--secondary-foreground)",
+      border: "1px solid var(--border)",
+      borderRadius: "6px",
+      padding: "3px 10px",
+      fontSize: "12px",
+    },
+    ".cm-button:active": {
+      backgroundImage: "none",
+      backgroundColor: "var(--accent)",
+    },
+    ".cm-panel.cm-search label": { fontSize: "12px" },
+    ".cm-panel.cm-search input[type=checkbox]": { accentColor: "var(--primary)" },
+    ".cm-panel.cm-search [name=close]": {
+      color: "var(--muted-foreground)",
+      fontSize: "16px",
+      padding: "0 6px",
+    },
+    ".cm-searchMatch": {
+      backgroundColor: "color-mix(in oklab, var(--medium) 28%, transparent)",
+      outline: "1px solid color-mix(in oklab, var(--medium) 45%, transparent)",
+    },
+    ".cm-searchMatch.cm-searchMatch-selected": {
+      backgroundColor: "color-mix(in oklab, var(--primary) 38%, transparent)",
+    },
+    ".cm-selectionMatch": {
+      backgroundColor: "color-mix(in oklab, var(--primary) 12%, transparent)",
+    },
+    ".cm-tooltip": {
+      backgroundColor: "var(--popover)",
+      color: "var(--popover-foreground)",
+      border: "1px solid var(--border)",
+      borderRadius: "8px",
+      boxShadow: "0 8px 24px rgb(0 0 0 / 0.14)",
+      overflow: "hidden",
+    },
+    ".cm-tooltip.cm-tooltip-autocomplete > ul": {
+      fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+      fontSize: "12px",
+      maxHeight: "224px",
+    },
+    ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
+      padding: "2.5px 8px",
+    },
+    ".cm-tooltip-autocomplete ul li[aria-selected]": {
+      backgroundColor: "color-mix(in oklab, var(--primary) 15%, transparent)",
+      color: "var(--foreground)",
+    },
+    ".cm-completionIcon": { color: "var(--muted-foreground)" },
+    ".cm-completionMatchedText": {
+      textDecoration: "none",
+      color: "var(--primary)",
+      fontWeight: "600",
+    },
+    ".cm-completionDetail": {
+      color: "var(--muted-foreground)",
+      fontStyle: "normal",
+      marginLeft: "0.6em",
+    },
+    ".cm-foldPlaceholder": {
+      backgroundColor: "var(--muted)",
+      border: "none",
+      color: "var(--muted-foreground)",
+      borderRadius: "4px",
+      padding: "0 6px",
+      margin: "0 3px",
+    },
+    ".cm-foldGutter .cm-gutterElement": { color: "var(--editor-gutter)" },
   });
 }
 
 /**
- * Ctrl+[ and Ctrl+] are CodeMirror's own indent-less/indent-more bindings,
- * but in the workspace they're the prev/next-problem shortcuts. When the
- * editor owns those chords (workspace), consume them at the highest
- * precedence as a no-op so CodeMirror doesn't also indent — the window-level
- * `useWorkspaceShortcuts` handler still receives the event and navigates.
+ * Chords the workspace window handler owns: Ctrl+[ / Ctrl+] navigate
+ * problems (CodeMirror would indent-less/more) and Ctrl+Enter runs the tests
+ * (CodeMirror would insert a blank line). Consume them at the highest
+ * precedence as no-ops so the editor doesn't also act — the event still
+ * bubbles to the window-level `useWorkspaceShortcuts` handler.
  */
 const suppressIndentChordsExt = Prec.highest(
   keymap.of([
     { key: "Ctrl-[", run: () => true },
     { key: "Ctrl-]", run: () => true },
+    { key: "Ctrl-Enter", run: () => true },
   ])
 );
 
@@ -138,7 +232,7 @@ export function CodeEditor({
   /** Changing this rebuilds the editor with a fresh undo history — pass the
    *  problem id in the workspace so Ctrl+Z can't cross problems. */
   docKey,
-  /** Let window-level shortcuts own Ctrl+[ / Ctrl+] (workspace only). */
+  /** Let window-level shortcuts own Ctrl+[ / Ctrl+] / Ctrl+Enter (workspace only). */
   suppressIndentChords = false,
   className,
 }: {
@@ -180,6 +274,15 @@ export function CodeEditor({
     ];
     if (suppressIndentChords) extensions.push(suppressIndentChordsExt);
     if (lineWrap) extensions.push(EditorView.lineWrapping);
+    if (!readOnly) {
+      // IDE niceties: Alt+click drops an extra cursor (VS Code / JetBrains
+      // muscle memory; Alt+drag already does rectangular selection), and the
+      // last line can scroll up out of the bottom edge.
+      extensions.push(
+        EditorView.clickAddsSelectionRange.of((e) => e.altKey && !e.shiftKey)
+      );
+      extensions.push(scrollPastEnd());
+    }
     if (readOnly) {
       // readOnly blocks edits; non-editable also drops the caret so the
       // solution viewer reads as a viewer, not an empty text box.
