@@ -19,9 +19,11 @@ Anvil pairs NeetCode-style, pattern-first learning with local code execution: st
 with 100% original problems you can run and test on your own machine, plus the ability to author your
 own.
 
-> **Status: early scaffold.** This repository currently contains the desktop shell, the design system,
-> and a theme preview. The problem library, the local code runner, and progress tracking are on the
-> roadmap below — not built yet.
+> **Status: in active development.** The desktop shell, the sandboxed local code runner (Python &
+> JavaScript), and the offline test-pack judging system (2,900+ verified packs) work today. The
+> problem library ships **empty** — you supply your own catalog of statements locally; see
+> [Problem content & legal](#problem-content--legal). The full workspace UI, progress tracking, and
+> practice modes are being built out on the roadmap below.
 
 ## Preview
 
@@ -125,16 +127,43 @@ harness + runner for it in Rust, register it in the build, then generate one ref
 problem (verified by agreement against the stored expecteds). TypeScript ≈ free (rides the JS
 harness); compiled languages each add a harness + runner.
 
-**Problem content** is the user's own — Anvil ships only original test packs/solutions/hints, never
-third-party problem statements; statements come from the user's local import. See
-[CONTRIBUTING.md](./CONTRIBUTING.md) for the originality rule on contributed problems.
+## Problem content & legal
+
+Anvil ships **only original content**: the source code and the **test packs** (reference solutions,
+oracles, generators, hints). It ships **no third-party problem statements** — and specifically **no
+LeetCode content**. Out of the box the problem library is therefore **empty**.
+
+**Statements are supplied by you, locally.** The catalog loader is deliberately *name-agnostic*: drop
+any file named `catalog*.json` (or `catalog*.json.gz`) into `src-tauri/resources/`, and at startup
+Anvil discovers it, loads every entry, and maps each one to its frozen test pack **by slug** — that
+matched pack becomes the hidden judge. Multiple catalogs merge (de-duplicated by slug), so an original
+catalog can sit alongside or replace another with no code change.
+
+```
+src-tauri/resources/
+  catalog.json[.gz]         # an ORIGINAL catalog you author → committable & shippable
+  catalog_<anything>.json   # any additional catalog, picked up automatically
+  test-packs.json.gz        # the frozen, original judges (this repo ships these)
+```
+
+- ✅ An **original** catalog you author yourself may be committed and shipped.
+- ⛔ A catalog of **third-party** statements (e.g. scraped from LeetCode) is **your local data for
+  personal use only** — never redistribute or commit it. The repo hard-ignores any `*leetcode*`
+  catalog to prevent accidents. Anvil provides no scraper and does not download content.
+
+You are responsible for ensuring any content you load complies with its source's copyright and Terms
+of Service. **Full details and your responsibilities are in [DISCLAIMER.md](./DISCLAIMER.md).** The
+project's goal is a library of 100% original problems so no external content is ever needed — see
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the originality rule.
 
 ## Roadmap
 
 - [x] Desktop shell (Tauri) over the Next.js static export
 - [x] Design system — shadcn/ui + custom Slate + Indigo theme
-- [ ] Problem library — original, pattern-organized problems (Markdown + JSON)
-- [ ] Local code runner — run/test Python & JavaScript with timeouts and sandboxing (Rust)
+- [x] Local code runner — run/test Python & JavaScript with timeouts and sandboxing (Rust)
+- [x] Test-pack judging — 2,900+ verified packs frozen into the app (oracle-checked, no answer keys)
+- [x] Name-agnostic catalog loader — bring-your-own statements, mapped to packs by slug
+- [ ] Problem library — original, pattern-organized problem *statements* (replacing bring-your-own)
 - [ ] Progress tracking — solved/attempted, streaks (local SQLite, no account)
 - [ ] Practice modes — Study / Interview / Review
 - [ ] User-authored problems — create, validate, import/export
@@ -143,8 +172,12 @@ third-party problem statements; statements come from the user's local import. Se
 
 Contributions are welcome — code, original problems, docs, and more. See
 [CONTRIBUTING.md](./CONTRIBUTING.md) and our [Code of Conduct](./CODE_OF_CONDUCT.md). For security
-issues, see [SECURITY.md](./SECURITY.md).
+issues, see [SECURITY.md](./SECURITY.md). Notable changes are tracked in
+[CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 
-[MIT](./LICENSE) © Kudzai P Matizirofa
+[MIT](./LICENSE) © Kudzai P Matizirofa — this covers **all source code and the original test packs**
+(solutions, oracles, generators, hints). Anvil ships **no** third-party problem statements; any catalog
+of external statements you load is your own local data. See [DISCLAIMER.md](./DISCLAIMER.md) for the
+full content & legal policy.
