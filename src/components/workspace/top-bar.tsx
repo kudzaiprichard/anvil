@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  ArrowUp,
-  ChevronLeft,
-  ChevronRight,
-  List,
-  Play,
-  Shuffle,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, List, Play, Shuffle } from "lucide-react";
 import { Spinner } from "@/src/components/anvil/spinner";
 
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -19,9 +12,10 @@ function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Workspace toolbar (UI_SPEC §5.1): problem navigation on the left, Run /
- * Submit in the center. App-level chrome (logo, theme, settings) lives in
- * the shell rail.
+ * Workspace toolbar: problem navigation on the left, Run at the far right.
+ * There is no separate Submit — the app is fully offline, so the one Run
+ * action executes the full test suite (visible + hidden) and records the
+ * attempt. App-level chrome (logo, theme, settings) lives in the shell rail.
  */
 export function TopBar({
   running,
@@ -30,7 +24,7 @@ export function TopBar({
   onNext,
   onShuffle,
   onRun,
-  onSubmit,
+  timer,
 }: {
   running: boolean;
   onOpenList: () => void;
@@ -38,7 +32,8 @@ export function TopBar({
   onNext: () => void;
   onShuffle: () => void;
   onRun: () => void;
-  onSubmit: () => void;
+  /** Optional practice-timer chip, rendered left of Run. */
+  timer?: React.ReactNode;
 }) {
   const iconBtn =
     "flex size-[28px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground";
@@ -70,38 +65,27 @@ export function TopBar({
 
       <div className="flex-1" />
 
-      {/* right zone: Run / Submit */}
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={running}
-          className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-[5.5px] text-[12.5px] font-semibold text-primary transition-[filter,transform] hover:brightness-105 active:scale-[0.98] disabled:cursor-progress dark:border-primary/40 dark:bg-primary/15"
-        >
-          {running ? (
-            <>
-              <Spinner className="size-[13px] border-primary/40 border-t-primary" />
-              Running…
-            </>
-          ) : (
-            <>
-              <Play className="size-[12px] fill-current stroke-none" />
-              Run
-              <Kbd>Ctrl+&apos;</Kbd>
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={running}
-          className="flex items-center gap-2 rounded-md bg-primary px-3.5 py-[5.5px] text-[12.5px] font-semibold text-primary-foreground shadow-sm transition-[filter,transform] hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          <ArrowUp className="size-[13px] stroke-[2.4]" />
-          Submit
-          <Kbd>Ctrl+↵</Kbd>
-        </button>
-      </div>
+      {/* right zone: timer + Run (full suite) */}
+      {timer}
+      <button
+        type="button"
+        onClick={onRun}
+        disabled={running}
+        className="flex items-center gap-2 rounded-md bg-primary px-3.5 py-[5.5px] text-[12.5px] font-semibold text-primary-foreground shadow-sm transition-[filter,transform] hover:brightness-110 active:scale-[0.98] disabled:cursor-progress disabled:opacity-60"
+      >
+        {running ? (
+          <>
+            <Spinner className="size-[13px] border-primary-foreground/40 border-t-primary-foreground" />
+            Running…
+          </>
+        ) : (
+          <>
+            <Play className="size-[12px] fill-current stroke-none" />
+            Run
+            <Kbd>Ctrl+↵</Kbd>
+          </>
+        )}
+      </button>
     </div>
   );
 }

@@ -25,7 +25,7 @@ function CaseCard({ result }: { result: CaseResult }) {
           <span className="text-[11.5px] font-semibold text-pass">Passed</span>
         </div>
         {!result.hidden && result.input && (
-          <div className="mt-2 font-mono text-xs leading-[1.85] text-muted-foreground">
+          <div className="mt-2 max-h-48 select-text overflow-y-auto break-all font-mono text-xs leading-[1.85] text-muted-foreground">
             <div>
               Input&nbsp;&nbsp;&nbsp;&nbsp;
               <span className="text-foreground">{result.input}</span>
@@ -53,7 +53,7 @@ function CaseCard({ result }: { result: CaseResult }) {
         <span className="text-[11.5px] font-semibold text-fail">Failed</span>
       </div>
       {!result.hidden && result.input && (
-        <div className="mt-[9px] font-mono text-xs leading-[1.9] text-muted-foreground">
+        <div className="mt-[9px] max-h-48 select-text overflow-y-auto break-all font-mono text-xs leading-[1.9] text-muted-foreground">
           <div>
             Input&nbsp;&nbsp;&nbsp;&nbsp;
             <span className="text-foreground">{result.input}</span>
@@ -98,7 +98,7 @@ function ResultBody({
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-[9px] border border-fail/30 bg-editor px-3.5 py-3 font-mono text-xs leading-[1.9]">
+        <div className="max-h-64 select-text overflow-auto rounded-[9px] border border-fail/30 bg-editor px-3.5 py-3 font-mono text-xs leading-[1.9]">
           {(result.error ?? "").split("\n").map((line, i, arr) => (
             <div
               key={i}
@@ -284,7 +284,7 @@ export function ResultsPanel({
                 >
                   {params[i] ?? `arg${i}`} =
                 </div>
-                <div className="mt-1.5 rounded-lg border bg-editor px-3 py-[9px] font-mono text-[13px]">
+                <div className="mt-1.5 max-h-40 select-text overflow-y-auto break-all rounded-lg border bg-editor px-3 py-[9px] font-mono text-[13px]">
                   {JSON.stringify(arg)?.replace(/,/g, ", ")}
                 </div>
               </div>
@@ -301,8 +301,8 @@ export function ResultsPanel({
           <div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 text-muted-foreground">
             <Spinner className="size-[26px] border-[2.5px]" />
             <div className="text-[13px] font-medium">
-              Running {visibleCases.length} test case
-              {visibleCases.length === 1 ? "" : "s"}…
+              Running {problem.test_cases.length} test case
+              {problem.test_cases.length === 1 ? "" : "s"}…
             </div>
           </div>
         )}
