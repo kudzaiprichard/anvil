@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Hammer, LayoutDashboard, Library, Settings } from "lucide-react";
+import { isTauri } from "@tauri-apps/api/core";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { useTheme } from "next-themes";
+import { toast } from "sonner";
 import { SettingsModal } from "@/src/components/settings/settings-modal";
 import {
   Tooltip,
@@ -11,9 +15,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/src/components/shadcn/tooltip";
+import {
+  getEditorPrefs,
+  setEditorPrefs,
+  useEditorPrefs,
+  WORKSPACE_LAYOUTS,
+} from "@/src/lib/settings";
 import { cn } from "@/src/lib/utils";
+import { CommandPalette } from "./command-palette";
 import { AnvilMark } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
+import { TitleBar } from "./title-bar";
+import { useAppShortcuts } from "./use-app-shortcuts";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, match: ["/"] },
@@ -58,12 +71,54 @@ export function AppShell({
   status?: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { resolvedTheme, setTheme } = useTheme();
+  const prefs = useEditorPrefs();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Re-apply the persisted WebView zoom once per window.
+  useEffect(() => {
+    if (!isTauri()) return;
+    const zoom = getEditorPrefs().uiZoom;
+    if (zoom !== 1) void getCurrentWebview().setZoom(zoom);
+  }, []);
+
+  const handleZoom = useCallback((delta: 1 | -1 | 0) => {
+    if (!isTauri()) return; // the browser has its own zoom
+    const current = getEditorPrefs().uiZoom;
+    const next =
+      delta === 0
+        ? 1
+        : Math.min(1.5, Math.max(0.7, Math.round((current + delta * 0.1) * 10) / 10));
+    setEditorPrefs({ uiZoom: next });
+    void getCurrentWebview().setZoom(next);
+    toast(`UI zoom ${Math.round(next * 100)}%`);
+  }, []);
+
+  useAppShortcuts({
+    onOpenPalette: () => setPaletteOpen((open) => !open),
+    onOpenSettings: () => setSettingsOpen(true),
+    onCycleLayout: () => {
+      const i = WORKSPACE_LAYOUTS.findIndex(
+        (l) => l.id === prefs.workspaceLayout
+      );
+      const next = WORKSPACE_LAYOUTS[(i + 1) % WORKSPACE_LAYOUTS.length];
+      setEditorPrefs({ workspaceLayout: next.id });
+      toast(`Workspace layout: ${next.label}`);
+    },
+    onToggleTheme: () =>
+      setTheme(resolvedTheme === "dark" ? "light" : "dark"),
+    onNavigate: (i) => router.push(NAV[i].href),
+    onZoom: handleZoom,
+  });
 
   return (
     <TooltipProvider delayDuration={350}>
-      <div className="flex h-dvh overflow-hidden">
-        {/* icon rail */}
+      <div className="flex h-dvh flex-col overflow-hidden">
+        <TitleBar />
+        <div className="flex min-h-0 flex-1">
+          {/* icon rail */}
         <aside className="flex w-[52px] shrink-0 flex-col items-center border-r bg-sidebar pb-2.5 pt-3">
           <Link
             href="/"
@@ -133,9 +188,15 @@ export function AppShell({
             {status}
             <span className="opacity-70">anvil v0.1.0</span>
           </footer>
+          </div>
         </div>
       </div>
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
     </TooltipProvider>
   );
 }
