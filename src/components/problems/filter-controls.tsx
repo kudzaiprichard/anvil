@@ -82,10 +82,13 @@ export function SearchInput({
   value,
   onChange,
   className,
+  inputRef,
 }: {
   value: string;
   onChange: (v: string) => void;
   className?: string;
+  /** Focus target for the library's "/" shortcut. */
+  inputRef?: React.Ref<HTMLInputElement>;
 }) {
   return (
     <div
@@ -96,6 +99,7 @@ export function SearchInput({
     >
       <Search className="size-[15px] shrink-0 text-muted-foreground" />
       <input
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Search problems…"

@@ -47,6 +47,7 @@ export function ProblemSheet({
       <SheetContent
         side="left"
         showCloseButton={false}
+        aria-describedby={undefined}
         className="w-[430px] gap-0 bg-card sm:max-w-[430px]"
       >
         {/* header */}
