@@ -15,6 +15,17 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // Remember window size/position/maximized across launches. Visibility
+        // stays out: the window is configured hidden and the front end shows
+        // it after first paint (no white startup flash).
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all()
+                        & !tauri_plugin_window_state::StateFlags::VISIBLE,
+                )
+                .build(),
+        )
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -42,28 +53,39 @@ pub fn run() {
             // Lazy: the gzip bundle opens on first lookup, not at startup.
             let packs =
                 services::pack_store::PackStore::new(resources_dir.join("test-packs.json.gz"));
-            // The catalog is the LeetCode questions in the user's local scrape
-            // (`.docs/my_questions.json`), merged with their packs. Built-ins and
-            // the interactive importer were removed; this is the single source.
+            // The question catalog is a first-class bundled resource, loaded at
+            // startup like presets and test-packs. Built-ins and the interactive
+            // importer were removed; this is the library's question source. See
+            // `services::catalog`.
             let store = services::problem_store::ProblemStore::empty();
-            match services::catalog::scrape_path() {
-                Some(path) => match services::catalog::load(&packs, &presets, &path) {
-                    Ok(problems) => {
-                        log::info!(
-                            "catalog: {} LeetCode problems from {}",
-                            problems.len(),
-                            path.display()
-                        );
-                        store.set_imported_problems(problems);
-                    }
-                    Err(e) => log::error!("scrape load failed: {e}"),
-                },
-                None => log::warn!("no .docs/my_questions.json found — empty catalog"),
+            match services::catalog::load_all(&packs, &presets, &resources_dir) {
+                Ok(problems) if !problems.is_empty() => {
+                    let verified = problems.iter().filter(|p| p.judge.is_some()).count();
+                    log::info!(
+                        "catalog: {} problems ({} mapped to verified packs) from {}",
+                        problems.len(),
+                        verified,
+                        resources_dir.display()
+                    );
+                    store.set_catalog_problems(problems);
+                }
+                Ok(_) => log::warn!("no catalog resource bundled — library is empty"),
+                Err(e) => log::error!("catalog load failed: {e}"),
             }
             let db = services::db::Db::open(&app.path().app_data_dir()?)?;
             store.set_user_problems(services::db::user_problems::list(&db)?);
             let runtimes = services::runtime_detect::detect();
             app.manage(state::AppState::new(store, presets, packs, db, runtimes));
+            // Safety net: the front end shows the hidden window after first
+            // paint; if it ever fails to boot, reveal the window anyway so
+            // the app can't become an invisible zombie process.
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                if let Some(win) = handle.get_webview_window("main") {
+                    let _ = win.show();
+                }
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

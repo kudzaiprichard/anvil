@@ -624,6 +624,7 @@ mod tests {
             function_signature: crate::domain::problem::FunctionSignature {
                 python: "def solve(x):".into(),
                 javascript: "function solve(x) {}".into(),
+                extra: Default::default(),
             },
             test_cases: vec![],
             checker: crate::domain::problem::Checker::Exact,
