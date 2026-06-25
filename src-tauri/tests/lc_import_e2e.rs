@@ -20,7 +20,7 @@ fn shipped_packs() -> PackStore {
     )
 }
 
-/// A two-sum scrape entry shaped like the real `my_questions.json` rows, with
+/// A two-sum scrape entry shaped like the real `catalog_leetcode.json` rows, with
 /// the verbatim LeetCode stub the fixture pack fingerprints against.
 fn two_sum_question() -> ScrapeQuestion {
     serde_json::from_value(json!({

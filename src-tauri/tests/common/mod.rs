@@ -40,6 +40,7 @@ pub fn fixture_problem() -> Problem {
         function_signature: FunctionSignature {
             python: "def solve(a, b):\n    pass".into(),
             javascript: "function solve(a, b) {}".into(),
+            extra: Default::default(),
         },
         checker: app_lib::domain::problem::Checker::Exact,
         judge: None,
