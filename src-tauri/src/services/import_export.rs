@@ -188,6 +188,7 @@ mod tests {
             function_signature: FunctionSignature {
                 python: "def solve(a, b):\n    pass".into(),
                 javascript: "function solve(a, b) {}".into(),
+                extra: Default::default(),
             },
             checker: crate::domain::problem::Checker::Exact,
             judge: None,

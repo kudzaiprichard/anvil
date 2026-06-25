@@ -269,6 +269,9 @@ pub fn merge_question(
         function_signature: FunctionSignature {
             python: q.code_stubs.python.clone(),
             javascript: q.code_stubs.javascript.clone(),
+            // Preserve any additional languages the catalog ships (cpp, java, …)
+            // so a richer re-import doesn't silently drop them.
+            extra: q.code_stubs.extra.clone(),
         },
         test_cases: visible,
         checker: crate::domain::problem::Checker::Exact,
@@ -524,6 +527,36 @@ mod tests {
         let merged = merge_question(&q, None, vec![], &[], 5000);
         assert_eq!(merged.tier, ImportTier::RunOnly);
         assert!(merged.problem.test_cases.is_empty());
+    }
+
+    #[test]
+    fn extra_language_stubs_survive_the_merge() {
+        // A catalog that ships languages beyond Python/JS must keep them:
+        // they land in `function_signature.extra`, verbatim.
+        let q: ScrapeQuestion = serde_json::from_value(json!({
+            "slug": "two-sum", "title": "Two Sum", "difficulty": "Easy",
+            "body_text": "Given nums.\n\nExample 1:\n\nInput: nums = [1]\nOutput: [0]\n",
+            "code_stubs": {
+                "python": PY_STUB,
+                "javascript": JS_STUB,
+                "cpp": "class Solution {\npublic:\n    vector<int> twoSum(...) {}\n};",
+                "java": "class Solution {\n    int[] twoSum(...) {}\n}"
+            },
+            "example_tests": [{ "input_lines": ["[1]"] }]
+        }))
+        .unwrap();
+        assert_eq!(q.code_stubs.extra.len(), 2);
+        let merged = merge_question(&q, None, vec![], &[], 1);
+        let sig = &merged.problem.function_signature;
+        assert!(sig.python.contains("twoSum"));
+        assert_eq!(
+            sig.extra.get("cpp").map(String::as_str),
+            Some("class Solution {\npublic:\n    vector<int> twoSum(...) {}\n};")
+        );
+        assert!(sig.extra.contains_key("java"));
+        // and the two runnable languages are NOT duplicated into `extra`
+        assert!(!sig.extra.contains_key("python"));
+        assert!(!sig.extra.contains_key("javascript"));
     }
 
     #[test]
