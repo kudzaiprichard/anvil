@@ -28,3 +28,4 @@ What actually happened (include screenshots or logs if helpful).
 - OS: [e.g. Windows 11, macOS 14, Ubuntu 24.04]
 - Anvil version / commit:
 - Running as: [web `npm run dev` / desktop `npm run tauri dev` / installed build]
+- Detected runtimes (Settings → Runtimes): [e.g. Python 3.12, Node 20 — relevant for run/judge bugs]
