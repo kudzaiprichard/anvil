@@ -179,6 +179,7 @@ mod tests {
             function_signature: FunctionSignature {
                 python: "class Solution:\n    def f(self, x): ...".into(),
                 javascript: "var f = function(x) {};".into(),
+                extra: Default::default(),
             },
             test_cases: vec![TestCase {
                 input: vec![1.into()],

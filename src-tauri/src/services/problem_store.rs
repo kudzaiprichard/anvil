@@ -16,10 +16,11 @@ use crate::error::{AppError, AppResult};
 pub struct ProblemStore {
     builtins: Vec<Problem>,
     users: RwLock<Vec<Problem>>,
-    /// Imported LeetCode problems (task 0005). Replaced wholesale after every
-    /// import / clear, exactly like the user set — `all()`/`get()` see one
-    /// merged library with no per-source special-casing.
-    imported: RwLock<Vec<Problem>>,
+    /// The shipped question catalog (loaded at startup from the bundled
+    /// resource). A first-class part of the library, held exactly like the
+    /// user set — `all()`/`get()` see one merged library with no per-source
+    /// special-casing.
+    catalog: RwLock<Vec<Problem>>,
 }
 
 impl ProblemStore {
@@ -68,17 +69,17 @@ impl ProblemStore {
         Ok(Self {
             builtins,
             users: RwLock::new(Vec::new()),
-            imported: RwLock::new(Vec::new()),
+            catalog: RwLock::new(Vec::new()),
         })
     }
 
-    /// An empty store (no built-ins). The catalog is sourced at startup from
-    /// the local scrape via `set_imported_problems`; built-ins were removed.
+    /// An empty store (no built-ins). The catalog is loaded at startup from the
+    /// bundled resource via `set_catalog_problems`; built-ins were removed.
     pub fn empty() -> Self {
         Self {
             builtins: Vec::new(),
             users: RwLock::new(Vec::new()),
-            imported: RwLock::new(Vec::new()),
+            catalog: RwLock::new(Vec::new()),
         }
     }
 
@@ -90,23 +91,22 @@ impl ProblemStore {
         }
     }
 
-    /// Replaces the imported-problem set (startup load and after every
-    /// import / clear).
-    pub fn set_imported_problems(&self, mut problems: Vec<Problem>) {
+    /// Replaces the catalog set (startup load).
+    pub fn set_catalog_problems(&self, mut problems: Vec<Problem>) {
         problems.sort_by_key(|p| p.number);
-        if let Ok(mut imported) = self.imported.write() {
-            *imported = problems;
+        if let Ok(mut catalog) = self.catalog.write() {
+            *catalog = problems;
         }
     }
 
-    /// Built-ins + user + imported problems, sorted by number.
+    /// Built-ins + user + catalog problems, sorted by number.
     pub fn all(&self) -> Vec<Problem> {
         let users = self.users.read().map(|u| u.clone()).unwrap_or_default();
-        let imported = self.imported.read().map(|i| i.clone()).unwrap_or_default();
-        let mut merged = Vec::with_capacity(self.builtins.len() + users.len() + imported.len());
+        let catalog = self.catalog.read().map(|c| c.clone()).unwrap_or_default();
+        let mut merged = Vec::with_capacity(self.builtins.len() + users.len() + catalog.len());
         merged.extend(self.builtins.iter().cloned());
         merged.extend(users);
-        merged.extend(imported);
+        merged.extend(catalog);
         merged.sort_by_key(|p| p.number);
         merged
     }
@@ -123,10 +123,10 @@ impl ProblemStore {
         {
             return Some(p);
         }
-        self.imported
+        self.catalog
             .read()
             .ok()
-            .and_then(|imported| imported.iter().find(|p| p.id == id).cloned())
+            .and_then(|catalog| catalog.iter().find(|p| p.id == id).cloned())
     }
 
     /// Highest number across the whole library — new user problems get
