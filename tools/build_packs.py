@@ -8,7 +8,7 @@ only verifies it by execution and freezes the result.
 
 What it does, per source file:
 
-  1. Load the matching scrape row (``.docs/my_questions.json``) for its
+  1. Load the matching scrape row (``src-tauri/resources/catalog_leetcode.json``) for its
      statement-example anchors, code stubs (entry point), and qid.
   2. Translate the source into the ``gen`` shape the proven verifier consumes and
      run :func:`generate_test_packs.verify_and_build` — which anchors the optimal
@@ -59,7 +59,7 @@ import generate_test_packs as engine  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 PACKS_DIR = ROOT / "tools" / "packs"
 MANIFEST_PATH = PACKS_DIR / "index.json"
-DEFAULT_SCRAPE = ROOT / ".docs" / "my_questions.json"
+DEFAULT_SCRAPE = ROOT / "src-tauri" / "resources" / "catalog_leetcode.json"
 DEFAULT_OUT = ROOT / "tools" / "test-packs.json"
 
 
@@ -473,7 +473,7 @@ def main() -> int:
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("--scrape", default=str(DEFAULT_SCRAPE), help="my_questions.json scrape")
+    p.add_argument("--scrape", default=str(DEFAULT_SCRAPE), help="catalog_leetcode.json scrape (dev input)")
     p.add_argument("--out", default=str(DEFAULT_OUT), help="uncompressed pack output")
     p.add_argument("--only", help="comma-separated slugs to (re)build")
     p.add_argument("--batch", type=int, help="batch number to record in the manifest")
