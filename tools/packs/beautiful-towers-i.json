@@ -1,0 +1,44 @@
+{
+  "slug": "beautiful-towers-i",
+  "judge": "exact",
+  "pattern": "Every position can be imagined as the peak of the whole arrangement, and a monotonic stack lets you price out, in linear time, the best non-decreasing run ending there and the best non-increasing run starting there -- so trying every peak becomes cheap instead of quadratic.",
+  "hints": [
+    "Fix a single position as the summit. Everything to its left must only ever step up (or flatten) toward it, and everything to its right must only ever step down (or flatten) away from it -- what's the most total height you can keep on each side under that rule?",
+    "Process one side at a time with a stack of (value, run-length) pairs kept non-decreasing toward the current position: whenever the incoming value is smaller than the stack's top, that top group would have to be lowered to match it, so fold it in and keep collapsing until the stack is compatible.",
+    "Running that stack pass left-to-right gives, for every index, the best achievable sum of a non-decreasing prefix ending there; the mirrored pass on the reversed array gives the best non-increasing suffix starting there. The answer is the best combined total over all indices, remembering the summit's own height is shared by both sides and must not be counted twice."
+  ],
+  "constraints": [
+    { "param": "heights", "kind": "int[]", "len": [1, 1000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single tower, trivially its own peak", "input": [[42]] },
+    { "kind": "edge", "description": "two towers, already non-decreasing", "input": [[3, 8]] },
+    { "kind": "edge", "description": "two towers, already non-increasing", "input": [[8, 3]] },
+    { "kind": "boundary", "description": "single tower at the maximum allowed height", "input": [[1000000000]] },
+    { "kind": "trap", "description": "strictly decreasing, peak forced to the very first tower", "input": [[9, 7, 5, 3, 1]] },
+    { "kind": "trap", "description": "strictly increasing, peak forced to the very last tower", "input": [[1, 3, 5, 7, 9]] },
+    { "kind": "trap", "description": "a lone tall spike surrounded by short towers on both sides", "input": [[1, 1, 100, 1, 1]] },
+    { "kind": "trap", "description": "a wide flat plateau of equal heights", "input": [[4, 4, 4, 4, 4]] },
+    { "kind": "edge", "description": "a shallow dip then a taller rebound", "input": [[6, 2, 2, 9, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "large random tower line at the maximum allowed length",
+      "seed": 401,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    heights = [rng.randint(1, 1000000000) for _ in range(n)]\n    return [heights]\n"
+    },
+    {
+      "description": "large array with heavy repetition so long equal-height runs are common",
+      "seed": 402,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    palette = [rng.randint(1, 50) for _ in range(6)]\n    heights = [rng.choice(palette) for _ in range(n)]\n    return [heights]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumSumOfHeights(self, heights):\n        n = len(heights)\n        best = 0\n        for p in range(n):\n            run = float('inf')\n            left_sum = 0\n            for j in range(p, -1, -1):\n                run = min(run, heights[j])\n                left_sum += run\n            run = float('inf')\n            right_sum = 0\n            for j in range(p, n):\n                run = min(run, heights[j])\n                right_sum += run\n            total = left_sum + right_sum - heights[p]\n            if total > best:\n                best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumSumOfHeights(self, heights):\n        def one_side(arr):\n            res = [0] * len(arr)\n            stack = []  # (height, run_length)\n            total = 0\n            for i, h in enumerate(arr):\n                cnt = 1\n                while stack and stack[-1][0] > h:\n                    ph, pc = stack.pop()\n                    total -= ph * pc\n                    cnt += pc\n                stack.append((h, cnt))\n                total += h * cnt\n                res[i] = total\n            return res\n\n        left = one_side(heights)\n        right = one_side(heights[::-1])[::-1]\n        return max(l + r - h for l, r, h in zip(left, right, heights))\n",
+    "javascript": "var maximumSumOfHeights = function(heights) {\n    const n = heights.length;\n    function oneSide(arr) {\n        const res = new Array(arr.length).fill(0);\n        const stack = []; // [height, runLength]\n        let total = 0;\n        for (let i = 0; i < arr.length; i++) {\n            const h = arr[i];\n            let cnt = 1;\n            while (stack.length && stack[stack.length - 1][0] > h) {\n                const [ph, pc] = stack.pop();\n                total -= ph * pc;\n                cnt += pc;\n            }\n            stack.push([h, cnt]);\n            total += h * cnt;\n            res[i] = total;\n        }\n        return res;\n    }\n    const left = oneSide(heights);\n    const rightRev = oneSide(heights.slice().reverse());\n    const right = rightRev.slice().reverse();\n    let best = 0;\n    for (let i = 0; i < n; i++) {\n        const total = left[i] + right[i] - heights[i];\n        if (total > best) best = total;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
