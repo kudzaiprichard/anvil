@@ -1,0 +1,290 @@
+{
+  "slug": "collect-coins-in-a-tree",
+  "judge": "exact",
+  "pattern": "Coins can be collected from up to two edges away without a dedicated visit, so peeling coin-less leaves and then peeling twice more shrinks the tree to exactly the part that must be walked, there and back.",
+  "hints": [
+    "Branches that dead-end without ever reaching a coin never need to be walked at all -- repeatedly trim leaves that hold no coin until none are left.",
+    "Once every remaining leaf holds a coin, you still don't have to walk all the way out to it or back from it, because a coin within two edges can be collected in passing -- trim leaves two more rounds regardless of whether they hold a coin.",
+    "Whatever tree remains after that trimming must be walked completely, out and back, so the answer is exactly twice the number of edges left."
+  ],
+  "constraints": [
+    {
+      "param": "coins",
+      "kind": "int[]",
+      "len": [
+        1,
+        30000
+      ],
+      "value": [
+        0,
+        1
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "rows": [
+        0,
+        29999
+      ],
+      "cols": [
+        2,
+        2
+      ],
+      "value": [
+        0,
+        29999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a simple path with coins only at both ends",
+      "input": [
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a branching tree with scattered coins",
+      "input": [
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            5,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node, no edges at all",
+      "input": [
+        [
+          1
+        ],
+        []
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node with no coin",
+      "input": [
+        [
+          0
+        ],
+        []
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no coins anywhere, nothing ever needs visiting",
+      "input": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "exactly one coin, so no travel is ever required",
+      "input": [
+        [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every node has a coin, the whole tree still collapses under the two extra trims",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a star graph where every coin sits within collection range of the hub, so no travel is needed at all",
+      "input": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large random tree with random coin placement",
+      "seed": 31,
+      "size": 30000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 30000))\n    edges = []\n    for i in range(1, n):\n        parent = rng.randint(0, i - 1)\n        edges.append([parent, i])\n    coins = [1 if rng.random() < 0.1 else 0 for _ in range(n)]\n    return [coins, edges]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def collectTheCoins(self, coins, edges):\n        n = len(coins)\n        if n <= 1:\n            return 0\n        adj = [[] for _ in range(n)]\n        for a, b in edges:\n            adj[a].append(b)\n            adj[b].append(a)\n        coin_nodes = [i for i in range(n) if coins[i] == 1]\n        if len(coin_nodes) <= 1:\n            return 0\n        needed = set()\n        def bfs_path(src, dst):\n            parent = {src: None}\n            q = deque([src])\n            while q:\n                u = q.popleft()\n                if u == dst:\n                    break\n                for v in adj[u]:\n                    if v not in parent:\n                        parent[v] = u\n                        q.append(v)\n            path = []\n            cur = dst\n            while cur is not None:\n                path.append(cur)\n                cur = parent[cur]\n            return path\n        for i in range(len(coin_nodes)):\n            for j in range(i + 1, len(coin_nodes)):\n                needed.update(bfs_path(coin_nodes[i], coin_nodes[j]))\n        for _ in range(2):\n            deg = {u: sum(1 for v in adj[u] if v in needed) for u in needed}\n            leaves = [u for u in needed if deg[u] <= 1]\n            for u in leaves:\n                needed.discard(u)\n        remaining_edges = 0\n        for u in needed:\n            for v in adj[u]:\n                if v in needed:\n                    remaining_edges += 1\n        return (remaining_edges // 2) * 2\n",
+  "solutions": {
+    "python": "from collections import deque, defaultdict\nclass Solution:\n    def collectTheCoins(self, coins, edges):\n        n = len(coins)\n        if n <= 1:\n            return 0\n        adj = defaultdict(set)\n        for a, b in edges:\n            adj[a].add(b)\n            adj[b].add(a)\n        degree = [len(adj[i]) for i in range(n)]\n        removed = [False] * n\n        queue = deque(i for i in range(n) if degree[i] == 1 and coins[i] == 0)\n        while queue:\n            u = queue.popleft()\n            if removed[u]:\n                continue\n            removed[u] = True\n            for v in adj[u]:\n                if not removed[v]:\n                    degree[v] -= 1\n                    if degree[v] == 1 and coins[v] == 0:\n                        queue.append(v)\n        for _ in range(2):\n            leaves = [i for i in range(n) if not removed[i] and degree[i] == 1]\n            for u in leaves:\n                if removed[u]:\n                    continue\n                removed[u] = True\n                for v in adj[u]:\n                    if not removed[v]:\n                        degree[v] -= 1\n        remaining_edges = 0\n        for i in range(n):\n            if not removed[i]:\n                for j in adj[i]:\n                    if not removed[j]:\n                        remaining_edges += 1\n        return (remaining_edges // 2) * 2\n",
+    "javascript": "var collectTheCoins = function(coins, edges) {\n    const n = coins.length;\n    if (n <= 1) return 0;\n    const adj = Array.from({ length: n }, () => new Set());\n    for (const [a, b] of edges) {\n        adj[a].add(b);\n        adj[b].add(a);\n    }\n    const degree = adj.map(s => s.size);\n    const removed = new Array(n).fill(false);\n    const queue = [];\n    for (let i = 0; i < n; i++) {\n        if (degree[i] === 1 && coins[i] === 0) queue.push(i);\n    }\n    let head = 0;\n    while (head < queue.length) {\n        const u = queue[head++];\n        if (removed[u]) continue;\n        removed[u] = true;\n        for (const v of adj[u]) {\n            if (!removed[v]) {\n                degree[v] -= 1;\n                if (degree[v] === 1 && coins[v] === 0) queue.push(v);\n            }\n        }\n    }\n    for (let round = 0; round < 2; round++) {\n        const leaves = [];\n        for (let i = 0; i < n; i++) {\n            if (!removed[i] && degree[i] === 1) leaves.push(i);\n        }\n        for (const u of leaves) {\n            if (removed[u]) continue;\n            removed[u] = true;\n            for (const v of adj[u]) {\n                if (!removed[v]) degree[v] -= 1;\n            }\n        }\n    }\n    let remainingEdges = 0;\n    for (let i = 0; i < n; i++) {\n        if (!removed[i]) {\n            for (const j of adj[i]) {\n                if (!removed[j]) remainingEdges++;\n            }\n        }\n    }\n    return Math.floor(remainingEdges / 2) * 2;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}
