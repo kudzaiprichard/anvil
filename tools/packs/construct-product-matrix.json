@@ -1,0 +1,36 @@
+{
+  "slug": "construct-product-matrix",
+  "judge": "exact",
+  "pattern": "Prefix and suffix running products (mod a fixed base) let you compute, for every cell, the product of all other cells in O(1) extra work per cell.",
+  "hints": [
+    "The product of everything except grid[i][j] is (product of everything before it in row-major order) times (product of everything after it in row-major order).",
+    "Flatten the grid conceptually in row-major order, sweep once left-to-right keeping a running prefix product mod the base, then sweep once right-to-left keeping a running suffix product mod the base.",
+    "Multiply prefix[k-1] by suffix[k+1] (both already reduced mod 12345) for the flattened index k, then reshape back into the n by m grid."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 300], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "2x2 grid", "input": [[[1, 2], [3, 4]]] },
+    { "kind": "edge", "description": "single column", "input": [[[12345], [2], [1]]] },
+    { "kind": "boundary", "description": "single cell grid, product of nothing else is 1", "input": [[[7]]] },
+    { "kind": "trap", "description": "value equal to the modulus base reduces to zero when multiplied in", "input": [[[12345, 12345], [1, 1]]] },
+    { "kind": "trap", "description": "large values whose product overflows 32-bit before reduction", "input": [[[1000000000, 999999999], [999999998, 2]]] },
+    { "kind": "edge", "description": "single row of several values", "input": [[[1, 2, 3, 4, 5]]] },
+    { "kind": "boundary", "description": "all ones, every product is one", "input": [[[1, 1], [1, 1], [1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "rectangular grid of random values, capped so the O(n^2) differential oracle stays fast",
+      "seed": 5,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    total = max(4, min(size, 200))\n    n = max(1, int(total ** 0.5))\n    m = max(2, total // n)\n    if n * m < 2:\n        m += 1\n    grid = [[rng.randint(1, 1000000000) for _ in range(m)] for _ in range(n)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def constructProductMatrix(self, grid):\n        MOD = 12345\n        n = len(grid)\n        m = len(grid[0])\n        flat = [grid[i][j] for i in range(n) for j in range(m)]\n        total = len(flat)\n        result_flat = [0] * total\n        for k in range(total):\n            prod = 1\n            for t in range(total):\n                if t == k:\n                    continue\n                prod = (prod * (flat[t] % MOD)) % MOD\n            result_flat[k] = prod\n        p = [[0] * m for _ in range(n)]\n        for idx in range(total):\n            p[idx // m][idx % m] = result_flat[idx]\n        return p\n",
+  "solutions": {
+    "python": "class Solution:\n    def constructProductMatrix(self, grid):\n        MOD = 12345\n        n = len(grid)\n        m = len(grid[0])\n        flat = [grid[i][j] for i in range(n) for j in range(m)]\n        total = len(flat)\n        prefix = [1] * (total + 1)\n        for k in range(total):\n            prefix[k + 1] = (prefix[k] * (flat[k] % MOD)) % MOD\n        suffix = [1] * (total + 1)\n        for k in range(total - 1, -1, -1):\n            suffix[k] = (suffix[k + 1] * (flat[k] % MOD)) % MOD\n        p = [[0] * m for _ in range(n)]\n        for idx in range(total):\n            val = (prefix[idx] * suffix[idx + 1]) % MOD\n            p[idx // m][idx % m] = val\n        return p\n",
+    "javascript": "var constructProductMatrix = function(grid) {\n    const MOD = 12345;\n    const n = grid.length;\n    const m = grid[0].length;\n    const flat = [];\n    for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) flat.push(grid[i][j]);\n    const total = flat.length;\n    const prefix = new Array(total + 1).fill(1);\n    for (let k = 0; k < total; k++) {\n        prefix[k + 1] = (prefix[k] * (flat[k] % MOD)) % MOD;\n    }\n    const suffix = new Array(total + 1).fill(1);\n    for (let k = total - 1; k >= 0; k--) {\n        suffix[k] = (suffix[k + 1] * (flat[k] % MOD)) % MOD;\n    }\n    const p = [];\n    for (let i = 0; i < n; i++) p.push(new Array(m).fill(0));\n    for (let idx = 0; idx < total; idx++) {\n        const val = (prefix[idx] * suffix[idx + 1]) % MOD;\n        p[Math.floor(idx / m)][idx % m] = val;\n    }\n    return p;\n};\n"
+  },
+  "complexity": { "time": "O(n*m)", "space": "O(n*m)" }
+}
