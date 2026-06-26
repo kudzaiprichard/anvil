@@ -1,0 +1,215 @@
+{
+  "slug": "concatenate-non-zero-digits-and-multiply-by-sum-ii",
+  "judge": "exact",
+  "pattern": "Concatenating digits left to right is just 'multiply the running value by ten and add the next digit' (skipping a step when the digit is a placeholder), so the whole running value can be tracked as a rolling prefix and a range's value recovered by peeling off the prefix that came before it.",
+  "hints": [
+    "Concatenating digits is exactly a base-10 rolling accumulation: value = value * 10 + digit, except a zero digit is skipped entirely (it contributes nothing and does not even take a 'slot').",
+    "Keep a prefix array of that rolling value (mod the given modulus) together with a prefix count of how many non-zero digits have been folded in so far, plus a plain prefix sum of digit values.",
+    "For a range, subtract out the contribution of everything before it: value(l, r) = prefix[r] - prefix[l] * 10^(non-zero digits between l and r), and the digit sum for the range is just a plain prefix-sum difference (zero digits never contribute to a sum anyway)."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, three overlapping queries",
+      "input": [
+        "10203004",
+        [
+          [
+            0,
+            7
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            4,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a query with x = 0",
+      "input": [
+        "1000",
+        [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, all digits distinct and non-zero",
+      "input": [
+        "9876543210",
+        [
+          [
+            0,
+            9
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a single-character query that is itself zero",
+      "input": [
+        "0",
+        [
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "zeros scattered between non-zero digits must be dropped, not treated as part of x",
+      "input": [
+        "1020304050",
+        [
+          [
+            0,
+            9
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a query spanning the entire string is all zeros",
+      "input": [
+        "00000",
+        [
+          [
+            0,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "many single-character queries covering every position",
+      "input": [
+        "1234567890",
+        [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            6,
+            6
+          ],
+          [
+            7,
+            7
+          ],
+          [
+            8,
+            8
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "repeated overlapping ranges over the same string to exercise prefix reuse",
+      "input": [
+        "50607080",
+        [
+          [
+            0,
+            7
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            4,
+            7
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long digit string with many random ranged queries",
+      "seed": 202,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 100000))\n    s = ''.join(str(rng.randint(0, 9)) for _ in range(m))\n    qn = max(1, min(size, 100000))\n    queries = []\n    for _ in range(qn):\n        l = rng.randint(0, m - 1)\n        r = rng.randint(l, m - 1)\n        queries.append([l, r])\n    return [s, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sumAndMultiply(self, s, queries):\n        MOD = 10**9 + 7\n        ans = []\n        for l, r in queries:\n            digits = [c for c in s[l:r+1] if c != '0']\n            if digits:\n                x = int(''.join(digits))\n                total = sum(int(c) for c in digits)\n            else:\n                x = 0\n                total = 0\n            ans.append((x * total) % MOD)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def sumAndMultiply(self, s: str, queries: List[List[int]]) -> List[int]:\n        MOD = 10**9 + 7\n        m = len(s)\n        P = [0] * (m + 1)\n        cnt = [0] * (m + 1)\n        dsum = [0] * (m + 1)\n        for i in range(1, m + 1):\n            d = ord(s[i - 1]) - 48\n            if d == 0:\n                P[i] = P[i - 1]\n                cnt[i] = cnt[i - 1]\n            else:\n                P[i] = (P[i - 1] * 10 + d) % MOD\n                cnt[i] = cnt[i - 1] + 1\n            dsum[i] = dsum[i - 1] + d\n        pow10 = [1] * (m + 2)\n        for i in range(1, m + 2):\n            pow10[i] = (pow10[i - 1] * 10) % MOD\n        ans = []\n        for l, r in queries:\n            L, R = l, r + 1\n            k = cnt[R] - cnt[L]\n            xval = (P[R] - P[L] * pow10[k]) % MOD\n            s_ = dsum[R] - dsum[L]\n            ans.append((xval * s_) % MOD)\n        return ans\n",
+    "javascript": "var sumAndMultiply = function(s, queries) {\n    const MOD = 1000000007n;\n    const m = s.length;\n    const P = new Array(m + 1).fill(0n);\n    const cnt = new Array(m + 1).fill(0);\n    const dsum = new Array(m + 1).fill(0);\n    for (let i = 1; i <= m; i++) {\n        const d = s.charCodeAt(i - 1) - 48;\n        if (d === 0) {\n            P[i] = P[i - 1];\n            cnt[i] = cnt[i - 1];\n        } else {\n            P[i] = (P[i - 1] * 10n + BigInt(d)) % MOD;\n            cnt[i] = cnt[i - 1] + 1;\n        }\n        dsum[i] = dsum[i - 1] + d;\n    }\n    const pow10 = new Array(m + 2).fill(1n);\n    for (let i = 1; i <= m + 1; i++) pow10[i] = (pow10[i - 1] * 10n) % MOD;\n    const ans = [];\n    for (const [l, r] of queries) {\n        const L = l, R = r + 1;\n        const k = cnt[R] - cnt[L];\n        let xval = (P[R] - P[L] * pow10[k]) % MOD;\n        if (xval < 0n) xval += MOD;\n        const sumVal = BigInt(dsum[R] - dsum[L]);\n        let a = (xval * sumVal) % MOD;\n        if (a < 0n) a += MOD;\n        ans.push(Number(a));\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m + queries.length)",
+    "space": "O(m)"
+  }
+}
