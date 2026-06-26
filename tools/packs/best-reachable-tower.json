@@ -1,0 +1,46 @@
+{
+  "slug": "best-reachable-tower",
+  "judge": "exact",
+  "pattern": "Filtering by a Manhattan-distance cutoff and then picking the best under a two-level ordering (highest quality, ties broken by the smaller coordinate) is a single linear scan with a running best.",
+  "hints": [
+    "For each tower, compute the Manhattan distance from the center and discard it if that distance exceeds the given radius.",
+    "Among the towers that remain, track a running best: it wins over the current champion whenever its quality is strictly higher, or the quality ties and its coordinate is lexicographically smaller.",
+    "If no tower ever passes the distance filter, the answer is the fixed sentinel coordinate rather than any tower's coordinate."
+  ],
+  "constraints": [
+    { "param": "towers", "kind": "int[][]", "len": [1, 100000], "note": "each towers[i] = [xi, yi, qi] with 0 <= xi, yi, qi <= 100000" },
+    { "param": "center", "kind": "int[]", "len": [2, 2], "value": [0, 100000] },
+    { "param": "radius", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the reference example where every tower is reachable", "input": [[[1, 2, 5], [2, 1, 7], [3, 1, 9]], [1, 1], 2] },
+    { "kind": "edge", "description": "the reference example with a quality tie broken lexicographically", "input": [[[1, 3, 4], [2, 2, 4], [4, 4, 7]], [0, 0], 5] },
+    { "kind": "edge", "description": "the reference example where no tower is reachable", "input": [[[5, 6, 8], [0, 3, 5]], [1, 2], 1] },
+    { "kind": "edge", "description": "a single reachable tower is returned outright", "input": [[[10, 10, 1]], [10, 10], 0] },
+    { "kind": "boundary", "description": "radius zero, only a tower exactly at the center qualifies", "input": [[[3, 3, 9], [3, 4, 20]], [3, 3], 0] },
+    { "kind": "boundary", "description": "a tower sitting exactly on the radius boundary is still reachable", "input": [[[0, 0, 5], [10, 0, 9]], [0, 0], 10] },
+    { "kind": "trap", "description": "a quality tie broken by a smaller x coordinate", "input": [[[2, 2, 5], [1, 5, 5]], [0, 0], 10] },
+    { "kind": "trap", "description": "a quality tie with equal x coordinates broken by a smaller y coordinate", "input": [[[1, 5, 5], [1, 2, 5]], [0, 0], 10] },
+    { "kind": "boundary", "description": "the single tower is far outside the radius at maximum coordinate spread", "input": [[[0, 0, 100000]], [100000, 100000], 100000] }
+  ],
+  "stress": [
+    {
+      "description": "random towers, some inside and some outside a mid-sized radius, with repeated quality values to exercise tie-breaking",
+      "seed": 71,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    towers = [[rng.randint(0, 200), rng.randint(0, 200), rng.randint(1, 5)] for _ in range(n)]\n    center = [rng.randint(0, 200), rng.randint(0, 200)]\n    radius = rng.randint(0, 100)\n    return [towers, center, radius]\n"
+    },
+    {
+      "description": "large random instance across the full coordinate range",
+      "seed": 72,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    towers = [[rng.randint(0, 100000), rng.randint(0, 100000), rng.randint(0, 100000)] for _ in range(n)]\n    center = [rng.randint(0, 100000), rng.randint(0, 100000)]\n    radius = rng.randint(0, 100000)\n    return [towers, center, radius]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def bestTower(self, towers, center, radius):\n        cx, cy = center\n        candidates = []\n        for x, y, q in towers:\n            dist = abs(x - cx) + abs(y - cy)\n            if dist <= radius:\n                candidates.append((-q, x, y))\n        if not candidates:\n            return [-1, -1]\n        candidates.sort()\n        _, bx, by = candidates[0]\n        return [bx, by]\n",
+  "solutions": {
+    "python": "class Solution:\n    def bestTower(self, towers, center, radius):\n        cx, cy = center\n        best_q = None\n        best_x = best_y = -1\n        for x, y, q in towers:\n            dist = abs(x - cx) + abs(y - cy)\n            if dist > radius:\n                continue\n            if best_q is None or q > best_q or (q == best_q and (x, y) < (best_x, best_y)):\n                best_q = q\n                best_x, best_y = x, y\n        if best_q is None:\n            return [-1, -1]\n        return [best_x, best_y]\n",
+    "javascript": "var bestTower = function(towers, center, radius) {\n    const [cx, cy] = center;\n    let bestQ = null, bestX = -1, bestY = -1;\n    for (const [x, y, q] of towers) {\n        const dist = Math.abs(x - cx) + Math.abs(y - cy);\n        if (dist > radius) continue;\n        if (bestQ === null || q > bestQ || (q === bestQ && (x < bestX || (x === bestX && y < bestY)))) {\n            bestQ = q;\n            bestX = x;\n            bestY = y;\n        }\n    }\n    if (bestQ === null) return [-1, -1];\n    return [bestX, bestY];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}
