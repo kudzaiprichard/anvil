@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Anvil test-pack generation pipeline (task 0009, CONTENT_DESIGN.md §2).
 
-Turns a user's `my_questions.json` scrape into VERIFIED test packs, or fails
+Turns a user's `catalog_leetcode.json` scrape into VERIFIED test packs, or fails
 closed. The load-bearing rule (CONTENT_DESIGN.md §2):
 
     The AI never writes expected outputs. It writes inputs and solutions;
@@ -1134,8 +1134,8 @@ def self_test() -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--scrape", default=str(ROOT / ".docs" / "my_questions.json"),
-                   help="path to the my_questions.json scrape (dev input)")
+    p.add_argument("--scrape", default=str(ROOT / "src-tauri" / "resources" / "catalog_leetcode.json"),
+                   help="path to the catalog_leetcode.json scrape (dev input)")
     p.add_argument("--out", default=str(ROOT / "tools" / "test-packs.json"),
                    help="output pack file (uncompressed; build_fixture_bundle.py gzips it)")
     p.add_argument("--only", help="comma-separated slugs to generate")
