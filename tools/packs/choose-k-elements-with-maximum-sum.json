@@ -1,0 +1,39 @@
+{
+  "slug": "choose-k-elements-with-maximum-sum",
+  "judge": "exact",
+  "pattern": "Sorting by the comparison key and sweeping while maintaining a bounded min-heap of the best partners turns a per-index max-of-subset query into one pass with amortised log-time updates.",
+  "hints": [
+    "For index i you only care about nums2 values at strictly smaller nums1 entries - process indices in increasing order of nums1 so \"everything eligible for i\" is exactly what you've already visited.",
+    "Entries that tie on nums1 must not count for each other. Answer every index in a tied group BEFORE folding that group's own nums2 values into your running pool.",
+    "Sort indices by nums1. Keep a size-k min-heap of nums2 values plus a running sum of the heap; for each tie group first record the current sum for every index in the group, then push each group member's nums2 value in, popping the smallest whenever the heap exceeds size k."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000] },
+    { "param": "nums2", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all distinct nums1 values, k smaller than the number of eligible partners for some indices", "input": [[5, 1, 4, 2, 3], [9, 1, 8, 2, 7], 2] },
+    { "kind": "trap", "description": "every nums1 entry is tied, so no index has any eligible partner", "input": [[6, 6, 6, 6], [1, 2, 3, 4], 2] },
+    { "kind": "trap", "description": "a tied group must not use its own members as partners for each other", "input": [[2, 2, 5, 5], [10, 20, 30, 40], 3] },
+    { "kind": "edge", "description": "k covers every eligible partner, so the sum is just the total of all smaller-key nums2 values", "input": [[1, 2, 3, 4], [10, 10, 10, 10], 4] },
+    { "kind": "boundary", "description": "single element, no possible partner", "input": [[500000], [500000], 1] },
+    { "kind": "boundary", "description": "k equals n, maximum values throughout", "input": [[1000000, 999999, 1], [1000000, 1, 999999], 3] },
+    { "kind": "trap", "description": "the smallest-key index has many eligible partners but k limits it to the top few", "input": [[1, 9, 8, 7, 6, 5], [100, 1, 2, 3, 4, 5], 2] }
+  ],
+  "stress": [
+    {
+      "description": "max-length arrays with many repeated nums1 keys and a small k",
+      "seed": 21,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums1 = [rng.randint(1, 200) for _ in range(n)]\n    nums2 = [rng.randint(1, 1000000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums1, nums2, k]\n",
+      "note": "narrow nums1 range forces large tie groups, stressing the group-then-fold ordering"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMaxSum(self, nums1, nums2, k):\n        n = len(nums1)\n        ans = []\n        for i in range(n):\n            vals = sorted((nums2[j] for j in range(n) if nums1[j] < nums1[i]), reverse=True)\n            ans.append(sum(vals[:k]))\n        return ans\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def findMaxSum(self, nums1, nums2, k):\n        n = len(nums1)\n        order = sorted(range(n), key=lambda i: nums1[i])\n        ans = [0] * n\n        heap = []\n        total = 0\n        i = 0\n        while i < n:\n            j = i\n            while j < n and nums1[order[j]] == nums1[order[i]]:\n                j += 1\n            group = order[i:j]\n            for idx in group:\n                ans[idx] = total\n            for idx in group:\n                v = nums2[idx]\n                heapq.heappush(heap, v)\n                total += v\n                if len(heap) > k:\n                    total -= heapq.heappop(heap)\n            i = j\n        return ans\n",
+    "javascript": "var findMaxSum = function(nums1, nums2, k) {\n    const n = nums1.length;\n    const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => nums1[a] - nums1[b]);\n    const ans = new Array(n).fill(0);\n    const heap = [];\n    let total = 0;\n    const pushHeap = (v) => {\n        heap.push(v);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p] <= heap[i]) break;\n            [heap[p], heap[i]] = [heap[i], heap[p]];\n            i = p;\n        }\n    };\n    const popHeap = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length > 0) {\n            heap[0] = last;\n            let i = 0;\n            for (;;) {\n                let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                if (l < heap.length && heap[l] < heap[s]) s = l;\n                if (r < heap.length && heap[r] < heap[s]) s = r;\n                if (s === i) break;\n                [heap[s], heap[i]] = [heap[i], heap[s]];\n                i = s;\n            }\n        }\n        return top;\n    };\n    let i = 0;\n    while (i < n) {\n        let j = i;\n        while (j < n && nums1[order[j]] === nums1[order[i]]) j++;\n        const group = order.slice(i, j);\n        for (const idx of group) ans[idx] = total;\n        for (const idx of group) {\n            const v = nums2[idx];\n            pushHeap(v);\n            total += v;\n            if (heap.length > k) {\n                total -= popHeap();\n            }\n        }\n        i = j;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

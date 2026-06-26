@@ -1,0 +1,39 @@
+{
+  "slug": "checking-existence-of-edge-length-limited-paths",
+  "judge": "exact",
+  "pattern": "Sorting both the edges and the queries by their weight limit turns every query into a snapshot of a slowly-growing union-find, so each query is answered by only ever adding edges, never removing them.",
+  "hints": [
+    "If you answer queries from the smallest limit to the largest, the set of edges usable so far only ever grows, so you never need to rebuild a graph from scratch per query.",
+    "Sort the edges by distance and the queries by limit; then for each query in that order, union in every edge whose distance is still below the current limit before checking connectivity.",
+    "Use a union-find (disjoint set union) structure: two nodes have a path within the limit exactly when they end up in the same component once all edges below that limit have been unioned in; remember to answer each query in its ORIGINAL position, not the sorted order."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "edgeList", "kind": "int[][]", "len": [1, 100000], "value": [0, 1000000000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, one query blocked by a tight limit", "input": [3, [[0, 1, 2], [1, 2, 4], [2, 0, 8], [1, 0, 16]], [[0, 1, 2], [0, 2, 5]]] },
+    { "kind": "edge", "description": "statement example, a five-node chain", "input": [5, [[0, 1, 10], [1, 2, 5], [2, 3, 9], [3, 4, 13]], [[0, 4, 14], [1, 4, 13]]] },
+    { "kind": "boundary", "description": "two nodes, single edge, limit exactly equal to the distance (strict-less fails)", "input": [2, [[0, 1, 1]], [[0, 1, 1]]] },
+    { "kind": "boundary", "description": "two nodes, single edge, limit one above the distance succeeds", "input": [2, [[0, 1, 1]], [[0, 1, 2]]] },
+    { "kind": "trap", "description": "duplicate parallel edges between the same pair with different distances", "input": [3, [[0, 1, 5], [0, 1, 1], [1, 2, 100]], [[0, 1, 2], [0, 2, 2]]] },
+    { "kind": "trap", "description": "completely disconnected pair, no edge touches either endpoint", "input": [4, [[0, 1, 5]], [[2, 3, 1000000000]]] },
+    { "kind": "trap", "description": "queries not sorted by limit and repeating the same pair", "input": [4, [[0, 1, 1], [1, 2, 2], [2, 3, 3]], [[0, 3, 10], [0, 3, 2], [0, 3, 6]]] },
+    { "kind": "boundary", "description": "single isolated node has no edges at all", "input": [1, [], [[0, 0, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate random graph with many queries",
+      "seed": 1,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 400))\n    m = min(size * 2, 800)\n    edges = []\n    for _ in range(m):\n        u = rng.randint(0, n - 1)\n        v = rng.randint(0, n - 1)\n        while v == u:\n            v = rng.randint(0, n - 1)\n        d = rng.randint(1, 1000)\n        edges.append([u, v, d])\n    q = min(size * 2, 400)\n    queries = []\n    for _ in range(q):\n        p = rng.randint(0, n - 1)\n        r = rng.randint(0, n - 1)\n        while r == p:\n            r = rng.randint(0, n - 1)\n        limit = rng.randint(1, 1000)\n        queries.append([p, r, limit])\n    return [n, edges, queries]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque, defaultdict\n\nclass Solution:\n    def distanceLimitedPathsExist(self, n, edgeList, queries):\n        ans = []\n        for p, q, limit in queries:\n            adj = defaultdict(list)\n            for u, v, d in edgeList:\n                if d < limit:\n                    adj[u].append(v)\n                    adj[v].append(u)\n            visited = {p}\n            dq = deque([p])\n            found = p == q\n            while dq and not found:\n                cur = dq.popleft()\n                for nxt in adj[cur]:\n                    if nxt == q:\n                        found = True\n                        break\n                    if nxt not in visited:\n                        visited.add(nxt)\n                        dq.append(nxt)\n            ans.append(found)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def distanceLimitedPathsExist(self, n, edgeList, queries):\n        parent = list(range(n))\n\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n\n        edges = sorted(edgeList, key=lambda e: e[2])\n        order = sorted(range(len(queries)), key=lambda i: queries[i][2])\n        ans = [False] * len(queries)\n        ei = 0\n        for qi in order:\n            p, q, limit = queries[qi]\n            while ei < len(edges) and edges[ei][2] < limit:\n                union(edges[ei][0], edges[ei][1])\n                ei += 1\n            ans[qi] = find(p) == find(q)\n        return ans\n",
+    "javascript": "var distanceLimitedPathsExist = function(n, edgeList, queries) {\n  const parent = new Array(n);\n  for (let i = 0; i < n; i++) parent[i] = i;\n  function find(x) {\n    while (parent[x] !== x) {\n      parent[x] = parent[parent[x]];\n      x = parent[x];\n    }\n    return x;\n  }\n  function union(a, b) {\n    const ra = find(a), rb = find(b);\n    if (ra !== rb) parent[ra] = rb;\n  }\n  const edges = edgeList.slice().sort((a, b) => a[2] - b[2]);\n  const m = queries.length;\n  const order = Array.from({ length: m }, (_, i) => i);\n  order.sort((a, b) => queries[a][2] - queries[b][2]);\n  const ans = new Array(m).fill(false);\n  let ei = 0;\n  for (const qi of order) {\n    const p = queries[qi][0], q = queries[qi][1], limit = queries[qi][2];\n    while (ei < edges.length && edges[ei][2] < limit) {\n      union(edges[ei][0], edges[ei][1]);\n      ei++;\n    }\n    ans[qi] = find(p) === find(q);\n  }\n  return ans;\n};\n"
+  },
+  "complexity": { "time": "O((E+Q) log(E+Q))", "space": "O(n + E + Q)" }
+}
