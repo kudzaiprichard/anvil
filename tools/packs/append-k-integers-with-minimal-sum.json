@@ -1,0 +1,38 @@
+{
+  "slug": "append-k-integers-with-minimal-sum",
+  "judge": "exact",
+  "pattern": "To keep the appended total minimal, always reach for the smallest positive integer not already present, skipping over any value already taken.",
+  "hints": [
+    "The cheapest k integers to add are just the smallest k positive integers, minus whichever of those are already used elsewhere in the array.",
+    "Sort (or dedupe into a set) the existing values, then walk 1, 2, 3, ... skipping any that already appear, until you have picked k of them.",
+    "Sum of the smallest k free integers = sum(1..k) restricted to a run, adjusted for how many of 1..k+extra are already occupied; walking gap-by-gap over sorted unique values and filling the gaps with the arithmetic-series formula avoids an O(k) loop when k is huge."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 100000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small k with scattered duplicates", "input": [[1, 4, 25, 10, 25], 2] },
+    { "kind": "edge", "description": "k larger than the used range, forcing a big contiguous run", "input": [[5, 6], 6] },
+    { "kind": "edge", "description": "nums already exactly 1..n, so every append starts after n", "input": [[1, 2, 3], 3] },
+    { "kind": "boundary", "description": "single-element nums, k = 1", "input": [[1000000000], 1] },
+    { "kind": "trap", "description": "duplicate entries must only block one integer each, not one per occurrence", "input": [[2, 2, 2, 2], 3] },
+    { "kind": "trap", "description": "nums has no small values at all, so 1..k are all free", "input": [[1000000000, 999999999], 5] },
+    { "kind": "boundary", "description": "large k requires the closed-form sum, not an O(k) walk", "input": [[1, 2, 3, 4, 5], 100000000] }
+  ],
+  "stress": [
+    {
+      "description": "10000 random existing values with large k, exercising the gap-skipping logic under load",
+      "seed": 7,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randrange(1, 10**9 + 1) for _ in range(n)]\n    k = rng.randrange(1, 10**8 + 1)\n    return [nums, k]\n",
+      "note": "no special structure needed; the closed-form solution must stay fast even with huge k"
+    }
+  ],
+  "oracle_python": "import bisect\n\nclass Solution:\n    def minimalKSum(self, nums, k):\n        uniq = sorted(set(nums))\n\n        def free_count(u):\n            idx = bisect.bisect_right(uniq, u)\n            return u - idx\n\n        lo, hi = 1, 2 * 10 ** 9\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if free_count(mid) >= k:\n                hi = mid\n            else:\n                lo = mid + 1\n        u = lo\n        idx = bisect.bisect_right(uniq, u)\n        return u * (u + 1) // 2 - sum(uniq[:idx])\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimalKSum(self, nums, k):\n        uniq = sorted(set(nums))\n        total = 0\n        prev = 0\n        remaining = k\n        for v in uniq:\n            if remaining <= 0:\n                break\n            gap = v - prev - 1\n            if gap > 0:\n                take = min(gap, remaining)\n                total += (prev + 1 + prev + take) * take // 2\n                remaining -= take\n            prev = v\n        if remaining > 0:\n            total += (prev + 1 + prev + remaining) * remaining // 2\n        return total\n",
+    "javascript": "var minimalKSum = function(nums, k) {\n    const uniq = Array.from(new Set(nums)).sort((a, b) => a - b);\n    let total = 0;\n    let prev = 0;\n    let remaining = k;\n    for (const v of uniq) {\n        if (remaining <= 0) break;\n        const gap = v - prev - 1;\n        if (gap > 0) {\n            const take = Math.min(gap, remaining);\n            total += (prev + 1 + prev + take) * take / 2;\n            remaining -= take;\n        }\n        prev = v;\n    }\n    if (remaining > 0) {\n        total += (prev + 1 + prev + remaining) * remaining / 2;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}
