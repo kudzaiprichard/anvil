@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Print a problem's Python+JS stub, statement, and example tests from the dev
-scrape (.docs/my_questions.json) — the spec a pack author needs.
+scrape (src-tauri/resources/catalog_leetcode.json) — the spec a pack author needs.
 
 Usage:
     python tools/show_problem.py <slug> [<slug> ...]
@@ -16,7 +16,7 @@ except Exception:  # noqa: BLE001
     pass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRAPE = os.path.join(ROOT, ".docs", "my_questions.json")
+SCRAPE = os.path.join(ROOT, "src-tauri", "resources", "catalog_leetcode.json")
 
 
 def main(slugs):
