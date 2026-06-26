@@ -65,6 +65,8 @@ sized to avoid the 5-hour session-window limit. This file is the operating proce
 
 ## Status / continuation
 
-Live counts, what's done, what's left, and how to resume are tracked in
-`.docs/tasks/content/STATUS.md`. The reusable subagent instructions live in the
-authoring brief referenced there + `tools/PACK_AUTHORING_GUIDE.md`.
+The full remaining-work plan — every undone slug assigned to a sized wave, plus the
+defer-candidate list and a progress ledger — is **`tools/packs/WAVE_PLAN.md`**
+(generated 2026-07-05; tick the ledger as waves freeze). Live counts any time via
+`python tools/progress_summary.py`. The reusable subagent instructions live in
+`tools/PACK_AUTHORING_GUIDE.md`.
