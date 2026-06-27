@@ -1,0 +1,103 @@
+{
+  "slug": "count-k-subsequences-of-a-string-with-maximum-beauty",
+  "judge": "exact",
+  "pattern": "Beauty only depends on which distinct characters get chosen, so the maximum beauty always comes from greedily taking the characters with the largest frequencies, and any leftover slots tied at the cutoff frequency contribute a combinatorial choice on top of each character's own occurrence count.",
+  "hints": [
+    "Since every k-subsequence must use each chosen character exactly once, and that character's contribution to beauty is its total frequency in the whole string, maximizing beauty just means picking the k distinct characters with the largest frequencies.",
+    "Group the distinct characters by their frequency value in descending order; whenever a whole group can be taken without exceeding k, every character in it must be included, contributing a factor equal to its frequency for each occurrence choice.",
+    "The only real decision is at the boundary: if only some characters from a tied-frequency group are needed to reach k, count how many ways to choose which of them to include, and multiply by that frequency raised to the number still needed."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        200000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        200000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, a boundary tie between two single-occurrence letters",
+      "input": [
+        "bcca",
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, taking every distinct letter present",
+      "input": [
+        "abbcd",
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equal to one, just the single most frequent letter",
+      "input": [
+        "aabbbcc",
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character string",
+      "input": [
+        "z",
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k larger than the number of distinct letters present, impossible",
+      "input": [
+        "aabb",
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every letter has the same frequency, so the whole choice is a tie",
+      "input": [
+        "abc",
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one dominant letter plus several equally rare ones",
+      "input": [
+        "aaaaabcde",
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random strings over a small alphabet with random k, forcing frequent ties at the cutoff",
+      "seed": 81,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    alphabet = 'abcde'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    distinct = len(set(s))\n    k = rng.randint(1, distinct)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "from collections import Counter\nfrom itertools import combinations\nclass Solution:\n    def countKSubsequencesWithMaxBeauty(self, s, k):\n        MOD = 10 ** 9 + 7\n        n = len(s)\n        freq = Counter(s)\n        best = -1\n        cnt = 0\n        for combo in combinations(range(n), k):\n            chars = [s[i] for i in combo]\n            if len(set(chars)) != k:\n                continue\n            beauty = sum(freq[c] for c in chars)\n            if beauty > best:\n                best = beauty\n                cnt = 1\n            elif beauty == best:\n                cnt += 1\n        return cnt % MOD if best >= 0 else 0\n",
+  "solutions": {
+    "python": "from collections import Counter\nclass Solution:\n    def countKSubsequencesWithMaxBeauty(self, s, k):\n        MOD = 10 ** 9 + 7\n        freq = Counter(s)\n        freqs = sorted(freq.values(), reverse=True)\n        distinct = len(freqs)\n        if k > distinct:\n            return 0\n        N = 30\n        fact = [1] * N\n        for i in range(1, N):\n            fact[i] = fact[i - 1] * i\n        def C(a, b):\n            if b < 0 or b > a:\n                return 0\n            return fact[a] // (fact[b] * fact[a - b])\n        ans = 1\n        i = 0\n        remaining = k\n        n = len(freqs)\n        while i < n and remaining > 0:\n            j = i\n            while j < n and freqs[j] == freqs[i]:\n                j += 1\n            group_size = j - i\n            val = freqs[i]\n            if remaining >= group_size:\n                ans = ans * pow(val, group_size, MOD) % MOD\n                remaining -= group_size\n            else:\n                ans = ans * C(group_size, remaining) % MOD\n                ans = ans * pow(val, remaining, MOD) % MOD\n                remaining = 0\n            i = j\n        return ans % MOD\n",
+    "javascript": "var countKSubsequencesWithMaxBeauty = function(s, k) {\n    const MOD = 1000000007n;\n    const freqMap = new Map();\n    for (const ch of s) freqMap.set(ch, (freqMap.get(ch) || 0) + 1);\n    const freqs = Array.from(freqMap.values()).sort((a, b) => b - a);\n    const distinct = freqs.length;\n    if (k > distinct) return 0;\n    const N = 30;\n    const fact = new Array(N).fill(1n);\n    for (let i = 1; i < N; i++) fact[i] = fact[i - 1] * BigInt(i);\n    function C(a, b) {\n        if (b < 0 || b > a) return 0n;\n        return fact[a] / (fact[b] * fact[a - b]);\n    }\n    function power(a, b, m) {\n        a %= m; if (a < 0n) a += m;\n        let res = 1n;\n        while (b > 0n) {\n            if (b & 1n) res = res * a % m;\n            a = a * a % m;\n            b >>= 1n;\n        }\n        return res;\n    }\n    let ans = 1n;\n    let i = 0;\n    let remaining = k;\n    const n = freqs.length;\n    while (i < n && remaining > 0) {\n        let j = i;\n        while (j < n && freqs[j] === freqs[i]) j++;\n        const groupSize = j - i;\n        const val = BigInt(freqs[i]);\n        if (remaining >= groupSize) {\n            ans = ans * power(val, BigInt(groupSize), MOD) % MOD;\n            remaining -= groupSize;\n        } else {\n            ans = ans * (C(groupSize, remaining) % MOD) % MOD;\n            ans = ans * power(val, BigInt(remaining), MOD) % MOD;\n            remaining = 0;\n        }\n        i = j;\n    }\n    return Number(((ans % MOD) + MOD) % MOD);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + distinct log distinct)",
+    "space": "O(distinct)"
+  }
+}
