@@ -1,0 +1,135 @@
+{
+  "slug": "count-nodes-with-the-highest-score",
+  "judge": "exact",
+  "pattern": "Deleting a node splits the tree into its children's subtrees plus, for every non-root node, everything outside its own subtree, so one bottom-up pass computing subtree sizes is enough to score every node in linear time.",
+  "hints": [
+    "Build a children list from the parents array, then compute every node's subtree size with a single bottom-up pass, processing nodes in an order where every child is handled before its parent.",
+    "A node's score multiplies together the sizes of the pieces left behind after deleting it: each child's subtree size, and -- only when the node isn't the root -- the count of every node NOT in its own subtree.",
+    "Track a running maximum score and how many nodes tie for it while looping over every node once."
+  ],
+  "constraints": [
+    {
+      "param": "parents",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        -1,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "root with two leaf children",
+      "input": [
+        [
+          -1,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a straight chain (path graph)",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum possible tree size of two nodes",
+      "input": [
+        [
+          -1,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a star graph, the root with ten direct children",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an unbalanced tree where the root's score competes with a deep node's",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two different nodes tie for the highest score",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a long chain with one extra branch near the end",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2,
+          2
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random tree built by attaching each node to a uniformly random earlier node",
+      "seed": 8,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    parents = [-1] + [rng.randint(0, i - 1) for i in range(1, n)]\n    return [parents]\n"
+    }
+  ],
+  "oracle_python": "import sys\n\nclass Solution:\n    def countHighestScoreNodes(self, parents):\n        n = len(parents)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parents[i]].append(i)\n        sys.setrecursionlimit(10000)\n\n        def subtree_size(u):\n            s = 1\n            for c in children[u]:\n                s += subtree_size(c)\n            return s\n\n        total = subtree_size(0)\n        scores = []\n        for u in range(n):\n            parts = [subtree_size(c) for c in children[u]]\n            if u != 0:\n                parts.append(total - subtree_size(u))\n            score = 1\n            for p in parts:\n                score *= p\n            scores.append(score)\n        best = max(scores)\n        return scores.count(best)\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def countHighestScoreNodes(self, parents):\n        n = len(parents)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parents[i]].append(i)\n        size = [1] * n\n        order = []\n        q = deque([0])\n        while q:\n            u = q.popleft()\n            order.append(u)\n            for v in children[u]:\n                q.append(v)\n        for u in reversed(order):\n            if u != 0:\n                size[parents[u]] += size[u]\n        best = 0\n        count = 0\n        for u in range(n):\n            score = 1\n            for c in children[u]:\n                score *= size[c]\n            if u != 0:\n                score *= (n - size[u])\n            if score > best:\n                best = score\n                count = 1\n            elif score == best:\n                count += 1\n        return count\n",
+    "javascript": "var countHighestScoreNodes = function(parents) {\n    const n = parents.length;\n    const children = Array.from({length: n}, () => []);\n    for (let i = 1; i < n; i++) children[parents[i]].push(i);\n    const size = new Array(n).fill(1);\n    const order = [0];\n    let head = 0;\n    while (head < order.length) {\n        const u = order[head++];\n        for (const v of children[u]) order.push(v);\n    }\n    for (let i = order.length - 1; i >= 0; i--) {\n        const u = order[i];\n        if (u !== 0) size[parents[u]] += size[u];\n    }\n    let best = 0, count = 0;\n    for (let u = 0; u < n; u++) {\n        let score = 1;\n        for (const c of children[u]) score *= size[c];\n        if (u !== 0) score *= (n - size[u]);\n        if (score > best) {\n            best = score;\n            count = 1;\n        } else if (score === best) {\n            count++;\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}
