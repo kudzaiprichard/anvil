@@ -1,0 +1,88 @@
+{
+  "slug": "count-anagrams",
+  "judge": "exact",
+  "pattern": "The number of distinct anagrams of a word is its length factorial divided by the factorial of each letter's repeat count; multiply that across every word of the sentence (mod 1e9+7) using precomputed factorials and modular inverses.",
+  "hints": [
+    "For a single word, the count of distinct letter-arrangements is a multinomial coefficient: the word's length factorial divided by the factorial of how many times each letter repeats.",
+    "Precompute factorials and modular inverse factorials once up to the sentence's length, then compute each word's coefficient in time proportional to the word's own length using a letter-frequency count.",
+    "Multiply every word's coefficient together modulo 1e9+7 -- since the words are independent, the sentence's total answer is simply the product of each word's own count."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "trap",
+      "description": "a word whose letters form two repeated pairs collapses many permutations",
+      "input": [
+        "aabb"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three fully distinct-letter words multiply independently",
+      "input": [
+        "abc def ghijk"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single one-letter word has exactly one arrangement",
+      "input": [
+        "a"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a word made of one repeated letter has exactly one distinct arrangement",
+      "input": [
+        "aaaa"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "an eight-letter word built from two repeated pairs",
+      "input": [
+        "aabbccdd"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a sentence mixing a repeat-heavy word with fully distinct words",
+      "input": [
+        "aabb cd efgh"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two single-letter words back to back",
+      "input": [
+        "a b"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a long sentence of short words drawn from a small alphabet to force heavy letter repetition",
+      "seed": 3,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    words = []\n    total = 0\n    while total < n:\n        wl = rng.randint(1, 10)\n        if total + wl > n:\n            wl = n - total\n        if wl <= 0:\n            break\n        letters = [chr(ord('a') + rng.randint(0, 4)) for _ in range(wl)]\n        words.append(''.join(letters))\n        total += wl + 1\n    s = ' '.join(words) if words else 'a'\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "from itertools import permutations\n\nclass Solution:\n    def countAnagrams(self, s):\n        total = 1\n        for word in s.split():\n            distinct = len(set(permutations(word)))\n            total *= distinct\n        return total % 1000000007\n",
+  "solutions": {
+    "python": "from collections import Counter\n\nclass Solution:\n    def countAnagrams(self, s):\n        MOD = 1000000007\n        max_n = len(s) + 1\n        fact = [1] * (max_n + 1)\n        for i in range(1, max_n + 1):\n            fact[i] = fact[i - 1] * i % MOD\n        inv_fact = [1] * (max_n + 1)\n        inv_fact[max_n] = pow(fact[max_n], MOD - 2, MOD)\n        for i in range(max_n, 0, -1):\n            inv_fact[i - 1] = inv_fact[i] * i % MOD\n        ans = 1\n        for word in s.split():\n            cnt = Counter(word)\n            perm = fact[len(word)]\n            for c in cnt.values():\n                perm = perm * inv_fact[c] % MOD\n            ans = ans * perm % MOD\n        return ans\n",
+    "javascript": "var countAnagrams = function(s) {\n    const MOD = 1000000007n;\n    const words = s.split(' ');\n    const maxN = s.length + 1;\n    const fact = new Array(maxN + 1);\n    fact[0] = 1n;\n    for (let i = 1; i <= maxN; i++) fact[i] = (fact[i - 1] * BigInt(i)) % MOD;\n    function power(base, exp, mod) {\n        base %= mod;\n        let result = 1n;\n        while (exp > 0n) {\n            if (exp & 1n) result = (result * base) % mod;\n            base = (base * base) % mod;\n            exp >>= 1n;\n        }\n        return result;\n    }\n    const invFact = new Array(maxN + 1);\n    invFact[maxN] = power(fact[maxN], MOD - 2n, MOD);\n    for (let i = maxN; i >= 1; i--) invFact[i - 1] = (invFact[i] * BigInt(i)) % MOD;\n    let ans = 1n;\n    for (const word of words) {\n        const cnt = new Map();\n        for (const ch of word) cnt.set(ch, (cnt.get(ch) || 0) + 1);\n        let perm = fact[word.length];\n        for (const c of cnt.values()) {\n            perm = (perm * invFact[c]) % MOD;\n        }\n        ans = (ans * perm) % MOD;\n    }\n    return Number(ans);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}
