@@ -1,0 +1,41 @@
+{
+  "slug": "count-of-integers",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Counting values in a huge numeric range by a digit-sum property is a job for digit DP over the boundary strings, expressed as a difference of two prefix counts (up to num2, up to num1-1) so the inclusive range collapses into two independent one-sided counts.",
+  "hints": [
+    "Rather than counting the range [num1, num2] directly, build a helper that counts how many values from 0 up to some big-integer bound N have digit sum at most a given cap S -- the range answer falls out of differences of this helper.",
+    "count(num1, num2, lo, hi) can be built from four calls to a single 'count values <= N with digit sum <= S' helper: count(<=num2, <=hi) - count(<=num2, <lo) - count(<=num1-1, <=hi) + count(<=num1-1, <lo), all reduced modulo 1e9+7.",
+    "Implement the helper as digit DP over N's decimal digits from the most significant digit down, tracking the running digit-sum-so-far and whether the prefix is still tight against N, memoizing on (position, sum-so-far, tight); subtracting one from num1 as a string (careful borrow/leading-zero handling) turns the inclusive lower bound into a strict-upper-bound helper call."
+  ],
+  "constraints": [
+    { "param": "num1", "kind": "string", "len": [1, 22] },
+    { "param": "num2", "kind": "string", "len": [1, 22] },
+    { "param": "min_sum", "kind": "int", "value": [1, 400] },
+    { "param": "max_sum", "kind": "int", "value": [1, 400] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small range spanning multiple digit sums", "input": ["1", "12", 1, 8] },
+    { "kind": "edge", "description": "small range with a tight max_sum", "input": ["1", "5", 1, 5] },
+    { "kind": "boundary", "description": "single-value range where num1 equals num2", "input": ["7", "7", 1, 7] },
+    { "kind": "boundary", "description": "num1 is 1, smallest allowed value", "input": ["1", "1", 1, 1] },
+    { "kind": "trap", "description": "min_sum equals max_sum, only one exact digit sum qualifies", "input": ["10", "99", 9, 9] },
+    { "kind": "trap", "description": "range crosses a power-of-ten boundary where digit count changes", "input": ["95", "105", 1, 20] },
+    { "kind": "edge", "description": "range excludes everything because max_sum is too small for any value in range", "input": ["100", "199", 1, 1] },
+    { "kind": "edge", "description": "wide sum window that accepts almost every value in a modest range", "input": ["1", "200", 1, 50] }
+  ],
+  "stress": [
+    {
+      "description": "small ranges (kept narrow so the O(range) oracle stays fast) with random sum windows",
+      "seed": 11,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    lo = rng.randint(1, 5000)\n    width = rng.randint(0, min(4000, size))\n    hi = lo + width\n    a, b = str(lo), str(hi)\n    min_sum = rng.randint(1, 50)\n    max_sum = rng.randint(min_sum, min_sum + 50)\n    return [a, b, min_sum, max_sum]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def count(self, num1: str, num2: str, min_sum: int, max_sum: int) -> int:\n        MOD = 1_000_000_007\n        lo, hi = int(num1), int(num2)\n        total = 0\n        for x in range(lo, hi + 1):\n            s = sum(int(ch) for ch in str(x))\n            if min_sum <= s <= max_sum:\n                total += 1\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def count(self, num1: str, num2: str, min_sum: int, max_sum: int) -> int:\n        MOD = 1_000_000_007\n\n        def sub_one(num: str) -> str:\n            digits = list(num)\n            i = len(digits) - 1\n            while i >= 0 and digits[i] == '0':\n                digits[i] = '9'\n                i -= 1\n            if i < 0:\n                return '0'\n            digits[i] = str(int(digits[i]) - 1)\n            result = ''.join(digits).lstrip('0')\n            return result if result else '0'\n\n        def count_upto(n: str, cap: int) -> int:\n            if cap < 0:\n                return 0\n            digits = [int(ch) for ch in n]\n            L = len(digits)\n            from functools import lru_cache\n\n            @lru_cache(maxsize=None)\n            def dp(pos: int, remaining: int, tight: bool) -> int:\n                if remaining < 0:\n                    return 0\n                if pos == L:\n                    return 1\n                limit = digits[pos] if tight else 9\n                total = 0\n                for d in range(0, limit + 1):\n                    total += dp(pos + 1, remaining - d, tight and d == limit)\n                return total\n\n            result = dp(0, cap, True)\n            dp.cache_clear()\n            return result\n\n        upper = count_upto(num2, max_sum) - count_upto(num2, min_sum - 1)\n        num1_minus_1 = sub_one(num1)\n        lower = count_upto(num1_minus_1, max_sum) - count_upto(num1_minus_1, min_sum - 1)\n        return (upper - lower) % MOD\n",
+    "javascript": "var count = function(num1, num2, min_sum, max_sum) {\n    const MOD = 1000000007n;\n\n    function subOne(num) {\n        const digits = num.split('');\n        let i = digits.length - 1;\n        while (i >= 0 && digits[i] === '0') {\n            digits[i] = '9';\n            i -= 1;\n        }\n        if (i < 0) return '0';\n        digits[i] = String(Number(digits[i]) - 1);\n        let result = digits.join('').replace(/^0+/, '');\n        return result === '' ? '0' : result;\n    }\n\n    function countUpto(n, cap) {\n        if (cap < 0) return 0n;\n        const digits = n.split('').map(Number);\n        const L = digits.length;\n        const memo = new Map();\n\n        function dp(pos, remaining, tight) {\n            if (remaining < 0) return 0n;\n            if (pos === L) return 1n;\n            const key = pos + ',' + remaining + ',' + (tight ? 1 : 0);\n            if (memo.has(key)) return memo.get(key);\n            const limit = tight ? digits[pos] : 9;\n            let total = 0n;\n            for (let d = 0; d <= limit; d++) {\n                total += dp(pos + 1, remaining - d, tight && d === limit);\n            }\n            memo.set(key, total);\n            return total;\n        }\n\n        return dp(0, cap, true);\n    }\n\n    const upper = ((countUpto(num2, max_sum) - countUpto(num2, min_sum - 1)) % MOD + MOD) % MOD;\n    const num1Minus1 = subOne(num1);\n    const lower = ((countUpto(num1Minus1, max_sum) - countUpto(num1Minus1, min_sum - 1)) % MOD + MOD) % MOD;\n    const ans = ((upper - lower) % MOD + MOD) % MOD;\n    return Number(ans);\n};\n"
+  },
+  "complexity": { "time": "O(len(num2) * max_sum)", "space": "O(len(num2) * max_sum)" }
+}
