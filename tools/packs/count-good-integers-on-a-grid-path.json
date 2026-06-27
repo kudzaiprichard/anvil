@@ -1,0 +1,142 @@
+{
+  "slug": "count-good-integers-on-a-grid-path",
+  "judge": "exact",
+  "pattern": "Placing every zero-padded 16-digit number into a 4x4 grid in row-major order means the path's visited cells always land at strictly increasing digit positions, so a single left-to-right digit-DP that tracks the last path digit and the two range-boundary tight flags counts every good integer in a range without ever enumerating it.",
+  "hints": [
+    "Because the path only ever moves down or right, and the grid is filled row by row, the linear digit position of each visited cell is strictly increasing along the path -- so scanning the 16-digit representation left to right visits the path positions in exactly the order the path does.",
+    "Count(good integers <= N) minus count(good integers <= L - 1) gives the answer for [L, R]; each of those counts is a classic digit-DP over the 16 digit positions with a tight-to-the-bound flag.",
+    "Carry one extra piece of state through the DP: the last digit seen at a path position (or none yet). At every non-path position any digit 0-9 is free; at a path position the chosen digit must be at least that last value, and it becomes the new last value."
+  ],
+  "constraints": [
+    {
+      "param": "l",
+      "kind": "int",
+      "value": [
+        1,
+        9000000000000000
+      ]
+    },
+    {
+      "param": "r",
+      "kind": "int",
+      "value": [
+        1,
+        9000000000000000
+      ]
+    },
+    {
+      "param": "directions",
+      "kind": "string",
+      "len": [
+        6,
+        6
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, small range with a down-then-right path",
+      "input": [
+        8,
+        10,
+        "DDDRRR"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a mixed down/right path",
+      "input": [
+        123456789,
+        123456790,
+        "DDRRDR"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, single value that is not good",
+      "input": [
+        1288561398769758,
+        1288561398769758,
+        "RRRDDD"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible l as a single-value range",
+      "input": [
+        1,
+        1,
+        "DDDRRR"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the largest possible value as a single-value range",
+      "input": [
+        9000000000000000,
+        9000000000000000,
+        "RRRDDD"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a repdigit number: every path digit is identical, which a strict (not non-strict) comparator would wrongly reject",
+      "input": [
+        1111111111111111,
+        1111111111111111,
+        "DDDRRR"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a range that crosses a power-of-ten boundary, exercising the zero-padding at a digit-length change",
+      "input": [
+        999999999999999,
+        1000000000000000,
+        "RRRDDD"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a moderate range with an alternating right/down path",
+      "input": [
+        100,
+        150,
+        "RDDRDR"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a moderate range with an alternating down/right path",
+      "input": [
+        1000,
+        1200,
+        "DRDRDR"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random moderate-width ranges with a random permutation of three D's and three R's",
+      "seed": 51,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    width = rng.randint(0, max(1, min(size, 2000)))\n    max_val = 9 * 10 ** 15\n    l = rng.randint(1, max(1, max_val - width))\n    r = l + width\n    chars = list('DDDRRR')\n    rng.shuffle(chars)\n    directions = ''.join(chars)\n    return [l, r, directions]\n"
+    },
+    {
+      "description": "a full-scale range spanning almost the entire constraint, stressing the digit-DP against a naive per-integer scan",
+      "seed": 52,
+      "size": 9000000000000000,
+      "generator_python": "def gen(rng, size):\n    max_val = 9 * 10 ** 15\n    l = 1\n    r = max(1, min(size, max_val))\n    chars = list('DDDRRR')\n    rng.shuffle(chars)\n    directions = ''.join(chars)\n    return [l, r, directions]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countGoodIntegersOnPath(self, l, r, directions):\n        row = col = 0\n        path = [row * 4 + col]\n        for ch in directions:\n            if ch == 'D':\n                row += 1\n            else:\n                col += 1\n            path.append(row * 4 + col)\n        count = 0\n        for x in range(l, r + 1):\n            s = f'{x:016d}'\n            seq = [int(s[p]) for p in path]\n            ok = True\n            for i in range(len(seq) - 1):\n                if seq[i] > seq[i + 1]:\n                    ok = False\n                    break\n            if ok:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countGoodIntegersOnPath(self, l: int, r: int, directions: str) -> int:\n        row = col = 0\n        path = [row * 4 + col]\n        for ch in directions:\n            if ch == 'D':\n                row += 1\n            else:\n                col += 1\n            path.append(row * 4 + col)\n        path_set = set(path)\n\n        def count_le(n):\n            if n < 0:\n                return 0\n            digits = [int(ch) for ch in f'{n:016d}']\n            memo = {}\n\n            def dp(pos, tight, last):\n                if pos == 16:\n                    return 1\n                key = (pos, tight, last)\n                if not tight and key in memo:\n                    return memo[key]\n                limit = digits[pos] if tight else 9\n                total = 0\n                for d in range(limit + 1):\n                    if pos in path_set:\n                        if last is not None and d < last:\n                            continue\n                        nl = d\n                    else:\n                        nl = last\n                    total += dp(pos + 1, tight and d == limit, nl)\n                if not tight:\n                    memo[key] = total\n                return total\n\n            return dp(0, True, None)\n\n        return count_le(r) - count_le(l - 1)\n",
+    "javascript": "var countGoodIntegersOnPath = function(l, r, directions) {\n    let row = 0, col = 0;\n    const path = [row * 4 + col];\n    for (const ch of directions) {\n        if (ch === 'D') row += 1; else col += 1;\n        path.push(row * 4 + col);\n    }\n    const pathSet = new Set(path);\n\n    function countLe(n) {\n        if (n < 0) return 0;\n        const s = n.toString().padStart(16, '0');\n        const digits = [...s].map(Number);\n        const memo = new Map();\n\n        function dp(pos, tight, last) {\n            if (pos === 16) return 1;\n            const key = pos + ',' + (tight ? 1 : 0) + ',' + (last === null ? -1 : last);\n            if (!tight && memo.has(key)) return memo.get(key);\n            const limit = tight ? digits[pos] : 9;\n            let total = 0;\n            for (let d = 0; d <= limit; d++) {\n                let nl;\n                if (pathSet.has(pos)) {\n                    if (last !== null && d < last) continue;\n                    nl = d;\n                } else {\n                    nl = last;\n                }\n                total += dp(pos + 1, tight && d === limit, nl);\n            }\n            if (!tight) memo.set(key, total);\n            return total;\n        }\n\n        return dp(0, true, null);\n    }\n\n    return countLe(r) - countLe(l - 1);\n};\n"
+  },
+  "complexity": {
+    "time": "O(1) -- a fixed 16-position digit DP regardless of the size of the range",
+    "space": "O(1)"
+  }
+}
