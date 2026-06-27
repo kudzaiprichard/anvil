@@ -1,0 +1,37 @@
+{
+  "slug": "count-non-decreasing-arrays-with-given-digit-sums",
+  "judge": "exact",
+  "pattern": "Grouping every candidate value in range by its digit sum turns the search into a classic \"count non-decreasing sequences\" DP over value, and because the value range is small and fixed, a running prefix count over it keeps every step cheap.",
+  "hints": [
+    "First figure out, for every digit sum that could possibly appear, the full sorted list of values in the allowed range achieving it -- most digit sums beyond a certain size simply have no matching value at all.",
+    "Process positions left to right. For each position, only the values matching its required digit sum are candidates, and each candidate's count of ways is the total number of ways to have ended at any earlier value no greater than it.",
+    "That \"total ways ending at any value up to v\" is just a running prefix sum over the previous position's per-value counts -- recompute that prefix sum once per position instead of comparing every pair of candidate values."
+  ],
+  "constraints": [
+    { "param": "digitSum", "kind": "int[]", "len": [1, 1000], "value": [0, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single position, smallest possible digit sum", "input": [ [0] ] },
+    { "kind": "edge", "description": "single position, digit sum one", "input": [ [1] ] },
+    { "kind": "trap", "description": "digit sum with no matching value in range at all", "input": [ [49] ] },
+    { "kind": "trap", "description": "an achievable digit sum followed by one that has no match", "input": [ [1, 49] ] },
+    { "kind": "edge", "description": "two positions where the second's required digit sum forces exactly one continuation", "input": [ [25, 1] ] },
+    { "kind": "edge", "description": "repeated identical digit sums", "input": [ [3, 3, 3] ] },
+    { "kind": "boundary", "description": "digit sum zero repeated -- only the value zero itself can ever match", "input": [ [0, 0, 0] ] },
+    { "kind": "trap", "description": "decreasing digit sums that still might have increasing value continuations", "input": [ [10, 5, 2] ] }
+  ],
+  "stress": [
+    {
+      "description": "many positions with small achievable digit sums",
+      "seed": 21,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    digitSum = [rng.randint(0, 15) for _ in range(n)]\n    return [digitSum]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countArrays(self, digitSum):\n        MOD = 1000000007\n        MAXV = 5000\n        def dsum(v):\n            s = 0\n            while v > 0:\n                s += v % 10\n                v //= 10\n            return s\n        ds = [dsum(v) for v in range(MAXV + 1)]\n        lists = [[v for v in range(MAXV + 1) if ds[v] == d] for d in digitSum]\n        if any(len(l) == 0 for l in lists):\n            return 0\n        prev_counts = {v: 1 for v in lists[0]}\n        for i in range(1, len(lists)):\n            cur = {}\n            for v in lists[i]:\n                total = 0\n                for u, c in prev_counts.items():\n                    if u <= v:\n                        total += c\n                if total:\n                    cur[v] = total % MOD\n            prev_counts = cur\n        return sum(prev_counts.values()) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countArrays(self, digitSum):\n        MOD = 1000000007\n        MAXV = 5000\n        def dsum(v):\n            s = 0\n            while v > 0:\n                s += v % 10\n                v //= 10\n            return s\n        ds = [dsum(v) for v in range(MAXV + 1)]\n        buckets = {}\n        for v in range(MAXV + 1):\n            buckets.setdefault(ds[v], []).append(v)\n        n = len(digitSum)\n        first = buckets.get(digitSum[0], [])\n        if not first:\n            return 0\n        dp = [0] * (MAXV + 1)\n        for v in first:\n            dp[v] = 1\n        for i in range(1, n):\n            cum = 0\n            prefix = [0] * (MAXV + 1)\n            for v in range(MAXV + 1):\n                cum = (cum + dp[v]) % MOD\n                prefix[v] = cum\n            target_list = buckets.get(digitSum[i], [])\n            if not target_list:\n                return 0\n            newdp = [0] * (MAXV + 1)\n            for v in target_list:\n                newdp[v] = prefix[v]\n            dp = newdp\n        return sum(dp) % MOD\n",
+    "javascript": "var countArrays = function(digitSum) {\n    const MOD = 1000000007;\n    const MAXV = 5000;\n    function dsum(v) {\n        let s = 0;\n        while (v > 0) { s += v % 10; v = Math.floor(v / 10); }\n        return s;\n    }\n    const ds = new Array(MAXV + 1);\n    for (let v = 0; v <= MAXV; v++) ds[v] = dsum(v);\n    const buckets = new Map();\n    for (let v = 0; v <= MAXV; v++) {\n        if (!buckets.has(ds[v])) buckets.set(ds[v], []);\n        buckets.get(ds[v]).push(v);\n    }\n    const n = digitSum.length;\n    const first = buckets.get(digitSum[0]) || [];\n    if (first.length === 0) return 0;\n    let dp = new Array(MAXV + 1).fill(0);\n    for (const v of first) dp[v] = 1;\n    for (let i = 1; i < n; i++) {\n        let cum = 0;\n        const prefix = new Array(MAXV + 1);\n        for (let v = 0; v <= MAXV; v++) {\n            cum = (cum + dp[v]) % MOD;\n            prefix[v] = cum;\n        }\n        const targetList = buckets.get(digitSum[i]) || [];\n        if (targetList.length === 0) return 0;\n        const newdp = new Array(MAXV + 1).fill(0);\n        for (const v of targetList) newdp[v] = prefix[v];\n        dp = newdp;\n    }\n    let total = 0;\n    for (let v = 0; v <= MAXV; v++) total = (total + dp[v]) % MOD;\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n * maxValue)", "space": "O(maxValue)" }
+}
