@@ -1,0 +1,35 @@
+{
+  "slug": "count-beautiful-numbers",
+  "judge": "exact",
+  "pattern": "Counting a digit-based property over a huge range calls for digit DP that tracks the running digit sum and digit product instead of enumerating every number.",
+  "hints": [
+    "A number with any zero digit automatically qualifies, since its digit product becomes zero, which is divisible by any positive sum.",
+    "Build a function counting beautiful numbers from 1 up to N by walking N's digits position by position, tracking whether you're still bounded by N's own digits, the running digit sum, and the running digit product.",
+    "At the last digit position, the number qualifies if its digit sum is positive and its digit product is divisible by that sum; answer the range [l, r] as count(r) minus count(l - 1)."
+  ],
+  "constraints": [
+    { "param": "l", "kind": "int", "value": [1, 999999999] },
+    { "param": "r", "kind": "int", "value": [1, 999999999] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single-digit number is always beautiful", "input": [1, 1] },
+    { "kind": "boundary", "description": "every single-digit number in range", "input": [1, 9] },
+    { "kind": "trap", "description": "a number containing a zero digit is automatically beautiful", "input": [100, 100] },
+    { "kind": "trap", "description": "a number whose product is not divisible by its sum", "input": [99, 99] },
+    { "kind": "boundary", "description": "a modest multi-digit range", "input": [1, 1000] }
+  ],
+  "stress": [
+    {
+      "description": "random ranges across the full nine-digit bound",
+      "seed": 19,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    l = rng.randint(1, 999999998)\n    span = rng.randint(0, min(size * 1000, 999999999 - l))\n    r = min(999999999, l + span)\n    return [l, r]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def beautifulNumbers(self, l, r):\n        count = 0\n        for x in range(l, r + 1):\n            s = 0\n            p = 1\n            for ch in str(x):\n                d = int(ch)\n                s += d\n                p *= d\n            if s > 0 and p % s == 0:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def beautifulNumbers(self, l, r):\n        def count_upto(N):\n            if N <= 0:\n                return 0\n            digits = list(map(int, str(N)))\n            L = len(digits)\n            from functools import lru_cache\n            @lru_cache(maxsize=None)\n            def dp(pos, tight, started, s, p):\n                if pos == L:\n                    return 1 if (started and s > 0 and p % s == 0) else 0\n                limit = digits[pos] if tight else 9\n                total = 0\n                for d in range(0, limit + 1):\n                    nt = tight and d == limit\n                    if not started and d == 0:\n                        total += dp(pos + 1, nt, False, s, p)\n                    else:\n                        total += dp(pos + 1, nt, True, s + d, p * d)\n                return total\n            return dp(0, True, False, 0, 1)\n        return count_upto(r) - count_upto(l - 1)\n",
+    "javascript": "var beautifulNumbers = function(l, r) {\n    function countUpto(N) {\n        if (N <= 0) return 0;\n        const digits = String(N).split('').map(Number);\n        const L = digits.length;\n        const memo = new Map();\n        function dp(pos, tight, started, s, p) {\n            if (pos === L) {\n                return (started && s > 0 && p % s === 0) ? 1 : 0;\n            }\n            const key = pos + ',' + (tight ? 1 : 0) + ',' + (started ? 1 : 0) + ',' + s + ',' + p;\n            if (memo.has(key)) return memo.get(key);\n            const limit = tight ? digits[pos] : 9;\n            let total = 0;\n            for (let d = 0; d <= limit; d++) {\n                const nt = tight && d === limit;\n                if (!started && d === 0) {\n                    total += dp(pos + 1, nt, false, s, p);\n                } else {\n                    total += dp(pos + 1, nt, true, s + d, p * d);\n                }\n            }\n            memo.set(key, total);\n            return total;\n        }\n        return dp(0, true, false, 0, 1);\n    }\n    return countUpto(r) - countUpto(l - 1);\n};\n"
+  },
+  "complexity": { "time": "O(digits^2 * maxSum) digit DP", "space": "O(digits * maxSum)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "count-artifacts-that-can-be-extracted",
+  "judge": "exact",
+  "pattern": "Since every artifact spans at most four cells, tracking which specific cells of each artifact are still buried (rather than scanning the whole grid) keeps the check per dig cheap regardless of how large n is.",
+  "hints": [
+    "You never need to build the full n x n grid; only the cells that belong to some artifact matter.",
+    "For each artifact, remember exactly which of its own cells remain covered; a dig only matters if it lands on one of those remembered cells.",
+    "Map each cell that belongs to an artifact to that artifact's id and a shared remaining-cell counter; when a dig hits a mapped cell, decrement that artifact's counter, and if it reaches zero the artifact is extracted."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000] },
+    { "param": "artifacts", "kind": "int[][]", "len": [1, 100000], "value": [0, 999] },
+    { "param": "dig", "kind": "int[][]", "len": [1, 100000], "value": [0, 999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one single-cell artifact fully dug, one two-cell artifact left partly buried", "input": [2, [[0, 0, 0, 0], [0, 1, 1, 1]], [[0, 0], [0, 1]]] },
+    { "kind": "edge", "description": "both artifacts fully uncovered", "input": [2, [[0, 0, 0, 0], [0, 1, 1, 1]], [[0, 0], [0, 1], [1, 1]]] },
+    { "kind": "boundary", "description": "n = 1, single artifact occupying the only cell", "input": [1, [[0, 0, 0, 0]], [[0, 0]]] },
+    { "kind": "trap", "description": "digging every cell of a larger artifact except one leaves it unextracted", "input": [3, [[0, 0, 1, 1]], [[0, 0], [0, 1], [1, 0]]] },
+    { "kind": "trap", "description": "digs that never land on any artifact cell contribute nothing", "input": [4, [[0, 0, 0, 0]], [[3, 3], [2, 2], [1, 1]]] },
+    { "kind": "edge", "description": "many artifacts, only some fully excavated", "input": [4, [[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 3, 3]], [[0, 0], [1, 1], [2, 2], [2, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "grid tiled with non-overlapping 1x2 and 2x2 artifacts, dig list fully excavates a random subset of them",
+      "seed": 9,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 200))\n    artifacts = []\n    dig = []\n    r = 0\n    while r < n:\n        c = 0\n        while c < n:\n            shape = rng.choice(['pt', 'h2', 'v2', 'sq'])\n            if shape == 'sq' and r + 1 < n and c + 1 < n:\n                artifacts.append([r, c, r + 1, c + 1])\n                cells = [(r, c), (r, c + 1), (r + 1, c), (r + 1, c + 1)]\n                c += 2\n            elif shape == 'h2' and c + 1 < n:\n                artifacts.append([r, c, r, c + 1])\n                cells = [(r, c), (r, c + 1)]\n                c += 2\n            elif shape == 'v2' and r + 1 < n:\n                artifacts.append([r, c, r + 1, c])\n                cells = [(r, c), (r + 1, c)]\n                c += 1\n            else:\n                artifacts.append([r, c, r, c])\n                cells = [(r, c)]\n                c += 1\n            if rng.random() < 0.6:\n                for cell in cells:\n                    dig.append(list(cell))\n        r += 1\n    rng.shuffle(dig)\n    return [n, artifacts, dig]\n",
+      "note": "artifacts never overlap and dig entries are unique by construction, matching the stated guarantees"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def digArtifacts(self, n, artifacts, dig):\n        dug = set((r, c) for r, c in dig)\n        count = 0\n        for r1, c1, r2, c2 in artifacts:\n            fully = True\n            for r in range(r1, r2 + 1):\n                for c in range(c1, c2 + 1):\n                    if (r, c) not in dug:\n                        fully = False\n                        break\n                if not fully:\n                    break\n            if fully:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def digArtifacts(self, n, artifacts, dig):\n        dug = set((r, c) for r, c in dig)\n        cell_to_artifact = {}\n        remaining = []\n        for idx, (r1, c1, r2, c2) in enumerate(artifacts):\n            total = 0\n            for r in range(r1, r2 + 1):\n                for c in range(c1, c2 + 1):\n                    cell_to_artifact[(r, c)] = idx\n                    total += 1\n            remaining.append(total)\n        for r, c in dug:\n            idx = cell_to_artifact.get((r, c))\n            if idx is not None:\n                remaining[idx] -= 1\n        return sum(1 for v in remaining if v == 0)\n",
+    "javascript": "var digArtifacts = function(n, artifacts, dig) {\n    const cellToArtifact = new Map();\n    const remaining = [];\n    for (let idx = 0; idx < artifacts.length; idx++) {\n        const [r1, c1, r2, c2] = artifacts[idx];\n        let total = 0;\n        for (let r = r1; r <= r2; r++) {\n            for (let c = c1; c <= c2; c++) {\n                cellToArtifact.set(r * n + c, idx);\n                total++;\n            }\n        }\n        remaining.push(total);\n    }\n    const seenDig = new Set();\n    for (const [r, c] of dig) {\n        const key = r * n + c;\n        if (seenDig.has(key)) continue;\n        seenDig.add(key);\n        if (cellToArtifact.has(key)) {\n            const idx = cellToArtifact.get(key);\n            remaining[idx]--;\n        }\n    }\n    return remaining.filter(v => v === 0).length;\n};\n"
+  },
+  "complexity": { "time": "O(a + d)", "space": "O(a + d)" }
+}
