@@ -1,0 +1,166 @@
+{
+  "slug": "construct-string-with-minimum-cost",
+  "judge": "exact",
+  "pattern": "Building the target one prefix at a time turns word choice into a shortest-path problem: each usable word at a position is an edge to a later position weighted by its cost, and the cheapest way to reach the end is the answer.",
+  "hints": [
+    "Think of positions 0..target.length as nodes; using word w at position i (when it matches target starting at i) is an edge from i to i+len(w) costing costs[i].",
+    "A left-to-right DP works: dp[i] = minimum cost to have already built target[:i], and from dp[i] you can relax dp[i+len(w)] for every word w that matches target starting at i.",
+    "If dp[target.length] is never reached, no combination of words reproduces target, so the answer is -1; otherwise it's dp[target.length]."
+  ],
+  "constraints": [
+    {
+      "param": "target",
+      "kind": "string",
+      "len": [
+        1,
+        50000
+      ]
+    },
+    {
+      "param": "words",
+      "kind": "string[]",
+      "len": [
+        1,
+        50000
+      ]
+    },
+    {
+      "param": "costs",
+      "kind": "int[]",
+      "len": [
+        1,
+        50000
+      ],
+      "value": [
+        1,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example with a clear cheapest combination",
+      "input": [
+        "abcdef",
+        [
+          "abdef",
+          "abc",
+          "d",
+          "def",
+          "ef"
+        ],
+        [
+          100,
+          1,
+          1,
+          10,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, target unreachable",
+      "input": [
+        "aaaa",
+        [
+          "z",
+          "zz",
+          "zzz"
+        ],
+        [
+          1,
+          10,
+          100
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character target matched by a single-character word",
+      "input": [
+        "a",
+        [
+          "a"
+        ],
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the same word appears twice with different costs, cheaper one should win",
+      "input": [
+        "ab",
+        [
+          "ab",
+          "ab",
+          "a",
+          "b"
+        ],
+        [
+          50,
+          5,
+          100,
+          100
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a longer word would overshoot the target and must not be used",
+      "input": [
+        "ab",
+        [
+          "abc",
+          "a",
+          "b"
+        ],
+        [
+          1,
+          2,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "many overlapping short words forcing a real shortest-path choice",
+      "input": [
+        "aaaa",
+        [
+          "a",
+          "aa",
+          "aaa",
+          "aaaa"
+        ],
+        [
+          5,
+          1,
+          1,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "target built from a small vocabulary of pieces, plus unrelated decoy words",
+      "seed": 11,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 400))\n    alphabet = 'abc'\n    vocab = set()\n    while len(vocab) < 8:\n        length = rng.choice([1, 2, 3])\n        vocab.add(''.join(rng.choice(alphabet) for _ in range(length)))\n    vocab = list(vocab)\n    parts = []\n    total = 0\n    while total < n:\n        w = rng.choice(vocab)\n        parts.append(w)\n        total += len(w)\n    target = ''.join(parts)[:n]\n    if not target:\n        target = 'a'\n    words = list(vocab)\n    costs = [rng.randint(1, 50) for _ in words]\n    extra = max(0, min(60, n // 5))\n    for _ in range(extra):\n        length = rng.choice([1, 2, 3])\n        words.append(''.join(rng.choice(alphabet) for _ in range(length)))\n        costs.append(rng.randint(1, 50))\n    return [target, words, costs]\n",
+      "note": "guarantees at least one valid construction while still including decoys"
+    }
+  ],
+  "oracle_python": "import heapq\n\nclass Solution:\n    def minimumCost(self, target, words, costs):\n        n = len(target)\n        dist = [float('inf')] * (n + 1)\n        dist[0] = 0\n        pq = [(0, 0)]\n        while pq:\n            d, i = heapq.heappop(pq)\n            if d > dist[i]:\n                continue\n            if i == n:\n                continue\n            for w, c in zip(words, costs):\n                L = len(w)\n                if i + L <= n and target[i:i + L] == w:\n                    nd = d + c\n                    if nd < dist[i + L]:\n                        dist[i + L] = nd\n                        heapq.heappush(pq, (nd, i + L))\n        return dist[n] if dist[n] < float('inf') else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumCost(self, target, words, costs):\n        n = len(target)\n        INF = float('inf')\n        dp = [INF] * (n + 1)\n        dp[0] = 0\n        pairs = list(zip(words, costs))\n        for i in range(n):\n            if dp[i] == INF:\n                continue\n            for w, c in pairs:\n                L = len(w)\n                if i + L <= n and target[i:i + L] == w:\n                    if dp[i] + c < dp[i + L]:\n                        dp[i + L] = dp[i] + c\n        return dp[n] if dp[n] < INF else -1\n",
+    "javascript": "var minimumCost = function(target, words, costs) {\n    const n = target.length;\n    const INF = Infinity;\n    const dp = new Array(n + 1).fill(INF);\n    dp[0] = 0;\n    for (let i = 0; i < n; i++) {\n        if (dp[i] === INF) continue;\n        for (let j = 0; j < words.length; j++) {\n            const w = words[j];\n            const L = w.length;\n            if (i + L <= n && target.substr(i, L) === w) {\n                if (dp[i] + costs[j] < dp[i + L]) {\n                    dp[i + L] = dp[i] + costs[j];\n                }\n            }\n        }\n    }\n    return dp[n] < INF ? dp[n] : -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(target.length * sum(words lengths))",
+    "space": "O(target.length)"
+  }
+}
