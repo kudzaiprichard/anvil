@@ -1,0 +1,44 @@
+{
+  "slug": "count-complete-substrings",
+  "judge": "exact",
+  "pattern": "Split-then-fixed-window: first cut the string wherever the adjacency rule breaks so no candidate substring can ever cross that seam, then in each remaining chunk slide a window whose length is fixed by the target distinct-character count so you can track 'each letter seen exactly k times' with running counters instead of recomputing from scratch.",
+  "hints": [
+    "A complete substring's adjacent letters can never differ by more than two alphabet positions, so first split the whole string at every place that rule is violated — no valid answer can straddle a split point.",
+    "Inside one of those pieces, if a complete substring uses exactly d distinct letters, its length is forced to be exactly d * k, since every one of those d letters must appear exactly k times — so for each d from 1 to 26 you only need to check windows of that one fixed length.",
+    "Slide a fixed-length window across the piece maintaining a 26-slot frequency table plus two running counters — how many letters currently have nonzero count, and how many currently have a count of exactly k — so each slide step is O(1) instead of rescanning the whole window."
+  ],
+  "constraints": [
+    { "param": "word", "kind": "string", "len": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single character string with k=1", "input": ["a", 1] },
+    { "kind": "edge", "description": "three distinct characters each already appearing exactly once", "input": ["abc", 1] },
+    { "kind": "trap", "description": "an alphabet gap greater than two must break any cross-boundary substring", "input": ["ad", 1] },
+    { "kind": "trap", "description": "a repeated character where only unit-length windows can satisfy k=1", "input": ["aaa", 1] },
+    { "kind": "trap", "description": "two letters each repeated k times, mixed so only some windows line up", "input": ["aabb", 2] },
+    { "kind": "boundary", "description": "word length exactly equal to k, exactly one full-length window is possible", "input": ["aa", 2] },
+    { "kind": "boundary", "description": "a full ascending run of all 26 letters, each appearing once, maximizing distinct-character windows", "input": ["abcdefghijklmnopqrstuvwxyz", 1] },
+    { "kind": "trap", "description": "three distinct letters each repeated k times back to back", "input": ["aabbcc", 2] }
+  ],
+  "stress": [
+    {
+      "description": "large random string over a small contiguous alphabet window at max length",
+      "seed": 13,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    letters = 'abcde'\n    word = ''.join(rng.choice(letters) for _ in range(size))\n    k = rng.randint(1, 5)\n    return [word, k]\n"
+    },
+    {
+      "description": "highly repetitive block pattern stressing the sliding-window counters across many distinct-count values",
+      "seed": 17,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    block = 'aabbccddeeff'\n    reps = size // len(block) + 1\n    word = (block * reps)[:size]\n    k = 2\n    return [word, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countCompleteSubstrings(self, word, k):\n        n = len(word)\n        count = 0\n        for i in range(n):\n            freq = {}\n            for j in range(i, n):\n                if j > i and abs(ord(word[j]) - ord(word[j - 1])) > 2:\n                    break\n                ch = word[j]\n                freq[ch] = freq.get(ch, 0) + 1\n                if all(v == k for v in freq.values()):\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countCompleteSubstrings(self, word, k):\n        n = len(word)\n        blocks = []\n        start = 0\n        for i in range(1, n + 1):\n            if i == n or abs(ord(word[i]) - ord(word[i - 1])) > 2:\n                blocks.append(word[start:i])\n                start = i\n        total = 0\n        for block in blocks:\n            total += self._count_in_block(block, k)\n        return total\n\n    def _count_in_block(self, s, k):\n        n = len(s)\n        count = 0\n        for d in range(1, 27):\n            length = d * k\n            if length > n:\n                break\n            freq = [0] * 26\n            distinct = 0\n            good = 0\n            for i in range(n):\n                c = ord(s[i]) - 97\n                if freq[c] == 0:\n                    distinct += 1\n                if freq[c] == k:\n                    good -= 1\n                freq[c] += 1\n                if freq[c] == k:\n                    good += 1\n                if i >= length:\n                    rc = ord(s[i - length]) - 97\n                    if freq[rc] == k:\n                        good -= 1\n                    freq[rc] -= 1\n                    if freq[rc] == 0:\n                        distinct -= 1\n                    elif freq[rc] == k:\n                        good += 1\n                if i >= length - 1:\n                    if distinct == d and good == d:\n                        count += 1\n        return count\n",
+    "javascript": "function countInBlock(s, k) {\n    const n = s.length;\n    let count = 0;\n    for (let d = 1; d <= 26; d++) {\n        const length = d * k;\n        if (length > n) break;\n        const freq = new Array(26).fill(0);\n        let distinct = 0;\n        let good = 0;\n        for (let i = 0; i < n; i++) {\n            const c = s.charCodeAt(i) - 97;\n            if (freq[c] === 0) distinct += 1;\n            if (freq[c] === k) good -= 1;\n            freq[c] += 1;\n            if (freq[c] === k) good += 1;\n            if (i >= length) {\n                const rc = s.charCodeAt(i - length) - 97;\n                if (freq[rc] === k) good -= 1;\n                freq[rc] -= 1;\n                if (freq[rc] === 0) distinct -= 1;\n                else if (freq[rc] === k) good += 1;\n            }\n            if (i >= length - 1) {\n                if (distinct === d && good === d) count += 1;\n            }\n        }\n    }\n    return count;\n}\n\nvar countCompleteSubstrings = function(word, k) {\n    const n = word.length;\n    let total = 0;\n    let start = 0;\n    for (let i = 1; i <= n; i++) {\n        if (i === n || Math.abs(word.charCodeAt(i) - word.charCodeAt(i - 1)) > 2) {\n            total += countInBlock(word.slice(start, i), k);\n            start = i;\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(26 * n)", "space": "O(1)" }
+}
