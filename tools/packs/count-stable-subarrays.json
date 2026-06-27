@@ -1,0 +1,83 @@
+{
+  "slug": "count-stable-subarrays",
+  "judge": "exact",
+  "pattern": "A contiguous run has no inversions exactly when it never dips from one element to the next, so once every position knows how far its own non-decreasing run reaches backward, a query's answer becomes a triangular count plus a running total, both readable in constant time.",
+  "hints": [
+    "A subarray has zero inversions if and only if it never decreases from one adjacent element to the next -- so 'stable' is really just 'non-decreasing', which you can detect locally without comparing every pair.",
+    "For each position, precompute the start of the longest non-decreasing run ending there; for a query starting at l, every position sharing that same run as l contributes subarrays entirely inside [l, that run's end], which is a simple triangular-number count.",
+    "Past the end of l's own run, every later position's natural run start already sits at or after l, so its unclamped run length can just be added straight from a precomputed running total -- no need to reprocess the array per query."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [1, 100000],
+      "value": [1, 100000]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [1, 100000],
+      "value": [0, 99999]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement-style example, mixed order",
+      "input": [[3, 1, 2], [[0, 1], [1, 2], [0, 2]]]
+    },
+    {
+      "kind": "edge",
+      "description": "repeated equal values, statement-style",
+      "input": [[2, 2], [[0, 1], [0, 0]]]
+    },
+    {
+      "kind": "edge",
+      "description": "single-element query on a longer array",
+      "input": [[5, 3, 3, 4, 1], [[2, 2]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element array",
+      "input": [[9], [[0, 0]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "entire array is one non-decreasing run, whole-array query",
+      "input": [[1, 2, 3, 4, 5], [[0, 4]]]
+    },
+    {
+      "kind": "trap",
+      "description": "the query window starts mid-run, requiring the run to be clamped from the left",
+      "input": [[5, 6, 7, 1, 2], [[1, 4]]]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly decreasing array, only single-element subarrays are stable",
+      "input": [[9, 7, 5, 3, 1], [[0, 4], [1, 3]]]
+    },
+    {
+      "kind": "trap",
+      "description": "multiple queries over the same array with overlapping ranges",
+      "input": [[1, 3, 2, 2, 5, 4], [[0, 5], [2, 4], [0, 2], [3, 3]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random array with random query ranges, sized toward the constraint maximum",
+      "seed": 71,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    q = max(1, min(size, 100000))\n    queries = []\n    for _ in range(q):\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        queries.append([l, r])\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countStableSubarrays(self, nums, queries):\n        ans = []\n        for l, r in queries:\n            total = 0\n            for i in range(l, r + 1):\n                total += 1\n                for j in range(i + 1, r + 1):\n                    if nums[j] < nums[j - 1]:\n                        break\n                    total += 1\n            ans.append(total)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def countStableSubarrays(self, nums, queries):\n        n = len(nums)\n        run_start = [0] * n\n        for i in range(1, n):\n            run_start[i] = run_start[i - 1] if nums[i] >= nums[i - 1] else i\n        run_end = [0] * n\n        i = 0\n        while i < n:\n            j = i\n            while j + 1 < n and run_start[j + 1] == run_start[i]:\n                j += 1\n            for t in range(i, j + 1):\n                run_end[t] = j\n            i = j + 1\n        run_len = [idx - run_start[idx] + 1 for idx in range(n)]\n        prefix = [0] * (n + 1)\n        for idx in range(n):\n            prefix[idx + 1] = prefix[idx] + run_len[idx]\n        ans = []\n        for l, r in queries:\n            E = min(r, run_end[l])\n            length1 = E - l + 1\n            total = length1 * (length1 + 1) // 2\n            if E < r:\n                total += prefix[r + 1] - prefix[E + 1]\n            ans.append(total)\n        return ans\n",
+    "javascript": "var countStableSubarrays = function(nums, queries) {\n    const n = nums.length;\n    const runStart = new Array(n).fill(0);\n    for (let i = 1; i < n; i++) {\n        runStart[i] = nums[i] >= nums[i - 1] ? runStart[i - 1] : i;\n    }\n    const runEnd = new Array(n).fill(0);\n    let i = 0;\n    while (i < n) {\n        let j = i;\n        while (j + 1 < n && runStart[j + 1] === runStart[i]) j++;\n        for (let t = i; t <= j; t++) runEnd[t] = j;\n        i = j + 1;\n    }\n    const runLen = new Array(n);\n    for (let idx = 0; idx < n; idx++) runLen[idx] = idx - runStart[idx] + 1;\n    const prefix = new Array(n + 1).fill(0);\n    for (let idx = 0; idx < n; idx++) prefix[idx + 1] = prefix[idx] + runLen[idx];\n    const ans = [];\n    for (const [l, r] of queries) {\n        const E = Math.min(r, runEnd[l]);\n        const length1 = E - l + 1;\n        let total = length1 * (length1 + 1) / 2;\n        if (E < r) total += prefix[r + 1] - prefix[E + 1];\n        ans.push(total);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + q)",
+    "space": "O(n)"
+  }
+}
