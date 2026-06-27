@@ -1,0 +1,88 @@
+{
+  "slug": "count-pairs-of-points-with-distance-k",
+  "judge": "exact",
+  "pattern": "Splitting the target distance k across the two coordinates independently turns a pairwise scan into a lookup: for every way of dividing k between the x and y XOR contributions, ask how many earlier points already sit at that exact partner coordinate.",
+  "hints": [
+    "The XOR distance is additive and independent across the x and y axes, so you can consider every way of splitting the required total between them separately.",
+    "For a fixed point, walk through every split a + b = k and compute the exact coordinate (x XOR a, y XOR b) a valid partner would need to have.",
+    "Keep a running count of every point seen so far in a hash map, and add up how many of those exact partner coordinates already exist before inserting the current point -- that avoids double-counting a pair."
+  ],
+  "constraints": [
+    {
+      "param": "coordinates",
+      "kind": "int[][]",
+      "len": [2, 50000],
+      "value": [0, 1000000]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [0, 100]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two qualifying pairs among four points",
+      "input": [[[1, 2], [4, 2], [1, 3], [5, 2]], 5]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, five identical points and k = 0",
+      "input": [[[1, 3], [1, 3], [1, 3], [1, 3], [1, 3]], 0]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest input, two identical points at distance zero",
+      "input": [[[0, 0], [0, 0]], 0]
+    },
+    {
+      "kind": "boundary",
+      "description": "two points at exactly the maximum allowed distance k",
+      "input": [[[0, 0], [100, 0]], 100]
+    },
+    {
+      "kind": "trap",
+      "description": "a mix of duplicate and distinct points with k = 0, which only ever matches exact duplicates",
+      "input": [[[1, 1], [1, 1], [2, 2]], 0]
+    },
+    {
+      "kind": "trap",
+      "description": "a pair whose XOR distance differs from its plain coordinate (manhattan) distance, catching a solution that confuses the two",
+      "input": [[[1, 5], [2, 5]], 3]
+    },
+    {
+      "kind": "boundary",
+      "description": "four coincident points, exercising the full combinatorial count at k = 0",
+      "input": [[[7, 7], [7, 7], [7, 7], [7, 7]], 0]
+    },
+    {
+      "kind": "edge",
+      "description": "three distinct points with k = 0, which never matches",
+      "input": [[[1, 2], [3, 4], [5, 6]], 0]
+    }
+  ],
+  "stress": [
+    {
+      "description": "moderate random point sets over the full coordinate range with a random k",
+      "seed": 7,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 500))\n    coordinates = [[rng.randint(0, 1000000), rng.randint(0, 1000000)] for _ in range(n)]\n    k = rng.randint(0, 100)\n    return [coordinates, k]\n"
+    },
+    {
+      "description": "larger random point sets confined to a small coordinate range so many pairs share partner coordinates",
+      "seed": 8,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 1500))\n    coordinates = [[rng.randint(0, 15), rng.randint(0, 15)] for _ in range(n)]\n    k = rng.randint(0, 8)\n    return [coordinates, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPairs(self, coordinates, k):\n        n = len(coordinates)\n        count = 0\n        for i in range(n):\n            xi, yi = coordinates[i]\n            for j in range(i + 1, n):\n                xj, yj = coordinates[j]\n                if (xi ^ xj) + (yi ^ yj) == k:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\nclass Solution:\n    def countPairs(self, coordinates, k):\n        seen = defaultdict(int)\n        ans = 0\n        for x, y in coordinates:\n            for a in range(k + 1):\n                b = k - a\n                ans += seen.get((x ^ a, y ^ b), 0)\n            seen[(x, y)] += 1\n        return ans\n",
+    "javascript": "var countPairs = function(coordinates, k) {\n    const seen = new Map();\n    let ans = 0;\n    for (const [x, y] of coordinates) {\n        for (let a = 0; a <= k; a++) {\n            const b = k - a;\n            const key = (x ^ a) + \",\" + (y ^ b);\n            ans += seen.get(key) || 0;\n        }\n        const ownKey = x + \",\" + y;\n        seen.set(ownKey, (seen.get(ownKey) || 0) + 1);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * k)",
+    "space": "O(n)"
+  }
+}
