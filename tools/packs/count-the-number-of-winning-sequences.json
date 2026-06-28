@@ -1,0 +1,87 @@
+{
+  "slug": "count-the-number-of-winning-sequences",
+  "judge": "exact",
+  "pattern": "Tracking, round by round, Bob's previous creature together with the running point difference lets a dynamic program count every no-repeat sequence that ends up ahead, since each round's outcome against Alice's fixed move is fully determined by Bob's two eligible choices.",
+  "hints": [
+    "Every round's outcome only depends on Alice's fixed creature for that round and Bob's chosen creature, so it always resolves to Bob gaining a point, Alice gaining a point, or neither -- a fixed three-way rule.",
+    "Bob's only restriction is that his creature must differ from the one he used the previous round, so a state tracking his last creature plus the running point difference (Bob's points minus Alice's) can transition round by round.",
+    "After processing every round, summing the counts over every previous-creature state where the running difference is strictly positive gives exactly the sequences where Bob ends up ahead."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, Alice always plays Fire Dragon",
+      "input": [
+        "FFF"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a mixed five-round sequence",
+      "input": [
+        "FWEFW"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single round",
+      "input": [
+        "F"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "Alice cycles through all three creatures repeatedly",
+      "input": [
+        "FWEFWEFWE"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "Alice always plays the same creature over many rounds",
+      "input": [
+        "WWWWWW"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two rounds, checking the smallest case with a real choice",
+      "input": [
+        "FE"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random creature sequences at small-to-moderate length to exercise the score-difference dynamic program",
+      "seed": 71,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    s = ''.join(rng.choice('FWE') for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "longer random sequences approaching the upper length bound",
+      "seed": 72,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 400))\n    s = ''.join(rng.choice('FWE') for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "from itertools import product\nclass Solution:\n    def countWinningSequences(self, s):\n        MOD = 10 ** 9 + 7\n        IDX = {'F': 0, 'W': 1, 'E': 2}\n        beats = [[False, False, True], [True, False, False], [False, True, False]]\n        n = len(s)\n        alice = [IDX[c] for c in s]\n        cnt = 0\n        for combo in product(range(3), repeat=n):\n            ok = True\n            for i in range(1, n):\n                if combo[i] == combo[i - 1]:\n                    ok = False\n                    break\n            if not ok:\n                continue\n            diff = 0\n            for i in range(n):\n                bm, am = combo[i], alice[i]\n                if bm == am:\n                    continue\n                elif beats[bm][am]:\n                    diff += 1\n                else:\n                    diff -= 1\n            if diff > 0:\n                cnt += 1\n        return cnt % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countWinningSequences(self, s):\n        MOD = 10 ** 9 + 7\n        IDX = {'F': 0, 'W': 1, 'E': 2}\n        beats = [[False, False, True], [True, False, False], [False, True, False]]\n        n = len(s)\n        alice = [IDX[c] for c in s]\n        OFFSET = n\n        SIZE = 2 * n + 1\n        dp = [[0] * SIZE for _ in range(3)]\n        am0 = alice[0]\n        for bm in range(3):\n            if bm == am0:\n                d = 0\n            elif beats[bm][am0]:\n                d = 1\n            else:\n                d = -1\n            dp[bm][OFFSET + d] = (dp[bm][OFFSET + d] + 1) % MOD\n        for i in range(1, n):\n            am = alice[i]\n            ndp = [[0] * SIZE for _ in range(3)]\n            for prev in range(3):\n                row = dp[prev]\n                for idx in range(SIZE):\n                    v = row[idx]\n                    if v == 0:\n                        continue\n                    for bm in range(3):\n                        if bm == prev:\n                            continue\n                        if bm == am:\n                            d = 0\n                        elif beats[bm][am]:\n                            d = 1\n                        else:\n                            d = -1\n                        nidx = idx + d\n                        ndp[bm][nidx] = (ndp[bm][nidx] + v) % MOD\n            dp = ndp\n        total = 0\n        for prev in range(3):\n            for idx in range(OFFSET + 1, SIZE):\n                total = (total + dp[prev][idx]) % MOD\n        return total % MOD\n",
+    "javascript": "var countWinningSequences = function(s) {\n    const MOD = 1000000007;\n    const IDX = { F: 0, W: 1, E: 2 };\n    const beats = [[false, false, true], [true, false, false], [false, true, false]];\n    const n = s.length;\n    const alice = Array.from(s).map(c => IDX[c]);\n    const OFFSET = n;\n    const SIZE = 2 * n + 1;\n    let dp = [new Array(SIZE).fill(0), new Array(SIZE).fill(0), new Array(SIZE).fill(0)];\n    const am0 = alice[0];\n    for (let bm = 0; bm < 3; bm++) {\n        let d;\n        if (bm === am0) d = 0;\n        else if (beats[bm][am0]) d = 1;\n        else d = -1;\n        dp[bm][OFFSET + d] = (dp[bm][OFFSET + d] + 1) % MOD;\n    }\n    for (let i = 1; i < n; i++) {\n        const am = alice[i];\n        const ndp = [new Array(SIZE).fill(0), new Array(SIZE).fill(0), new Array(SIZE).fill(0)];\n        for (let prev = 0; prev < 3; prev++) {\n            const row = dp[prev];\n            for (let idx = 0; idx < SIZE; idx++) {\n                const v = row[idx];\n                if (v === 0) continue;\n                for (let bm = 0; bm < 3; bm++) {\n                    if (bm === prev) continue;\n                    let d;\n                    if (bm === am) d = 0;\n                    else if (beats[bm][am]) d = 1;\n                    else d = -1;\n                    const nidx = idx + d;\n                    ndp[bm][nidx] = (ndp[bm][nidx] + v) % MOD;\n                }\n            }\n        }\n        dp = ndp;\n    }\n    let total = 0;\n    for (let prev = 0; prev < 3; prev++) {\n        for (let idx = OFFSET + 1; idx < SIZE; idx++) {\n            total = (total + dp[prev][idx]) % MOD;\n        }\n    }\n    return total % MOD;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2)",
+    "space": "O(n)"
+  }
+}
