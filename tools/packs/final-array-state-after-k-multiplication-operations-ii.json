@@ -1,0 +1,80 @@
+{
+  "slug": "final-array-state-after-k-multiplication-operations-ii",
+  "judge": "exact",
+  "pattern": "Once every value has grown to sit within one multiplier factor of the others, the operation cycles through the same indices in the same fixed order forever, so only a short prefix needs literal simulation before the rest is pure counting.",
+  "hints": [
+    "You cannot literally repeat the operation k times when k is up to 10^9 - think about what happens to the relative order of the array once every value has caught up to roughly the same magnitude as its neighbors.",
+    "Simulate with a min-heap only until the sequence of chosen indices starts repeating identically every n operations; once that happens the exact same order repeats forever, because multiplying every value by the same positive number never changes their relative order.",
+    "Once you know how many full repeating cycles remain and which prefix of that cycle gets one extra operation, add up each element's total multiplication count and finish with modular exponentiation - never build the astronomically large intermediate value directly."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] },
+    { "param": "multiplier", "kind": "int", "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single element repeatedly multiplied, small k",
+      "input": [[5], 3, 2]
+    },
+    {
+      "kind": "edge",
+      "description": "all-tied values, ties always broken by first index",
+      "input": [[3, 3, 3], 4, 2]
+    },
+    {
+      "kind": "edge",
+      "description": "duplicate minimums scattered through the array",
+      "input": [[1, 100, 1, 100], 5, 3]
+    },
+    {
+      "kind": "boundary",
+      "description": "multiplier=1 is a no-op regardless of k",
+      "input": [[10, 20, 30], 1000000000, 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "value near the upper bound with a large multiplier, exercising the modulo arithmetic",
+      "input": [[999999999], 2, 999999]
+    },
+    {
+      "kind": "trap",
+      "description": "large gap between smallest and largest values stresses heap ordering",
+      "input": [[1000000000, 1], 3, 5]
+    },
+    {
+      "kind": "trap",
+      "description": "k far larger than the array needs the repeating-cycle shortcut, not literal simulation, but is still small enough here for the oracle to double-check exactly",
+      "input": [[7, 2, 15, 4, 9], 2000, 3]
+    },
+    {
+      "kind": "trap",
+      "description": "minimum shifts between two tied positions across several rounds",
+      "input": [[2, 1, 2, 1, 2], 6, 2]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-max array length with k up to the full 10^9 bound",
+      "seed": 11,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    k = rng.randint(1, 1000000000)\n    multiplier = rng.randint(1, 1000000)\n    return [nums, k, multiplier]\n"
+    },
+    {
+      "description": "very small array with the maximal k, deep into the repeating-cycle shortcut",
+      "seed": 23,
+      "size": 5,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 6))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    k = 1000000000\n    multiplier = rng.randint(2, 1000000)\n    return [nums, k, multiplier]\n"
+    }
+  ],
+  "oracle_python": "import heapq\n\n\nclass Solution:\n    def getFinalState(self, nums, k, multiplier):\n        MOD = 10 ** 9 + 7\n        if multiplier == 1:\n            return [x % MOD for x in nums]\n        nums = nums[:]\n        heap = [(v, i) for i, v in enumerate(nums)]\n        heapq.heapify(heap)\n        for _ in range(k):\n            v, i = heapq.heappop(heap)\n            nums[i] = v * multiplier\n            heapq.heappush(heap, (nums[i], i))\n        return [x % MOD for x in nums]\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass Solution:\n    def getFinalState(self, nums, k, multiplier):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        if multiplier == 1 or k <= 0:\n            return [x % MOD for x in nums]\n        vals = nums[:]\n        opcount = [0] * n\n        heap = [(vals[i], i) for i in range(n)]\n        heapq.heapify(heap)\n\n        ops_done = 0\n        cap_ramp = min(k, n * 80 + 200)\n        history = []\n        periodic_order = None\n        full_set = set(range(n))\n\n        while ops_done < cap_ramp:\n            v, i = heapq.heappop(heap)\n            vals[i] = v * multiplier\n            opcount[i] += 1\n            ops_done += 1\n            heapq.heappush(heap, (vals[i], i))\n            history.append(i)\n            if len(history) >= 2 * n:\n                last = history[-n:]\n                prev = history[-2 * n:-n]\n                if last == prev and set(last) == full_set:\n                    periodic_order = last\n                    break\n\n        if periodic_order is not None:\n            remaining = k - ops_done\n            full_cycles, leftover = divmod(remaining, n)\n            for i in range(n):\n                opcount[i] += full_cycles\n            for idx in periodic_order[:leftover]:\n                opcount[idx] += 1\n\n        return [(nums[i] * pow(multiplier, opcount[i], MOD)) % MOD for i in range(n)]\n",
+    "javascript": "class MinHeap {\n    constructor() { this.a = []; }\n    push(item) {\n        const a = this.a;\n        a.push(item);\n        let i = a.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (cmp(a[p], a[i]) > 0) { const t = a[p]; a[p] = a[i]; a[i] = t; i = p; } else break;\n        }\n    }\n    pop() {\n        const a = this.a;\n        const top = a[0];\n        const last = a.pop();\n        if (a.length) {\n            a[0] = last;\n            let i = 0;\n            while (true) {\n                let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                if (l < a.length && cmp(a[l], a[s]) < 0) s = l;\n                if (r < a.length && cmp(a[r], a[s]) < 0) s = r;\n                if (s === i) break;\n                const t = a[s]; a[s] = a[i]; a[i] = t;\n                i = s;\n            }\n        }\n        return top;\n    }\n}\nfunction cmp(x, y) {\n    if (x[0] < y[0]) return -1;\n    if (x[0] > y[0]) return 1;\n    return x[1] - y[1];\n}\nfunction modpow(base, exp, mod) {\n    base = ((base % mod) + mod) % mod;\n    let result = 1n;\n    let b = base;\n    let e = exp;\n    while (e > 0n) {\n        if (e & 1n) result = (result * b) % mod;\n        b = (b * b) % mod;\n        e >>= 1n;\n    }\n    return result;\n}\nvar getFinalState = function(nums, k, multiplier) {\n    const MOD = 1000000007n;\n    const n = nums.length;\n    if (multiplier === 1 || k <= 0) {\n        return nums.map(x => Number(((BigInt(x) % MOD) + MOD) % MOD));\n    }\n    const vals = nums.map(x => BigInt(x));\n    const opcount = new Array(n).fill(0n);\n    const heap = new MinHeap();\n    for (let i = 0; i < n; i++) heap.push([vals[i], i]);\n\n    let opsDone = 0;\n    const capRamp = Math.min(k, n * 80 + 200);\n    const history = [];\n    let periodicOrder = null;\n\n    while (opsDone < capRamp) {\n        const [v, i] = heap.pop();\n        vals[i] = v * BigInt(multiplier);\n        opcount[i] += 1n;\n        opsDone += 1;\n        heap.push([vals[i], i]);\n        history.push(i);\n        if (history.length >= 2 * n) {\n            const last = history.slice(-n);\n            const prev = history.slice(-2 * n, -n);\n            let same = true;\n            for (let x = 0; x < n; x++) { if (last[x] !== prev[x]) { same = false; break; } }\n            if (same) {\n                const setLast = new Set(last);\n                if (setLast.size === n) {\n                    periodicOrder = last;\n                    break;\n                }\n            }\n        }\n    }\n\n    if (periodicOrder !== null) {\n        const remaining = k - opsDone;\n        const fullCycles = BigInt(Math.floor(remaining / n));\n        const leftover = remaining % n;\n        for (let i = 0; i < n; i++) opcount[i] += fullCycles;\n        for (let idx = 0; idx < leftover; idx++) opcount[periodicOrder[idx]] += 1n;\n    }\n\n    return nums.map((x, i) => Number((BigInt(x) * modpow(BigInt(multiplier), opcount[i], MOD)) % MOD));\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + m) log n) where m is a small bound on the ramp-up before the cycle repeats",
+    "space": "O(n)"
+  }
+}
