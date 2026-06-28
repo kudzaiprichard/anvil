@@ -1,0 +1,39 @@
+{
+  "slug": "execution-of-all-suffix-instructions-staying-in-a-grid",
+  "judge": "exact",
+  "pattern": "Because the instruction string is short relative to the grid, simulating every suffix directly is cheap enough to be the whole solution.",
+  "hints": [
+    "Nothing stops you from simply replaying the moves for each possible starting instruction and counting how far the walk gets before leaving the grid.",
+    "Track the robot's current row and column as you replay a suffix, and stop the moment the next step would leave the [0, n) range on either axis.",
+    "For every start index i, reset to startPos and step through s[i:], applying the row/column delta for each character; count successful steps until a step would go out of bounds or the suffix ends, and store that count at answer[i]."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 500] },
+    { "param": "startPos", "kind": "int[]", "len": [2, 2], "value": [0, 499] },
+    { "param": "s", "kind": "string", "len": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single-cell grid where every move is immediately invalid", "input": [1, [0, 0], "LR"] },
+    { "kind": "edge", "description": "smallest grid larger than one cell with a single valid move", "input": [2, [0, 0], "R"] },
+    { "kind": "boundary", "description": "start already pinned to the top-left corner with a run in one direction", "input": [5, [0, 0], "RRRRRRRRRR"] },
+    { "kind": "boundary", "description": "start pinned to the bottom-right corner so any further move that direction fails immediately", "input": [4, [3, 3], "DRDRDR"] },
+    { "kind": "trap", "description": "moves cancel out and return to the start but a later suffix still runs off the top edge", "input": [3, [1, 1], "UDLRUD"] },
+    { "kind": "trap", "description": "robot hugging one wall bounces between staying in bounds and leaving depending on suffix start", "input": [3, [0, 2], "RLLR"] },
+    { "kind": "edge", "description": "mixed instructions from a central cell in a mid-sized grid", "input": [4, [2, 2], "UUDDLLRR"] },
+    { "kind": "trap", "description": "long alternating column walk that only fails once it drifts past the right edge", "input": [6, [0, 5], "LRLRLRLRLR"] }
+  ],
+  "stress": [
+    {
+      "description": "maximum-size grid and instruction string with uniformly random directions and a random valid start",
+      "seed": 11,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(500, size))\n    m = max(1, min(500, size))\n    start_pos = [rng.randrange(0, n), rng.randrange(0, n)]\n    dirs = 'LRUD'\n    s = ''.join(rng.choice(dirs) for _ in range(m))\n    return [n, start_pos, s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def executeInstructions(self, n, startPos, s):\n        m = len(s)\n        dr = {'L': 0, 'R': 0, 'U': -1, 'D': 1}\n        dc = {'L': -1, 'R': 1, 'U': 0, 'D': 0}\n        prow = [0] * (m + 1)\n        pcol = [0] * (m + 1)\n        for i, ch in enumerate(s):\n            prow[i + 1] = prow[i] + dr[ch]\n            pcol[i + 1] = pcol[i] + dc[ch]\n        res = [0] * m\n        for i in range(m):\n            cnt = 0\n            for j in range(i, m):\n                row_abs = startPos[0] + prow[j + 1] - prow[i]\n                col_abs = startPos[1] + pcol[j + 1] - pcol[i]\n                if 0 <= row_abs < n and 0 <= col_abs < n:\n                    cnt += 1\n                else:\n                    break\n            res[i] = cnt\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def executeInstructions(self, n, startPos, s):\n        m = len(s)\n        dirs = {'L': (0, -1), 'R': (0, 1), 'U': (-1, 0), 'D': (1, 0)}\n        res = [0] * m\n        for i in range(m):\n            r, c = startPos[0], startPos[1]\n            cnt = 0\n            for j in range(i, m):\n                dr, dc = dirs[s[j]]\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < n and 0 <= nc < n:\n                    r, c = nr, nc\n                    cnt += 1\n                else:\n                    break\n            res[i] = cnt\n        return res\n",
+    "javascript": "var executeInstructions = function(n, startPos, s) {\n    const m = s.length;\n    const deltas = { L: [0, -1], R: [0, 1], U: [-1, 0], D: [1, 0] };\n    const res = new Array(m).fill(0);\n    for (let i = 0; i < m; i++) {\n        let r = startPos[0], c = startPos[1];\n        let cnt = 0;\n        for (let j = i; j < m; j++) {\n            const [dr, dc] = deltas[s[j]];\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < n && nc >= 0 && nc < n) {\n                r = nr; c = nc;\n                cnt++;\n            } else {\n                break;\n            }\n        }\n        res[i] = cnt;\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(m^2)", "space": "O(m)" }
+}
