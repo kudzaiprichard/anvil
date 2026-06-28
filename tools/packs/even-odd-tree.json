@@ -1,0 +1,37 @@
+{
+  "slug": "even-odd-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "Validating a level-alternating parity-and-monotonic rule is naturally a level-by-level traversal: each level only needs to remember the previous value seen at that same depth to check both parity and strict ordering as it goes.",
+  "hints": [
+    "Process the tree one full level at a time rather than node by node, since every rule (parity, and whether values increase or decrease) is scoped to a single level.",
+    "On an even-indexed level (0, 2, 4, ...) every value must be odd and strictly increasing left to right; on an odd-indexed level every value must be even and strictly decreasing left to right.",
+    "Walk the tree level by level with a queue, tracking the previous value seen so far at the current level (reset to none at the start of each new level) so both the parity and ordering checks are simple comparisons against it."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 100000], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a valid small even-odd tree", "input": [[1, 10, 4, 3, null, 7, 9, 12, 8, 6, null, null, 2]] },
+    { "kind": "edge", "description": "a tree that fails because a value at an odd level is odd instead of even", "input": [[5, 4, 2, 3, 3, 7]] },
+    { "kind": "boundary", "description": "a single node, trivially valid", "input": [[7]] },
+    { "kind": "trap", "description": "an even-level value that is not strictly increasing from its left sibling", "input": [[1, 4, 6, 3, 1, 5, 8]] },
+    { "kind": "trap", "description": "an odd-level value that is not strictly decreasing from its left sibling", "input": [[1, 4, 2, 3, 5, 5, 9]] },
+    { "kind": "trap", "description": "a single even value at the root fails immediately since the root must be odd", "input": [[2]] },
+    { "kind": "trap", "description": "a lopsided tree where one branch is much deeper than the other", "input": [[1, 2, null, null, 3, null, null]] }
+  ],
+  "stress": [
+    {
+      "description": "randomly generated trees, some valid even-odd trees and some deliberately broken",
+      "seed": 101,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    depth = rng.randint(1, 8)\n    values = []\n    level_prev = None\n    nodes = 0\n    max_nodes = max(1, min(size, 2 ** depth - 1))\n    level = 0\n    level_size = 1\n    idx_in_level = 0\n    for _ in range(max_nodes):\n        if idx_in_level == 0:\n            level_prev = None\n        if level % 2 == 0:\n            v = (level_prev + 2) if level_prev is not None else rng.choice([1, 3, 5])\n        else:\n            v = (level_prev - 2) if level_prev is not None and level_prev - 2 >= 2 else 2\n        if rng.random() < 0.15:\n            v += 1\n        values.append(v)\n        level_prev = v\n        idx_in_level += 1\n        if idx_in_level == level_size:\n            level += 1\n            level_size *= 2\n            idx_in_level = 0\n    return [values]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isEvenOddTree(self, root):\n        levels = {}\n\n        def dfs(node, depth):\n            if not node:\n                return\n            levels.setdefault(depth, []).append(node.val)\n            dfs(node.left, depth + 1)\n            dfs(node.right, depth + 1)\n\n        dfs(root, 0)\n        for depth, vals in levels.items():\n            if depth % 2 == 0:\n                if any(v % 2 == 0 for v in vals):\n                    return False\n                if any(vals[i] >= vals[i + 1] for i in range(len(vals) - 1)):\n                    return False\n            else:\n                if any(v % 2 != 0 for v in vals):\n                    return False\n                if any(vals[i] <= vals[i + 1] for i in range(len(vals) - 1)):\n                    return False\n        return True\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def isEvenOddTree(self, root):\n        if not root:\n            return True\n        q = deque([root])\n        level = 0\n        while q:\n            prev = None\n            for _ in range(len(q)):\n                node = q.popleft()\n                val = node.val\n                if level % 2 == 0:\n                    if val % 2 == 0:\n                        return False\n                    if prev is not None and val <= prev:\n                        return False\n                else:\n                    if val % 2 != 0:\n                        return False\n                    if prev is not None and val >= prev:\n                        return False\n                prev = val\n                if node.left:\n                    q.append(node.left)\n                if node.right:\n                    q.append(node.right)\n            level += 1\n        return True\n",
+    "javascript": "var isEvenOddTree = function(root) {\n    if (!root) return true;\n    let queue = [root];\n    let level = 0;\n    while (queue.length) {\n        const next = [];\n        let prev = null;\n        for (const node of queue) {\n            const val = node.val;\n            if (level % 2 === 0) {\n                if (val % 2 === 0) return false;\n                if (prev !== null && val <= prev) return false;\n            } else {\n                if (val % 2 !== 0) return false;\n                if (prev !== null && val >= prev) return false;\n            }\n            prev = val;\n            if (node.left) next.push(node.left);\n            if (node.right) next.push(node.right);\n        }\n        queue = next;\n        level += 1;\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

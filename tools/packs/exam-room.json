@@ -1,0 +1,44 @@
+{
+  "slug": "exam-room",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Seating the next student to maximize distance to the nearest neighbor only ever needs to compare the two open ends of the row against the widest gap between two already-seated students, so a sorted list of occupied seats is enough state.",
+  "hints": [
+    "Keep the occupied seats in sorted order; the only candidates for the next seat are the two ends of the row and the midpoint of each gap between consecutive occupied seats.",
+    "The distance earned by sitting at the left end is the position of the first occupied seat itself, and at the right end is (n - 1) minus the position of the last occupied seat; for an internal gap between seats a and b, the earned distance is (b - a) // 2 and the seat chosen is a + that amount.",
+    "Scan all candidates, keep the one with the largest earned distance breaking ties toward the smaller seat number, then insert it into the sorted list; leave() just removes that seat from the sorted list."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000000000] },
+    { "param": "p", "kind": "int", "value": [0, 999999999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first three seats spread to the two ends and the widest remaining gap before any departures",
+      "input": [["ExamRoom", "seat", "seat", "seat"], [[13], [], [], []]] },
+    { "kind": "edge", "description": "a departure reopens a gap that becomes the next best seat",
+      "input": [["ExamRoom", "seat", "seat", "seat", "seat", "leave", "seat"], [[15], [], [], [], [], [7], []]] },
+    { "kind": "boundary", "description": "capacity of one seats only 0, ever",
+      "input": [["ExamRoom", "seat", "leave", "seat"], [[1], [], [0], []]] },
+    { "kind": "boundary", "description": "capacity of two forces alternating between the two ends",
+      "input": [["ExamRoom", "seat", "seat", "leave", "seat"], [[2], [], [], [0], []]] },
+    { "kind": "trap", "description": "an odd-width gap must floor its midpoint, choosing the lower of the two equidistant seats",
+      "input": [["ExamRoom", "seat", "seat", "seat"], [[8], [], [], []]] },
+    { "kind": "trap", "description": "repeated leave/seat cycles at the same two seats must not drift the state",
+      "input": [["ExamRoom", "seat", "seat", "leave", "leave", "seat", "seat", "leave", "seat"], [[5], [], [], [0], [4], [], [], [4], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of seat and leave calls against a small room",
+      "seed": 22,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    import bisect\n    n = rng.randint(2, 30)\n    ops = ['ExamRoom']\n    args = [[n]]\n    students = []\n    def choose_seat():\n        if not students:\n            return 0\n        best_seat, best_dist = 0, students[0]\n        for i in range(len(students) - 1):\n            l, r = students[i], students[i + 1]\n            d = (r - l) // 2\n            if d > best_dist:\n                best_dist = d\n                best_seat = l + d\n        end_dist = n - 1 - students[-1]\n        if end_dist > best_dist:\n            best_seat = n - 1\n        return best_seat\n    for _ in range(max(1, size)):\n        if students and rng.random() < 0.4:\n            p = rng.choice(students)\n            students.remove(p)\n            ops.append('leave')\n            args.append([p])\n        else:\n            if len(students) >= n:\n                continue\n            seat = choose_seat()\n            bisect.insort(students, seat)\n            ops.append('seat')\n            args.append([])\n    return [ops, args]\n",
+      "note": "the generator mirrors the gap-selection algorithm itself so leave() is always called with a seat that is genuinely occupied"
+    }
+  ],
+  "oracle_python": "class ExamRoom:\n    def __init__(self, n):\n        self.n = n\n        self.occupied = set()\n\n    def seat(self):\n        if not self.occupied:\n            self.occupied.add(0)\n            return 0\n        best_seat, best_dist = 0, -1\n        for seat in range(self.n):\n            if seat in self.occupied:\n                continue\n            dist = min(abs(seat - o) for o in self.occupied)\n            if dist > best_dist:\n                best_dist = dist\n                best_seat = seat\n        self.occupied.add(best_seat)\n        return best_seat\n\n    def leave(self, p):\n        self.occupied.discard(p)\n",
+  "solutions": {
+    "python": "import bisect\n\nclass ExamRoom:\n    def __init__(self, n):\n        self.n = n\n        self.students = []\n\n    def seat(self):\n        if not self.students:\n            self.students.append(0)\n            return 0\n        best_seat = 0\n        best_dist = self.students[0]\n        for i in range(len(self.students) - 1):\n            l, r = self.students[i], self.students[i + 1]\n            d = (r - l) // 2\n            if d > best_dist:\n                best_dist = d\n                best_seat = l + d\n        end_dist = self.n - 1 - self.students[-1]\n        if end_dist > best_dist:\n            best_dist = end_dist\n            best_seat = self.n - 1\n        bisect.insort(self.students, best_seat)\n        return best_seat\n\n    def leave(self, p):\n        idx = bisect.bisect_left(self.students, p)\n        if idx < len(self.students) and self.students[idx] == p:\n            self.students.pop(idx)\n",
+    "javascript": "class ExamRoom {\n    constructor(n) {\n        this.n = n;\n        this.students = [];\n    }\n    seat() {\n        if (this.students.length === 0) {\n            this.students.push(0);\n            return 0;\n        }\n        let bestSeat = 0;\n        let bestDist = this.students[0];\n        for (let i = 0; i < this.students.length - 1; i++) {\n            const l = this.students[i], r = this.students[i + 1];\n            const d = Math.floor((r - l) / 2);\n            if (d > bestDist) {\n                bestDist = d;\n                bestSeat = l + d;\n            }\n        }\n        const endDist = this.n - 1 - this.students[this.students.length - 1];\n        if (endDist > bestDist) {\n            bestDist = endDist;\n            bestSeat = this.n - 1;\n        }\n        let lo = 0, hi = this.students.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (this.students[mid] < bestSeat) lo = mid + 1; else hi = mid;\n        }\n        this.students.splice(lo, 0, bestSeat);\n        return bestSeat;\n    }\n    leave(p) {\n        let lo = 0, hi = this.students.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (this.students[mid] < p) lo = mid + 1; else hi = mid;\n        }\n        if (lo < this.students.length && this.students[lo] === p) {\n            this.students.splice(lo, 1);\n        }\n    }\n}\n"
+  },
+  "complexity": { "time": "O(m) per seat/leave, m = seats occupied", "space": "O(m)" }
+}
