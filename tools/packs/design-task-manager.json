@@ -1,0 +1,99 @@
+{
+  "slug": "design-task-manager",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Popping the globally highest-priority item across many owners is a job for a priority queue keyed by (priority, id); edits and removals are cheapest to apply lazily, by pushing a fresh entry or marking the old one dead instead of hunting it down inside the heap.",
+  "hints": [
+    "Re-scanning every task to find the current maximum on every execTop call is too slow if the task set is large — keep the candidates ordered so the best one is always near the top.",
+    "A priority queue answers 'give me the current best' in log time, but edit and remove would normally require finding and updating an arbitrary interior entry — avoid that by leaving stale entries in place and detecting them later.",
+    "Keep a heap of (priority, taskId) pairs alongside a live map from taskId to its current (owner, priority); edit and add just push a new heap entry, remove just drops the map entry, and execTop pops heap entries until one still matches the map — that one is real, the rest were stale."
+  ],
+  "constraints": [
+    { "param": "tasks", "kind": "int[][]", "len": [1, 100000], "note": "each row [userId, taskId, priority]; 0<=userId,taskId<=100000, 0<=priority<=1000000000" },
+    { "param": "userId", "kind": "int", "value": [0, 100000] },
+    { "param": "taskId", "kind": "int", "value": [0, 100000] },
+    { "param": "priority", "kind": "int", "value": [0, 1000000000] },
+    { "param": "newPriority", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sample sequence: add, edit, execTop, rmv, add, execTop",
+      "input": [
+        ["TaskManager", "add", "edit", "execTop", "rmv", "add", "execTop"],
+        [[[[1, 101, 10], [2, 102, 20], [3, 103, 15]]], [4, 104, 5], [102, 8], [], [101], [5, 105, 15], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a single seeded task is executed, then the manager is empty",
+      "input": [
+        ["TaskManager", "execTop", "execTop"],
+        [[[[7, 70, 42]]], [], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "tied priority must be broken by the higher taskId, not insertion order",
+      "input": [
+        ["TaskManager", "execTop"],
+        [[[[1, 10, 5], [2, 20, 5]]], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "editing a low-priority task above the current leader must change who execTop returns",
+      "input": [
+        ["TaskManager", "edit", "execTop"],
+        [[[[1, 10, 5], [2, 20, 10]]], [10, 20], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "removing the current leader before execTop must hand the win to the next-best task, not a stale heap entry",
+      "input": [
+        ["TaskManager", "rmv", "execTop"],
+        [[[[1, 10, 100], [2, 20, 5]]], [10], []]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "ids and priority at the constraint extremes",
+      "input": [
+        ["TaskManager", "add", "execTop"],
+        [[[[0, 0, 0]]], [100000, 100000, 1000000000], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "the same task edited twice keeps only the most recent priority",
+      "input": [
+        ["TaskManager", "edit", "edit", "execTop"],
+        [[[[1, 10, 1]]], [10, 5], [10, 2], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "removing the only task leaves execTop with nothing to return",
+      "input": [
+        ["TaskManager", "rmv", "execTop"],
+        [[[[1, 10, 5]]], [10], []]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random add/edit/rmv/execTop over unique, never-reused taskIds",
+      "seed": 29,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    next_id = [1]\n    def fresh_id():\n        v = next_id[0]\n        next_id[0] += 1\n        return v\n    n0 = rng.randint(1, 20)\n    seed_tasks = []\n    active = {}\n    for _ in range(n0):\n        tid = fresh_id()\n        uid = rng.randint(0, 50)\n        pr = rng.randint(0, 1000)\n        seed_tasks.append([uid, tid, pr])\n        active[tid] = pr\n    ops = ['TaskManager']\n    args = [[seed_tasks]]\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.35:\n            tid = fresh_id()\n            uid = rng.randint(0, 50)\n            pr = rng.randint(0, 1000)\n            ops.append('add')\n            args.append([uid, tid, pr])\n            active[tid] = pr\n        elif r < 0.6 and active:\n            tid = rng.choice(list(active.keys()))\n            pr = rng.randint(0, 1000)\n            ops.append('edit')\n            args.append([tid, pr])\n            active[tid] = pr\n        elif r < 0.8 and active:\n            tid = rng.choice(list(active.keys()))\n            ops.append('rmv')\n            args.append([tid])\n            del active[tid]\n        else:\n            ops.append('execTop')\n            args.append([])\n            if active:\n                best_tid = max(active.items(), key=lambda kv: (kv[1], kv[0]))[0]\n                del active[best_tid]\n    return [ops, args]\n",
+      "note": "generator mirrors the manager's own active-task bookkeeping so edit/rmv always target a currently live taskId"
+    }
+  ],
+  "oracle_python": "class TaskManager:\n    def __init__(self, tasks):\n        self.tasks = {}\n        for userId, taskId, prio in tasks:\n            self.tasks[taskId] = (userId, prio)\n\n    def add(self, userId, taskId, priority):\n        self.tasks[taskId] = (userId, priority)\n\n    def edit(self, taskId, newPriority):\n        userId, _ = self.tasks[taskId]\n        self.tasks[taskId] = (userId, newPriority)\n\n    def rmv(self, taskId):\n        self.tasks.pop(taskId, None)\n\n    def execTop(self):\n        if not self.tasks:\n            return -1\n        best_taskId = None\n        best_key = None\n        for taskId, (userId, prio) in self.tasks.items():\n            key = (prio, taskId)\n            if best_key is None or key > best_key:\n                best_key = key\n                best_taskId = taskId\n        userId, _ = self.tasks[best_taskId]\n        del self.tasks[best_taskId]\n        return userId\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass TaskManager:\n    def __init__(self, tasks):\n        self.priority = {}\n        self.owner = {}\n        self.heap = []\n        for userId, taskId, prio in tasks:\n            self.owner[taskId] = userId\n            self.priority[taskId] = prio\n            heapq.heappush(self.heap, (-prio, -taskId, taskId))\n\n    def add(self, userId, taskId, priority):\n        self.owner[taskId] = userId\n        self.priority[taskId] = priority\n        heapq.heappush(self.heap, (-priority, -taskId, taskId))\n\n    def edit(self, taskId, newPriority):\n        self.priority[taskId] = newPriority\n        heapq.heappush(self.heap, (-newPriority, -taskId, taskId))\n\n    def rmv(self, taskId):\n        self.priority.pop(taskId, None)\n        self.owner.pop(taskId, None)\n\n    def execTop(self):\n        while self.heap:\n            negp, _negt, taskId = heapq.heappop(self.heap)\n            if taskId in self.priority and self.priority[taskId] == -negp:\n                userId = self.owner[taskId]\n                del self.priority[taskId]\n                del self.owner[taskId]\n                return userId\n        return -1\n",
+    "javascript": "class TaskManager {\n    constructor(tasks) {\n        this.priority = new Map();\n        this.owner = new Map();\n        this.heap = [];\n        for (const [userId, taskId, prio] of tasks) {\n            this.owner.set(taskId, userId);\n            this.priority.set(taskId, prio);\n            this._push(prio, taskId);\n        }\n    }\n    _better(a, b) {\n        if (a[0] !== b[0]) return a[0] > b[0];\n        return a[1] > b[1];\n    }\n    _push(priority, taskId) {\n        const heap = this.heap;\n        heap.push([priority, taskId]);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (this._better(heap[i], heap[p])) {\n                [heap[i], heap[p]] = [heap[p], heap[i]];\n                i = p;\n            } else break;\n        }\n    }\n    _pop() {\n        const heap = this.heap;\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length > 0) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                let best = i;\n                const l = 2 * i + 1;\n                const r = 2 * i + 2;\n                if (l < heap.length && this._better(heap[l], heap[best])) best = l;\n                if (r < heap.length && this._better(heap[r], heap[best])) best = r;\n                if (best === i) break;\n                [heap[i], heap[best]] = [heap[best], heap[i]];\n                i = best;\n            }\n        }\n        return top;\n    }\n    add(userId, taskId, priority) {\n        this.owner.set(taskId, userId);\n        this.priority.set(taskId, priority);\n        this._push(priority, taskId);\n    }\n    edit(taskId, newPriority) {\n        this.priority.set(taskId, newPriority);\n        this._push(newPriority, taskId);\n    }\n    rmv(taskId) {\n        this.priority.delete(taskId);\n        this.owner.delete(taskId);\n    }\n    execTop() {\n        while (this.heap.length > 0) {\n            const [p, taskId] = this._pop();\n            if (this.priority.has(taskId) && this.priority.get(taskId) === p) {\n                const userId = this.owner.get(taskId);\n                this.priority.delete(taskId);\n                this.owner.delete(taskId);\n                return userId;\n            }\n        }\n        return -1;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) amortized per call", "space": "O(n)" }
+}
