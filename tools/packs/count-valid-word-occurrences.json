@@ -1,0 +1,160 @@
+{
+  "slug": "count-valid-word-occurrences",
+  "judge": "exact",
+  "pattern": "Once every character is tagged as belonging to a word or being a separator -- with a hyphen tagged as a joiner only when both its neighbors are letters -- splitting on the separators and tallying the pieces turns every query into a single dictionary lookup.",
+  "hints": [
+    "Concatenate all the chunks first; a hyphen only counts as part of a word (a joiner) when the character immediately before it and immediately after it both exist and are lowercase letters, otherwise it acts like a space and breaks the word.",
+    "Scan the concatenated string once, grouping consecutive word-characters (letters and joiner hyphens) into maximal runs -- each run is one word.",
+    "Count how many times each distinct word occurs with a hash map built once, then answer every query with a single map lookup (0 if the word never occurred)."
+  ],
+  "constraints": [
+    {
+      "param": "chunks",
+      "kind": "string[]",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "string[]",
+      "len": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, greeting split across chunks",
+      "input": [
+        [
+          "hello wor",
+          "ld hello"
+        ],
+        [
+          "hello",
+          "world",
+          "wor"
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, joiner vs. non-joiner hyphens",
+      "input": [
+        [
+          "a-b a--b ",
+          "a-",
+          "b"
+        ],
+        [
+          "a-b",
+          "a",
+          "b"
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, boundary hyphens are never joiners",
+      "input": [
+        [
+          "-cat dog- mouse"
+        ],
+        [
+          "cat",
+          "dog",
+          "mouse",
+          "cat-dog"
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single chunk, single character word",
+      "input": [
+        [
+          "a"
+        ],
+        [
+          "a"
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a query that never appears at all",
+      "input": [
+        [
+          "hello world"
+        ],
+        [
+          "goodbye"
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "consecutive joiner hyphens chained together",
+      "input": [
+        [
+          "a-b-c-d"
+        ],
+        [
+          "a-b-c-d",
+          "a-b",
+          "b-c-d"
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "word boundary falls exactly on a chunk boundary",
+      "input": [
+        [
+          "hel",
+          "lo wor",
+          "ld"
+        ],
+        [
+          "hello",
+          "world",
+          "hel",
+          "ld"
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "only separators, no words at all",
+      "input": [
+        [
+          "   -- -  "
+        ],
+        [
+          "a"
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase/space/hyphen text with random queries",
+      "seed": 31,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    alphabet = 'abcde'\n    chars = []\n    for _ in range(n):\n        r = rng.random()\n        if r < 0.6:\n            chars.append(rng.choice(alphabet))\n        elif r < 0.8:\n            chars.append(' ')\n        else:\n            chars.append('-')\n    text = ''.join(chars)\n    chunks = []\n    i = 0\n    while i < len(text):\n        step = rng.randint(1, 5)\n        chunks.append(text[i:i + step])\n        i += step\n    if not chunks:\n        chunks = ['a']\n    queries = []\n    for _ in range(20):\n        qlen = rng.randint(1, 4)\n        q = ''.join(rng.choice(alphabet) for _ in range(qlen))\n        queries.append(q)\n    return [chunks, queries]\n"
+    }
+  ],
+  "oracle_python": "import re\n\nclass Solution:\n    def countWordOccurrences(self, chunks, queries):\n        s = ''.join(chunks)\n        marked = list(s)\n        n = len(s)\n        for i, c in enumerate(s):\n            if c == '-':\n                prev_ok = i > 0 and s[i - 1].isalpha()\n                next_ok = i + 1 < n and s[i + 1].isalpha()\n                if not (prev_ok and next_ok):\n                    marked[i] = '#'\n        s2 = ''.join(marked)\n        words = re.findall(r'[a-z-]+', s2)\n        from collections import Counter\n        cnt = Counter(words)\n        return [cnt.get(q, 0) for q in queries]\n",
+  "solutions": {
+    "python": "class Solution:\n    def countWordOccurrences(self, chunks, queries):\n        s = ''.join(chunks)\n        n = len(s)\n\n        def is_letter(ch):\n            return 'a' <= ch <= 'z'\n\n        counts = {}\n        i = 0\n        while i < n:\n            if is_letter(s[i]):\n                j = i\n                while j < n and (is_letter(s[j]) or (s[j] == '-' and 0 < j < n - 1 and is_letter(s[j - 1]) and is_letter(s[j + 1]))):\n                    j += 1\n                word = s[i:j]\n                counts[word] = counts.get(word, 0) + 1\n                i = j\n            else:\n                i += 1\n        return [counts.get(q, 0) for q in queries]\n",
+    "javascript": "var countWordOccurrences = function(chunks, queries) {\n    const s = chunks.join('');\n    const n = s.length;\n    const isLetter = (ch) => ch >= 'a' && ch <= 'z';\n    const counts = new Map();\n    let i = 0;\n    while (i < n) {\n        if (isLetter(s[i])) {\n            let j = i;\n            while (j < n && (isLetter(s[j]) || (s[j] === '-' && j > 0 && j < n - 1 && isLetter(s[j - 1]) && isLetter(s[j + 1])))) {\n                j++;\n            }\n            const word = s.slice(i, j);\n            counts.set(word, (counts.get(word) || 0) + 1);\n            i = j;\n        } else {\n            i++;\n        }\n    }\n    return queries.map((q) => counts.get(q) || 0);\n};\n"
+  },
+  "complexity": {
+    "time": "O(total chunk length + total query length)",
+    "space": "O(total chunk length)"
+  }
+}
