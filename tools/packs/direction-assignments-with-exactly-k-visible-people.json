@@ -1,0 +1,39 @@
+{
+  "slug": "direction-assignments-with-exactly-k-visible-people",
+  "judge": "exact",
+  "pattern": "The person at pos never affects their own visibility count, so their choice is a free factor of two; everyone else independently rolls a coin toward being counted, and Vandermonde's convolution collapses the two-sided combinatorics into one binomial coefficient.",
+  "hints": [
+    "The person standing at pos always has a free, unconstrained choice between the two directions -- it contributes a flat factor of 2 to every valid assignment, independent of everything else.",
+    "Everyone to the left is counted only if they pick the direction that faces the pos person, and everyone to the right only if they pick the other direction -- so, ignoring pos, you're really just choosing how many of the remaining n - 1 people are \"visible\" in total.",
+    "Summing, over every way to split k visible people between the left group and the right group, the product of two binomial coefficients is exactly Vandermonde's identity -- it collapses to choosing k visible people out of all n - 1 non-pos people at once."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "pos", "kind": "int", "value": [0, 99999], "note": "0 <= pos <= n - 1" },
+    { "param": "k", "kind": "int", "value": [0, 99999], "note": "0 <= k <= n - 1" }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single person, no one else to see", "input": [1, 0, 0] },
+    { "kind": "edge", "description": "pos at the very start of the line", "input": [4, 0, 2] },
+    { "kind": "edge", "description": "pos at the very end of the line", "input": [4, 3, 2] },
+    { "kind": "edge", "description": "pos in the middle with an even split of neighbors", "input": [5, 2, 2] },
+    { "kind": "trap", "description": "k equal to zero with people on both sides", "input": [6, 3, 0] },
+    { "kind": "boundary", "description": "k equal to the maximum possible visible count", "input": [5, 2, 4] },
+    { "kind": "trap", "description": "pos adjacent to one end, asymmetric left/right counts", "input": [7, 1, 3] },
+    { "kind": "boundary", "description": "large n with pos and k at the extremes", "input": [100000, 0, 99999] }
+  ],
+  "stress": [
+    {
+      "description": "large n with random pos and k within range",
+      "seed": 41,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    pos = rng.randint(0, n - 1)\n    k = rng.randint(0, n - 1)\n    return [n, pos, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countVisiblePeople(self, n, pos, k):\n        MOD = 1000000007\n        left = pos\n        right = n - 1 - pos\n        top = max(left, right, k, 1)\n        fact = [1] * (top + 1)\n        for i in range(1, top + 1):\n            fact[i] = fact[i - 1] * i % MOD\n        inv_fact = [1] * (top + 1)\n        inv_fact[top] = pow(fact[top], MOD - 2, MOD)\n        for i in range(top, 0, -1):\n            inv_fact[i - 1] = inv_fact[i] * i % MOD\n        def C(a, b):\n            if b < 0 or b > a:\n                return 0\n            return fact[a] * inv_fact[b] % MOD * inv_fact[a - b] % MOD\n        # Directly sum every left/right split, without relying on Vandermonde's identity.\n        total = 0\n        for m in range(0, min(k, left) + 1):\n            j = k - m\n            total = (total + C(left, m) * C(right, j)) % MOD\n        return (2 * total) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countVisiblePeople(self, n, pos, k):\n        MOD = 1000000007\n        m = n - 1\n        if k < 0 or k > m:\n            return 0\n        fact = [1] * (m + 1)\n        for i in range(1, m + 1):\n            fact[i] = fact[i - 1] * i % MOD\n        inv_fact = [1] * (m + 1)\n        inv_fact[m] = pow(fact[m], MOD - 2, MOD)\n        for i in range(m, 0, -1):\n            inv_fact[i - 1] = inv_fact[i] * i % MOD\n        c = fact[m] * inv_fact[k] % MOD * inv_fact[m - k] % MOD\n        return (2 * c) % MOD\n",
+    "javascript": "var countVisiblePeople = function(n, pos, k) {\n    const MOD = 1000000007n;\n    const m = n - 1;\n    if (k < 0 || k > m) return 0;\n    const fact = new Array(m + 1);\n    fact[0] = 1n;\n    for (let i = 1; i <= m; i++) fact[i] = (fact[i - 1] * BigInt(i)) % MOD;\n    function modpow(base, exp, mod) {\n        base %= mod;\n        let result = 1n;\n        while (exp > 0n) {\n            if (exp & 1n) result = (result * base) % mod;\n            base = (base * base) % mod;\n            exp >>= 1n;\n        }\n        return result;\n    }\n    const invFact = new Array(m + 1);\n    invFact[m] = modpow(fact[m], MOD - 2n, MOD);\n    for (let i = m; i >= 1; i--) invFact[i - 1] = (invFact[i] * BigInt(i)) % MOD;\n    const c = (fact[m] * invFact[k] % MOD) * invFact[m - k] % MOD;\n    return Number((2n * c) % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
