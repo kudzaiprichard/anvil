@@ -1,0 +1,37 @@
+{
+  "slug": "decremental-string-concatenation",
+  "judge": "exact",
+  "pattern": "Track only the endpoints of the string built so far, because every future join only ever touches the two ends -- collapsing an exponential sequence of left/right choices down to a DP over a small (first letter, last letter) state space.",
+  "hints": [
+    "At each step you choose to attach the next word on the left or the right of what you've built so far -- but nothing about the middle of that running string matters for any join that comes after it, only its first and last character.",
+    "Keep a map from (first character, last character) to the shortest length achieving it after processing the first several words; a new word can only ever produce a handful of new (first,last) states from each existing one.",
+    "For every current (first,last,length) state and the next word, try both attachment orders; when the shared boundary letters match, the join deletes one character, so subtract one from the combined length before recording the new state."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 1000], "note": "each word length 1..50, lowercase English letters only" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single word, no joins performed", "input": [["hello"]] },
+    { "kind": "edge", "description": "two words with no overlap either order", "input": [["ab", "cd"]] },
+    { "kind": "edge", "description": "chain of words that all share boundary letters both ways", "input": [["ab", "ba", "ab", "ba"]] },
+    { "kind": "edge", "description": "three words, deletions possible in more than one order", "input": [["abc", "cba", "bca"]] },
+    { "kind": "boundary", "description": "single-character words throughout", "input": [["a", "a", "a", "a", "a"]] },
+    { "kind": "boundary", "description": "words at the max length of 50, repeated letter", "input": [["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]] },
+    { "kind": "trap", "description": "greedy left-to-right joining is not optimal here", "input": [["ba", "ab", "bc", "ca"]] },
+    { "kind": "trap", "description": "no pair of adjacent letters ever matches, so length only ever grows", "input": [["xy", "yz", "zw", "wx"]] }
+  ],
+  "stress": [
+    {
+      "description": "1000 random lowercase words of varying length up to 50",
+      "seed": 1,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    letters = 'abcdefghijklmnopqrstuvwxyz'\n    n = max(1, size)\n    words = []\n    for _ in range(n):\n        length = rng.randint(1, 50)\n        words.append(''.join(rng.choice(letters) for _ in range(length)))\n    return [words]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimizeConcatenatedLength(self, words):\n        def join(x, y):\n            if x[-1] == y[0]:\n                return x + y[1:]\n            return x + y\n        n = len(words)\n        def rec(i, s):\n            if i == n:\n                return len(s)\n            return min(rec(i + 1, join(s, words[i])), rec(i + 1, join(words[i], s)))\n        return rec(1, words[0])\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimizeConcatenatedLength(self, words):\n        dp = {}\n        first0, last0 = words[0][0], words[0][-1]\n        dp[(first0, last0)] = len(words[0])\n        for w in words[1:]:\n            wf, wl, wlen = w[0], w[-1], len(w)\n            ndp = {}\n            for (f, l), length in dp.items():\n                nf1, nl1 = f, wl\n                nlen1 = length + wlen - (1 if l == wf else 0)\n                key1 = (nf1, nl1)\n                if key1 not in ndp or ndp[key1] > nlen1:\n                    ndp[key1] = nlen1\n                nf2, nl2 = wf, l\n                nlen2 = length + wlen - (1 if wl == f else 0)\n                key2 = (nf2, nl2)\n                if key2 not in ndp or ndp[key2] > nlen2:\n                    ndp[key2] = nlen2\n            dp = ndp\n        return min(dp.values())\n",
+    "javascript": "var minimizeConcatenatedLength = function(words) {\n    let dp = new Map();\n    const key = (f, l) => f + '|' + l;\n    const first0 = words[0][0], last0 = words[0][words[0].length - 1];\n    dp.set(key(first0, last0), words[0].length);\n    for (let idx = 1; idx < words.length; idx++) {\n        const w = words[idx];\n        const wf = w[0], wl = w[w.length - 1], wlen = w.length;\n        const ndp = new Map();\n        for (const [k, length] of dp) {\n            const parts = k.split('|');\n            const f = parts[0], l = parts[1];\n            const nlen1 = length + wlen - (l === wf ? 1 : 0);\n            const key1 = key(f, wl);\n            if (!ndp.has(key1) || ndp.get(key1) > nlen1) ndp.set(key1, nlen1);\n            const nlen2 = length + wlen - (wl === f ? 1 : 0);\n            const key2 = key(wf, l);\n            if (!ndp.has(key2) || ndp.get(key2) > nlen2) ndp.set(key2, nlen2);\n        }\n        dp = ndp;\n    }\n    return Math.min(...dp.values());\n};"
+  },
+  "complexity": { "time": "O(n * 26^2)", "space": "O(26^2)" }
+}
