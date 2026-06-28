@@ -1,0 +1,43 @@
+{
+  "slug": "design-front-middle-back-queue",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Split the queue into two halves and keep their sizes within one of each other; the boundary between the halves is always the middle, so every front/middle/back push or pop only ever touches the two ends of the two halves plus one O(1) rebalance step.",
+  "hints": [
+    "A single array works but shifting elements for a middle insert/removal is O(n); think about keeping two separate double-ended sequences, a front half and a back half, so every operation only touches an end of one of them.",
+    "Maintain the invariant that the front half's size is always equal to the back half's size, or exactly one larger. Whichever end an operation targets, apply it to the matching half's front or back, then restore the invariant by moving one element between the halves if it slipped.",
+    "The 'frontmost' middle element is always the LAST element of the front half (never the back half's first) once you keep the front half sized >= the back half: pushMiddle appends to the front half (after shifting its overflow into the back half first if the halves were already equal), and popMiddle always removes the front half's last element."
+  ],
+  "constraints": [
+    { "param": "val", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: push to all three positions then pop from all three until empty",
+      "input": [["FrontMiddleBackQueue", "pushFront", "pushBack", "pushMiddle", "pushMiddle", "popFront", "popMiddle", "popMiddle", "popBack", "popFront"], [[], [1], [2], [3], [4], [], [], [], [], []]] },
+    { "kind": "boundary", "description": "single element: every pop variant sees the same lone value, and the queue is empty afterward",
+      "input": [["FrontMiddleBackQueue", "pushMiddle", "popBack", "popFront"], [[], [42], [], []]] },
+    { "kind": "trap", "description": "all pops on a brand-new empty queue return -1", "input": [["FrontMiddleBackQueue", "popFront", "popMiddle", "popBack"], [[], [], [], []]] },
+    { "kind": "trap", "description": "pushMiddle into an even-length queue picks the frontmost of the two middle slots (goes just before the true center)",
+      "input": [["FrontMiddleBackQueue", "pushBack", "pushBack", "pushBack", "pushBack", "pushMiddle", "popFront", "popFront", "popFront"], [[], [1], [2], [3], [4], [9], [], [], []]] },
+    { "kind": "trap", "description": "popMiddle on an even-length queue returns the frontmost of the two middle candidates",
+      "input": [["FrontMiddleBackQueue", "pushBack", "pushBack", "pushBack", "pushBack", "pushBack", "pushBack", "popMiddle", "popMiddle"], [[], [1], [2], [3], [4], [5], [6], [], []]] },
+    { "kind": "boundary", "description": "build a queue purely from pushFront calls (reverse order), then drain purely from the back",
+      "input": [["FrontMiddleBackQueue", "pushFront", "pushFront", "pushFront", "popBack", "popBack", "popBack"], [[], [1], [2], [3], [], [], []]] },
+    { "kind": "edge", "description": "maximum value boundary is accepted", "input": [["FrontMiddleBackQueue", "pushBack", "popFront"], [[], [1000000000], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of all six operations against a shared queue",
+      "seed": 19,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    ops = ['FrontMiddleBackQueue']\n    args = [[]]\n    methods = ['pushFront', 'pushMiddle', 'pushBack', 'popFront', 'popMiddle', 'popBack']\n    for _ in range(max(1, size)):\n        m = rng.choice(methods)\n        if m.startswith('push'):\n            ops.append(m); args.append([rng.randint(1, 1000000000)])\n        else:\n            ops.append(m); args.append([])\n    return [ops, args]\n",
+      "note": "roughly even mix of pushes and pops so the queue frequently empties and refills, exercising the empty-queue -1 path often"
+    }
+  ],
+  "oracle_python": "class FrontMiddleBackQueue:\n    def __init__(self):\n        self.data = []\n\n    def pushFront(self, val):\n        self.data.insert(0, val)\n\n    def pushMiddle(self, val):\n        self.data.insert(len(self.data) // 2, val)\n\n    def pushBack(self, val):\n        self.data.append(val)\n\n    def popFront(self):\n        if not self.data:\n            return -1\n        return self.data.pop(0)\n\n    def popMiddle(self):\n        if not self.data:\n            return -1\n        return self.data.pop((len(self.data) - 1) // 2)\n\n    def popBack(self):\n        if not self.data:\n            return -1\n        return self.data.pop()\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass FrontMiddleBackQueue:\n    def __init__(self):\n        self.left = deque()\n        self.right = deque()\n\n    def _rebalance(self):\n        if len(self.left) > len(self.right) + 1:\n            self.right.appendleft(self.left.pop())\n        elif len(self.right) > len(self.left):\n            self.left.append(self.right.popleft())\n\n    def pushFront(self, val):\n        self.left.appendleft(val)\n        self._rebalance()\n\n    def pushMiddle(self, val):\n        if len(self.left) > len(self.right):\n            self.right.appendleft(self.left.pop())\n        self.left.append(val)\n        self._rebalance()\n\n    def pushBack(self, val):\n        self.right.append(val)\n        self._rebalance()\n\n    def popFront(self):\n        if not self.left and not self.right:\n            return -1\n        val = self.left.popleft() if self.left else self.right.popleft()\n        self._rebalance()\n        return val\n\n    def popMiddle(self):\n        if not self.left and not self.right:\n            return -1\n        val = self.left.pop()\n        self._rebalance()\n        return val\n\n    def popBack(self):\n        if not self.left and not self.right:\n            return -1\n        val = self.right.pop() if self.right else self.left.pop()\n        self._rebalance()\n        return val\n",
+    "javascript": "class FrontMiddleBackQueue {\n    constructor() {\n        this.left = [];\n        this.right = [];\n    }\n\n    _rebalance() {\n        if (this.left.length > this.right.length + 1) {\n            this.right.unshift(this.left.pop());\n        } else if (this.right.length > this.left.length) {\n            this.left.push(this.right.shift());\n        }\n    }\n\n    pushFront(val) {\n        this.left.unshift(val);\n        this._rebalance();\n    }\n\n    pushMiddle(val) {\n        if (this.left.length > this.right.length) {\n            this.right.unshift(this.left.pop());\n        }\n        this.left.push(val);\n        this._rebalance();\n    }\n\n    pushBack(val) {\n        this.right.push(val);\n        this._rebalance();\n    }\n\n    popFront() {\n        if (this.left.length === 0 && this.right.length === 0) return -1;\n        const val = this.left.length ? this.left.shift() : this.right.shift();\n        this._rebalance();\n        return val;\n    }\n\n    popMiddle() {\n        if (this.left.length === 0 && this.right.length === 0) return -1;\n        const val = this.left.pop();\n        this._rebalance();\n        return val;\n    }\n\n    popBack() {\n        if (this.left.length === 0 && this.right.length === 0) return -1;\n        const val = this.right.length ? this.right.pop() : this.left.pop();\n        this._rebalance();\n        return val;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(n)" }
+}
