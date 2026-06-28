@@ -1,0 +1,37 @@
+{
+  "slug": "detonate-the-maximum-bombs",
+  "judge": "exact",
+  "pattern": "One bomb's blast reaching another doesn't mean the reverse is true, so the bombs form a directed reachability graph, not an undirected one, and the answer is simply the largest reachable set found by starting a search from each bomb in turn.",
+  "hints": [
+    "A bomb with a bigger radius can trigger a smaller one without the smaller one being able to trigger it back -- draw a directed edge from bomb i to bomb j whenever j's location falls within i's blast radius.",
+    "Comparing distances with square roots invites floating-point trouble -- compare squared distance against squared radius instead, which stays exact in integer arithmetic.",
+    "Since there are at most 100 bombs, you can afford to run a full traversal (BFS or DFS) from every single bomb as the detonation start and just keep the largest count of bombs reached."
+  ],
+  "constraints": [
+    { "param": "bombs", "kind": "int[][]", "len": [1, 100], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, detonating the smaller-radius bomb does not reach the other, but the reverse does", "input": [[[2, 1, 3], [6, 1, 4]]] },
+    { "kind": "edge", "description": "statement example, two bombs too far apart to reach each other either way", "input": [[[1, 1, 5], [10, 10, 5]]] },
+    { "kind": "edge", "description": "statement example, a chain reaction cascades through all five bombs", "input": [[[1, 2, 3], [2, 3, 1], [3, 4, 2], [4, 5, 3], [5, 6, 4]]] },
+    { "kind": "boundary", "description": "single bomb, trivially detonates just itself", "input": [[[50, 50, 1]]] },
+    { "kind": "trap", "description": "two bombs at the exact same location, radius always reaches distance zero", "input": [[[10, 10, 1], [10, 10, 1]]] },
+    { "kind": "trap", "description": "a large bomb reaches everything but nothing reaches back to it, so starting elsewhere gives a worse answer", "input": [[[50, 50, 100000], [10, 10, 1], [90, 90, 1], [20, 80, 1]]] },
+    { "kind": "trap", "description": "three bombs in a one-directional cycle-free chain where only the first choice unlocks the whole chain", "input": [[[0, 0, 2], [3, 0, 2], [6, 0, 2], [9, 0, 2]]] },
+    { "kind": "edge", "description": "two disjoint pairs, each pair mutually detonates but the pairs never touch", "input": [[[0, 0, 5], [1, 1, 5], [1000, 1000, 5], [1001, 1001, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "random bomb positions and radii, sized to keep the O(n^3) transitive-closure oracle fast",
+      "seed": 37,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    bombs = [[rng.randint(1, 200), rng.randint(1, 200), rng.randint(1, 150)] for _ in range(n)]\n    return [bombs]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumDetonation(self, bombs):\n        n = len(bombs)\n        reach = [[False] * n for _ in range(n)]\n        for i in range(n):\n            reach[i][i] = True\n            xi, yi, ri = bombs[i]\n            for j in range(n):\n                if i == j:\n                    continue\n                xj, yj, _ = bombs[j]\n                dx, dy = xi - xj, yi - yj\n                if dx * dx + dy * dy <= ri * ri:\n                    reach[i][j] = True\n        for k in range(n):\n            for i in range(n):\n                if reach[i][k]:\n                    for j in range(n):\n                        if reach[k][j]:\n                            reach[i][j] = True\n        return max(sum(row) for row in reach)\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def maximumDetonation(self, bombs):\n        n = len(bombs)\n        adj = [[] for _ in range(n)]\n        for i in range(n):\n            xi, yi, ri = bombs[i]\n            for j in range(n):\n                if i == j:\n                    continue\n                xj, yj, _ = bombs[j]\n                dx, dy = xi - xj, yi - yj\n                if dx * dx + dy * dy <= ri * ri:\n                    adj[i].append(j)\n\n        def bfs(start):\n            visited = {start}\n            q = deque([start])\n            while q:\n                node = q.popleft()\n                for nxt in adj[node]:\n                    if nxt not in visited:\n                        visited.add(nxt)\n                        q.append(nxt)\n            return len(visited)\n\n        return max(bfs(i) for i in range(n))\n",
+    "javascript": "var maximumDetonation = function(bombs) {\n    const n = bombs.length;\n    const adj = Array.from({ length: n }, () => []);\n    for (let i = 0; i < n; i++) {\n        const [xi, yi, ri] = bombs[i];\n        for (let j = 0; j < n; j++) {\n            if (i === j) continue;\n            const [xj, yj] = bombs[j];\n            const dx = xi - xj, dy = yi - yj;\n            if (dx * dx + dy * dy <= ri * ri) adj[i].push(j);\n        }\n    }\n\n    function bfs(start) {\n        const visited = new Set([start]);\n        const queue = [start];\n        let head = 0;\n        while (head < queue.length) {\n            const node = queue[head++];\n            for (const nxt of adj[node]) {\n                if (!visited.has(nxt)) {\n                    visited.add(nxt);\n                    queue.push(nxt);\n                }\n            }\n        }\n        return visited.size;\n    }\n\n    let best = 0;\n    for (let i = 0; i < n; i++) best = Math.max(best, bfs(i));\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2) to build the graph, O(n^2) total across all traversals", "space": "O(n^2)" }
+}
