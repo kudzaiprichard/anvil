@@ -1,0 +1,68 @@
+{
+  "slug": "count-words-obtained-after-adding-a-letter",
+  "judge": "exact",
+  "pattern": "Since only the exact letters a word uses matter -- not their order, and never more than once each -- representing every word by the set of letters it contains turns 'append one new letter, then shuffle' into a simple one-letter-larger superset check.",
+  "hints": [
+    "Order and repeated letters don't matter here -- think of every word as just the set of distinct letters it uses.",
+    "A target word is reachable exactly when removing one of its own letters leaves a set that matches some start word's letter set exactly.",
+    "Precompute the letter-set of every start word once into a lookup structure, then for each target try removing each of its own letters in turn and check the reduced set against that lookup."
+  ],
+  "constraints": [
+    { "param": "startWords", "kind": "string[]", "len": [1, 50000], "note": "each string is 1-26 lowercase letters with no letter repeated within it" },
+    { "param": "targetWords", "kind": "string[]", "len": [1, 50000], "note": "each string is 1-26 lowercase letters with no letter repeated within it" }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several distinct start words each unlocking exactly one target by adding a letter",
+      "input": [["bat", "tab", "cat"], ["bats", "cats", "tabs"]]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible words, a single letter growing to two letters",
+      "input": [["a"], ["ab"]]
+    },
+    {
+      "kind": "trap",
+      "description": "a target that is the same letters as a start word (or a rearrangement of it) with nothing appended must not count",
+      "input": [["ab"], ["ab", "ba"]]
+    },
+    {
+      "kind": "trap",
+      "description": "targets that are shorter, equal length, or two letters longer than the only start word are all unreachable -- only exactly one letter longer works",
+      "input": [["abc"], ["ab", "abc", "abcd", "abcde"]]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate start words should not inflate the count -- reachability only needs one matching start word to exist",
+      "input": [["xy", "xy", "yz"], ["xyz", "xyw"]]
+    },
+    {
+      "kind": "edge",
+      "description": "a target whose letters share nothing in common with any start word",
+      "input": [["pq"], ["rst"]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a start word at the maximum word length growing by its one missing letter",
+      "input": [["abcdefghijklmnopqrstuvwxy"], ["abcdefghijklmnopqrstuvwxyz"]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random distinct-letter words of varying length in both arrays",
+      "seed": 43,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    alphabet = 'abcdefghijklmnopqrstuvwxyz'\n    def rand_word():\n        length = rng.randint(1, 12)\n        idxs = rng.sample(range(26), length)\n        return ''.join(alphabet[i] for i in idxs)\n    n = max(1, min(size, 3000))\n    startWords = [rand_word() for _ in range(n)]\n    targetWords = [rand_word() for _ in range(n)]\n    return [startWords, targetWords]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def wordCount(self, startWords, targetWords):\n        def mask_of(w):\n            m = 0\n            for c in w:\n                m |= 1 << (ord(c) - 97)\n            return m\n        start_masks = [mask_of(w) for w in startWords]\n        count = 0\n        for t in targetWords:\n            tmask = mask_of(t)\n            tlen = len(t)\n            found = False\n            for smask in start_masks:\n                if bin(smask).count('1') != tlen - 1:\n                    continue\n                if (smask & tmask) == smask:\n                    found = True\n                    break\n            if found:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def wordCount(self, startWords, targetWords):\n        start_set = set()\n        for w in startWords:\n            mask = 0\n            for c in w:\n                mask |= 1 << (ord(c) - 97)\n            start_set.add(mask)\n        count = 0\n        for w in targetWords:\n            mask = 0\n            for c in w:\n                mask |= 1 << (ord(c) - 97)\n            found = False\n            for c in w:\n                bit = 1 << (ord(c) - 97)\n                reduced = mask ^ bit\n                if reduced in start_set:\n                    found = True\n                    break\n            if found:\n                count += 1\n        return count\n",
+    "javascript": "var wordCount = function(startWords, targetWords) {\n    const maskOf = (w) => {\n        let m = 0;\n        for (const c of w) m |= 1 << (c.charCodeAt(0) - 97);\n        return m;\n    };\n    const startSet = new Set();\n    for (const w of startWords) startSet.add(maskOf(w));\n    let count = 0;\n    for (const w of targetWords) {\n        const m = maskOf(w);\n        let found = false;\n        for (const c of w) {\n            const bit = 1 << (c.charCodeAt(0) - 97);\n            const reduced = m ^ bit;\n            if (startSet.has(reduced)) {\n                found = true;\n                break;\n            }\n        }\n        if (found) count++;\n    }\n    return count;\n};\n"
+  },
+  "complexity": {
+    "time": "O((S + T) * L)",
+    "space": "O(S)"
+  }
+}
