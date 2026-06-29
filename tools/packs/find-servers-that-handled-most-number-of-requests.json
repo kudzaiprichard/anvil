@@ -1,0 +1,37 @@
+{
+  "slug": "find-servers-that-handled-most-number-of-requests",
+  "judge": "unordered",
+  "pattern": "Because a busy server's next free time only ever moves forward, keeping two ordered sets (servers currently free, servers currently busy ordered by when they free up) turns the round-robin-with-wraparound assignment rule into two searches for the nearest available slot.",
+  "hints": [
+    "At any moment, a server is either free or busy until some known future time; you never need to simulate time minute by minute, only jump to the events (arrivals and completions) that matter.",
+    "When a request arrives, its preferred server is (i mod k); if that one is busy, the rule says to search forward, wrapping around, for the next free server, not simply the least-recently-used one.",
+    "Keep free server ids in a sorted structure so you can quickly find the smallest free id that is >= the preferred one (or wrap to the smallest overall), and keep busy servers in a structure ordered by their free-at time so you can release any that have finished before handling the next arrival."
+  ],
+  "constraints": [
+    { "param": "k", "kind": "int", "value": [1, 100000] },
+    { "param": "arrival", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "load", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "wraparound assignment leaves one server clearly busiest", "input": [3, [1, 2, 3, 4, 5], [5, 2, 3, 3, 3]] },
+    { "kind": "edge", "description": "two servers tie for busiest", "input": [3, [1, 2, 3, 4], [1, 2, 1, 2]] },
+    { "kind": "boundary", "description": "a single server handles everything", "input": [1, [1, 2, 3], [10, 10, 10]] },
+    { "kind": "boundary", "description": "more servers than requests, several never get used", "input": [5, [1, 2], [1, 1]] },
+    { "kind": "trap", "description": "a request must be dropped because every server is still busy", "input": [2, [1, 2, 3], [10, 10, 1]] },
+    { "kind": "trap", "description": "a server frees up exactly at the next arrival's timestamp, which should count as available", "input": [2, [1, 2, 4], [1, 2, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "many requests over a modest server pool with strictly increasing arrivals",
+      "seed": 89,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(1, 100)\n    n = max(1, min(size, 100000))\n    arrival = []\n    t = 0\n    for _ in range(n):\n        t += rng.randint(1, 5)\n        arrival.append(t)\n    load = [rng.randint(1, 20) for _ in range(n)]\n    return [k, arrival, load]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def busiestServers(self, k, arrival, load):\n        n = len(arrival)\n        free_at = [0] * k\n        count = [0] * k\n        for i in range(n):\n            start = arrival[i]\n            end = start + load[i]\n            assigned = -1\n            for offset in range(k):\n                s = (i + offset) % k\n                if free_at[s] <= start:\n                    assigned = s\n                    break\n            if assigned != -1:\n                free_at[assigned] = end\n                count[assigned] += 1\n        mx = max(count)\n        return [i for i in range(k) if count[i] == mx]\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def busiestServers(self, k, arrival, load):\n        free = list(range(k))\n        busy = []\n        count = [0] * k\n        for i in range(len(arrival)):\n            start = arrival[i]\n            end = start + load[i]\n            while busy and busy[0][0] <= start:\n                _, sid = heapq.heappop(busy)\n                idx = 0\n                lo, hi = 0, len(free)\n                while lo < hi:\n                    mid = (lo + hi) // 2\n                    if free[mid] < sid:\n                        lo = mid + 1\n                    else:\n                        hi = mid\n                free.insert(lo, sid)\n            if not free:\n                continue\n            lo, hi = 0, len(free)\n            target = i % k\n            while lo < hi:\n                mid = (lo + hi) // 2\n                if free[mid] < target:\n                    lo = mid + 1\n                else:\n                    hi = mid\n            if lo == len(free):\n                lo = 0\n            sid = free.pop(lo)\n            count[sid] += 1\n            heapq.heappush(busy, (end, sid))\n        mx = max(count)\n        return [i for i in range(k) if count[i] == mx]\n",
+    "javascript": "var busiestServers = function(k, arrival, load) {\n    const freeAt = new Array(k).fill(0);\n    const count = new Array(k).fill(0);\n    const n = arrival.length;\n    for (let i = 0; i < n; i++) {\n        const start = arrival[i];\n        const end = start + load[i];\n        let assigned = -1;\n        for (let offset = 0; offset < k; offset++) {\n            const s = (i + offset) % k;\n            if (freeAt[s] <= start) {\n                assigned = s;\n                break;\n            }\n        }\n        if (assigned !== -1) {\n            freeAt[assigned] = end;\n            count[assigned] += 1;\n        }\n    }\n    const mx = Math.max(...count);\n    const res = [];\n    for (let i = 0; i < k; i++) if (count[i] === mx) res.push(i);\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n log k)", "space": "O(k)" }
+}
