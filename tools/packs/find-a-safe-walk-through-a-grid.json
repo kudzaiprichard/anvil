@@ -1,0 +1,83 @@
+{
+  "slug": "find-a-safe-walk-through-a-grid",
+  "judge": "exact",
+  "pattern": "Since every move costs either 0 or 1 health, the cheapest path in unsafe-cell count can be found with a double-ended queue instead of a general shortest-path priority queue.",
+  "hints": [
+    "Reframe the problem: find the path from start to end that passes through the fewest possible unsafe (value 1) cells -- that minimum determines whether you survive.",
+    "Because each step's cost is only 0 or 1, a 0-1 BFS (push zero-cost moves to the front of a deque, cost-one moves to the back) finds that minimum without needing a full priority queue.",
+    "Track the running cost as health lost, starting from the top-left cell's own value; you can finish if that minimum cost, subtracted from health, leaves at least 1."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "rows": [1, 50],
+      "cols": [1, 50],
+      "value": [0, 1]
+    },
+    {
+      "param": "health",
+      "kind": "int",
+      "value": [1, 100]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, reachable with exactly enough health",
+      "input": [[[0,1,0,0,0],[0,1,0,1,0],[0,0,0,1,0]], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, not enough health",
+      "input": [[[0,1,1,0,0,0],[1,0,1,0,0,0],[0,1,1,1,0,1],[0,0,1,0,1,0]], 3]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, only path is through the center",
+      "input": [[[1,1,1],[1,0,1],[1,1,1]], 5]
+    },
+    {
+      "kind": "boundary",
+      "description": "single row grid",
+      "input": [[[0,0,1,0,0]], 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "single column grid",
+      "input": [[[0],[1],[0],[0]], 1]
+    },
+    {
+      "kind": "trap",
+      "description": "all-safe grid, minimum possible health still succeeds",
+      "input": [[[0,0],[0,0]], 1]
+    },
+    {
+      "kind": "trap",
+      "description": "target cell itself is unsafe, health must account for it",
+      "input": [[[0,0],[0,1]], 1]
+    },
+    {
+      "kind": "trap",
+      "description": "a longer safe detour beats a short unsafe shortcut",
+      "input": [[[0,1,0],[0,1,0],[0,0,0]], 1]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random grid with health scaled to the theoretical max needed",
+      "seed": 3,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(50, size))\n    n = max(1, min(50, size))\n    grid = [[rng.choice([0, 0, 1]) for _ in range(n)] for _ in range(m)]\n    health = rng.randint(1, m + n)\n    return [grid, health]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def findSafeWalk(self, grid, health):\n        m, n = len(grid), len(grid[0])\n        start_health = health - grid[0][0]\n        if start_health <= 0:\n            return False\n        best = [[-1] * n for _ in range(m)]\n        best[0][0] = start_health\n        q = deque([(0, 0)])\n        while q:\n            r, c = q.popleft()\n            h = best[r][c]\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n:\n                    nh = h - grid[nr][nc]\n                    if nh > 0 and nh > best[nr][nc]:\n                        best[nr][nc] = nh\n                        q.append((nr, nc))\n        return best[m - 1][n - 1] > 0\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def findSafeWalk(self, grid, health):\n        m, n = len(grid), len(grid[0])\n        INF = float('inf')\n        dist = [[INF] * n for _ in range(m)]\n        dist[0][0] = grid[0][0]\n        dq = deque([(0, 0)])\n        while dq:\n            r, c = dq.popleft()\n            d = dist[r][c]\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n:\n                    nd = d + grid[nr][nc]\n                    if nd < dist[nr][nc]:\n                        dist[nr][nc] = nd\n                        if grid[nr][nc] == 0:\n                            dq.appendleft((nr, nc))\n                        else:\n                            dq.append((nr, nc))\n        return dist[m - 1][n - 1] <= health - 1\n",
+    "javascript": "var findSafeWalk = function(grid, health) {\n    const m = grid.length, n = grid[0].length;\n    const INF = Infinity;\n    const dist = Array.from({ length: m }, () => new Array(n).fill(INF));\n    dist[0][0] = grid[0][0];\n    let dq = [[0, 0]];\n    while (dq.length > 0) {\n        const [r, c] = dq.shift();\n        const d = dist[r][c];\n        const deltas = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n        for (const [dr, dc] of deltas) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < m && nc >= 0 && nc < n) {\n                const nd = d + grid[nr][nc];\n                if (nd < dist[nr][nc]) {\n                    dist[nr][nc] = nd;\n                    if (grid[nr][nc] === 0) {\n                        dq.unshift([nr, nc]);\n                    } else {\n                        dq.push([nr, nc]);\n                    }\n                }\n            }\n        }\n    }\n    return dist[m - 1][n - 1] <= health - 1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m*n)",
+    "space": "O(m*n)"
+  }
+}
