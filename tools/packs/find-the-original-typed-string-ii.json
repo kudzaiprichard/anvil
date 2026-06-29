@@ -1,0 +1,111 @@
+{
+  "judge": "exact",
+  "pattern": "With no limit on how many runs were over-typed, every run independently contributes any length from one up to its typed length, so the unrestricted count is a product over runs -- and the length-at-least-k restriction is handled by subtracting off the short-total configurations with a small bounded convolution.",
+  "hints": [
+    "Split the typed word into maximal runs of identical letters; unlike the easier variant, here ANY subset of runs could have been over-typed, so each run of length g independently contributes any length from 1 to g -- the unrestricted total is the PRODUCT of the run lengths, not a sum.",
+    "You need only the count of combinations whose total length is at least k, and k is small, so it's easier to compute the unrestricted product and subtract off the combinations whose total length falls short of k.",
+    "Track, per run, how far below its own maximum length a choice falls (its 'shortfall', from 0 up to g-1); accumulate the distribution of total shortfall across runs with a bounded running convolution (capped once the shortfall would already guarantee reaching k), then subtract the count of shortfalls large enough to drop the total below k from the unrestricted product."
+  ],
+  "constraints": [
+    {
+      "param": "word",
+      "kind": "string",
+      "len": [
+        1,
+        500000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        2000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, four short-of-full combinations still clear k",
+      "input": [
+        "aabbccdd",
+        7
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, only the full word itself clears k",
+      "input": [
+        "aabbccdd",
+        8
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, two runs with k at the minimum possible length",
+      "input": [
+        "aaabbb",
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "no repeated letters, only the word itself is possible",
+      "input": [
+        "abcd",
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equal to the number of runs, every combination already clears it",
+      "input": [
+        "aabbcc",
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single run, k at its minimum possible length",
+      "input": [
+        "aaaaa",
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k set to the maximum possible total length, only the untouched word qualifies",
+      "input": [
+        "aaabbbccc",
+        9
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "runs of very different lengths mixed together",
+      "input": [
+        "aaaaabbc",
+        5
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long run-length-encoded word with a modest number of runs and a random k",
+      "seed": 19,
+      "size": 500000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 500000))\n    chars = []\n    prev = None\n    while len(chars) < n:\n        c = rng.choice('abcdefghij')\n        while c == prev:\n            c = rng.choice('abcdefghij')\n        run_len = rng.randint(1, min(50, n - len(chars)))\n        chars.extend([c] * run_len)\n        prev = c\n    word = ''.join(chars[:n])\n    k = rng.randint(1, min(2000, len(word)))\n    return [word, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def possibleStringCount(self, word, k):\n        MOD = 10 ** 9 + 7\n        n = len(word)\n        runs = []\n        i = 0\n        while i < n:\n            j = i\n            while j < n and word[j] == word[i]:\n                j += 1\n            runs.append(j - i)\n            i = j\n        cap = k\n        dp = [0] * (cap + 1)\n        dp[0] = 1\n        for g in runs:\n            new_dp = [0] * (cap + 1)\n            for total, ways in enumerate(dp):\n                if ways == 0:\n                    continue\n                for length in range(1, g + 1):\n                    nt = min(total + length, cap)\n                    new_dp[nt] = (new_dp[nt] + ways) % MOD\n            dp = new_dp\n        return sum(dp[k:]) % MOD if k <= cap else 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def possibleStringCount(self, word: str, k: int) -> int:\n        MOD = 10 ** 9 + 7\n        n = len(word)\n        runs = []\n        i = 0\n        while i < n:\n            j = i\n            while j < n and word[j] == word[i]:\n                j += 1\n            runs.append(j - i)\n            i = j\n        m = len(runs)\n        product = 1\n        for g in runs:\n            product = product * g % MOD\n        if m >= k:\n            return product\n        target = k - m\n        dp = [0] * target\n        dp[0] = 1\n        for g in runs:\n            prefix = [0] * (target + 1)\n            for idx in range(target):\n                prefix[idx + 1] = (prefix[idx] + dp[idx]) % MOD\n            new_dp = [0] * target\n            for e in range(target):\n                lo = max(0, e - (g - 1))\n                new_dp[e] = (prefix[e + 1] - prefix[lo]) % MOD\n            dp = new_dp\n        invalid = sum(dp) % MOD\n        return (product - invalid) % MOD\n",
+    "javascript": "var possibleStringCount = function(word, k) {\n    const MOD = 1000000007n;\n    const n = word.length;\n    const runs = [];\n    let i = 0;\n    while (i < n) {\n        let j = i;\n        while (j < n && word[j] === word[i]) j++;\n        runs.push(j - i);\n        i = j;\n    }\n    const m = runs.length;\n    let product = 1n;\n    for (const g of runs) product = (product * BigInt(g)) % MOD;\n    if (m >= k) return Number(product);\n    const target = k - m;\n    let dp = new Array(target).fill(0n);\n    dp[0] = 1n;\n    for (const g of runs) {\n        const prefix = new Array(target + 1).fill(0n);\n        for (let idx = 0; idx < target; idx++) {\n            prefix[idx + 1] = (prefix[idx] + dp[idx]) % MOD;\n        }\n        const newDp = new Array(target).fill(0n);\n        for (let e = 0; e < target; e++) {\n            const lo = Math.max(0, e - (g - 1));\n            newDp[e] = ((prefix[e + 1] - prefix[lo]) % MOD + MOD) % MOD;\n        }\n        dp = newDp;\n    }\n    let invalid = 0n;\n    for (const v of dp) invalid = (invalid + v) % MOD;\n    return Number(((product - invalid) % MOD + MOD) % MOD);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + k^2)",
+    "space": "O(k)"
+  },
+  "slug": "find-the-original-typed-string-ii"
+}
