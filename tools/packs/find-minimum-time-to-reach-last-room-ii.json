@@ -1,0 +1,36 @@
+{
+  "slug": "find-minimum-time-to-reach-last-room-ii",
+  "judge": "exact",
+  "pattern": "Because the cost of your next move depends only on how many moves you've made so far and alternates between two fixed values, tracking a room together with the parity of the move count turns the alternating-cost rule into an ordinary shortest-path search over a doubled state space.",
+  "hints": [
+    "The cost of your very next move only depends on whether you've made an even or odd number of moves so far, alternating 1, 2, 1, 2, ... starting with 1 -- so track that parity as part of your search state alongside the room itself.",
+    "From a (room, parity) state at time t, moving into a neighboring room costs whichever of 1 or 2 the current parity dictates, but you still cannot start that move until the neighbor's opening time has passed -- your arrival time is the later of your current time or the room's opening time, plus that move's cost.",
+    "Run a shortest-path search over this doubled state space (room, parity), and the final answer is the smaller of the two arrival times at the bottom-right room across both possible parities."
+  ],
+  "constraints": [
+    { "param": "moveTime", "kind": "int[][]", "len": [2, 750], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small grid where waiting is required before the first move", "input": [[[0, 4], [4, 4]]] },
+    { "kind": "edge", "description": "every room already open, pure alternating travel time", "input": [[[0, 0, 0, 0], [0, 0, 0, 0]]] },
+    { "kind": "boundary", "description": "smallest possible grid", "input": [[[0, 1], [1, 0]]] },
+    { "kind": "boundary", "description": "all rooms share the same large opening time", "input": [[[5, 5, 5], [5, 5, 5], [5, 5, 5]]] },
+    { "kind": "trap", "description": "the direct path is blocked by a late-opening room, forcing a detour whose move-parity differs from the direct route", "input": [[[0, 100, 0], [0, 100, 0], [0, 0, 0]]] },
+    { "kind": "trap", "description": "the start room itself has a nonzero opening time, which never matters since you begin there at time zero", "input": [[[9, 0], [0, 0]]] },
+    { "kind": "boundary", "description": "opening times at the upper bound", "input": [[[0, 1000000000], [1000000000, 1000000000]]] }
+  ],
+  "stress": [
+    {
+      "description": "random grids with random opening times",
+      "seed": 67,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 40)))\n    m = rng.randint(2, max(2, min(size, 40)))\n    grid = [[rng.randint(0, 1000000000) for _ in range(m)] for _ in range(n)]\n    grid[0][0] = 0\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minTimeToReach(self, moveTime):\n        n = len(moveTime)\n        m = len(moveTime[0])\n        INF = float('inf')\n        dist = [[[INF, INF] for _ in range(m)] for _ in range(n)]\n        dist[0][0][0] = 0\n        dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n        changed = True\n        while changed:\n            changed = False\n            for r in range(n):\n                for c in range(m):\n                    for p in range(2):\n                        if dist[r][c][p] == INF:\n                            continue\n                        cost = 1 if p == 0 else 2\n                        for dr, dc in dirs:\n                            nr, nc = r + dr, c + dc\n                            if 0 <= nr < n and 0 <= nc < m:\n                                nt = max(dist[r][c][p], moveTime[nr][nc]) + cost\n                                np_ = 1 - p\n                                if nt < dist[nr][nc][np_]:\n                                    dist[nr][nc][np_] = nt\n                                    changed = True\n        return min(dist[n - 1][m - 1][0], dist[n - 1][m - 1][1])\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def minTimeToReach(self, moveTime):\n        n = len(moveTime)\n        m = len(moveTime[0])\n        INF = float('inf')\n        dist = [[[INF, INF] for _ in range(m)] for _ in range(n)]\n        dist[0][0][0] = 0\n        pq = [(0, 0, 0, 0)]\n        dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n        while pq:\n            t, r, c, p = heapq.heappop(pq)\n            if t > dist[r][c][p]:\n                continue\n            for dr, dc in dirs:\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < n and 0 <= nc < m:\n                    cost = 1 if p == 0 else 2\n                    nt = max(t, moveTime[nr][nc]) + cost\n                    np_ = 1 - p\n                    if nt < dist[nr][nc][np_]:\n                        dist[nr][nc][np_] = nt\n                        heapq.heappush(pq, (nt, nr, nc, np_))\n        return min(dist[n - 1][m - 1][0], dist[n - 1][m - 1][1])\n",
+    "javascript": "var minTimeToReach = function(moveTime) {\n    const n = moveTime.length;\n    const m = moveTime[0].length;\n    const INF = Infinity;\n    const dist = [];\n    const visited = [];\n    for (let r = 0; r < n; r++) {\n        const rowD = [], rowV = [];\n        for (let c = 0; c < m; c++) {\n            rowD.push([INF, INF]);\n            rowV.push([false, false]);\n        }\n        dist.push(rowD);\n        visited.push(rowV);\n    }\n    dist[0][0][0] = 0;\n    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];\n    const totalStates = n * m * 2;\n    for (let iter = 0; iter < totalStates; iter++) {\n        let br = -1, bc = -1, bp = -1, bd = Infinity;\n        for (let r = 0; r < n; r++) {\n            for (let c = 0; c < m; c++) {\n                for (let p = 0; p < 2; p++) {\n                    if (!visited[r][c][p] && dist[r][c][p] < bd) {\n                        bd = dist[r][c][p];\n                        br = r;\n                        bc = c;\n                        bp = p;\n                    }\n                }\n            }\n        }\n        if (br === -1) break;\n        visited[br][bc][bp] = true;\n        for (const [dr, dc] of dirs) {\n            const nr = br + dr, nc = bc + dc;\n            if (nr >= 0 && nr < n && nc >= 0 && nc < m) {\n                const cost = bp === 0 ? 1 : 2;\n                const nt = Math.max(bd, moveTime[nr][nc]) + cost;\n                const np_ = 1 - bp;\n                if (!visited[nr][nc][np_] && nt < dist[nr][nc][np_]) dist[nr][nc][np_] = nt;\n            }\n        }\n    }\n    return Math.min(dist[n - 1][m - 1][0], dist[n - 1][m - 1][1]);\n};\n"
+  },
+  "complexity": { "time": "O(n*m*log(n*m)) with a priority queue over the doubled state space (the authored JS reference uses a simpler O((n*m)^2) linear scan)", "space": "O(n*m)" }
+}
