@@ -1,0 +1,169 @@
+{
+  "slug": "find-the-maximum-number-of-fruits-collected",
+  "judge": "exact",
+  "pattern": "The corner-to-corner walker's movement rule pins its path to a single fixed diagonal, which frees the other two walkers into two independent shortest-path-style sweeps that only ever need to avoid double-counting where they cross that diagonal.",
+  "hints": [
+    "Work out exactly which cells the walker starting at the top-left corner is forced to visit -- its movement options only allow one possible route to the opposite corner.",
+    "For each of the other two walkers, run a row-by-row (or column-by-column) sweep tracking the best total reachable at every position, choosing among its three allowed moves at each step.",
+    "Zero out the forced walker's cells before running the other two sweeps, then add the forced walker's own total back in once -- that avoids paying for any cell twice."
+  ],
+  "constraints": [
+    {
+      "param": "fruits",
+      "kind": "int[][]",
+      "len": [
+        2,
+        1000
+      ],
+      "value": [
+        0,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, 4x4 grid",
+      "input": [
+        [
+          [
+            1,
+            2,
+            3,
+            4
+          ],
+          [
+            5,
+            6,
+            8,
+            7
+          ],
+          [
+            9,
+            10,
+            11,
+            12
+          ],
+          [
+            13,
+            14,
+            15,
+            16
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, smallest 2x2 grid",
+      "input": [
+        [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "3x3 grid with all zero fruit",
+      "input": [
+        [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "3x3 grid where the richest cells sit off the forced diagonal",
+      "input": [
+        [
+          [
+            0,
+            5,
+            0
+          ],
+          [
+            5,
+            0,
+            5
+          ],
+          [
+            0,
+            5,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "4x4 grid with one very valuable corner cell shared by all three paths",
+      "input": [
+        [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            100
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small-to-medium grids with modest fruit counts",
+      "seed": 7,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 60))\n    fruits = [[rng.randint(0, 50) for _ in range(n)] for _ in range(n)]\n    return [fruits]\n"
+    }
+  ],
+  "oracle_python": "import sys\nfrom functools import lru_cache\n\nclass Solution:\n    def maxCollectedFruits(self, fruits):\n        n = len(fruits)\n        sys.setrecursionlimit(10000)\n        NEG = float('-inf')\n\n        @lru_cache(maxsize=None)\n        def rec(t, j2, i3):\n            i1 = j1 = t\n            i2 = t\n            j3 = t\n            cells = {(i1, j1), (i2, j2), (i3, j3)}\n            gain = sum(fruits[a][b] for a, b in cells)\n            if t == n - 1:\n                if j2 == n - 1 and i3 == n - 1:\n                    return gain\n                return NEG\n            best = NEG\n            for dj2 in (-1, 0, 1):\n                nj2 = j2 + dj2\n                if not (0 <= nj2 < n):\n                    continue\n                for di3 in (-1, 0, 1):\n                    ni3 = i3 + di3\n                    if not (0 <= ni3 < n):\n                        continue\n                    sub = rec(t + 1, nj2, ni3)\n                    if sub > best:\n                        best = sub\n            if best == NEG:\n                return NEG\n            return gain + best\n\n        return rec(0, n - 1, n - 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxCollectedFruits(self, fruits):\n        n = len(fruits)\n        NEG = -1 << 60\n        total = sum(fruits[i][i] for i in range(n))\n        g = [row[:] for row in fruits]\n        for i in range(n):\n            g[i][i] = 0\n\n        dp2 = [[NEG] * n for _ in range(n)]\n        dp2[0][n - 1] = g[0][n - 1]\n        for i in range(1, n):\n            for j in range(n):\n                best = NEG\n                for dj in (-1, 0, 1):\n                    pj = j + dj\n                    if 0 <= pj < n and dp2[i - 1][pj] > best:\n                        best = dp2[i - 1][pj]\n                dp2[i][j] = g[i][j] + best if best > NEG else NEG\n\n        dp3 = [[NEG] * n for _ in range(n)]\n        dp3[n - 1][0] = g[n - 1][0]\n        for j in range(1, n):\n            for i in range(n):\n                best = NEG\n                for di in (-1, 0, 1):\n                    pi = i + di\n                    if 0 <= pi < n and dp3[pi][j - 1] > best:\n                        best = dp3[pi][j - 1]\n                dp3[i][j] = g[i][j] + best if best > NEG else NEG\n\n        return total + dp2[n - 1][n - 1] + dp3[n - 1][n - 1]\n",
+    "javascript": "var maxCollectedFruits = function(fruits) {\n    const n = fruits.length;\n    const NEG = -Infinity;\n    let total = 0;\n    for (let i = 0; i < n; i++) total += fruits[i][i];\n    const g = fruits.map(row => row.slice());\n    for (let i = 0; i < n; i++) g[i][i] = 0;\n\n    const dp2 = Array.from({ length: n }, () => new Array(n).fill(NEG));\n    dp2[0][n - 1] = g[0][n - 1];\n    for (let i = 1; i < n; i++) {\n        for (let j = 0; j < n; j++) {\n            let best = NEG;\n            for (const dj of [-1, 0, 1]) {\n                const pj = j + dj;\n                if (pj >= 0 && pj < n && dp2[i - 1][pj] > best) best = dp2[i - 1][pj];\n            }\n            dp2[i][j] = best > NEG ? g[i][j] + best : NEG;\n        }\n    }\n\n    const dp3 = Array.from({ length: n }, () => new Array(n).fill(NEG));\n    dp3[n - 1][0] = g[n - 1][0];\n    for (let j = 1; j < n; j++) {\n        for (let i = 0; i < n; i++) {\n            let best = NEG;\n            for (const di of [-1, 0, 1]) {\n                const pi = i + di;\n                if (pi >= 0 && pi < n && dp3[pi][j - 1] > best) best = dp3[pi][j - 1];\n            }\n            dp3[i][j] = best > NEG ? g[i][j] + best : NEG;\n        }\n    }\n\n    return total + dp2[n - 1][n - 1] + dp3[n - 1][n - 1];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2)",
+    "space": "O(n^2)"
+  }
+}
