@@ -1,0 +1,68 @@
+{
+  "slug": "find-critical-and-pseudo-critical-edges-in-minimum-spanning-tree",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def _solve(n, edges):\n    m = len(edges)\n    idx_edges = sorted(range(m), key=lambda i: edges[i][2])\n\n    def kruskal(skip=-1, force=-1):\n        parent = list(range(n))\n\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra == rb:\n                return False\n            parent[ra] = rb\n            return True\n\n        weight = 0\n        count = 0\n        if force != -1:\n            a, b, w = edges[force]\n            if union(a, b):\n                weight += w\n                count += 1\n        for i in idx_edges:\n            if i == skip or i == force:\n                continue\n            a, b, w = edges[i]\n            if union(a, b):\n                weight += w\n                count += 1\n        if count != n - 1:\n            return float('inf')\n        return weight\n\n    baseline = kruskal()\n    critical = []\n    pseudo = []\n    for i in range(m):\n        if kruskal(skip=i) > baseline:\n            critical.append(i)\n        elif kruskal(force=i) == baseline:\n            pseudo.append(i)\n    return [critical, pseudo]\n\n\ndef validate(args, output):\n    n, edges = args\n    if not isinstance(output, list) or len(output) != 2:\n        return False\n    crit_out, pseudo_out = output\n    if not isinstance(crit_out, list) or not isinstance(pseudo_out, list):\n        return False\n    if len(crit_out) != len(set(crit_out)) or len(pseudo_out) != len(set(pseudo_out)):\n        return False\n    if set(crit_out) & set(pseudo_out):\n        return False\n    correct = _solve(n, edges)\n    return set(crit_out) == set(correct[0]) and set(pseudo_out) == set(correct[1])\n",
+    "validator_javascript": "function _solve(n, edges) {\n    const m = edges.length;\n    const idxEdges = Array.from({ length: m }, (_, i) => i).sort((a, b) => edges[a][2] - edges[b][2]);\n    function kruskal(skip, force) {\n        const parent = Array.from({ length: n }, (_, i) => i);\n        function find(x) {\n            while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }\n            return x;\n        }\n        function union(a, b) {\n            const ra = find(a), rb = find(b);\n            if (ra === rb) return false;\n            parent[ra] = rb;\n            return true;\n        }\n        let weight = 0, count = 0;\n        if (force !== -1) {\n            const [a, b, w] = edges[force];\n            if (union(a, b)) { weight += w; count += 1; }\n        }\n        for (const i of idxEdges) {\n            if (i === skip || i === force) continue;\n            const [a, b, w] = edges[i];\n            if (union(a, b)) { weight += w; count += 1; }\n        }\n        if (count !== n - 1) return Infinity;\n        return weight;\n    }\n    const baseline = kruskal(-1, -1);\n    const critical = [], pseudo = [];\n    for (let i = 0; i < m; i++) {\n        if (kruskal(i, -1) > baseline) {\n            critical.push(i);\n        } else if (kruskal(-1, i) === baseline) {\n            pseudo.push(i);\n        }\n    }\n    return [critical, pseudo];\n}\n\nfunction validate(args, output) {\n    const [n, edges] = args;\n    if (!Array.isArray(output) || output.length !== 2) return false;\n    const [critOut, pseudoOut] = output;\n    if (!Array.isArray(critOut) || !Array.isArray(pseudoOut)) return false;\n    if (new Set(critOut).size !== critOut.length) return false;\n    if (new Set(pseudoOut).size !== pseudoOut.length) return false;\n    const critSet = new Set(critOut);\n    for (const p of pseudoOut) if (critSet.has(p)) return false;\n    const correct = _solve(n, edges);\n    const a = new Set(critOut), b = new Set(correct[0]);\n    if (a.size !== b.size) return false;\n    for (const x of a) if (!b.has(x)) return false;\n    const c = new Set(pseudoOut), d = new Set(correct[1]);\n    if (c.size !== d.size) return false;\n    for (const x of c) if (!d.has(x)) return false;\n    return true;\n}\n"
+  },
+  "pattern": "Removing or force-including one edge at a time and re-running Kruskal's algorithm tells you exactly how essential that edge is to a minimum spanning tree.",
+  "hints": [
+    "First compute the minimum spanning tree weight normally with Kruskal's algorithm - that baseline is what every edge gets compared against.",
+    "An edge is critical exactly when excluding it entirely (skip it during Kruskal's, using every other edge) either disconnects the graph or forces a strictly heavier tree.",
+    "An edge that is not critical is pseudo-critical exactly when forcing it into the tree first (union it before running Kruskal's on the rest) still reaches the same baseline weight."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 200], "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a small graph with one clearly critical bridge edge and several interchangeable ones",
+      "input": [4, [[0, 1, 1], [1, 2, 1], [2, 3, 1], [0, 2, 5], [1, 3, 5]]]
+    },
+    {
+      "kind": "edge",
+      "description": "a triangle where any two of the three equal-weight edges form a valid MST",
+      "input": [3, [[0, 1, 2], [1, 2, 2], [0, 2, 2]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "the minimum graph size: two nodes joined by a single edge, which is trivially critical",
+      "input": [2, [[0, 1, 7]]]
+    },
+    {
+      "kind": "trap",
+      "description": "a heavy redundant edge that never appears in any MST is neither critical nor pseudo-critical",
+      "input": [4, [[0, 1, 1], [1, 2, 1], [2, 3, 1], [0, 3, 1], [0, 2, 100]]]
+    },
+    {
+      "kind": "trap",
+      "description": "removing a non-bridge edge still leaves a same-weight alternative, so it is only pseudo-critical, not critical",
+      "input": [5, [[0, 1, 1], [1, 2, 1], [0, 2, 1], [2, 3, 2], [3, 4, 2], [2, 4, 2]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random connected graph near the max node and edge counts",
+      "seed": 90,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100))\n    order = list(range(n))\n    rng.shuffle(order)\n    seen = set()\n    edges = []\n    for i in range(1, n):\n        a, b = order[i], order[rng.randint(0, i - 1)]\n        lo, hi = min(a, b), max(a, b)\n        seen.add((lo, hi))\n        edges.append([lo, hi, rng.randint(1, 1000)])\n    max_edges = min(200, n * (n - 1) // 2)\n    while len(edges) < max_edges:\n        a, b = rng.randint(0, n - 1), rng.randint(0, n - 1)\n        if a == b:\n            continue\n        lo, hi = min(a, b), max(a, b)\n        if (lo, hi) in seen:\n            continue\n        seen.add((lo, hi))\n        edges.append([lo, hi, rng.randint(1, 1000)])\n    return [n, edges]\n"
+    },
+    {
+      "description": "many equal-weight edges, producing lots of pseudo-critical ties",
+      "seed": 91,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 60))\n    order = list(range(n))\n    rng.shuffle(order)\n    seen = set()\n    edges = []\n    for i in range(1, n):\n        a, b = order[i], order[rng.randint(0, i - 1)]\n        lo, hi = min(a, b), max(a, b)\n        seen.add((lo, hi))\n        edges.append([lo, hi, 5])\n    max_edges = min(150, n * (n - 1) // 2)\n    while len(edges) < max_edges:\n        a, b = rng.randint(0, n - 1), rng.randint(0, n - 1)\n        if a == b:\n            continue\n        lo, hi = min(a, b), max(a, b)\n        if (lo, hi) in seen:\n            continue\n        seen.add((lo, hi))\n        edges.append([lo, hi, rng.choice([5, 9])])\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "import itertools\n\n\nclass Solution:\n    def findCriticalAndPseudoCriticalEdges(self, n, edges):\n        m = len(edges)\n\n        def is_spanning_tree(idxs):\n            parent = list(range(n))\n\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n\n            for i in idxs:\n                a, b, _ = edges[i]\n                ra, rb = find(a), find(b)\n                if ra == rb:\n                    return False\n                parent[ra] = rb\n            return len({find(x) for x in range(n)}) == 1\n\n        best = None\n        best_sets = []\n        for combo in itertools.combinations(range(m), n - 1):\n            if is_spanning_tree(combo):\n                w = sum(edges[i][2] for i in combo)\n                if best is None or w < best:\n                    best = w\n                    best_sets = [set(combo)]\n                elif w == best:\n                    best_sets.append(set(combo))\n        critical = set.intersection(*best_sets)\n        pseudo = set.union(*best_sets) - critical\n        return [sorted(critical), sorted(pseudo)]\n",
+  "solutions": {
+    "python": "class Solution:\n    def findCriticalAndPseudoCriticalEdges(self, n, edges):\n        m = len(edges)\n        idx_edges = sorted(range(m), key=lambda i: edges[i][2])\n\n        def kruskal(skip=-1, force=-1):\n            parent = list(range(n))\n\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n\n            def union(a, b):\n                ra, rb = find(a), find(b)\n                if ra == rb:\n                    return False\n                parent[ra] = rb\n                return True\n\n            weight = 0\n            count = 0\n            if force != -1:\n                a, b, w = edges[force]\n                if union(a, b):\n                    weight += w\n                    count += 1\n            for i in idx_edges:\n                if i == skip or i == force:\n                    continue\n                a, b, w = edges[i]\n                if union(a, b):\n                    weight += w\n                    count += 1\n            if count != n - 1:\n                return float('inf')\n            return weight\n\n        baseline = kruskal()\n        critical = []\n        pseudo = []\n        for i in range(m):\n            if kruskal(skip=i) > baseline:\n                critical.append(i)\n            elif kruskal(force=i) == baseline:\n                pseudo.append(i)\n        return [critical, pseudo]\n",
+    "javascript": "var findCriticalAndPseudoCriticalEdges = function(n, edges) {\n    const m = edges.length;\n    const idxEdges = Array.from({ length: m }, (_, i) => i).sort((a, b) => edges[a][2] - edges[b][2]);\n    function kruskal(skip, force) {\n        const parent = Array.from({ length: n }, (_, i) => i);\n        function find(x) {\n            while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }\n            return x;\n        }\n        function union(a, b) {\n            const ra = find(a), rb = find(b);\n            if (ra === rb) return false;\n            parent[ra] = rb;\n            return true;\n        }\n        let weight = 0, count = 0;\n        if (force !== -1) {\n            const [a, b, w] = edges[force];\n            if (union(a, b)) { weight += w; count += 1; }\n        }\n        for (const i of idxEdges) {\n            if (i === skip || i === force) continue;\n            const [a, b, w] = edges[i];\n            if (union(a, b)) { weight += w; count += 1; }\n        }\n        if (count !== n - 1) return Infinity;\n        return weight;\n    }\n    const baseline = kruskal(-1, -1);\n    const critical = [], pseudo = [];\n    for (let i = 0; i < m; i++) {\n        if (kruskal(i, -1) > baseline) {\n            critical.push(i);\n        } else if (kruskal(-1, i) === baseline) {\n            pseudo.push(i);\n        }\n    }\n    return [critical, pseudo];\n};\n"
+  },
+  "complexity": {
+    "time": "O(m^2 * alpha(n))",
+    "space": "O(n + m)"
+  }
+}

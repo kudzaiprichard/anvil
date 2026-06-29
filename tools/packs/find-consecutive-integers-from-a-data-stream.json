@@ -1,0 +1,88 @@
+{
+  "slug": "find-consecutive-integers-from-a-data-stream",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Only the length of the current run of the target value matters, so a stream of unbounded length can be answered with a single counter that resets whenever the run breaks.",
+  "hints": [
+    "You never need to remember the whole stream — only how many of the most recent values in a row have matched the target value.",
+    "Keep a running streak: increase it whenever the newest value equals the target, and reset it to zero the instant a different value arrives.",
+    "Each call answers true exactly when that streak has reached at least k; because the streak already accounts for every prior call, no lookback or stored history is required."
+  ],
+  "constraints": [
+    { "param": "value", "kind": "int", "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] },
+    { "param": "num", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "k equals one, so any single matching call is already a run of length one",
+      "input": [
+        ["DataStream", "consec", "consec", "consec"],
+        [[7, 1], [7], [3], [7]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "the target value never appears in the stream",
+      "input": [
+        ["DataStream", "consec", "consec", "consec", "consec"],
+        [[5, 2], [1], [2], [3], [4]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the run reaches exactly k matches on the k-th call, then breaks on the next call",
+      "input": [
+        ["DataStream", "consec", "consec", "consec", "consec", "consec"],
+        [[9, 4], [9], [9], [9], [9], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a single mismatch in the middle must fully reset the streak, not merely shrink it, before it can rebuild to k",
+      "input": [
+        ["DataStream", "consec", "consec", "consec", "consec", "consec", "consec"],
+        [[6, 3], [6], [6], [8], [6], [6], [6]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "several matching calls occur but never enough in a row to reach k, so every answer stays false",
+      "input": [
+        ["DataStream", "consec", "consec", "consec"],
+        [[2, 5], [2], [2], [2]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "values sit at the top of the allowed range",
+      "input": [
+        ["DataStream", "consec", "consec"],
+        [[1000000000, 2], [1000000000], [1000000000]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the streak is broken and rebuilt twice, so only the two calls that complete a fresh run of k should read true",
+      "input": [
+        ["DataStream", "consec", "consec", "consec", "consec", "consec", "consec", "consec"],
+        [[4, 2], [4], [4], [1], [4], [4], [1], [4]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a long randomized call sequence over a small value alphabet so streaks repeatedly build past k and break",
+      "seed": 29,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    value = rng.randint(1, 5)\n    k = rng.randint(1, 6)\n    ops = ['DataStream']\n    args = [[value, k]]\n    calls = max(1, min(size, 2000))\n    for _ in range(calls):\n        num = value if rng.random() < 0.5 else rng.randint(1, 5)\n        ops.append('consec')\n        args.append([num])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "class DataStream:\n    def __init__(self, value, k):\n        self.value = value\n        self.k = k\n        self.history = []\n\n    def consec(self, num):\n        self.history.append(num)\n        if len(self.history) < self.k:\n            return False\n        return all(x == self.value for x in self.history[-self.k:])\n",
+  "solutions": {
+    "python": "class DataStream:\n    def __init__(self, value, k):\n        self.value = value\n        self.k = k\n        self.streak = 0\n\n    def consec(self, num):\n        if num == self.value:\n            self.streak += 1\n        else:\n            self.streak = 0\n        return self.streak >= self.k\n",
+    "javascript": "var DataStream = function(value, k) {\n    this.value = value;\n    this.k = k;\n    this.streak = 0;\n};\n\nDataStream.prototype.consec = function(num) {\n    if (num === this.value) {\n        this.streak += 1;\n    } else {\n        this.streak = 0;\n    }\n    return this.streak >= this.k;\n};\n"
+  },
+  "complexity": { "time": "O(1) per consec call", "space": "O(1)" }
+}
