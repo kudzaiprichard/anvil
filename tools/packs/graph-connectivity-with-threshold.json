@@ -1,0 +1,205 @@
+{
+  "slug": "graph-connectivity-with-threshold",
+  "judge": "exact",
+  "pattern": "Two cities are linked whenever they share a divisor above the threshold, so union every city under each of its multiples for divisors past the threshold and every query collapses to a single find() comparison.",
+  "hints": [
+    "Instead of thinking pairwise, think per divisor: for a fixed divisor z above the threshold, every multiple of z should end up in the same connected group.",
+    "Use a union-find structure over the n cities; for each z from threshold+1 up to n, union z with 2z, 3z, 4z, ... so all of z's multiples join z's group.",
+    "After all the unions are done, each query is answered in near-constant time by checking whether the two cities' find() roots match."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        2,
+        10000
+      ]
+    },
+    {
+      "param": "threshold",
+      "kind": "int",
+      "value": [
+        0,
+        10000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "only 3 and 6 share a divisor above the threshold",
+      "input": [
+        6,
+        2,
+        [
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            3,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "threshold zero, everything shares divisor 1",
+      "input": [
+        6,
+        0,
+        [
+          [
+            4,
+            5
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            1,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "only one pair shares a divisor above the threshold, rest are isolated",
+      "input": [
+        5,
+        1,
+        [
+          [
+            4,
+            5
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest n, threshold zero",
+      "input": [
+        2,
+        0,
+        [
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest n, threshold excludes the only shared divisor",
+      "input": [
+        2,
+        1,
+        [
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "same pair queried with arguments swapped, both directions must agree",
+      "input": [
+        4,
+        1,
+        [
+          [
+            2,
+            4
+          ],
+          [
+            4,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "threshold equal to n leaves no valid divisor above it, so nothing is connected",
+      "input": [
+        5,
+        5,
+        [
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random n, threshold and queries up to a large size",
+      "seed": 11,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 10000))\n    threshold = rng.randint(0, n)\n    m = min(500, n)\n    queries = []\n    for _ in range(m):\n        a = rng.randint(1, n)\n        b = rng.randint(1, n)\n        while b == a:\n            b = rng.randint(1, n)\n        queries.append([a, b])\n    return [n, threshold, queries]\n"
+    }
+  ],
+  "oracle_python": "import math\nclass Solution:\n    def areConnected(self, n, threshold, queries):\n        adj = [[] for _ in range(n + 1)]\n        for x in range(1, n + 1):\n            for y in range(x + 1, n + 1):\n                if math.gcd(x, y) > threshold:\n                    adj[x].append(y)\n                    adj[y].append(x)\n        comp = [0] * (n + 1)\n        c = 0\n        for i in range(1, n + 1):\n            if comp[i] == 0:\n                c += 1\n                stack = [i]\n                comp[i] = c\n                while stack:\n                    u = stack.pop()\n                    for v in adj[u]:\n                        if comp[v] == 0:\n                            comp[v] = c\n                            stack.append(v)\n        return [comp[a] == comp[b] for a, b in queries]\n",
+  "solutions": {
+    "python": "class Solution:\n    def areConnected(self, n, threshold, queries):\n        parent = list(range(n + 1))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for z in range(threshold + 1, n + 1):\n            for multiple in range(2 * z, n + 1, z):\n                union(z, multiple)\n        return [find(a) == find(b) for a, b in queries]\n",
+    "javascript": "var areConnected = function(n, threshold, queries) {\n    const parent = new Array(n + 1);\n    for (let i = 0; i <= n; i++) parent[i] = i;\n    function find(x) {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    }\n    function union(a, b) {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent[ra] = rb;\n    }\n    for (let z = threshold + 1; z <= n; z++) {\n        for (let m = 2 * z; m <= n; m += z) union(z, m);\n    }\n    return queries.map(([a, b]) => find(a) === find(b));\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n + q)",
+    "space": "O(n)"
+  }
+}
