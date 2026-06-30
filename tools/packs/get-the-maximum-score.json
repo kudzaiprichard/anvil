@@ -1,0 +1,37 @@
+{
+  "slug": "get-the-maximum-score",
+  "judge": "exact",
+  "pattern": "A synchronized two-pointer walk over both sorted arrays only needs to reconcile running sums where the arrays touch the same value, since everywhere else the two paths cannot influence each other.",
+  "hints": [
+    "Because both arrays are sorted and strictly increasing, a merge-style two-pointer walk lets you accumulate a running sum along each array independently between shared values.",
+    "When the pointers are looking at different values, advance whichever one is smaller and add that value to its own running sum.",
+    "When both pointers land on the same value, that is a mandatory rendezvous: keep only the larger of the two running sums, add the shared value once, and reset both sums to that combined total before continuing; the final answer is the larger total once both arrays are exhausted, modulo 1e9 + 7."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 100000], "value": [1, 10000000] },
+    { "param": "nums2", "kind": "int[]", "len": [1, 100000], "value": [1, 10000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one shared value splits both paths", "input": [[1, 5, 9], [2, 5, 8]] },
+    { "kind": "edge", "description": "no shared values, pick the larger sum outright", "input": [[1, 2, 3], [10, 20, 30]] },
+    { "kind": "boundary", "description": "single-element arrays that match", "input": [[5], [5]] },
+    { "kind": "boundary", "description": "single-element arrays that differ", "input": [[3], [9]] },
+    { "kind": "trap", "description": "shared value at the very start forces an immediate merge", "input": [[1, 2, 3], [1, 5, 6]] },
+    { "kind": "trap", "description": "shared value at the very end", "input": [[1, 2, 10], [5, 10]] },
+    { "kind": "edge", "description": "multiple shared values in sequence", "input": [[1, 2, 3, 4, 5], [1, 2, 3, 4, 6]] }
+  ],
+  "stress": [
+    {
+      "description": "large arrays sharing a random fraction of values",
+      "seed": 71,
+      "size": 15000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 20000))\n    common_count = max(1, n // 4)\n    common_list = sorted(rng.sample(range(1, 5000000), common_count))\n    common_set = set(common_list)\n    def build(extra_count):\n        extra = set()\n        while len(extra) < extra_count:\n            v = rng.randint(1, 5000000)\n            if v not in common_set and v not in extra:\n                extra.add(v)\n        return sorted(common_list + list(extra))\n    nums1 = build(n - common_count)\n    nums2 = build(n - common_count)\n    return [nums1, nums2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSum(self, nums1, nums2):\n        import bisect\n        MOD = 10 ** 9 + 7\n        common = sorted(set(nums1) & set(nums2))\n        def segment_sums(nums, points):\n            prefix = [0]\n            for v in nums:\n                prefix.append(prefix[-1] + v)\n            sums = []\n            prev_idx = 0\n            for p in points:\n                pos = bisect.bisect_left(nums, p)\n                sums.append(prefix[pos] - prefix[prev_idx])\n                prev_idx = pos + 1\n            sums.append(prefix[len(nums)] - prefix[prev_idx])\n            return sums\n        s1 = segment_sums(nums1, common)\n        s2 = segment_sums(nums2, common)\n        total = sum(max(a, b) for a, b in zip(s1, s2))\n        total += sum(common)\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSum(self, nums1, nums2):\n        MOD = 10 ** 9 + 7\n        i = j = 0\n        n1, n2 = len(nums1), len(nums2)\n        sum1 = sum2 = 0\n        while i < n1 and j < n2:\n            if nums1[i] < nums2[j]:\n                sum1 += nums1[i]\n                i += 1\n            elif nums1[i] > nums2[j]:\n                sum2 += nums2[j]\n                j += 1\n            else:\n                sum1 = sum2 = max(sum1, sum2) + nums1[i]\n                i += 1\n                j += 1\n        while i < n1:\n            sum1 += nums1[i]\n            i += 1\n        while j < n2:\n            sum2 += nums2[j]\n            j += 1\n        return max(sum1, sum2) % MOD\n",
+    "javascript": "var maxSum = function(nums1, nums2) {\n    const MOD = 1000000007;\n    let i = 0, j = 0;\n    const n1 = nums1.length, n2 = nums2.length;\n    let sum1 = 0, sum2 = 0;\n    while (i < n1 && j < n2) {\n        if (nums1[i] < nums2[j]) {\n            sum1 += nums1[i];\n            i += 1;\n        } else if (nums1[i] > nums2[j]) {\n            sum2 += nums2[j];\n            j += 1;\n        } else {\n            sum1 = sum2 = Math.max(sum1, sum2) + nums1[i];\n            i += 1;\n            j += 1;\n        }\n    }\n    while (i < n1) { sum1 += nums1[i]; i += 1; }\n    while (j < n2) { sum2 += nums2[j]; j += 1; }\n    return Math.max(sum1, sum2) % MOD;\n};\n"
+  },
+  "complexity": { "time": "O(n + m)", "space": "O(n + m)" }
+}
