@@ -1,0 +1,249 @@
+{
+  "slug": "k-highest-ranked-items-within-a-price-range",
+  "judge": "exact",
+  "pattern": "Reachability and rank both fall out of a single BFS from the start cell: distance is the BFS layer, and everything else is just a stable four-way tie-break stacked on top of it.",
+  "hints": [
+    "Treat this as a graph reachability question first: only cells connected to the start through in-bounds, non-wall neighbors ever matter, and every move costs exactly one step.",
+    "A breadth-first search from the start visits cells in order of increasing shortest distance, which is exactly the primary ranking key -- collect a cell as a candidate the instant you visit it, if its value falls inside the price window.",
+    "Once every candidate has a (distance, price, row, col) tuple, sorting ascending by that tuple gives the ranked list directly; keep the first k entries (or fewer, if that is all that qualifies)."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "rows": [
+        1,
+        100000
+      ],
+      "cols": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "pricing",
+      "kind": "int[]",
+      "len": [
+        2,
+        2
+      ],
+      "value": [
+        2,
+        100000
+      ]
+    },
+    {
+      "param": "start",
+      "kind": "int[]",
+      "len": [
+        2,
+        2
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several candidates tie on distance; the tie is broken by price, and there are fewer qualifying cells than k",
+      "input": [
+        [
+          [
+            4,
+            1,
+            8
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            7,
+            1,
+            6
+          ]
+        ],
+        [
+          4,
+          8
+        ],
+        [
+          1,
+          1
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an in-range item sits behind a wall and is never reachable, so it must not appear in the result",
+      "input": [
+        [
+          [
+            5,
+            0,
+            9
+          ]
+        ],
+        [
+          1,
+          20
+        ],
+        [
+          0,
+          0
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equals the total cell count and every cell qualifies, exercising the full ranked order",
+      "input": [
+        [
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          0,
+          0
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "four candidates tie on both distance and price; the order must fall back to row then column",
+      "input": [
+        [
+          [
+            0,
+            3,
+            0
+          ],
+          [
+            3,
+            1,
+            3
+          ],
+          [
+            0,
+            3,
+            0
+          ]
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          1,
+          1
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum possible grid: a single cell that is also the start",
+      "input": [
+        [
+          [
+            5
+          ]
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          0
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the start cell's own value is a passable non-item cell (value 1), so it must be excluded even though it is technically reachable at distance zero",
+      "input": [
+        [
+          [
+            1
+          ]
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          0
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single row with no walls, k equal to the row length, distances increase linearly with no ties",
+      "input": [
+        [
+          [
+            3,
+            4,
+            5,
+            6
+          ]
+        ],
+        [
+          3,
+          6
+        ],
+        [
+          0,
+          0
+        ],
+        4
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random grid with walls and prices, start cell forced passable, price window and k chosen to exercise most of the ranking logic",
+      "seed": 2146,
+      "size": 22,
+      "generator_python": "def gen(rng, size):\n    m = max(2, min(size, 25))\n    n = max(2, min(size, 25))\n    grid = [[rng.randint(0, 20) for _ in range(n)] for _ in range(m)]\n    sr, sc = rng.randrange(m), rng.randrange(n)\n    if grid[sr][sc] == 0:\n        grid[sr][sc] = 1\n    low = rng.randint(2, 12)\n    high = low + rng.randint(0, 10)\n    k = rng.randint(1, m * n)\n    return [grid, [low, high], [sr, sc], k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def highestRankedKItems(self, grid, pricing, start, k):\n        low, high = pricing[0], pricing[1]\n        m, n = len(grid), len(grid[0])\n        sr, sc = start[0], start[1]\n        INF = float('inf')\n        dist = [[INF] * n for _ in range(m)]\n        dist[sr][sc] = 0\n        # Bellman-Ford-style repeated relaxation over the grid graph until\n        # no distance improves -- a deliberately different mechanism than a\n        # queue-based BFS, but correct for unit-weight, no-negative-cycle graphs.\n        changed = True\n        while changed:\n            changed = False\n            for r in range(m):\n                for c in range(n):\n                    if grid[r][c] == 0 or dist[r][c] == INF:\n                        continue\n                    for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] != 0:\n                            if dist[r][c] + 1 < dist[nr][nc]:\n                                dist[nr][nc] = dist[r][c] + 1\n                                changed = True\n        items = []\n        for r in range(m):\n            for c in range(n):\n                if dist[r][c] < INF and low <= grid[r][c] <= high:\n                    items.append((dist[r][c], grid[r][c], r, c))\n        items.sort()\n        return [[r, c] for _, _, r, c in items[:k]]\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def highestRankedKItems(self, grid, pricing, start, k):\n        low, high = pricing[0], pricing[1]\n        m, n = len(grid), len(grid[0])\n        sr, sc = start[0], start[1]\n        visited = [[False] * n for _ in range(m)]\n        visited[sr][sc] = True\n        q = deque([(sr, sc, 0)])\n        items = []\n        while q:\n            r, c, d = q.popleft()\n            price = grid[r][c]\n            if low <= price <= high:\n                items.append((d, price, r, c))\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n and not visited[nr][nc] and grid[nr][nc] != 0:\n                    visited[nr][nc] = True\n                    q.append((nr, nc, d + 1))\n        items.sort(key=lambda t: (t[0], t[1], t[2], t[3]))\n        return [[r, c] for _, _, r, c in items[:k]]\n",
+    "javascript": "var highestRankedKItems = function(grid, pricing, start, k) {\n    const low = pricing[0], high = pricing[1];\n    const m = grid.length, n = grid[0].length;\n    const sr = start[0], sc = start[1];\n    const visited = Array.from({ length: m }, () => new Array(n).fill(false));\n    visited[sr][sc] = true;\n    const queue = [[sr, sc, 0]];\n    let head = 0;\n    const items = [];\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    while (head < queue.length) {\n        const [r, c, d] = queue[head++];\n        const price = grid[r][c];\n        if (price >= low && price <= high) {\n            items.push([d, price, r, c]);\n        }\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < m && nc >= 0 && nc < n && !visited[nr][nc] && grid[nr][nc] !== 0) {\n                visited[nr][nc] = true;\n                queue.push([nr, nc, d + 1]);\n            }\n        }\n    }\n    items.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);\n    return items.slice(0, k).map(t => [t[2], t[3]]);\n};\n"
+  },
+  "complexity": {
+    "time": "O(m*n log(m*n))",
+    "space": "O(m*n)"
+  }
+}
