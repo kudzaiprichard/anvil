@@ -1,0 +1,195 @@
+{
+  "slug": "k-th-nearest-obstacle-queries",
+  "judge": "exact",
+  "pattern": "A bounded max-heap that only ever holds the k smallest distances seen so far reports the current k-th nearest obstacle in logarithmic time per query, without ever re-sorting the whole history.",
+  "hints": [
+    "You only ever care about the k smallest distances built up so far, not the full history, so keep a structure that tracks just those k values.",
+    "A max-heap capped at size k works: once it holds k distances, its top is the current k-th nearest, and a new obstacle only matters if it beats that top.",
+    "Before the heap reaches size k there simply aren't enough obstacles yet, so the answer for that query is -1."
+  ],
+  "constraints": [
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        200000
+      ],
+      "value": [
+        -1000000000,
+        1000000000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "fewer than k obstacles at first, then enough",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            -3,
+            0
+          ]
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "k equals one, tracking the single nearest obstacle",
+      "input": [
+        [
+          [
+            5,
+            5
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            3,
+            3
+          ]
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single query with k equal to one",
+      "input": [
+        [
+          [
+            0,
+            0
+          ]
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k larger than the number of queries never reaches an answer",
+      "input": [
+        [
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            0
+          ]
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two obstacles land at exactly the same distance from the origin",
+      "input": [
+        [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            -1,
+            -1
+          ]
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "negative coordinates must contribute their absolute distance",
+      "input": [
+        [
+          [
+            -5,
+            -5
+          ],
+          [
+            3,
+            -2
+          ],
+          [
+            -1,
+            6
+          ]
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a later obstacle closer than all previous ones displaces the current k-th nearest",
+      "input": [
+        [
+          [
+            10,
+            0
+          ],
+          [
+            9,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random unique query coordinates across the full range",
+      "seed": 91,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    seen = set()\n    queries = []\n    while len(queries) < size:\n        x = rng.randint(-1000000000, 1000000000)\n        y = rng.randint(-1000000000, 1000000000)\n        if (x, y) in seen:\n            continue\n        seen.add((x, y))\n        queries.append([x, y])\n    k = rng.randint(1, max(1, size // 2))\n    return [queries, k]\n",
+      "note": "obstacle coordinates are always unique, as the problem guarantees"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def resultsArray(self, queries, k):\n        # Independent implementation that re-sorts every obstacle seen so far\n        # after each query, rather than maintaining a bounded heap.\n        obstacles = []\n        res = []\n        for x, y in queries:\n            obstacles.append(abs(x) + abs(y))\n            s = sorted(obstacles)\n            res.append(s[k - 1] if len(s) >= k else -1)\n        return res\n",
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def resultsArray(self, queries, k):\n        heap = []\n        res = []\n        for x, y in queries:\n            d = abs(x) + abs(y)\n            if len(heap) < k:\n                heapq.heappush(heap, -d)\n            elif -heap[0] > d:\n                heapq.heapreplace(heap, -d)\n            res.append(-heap[0] if len(heap) == k else -1)\n        return res\n",
+    "javascript": "var resultsArray = function(queries, k) {\n    const heap = [];\n    function push(v) {\n        heap.push(v);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p] < heap[i]) { [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } else break;\n        }\n    }\n    function pop() {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                let l = 2 * i + 1, r = 2 * i + 2, largest = i;\n                if (l < heap.length && heap[l] > heap[largest]) largest = l;\n                if (r < heap.length && heap[r] > heap[largest]) largest = r;\n                if (largest === i) break;\n                [heap[i], heap[largest]] = [heap[largest], heap[i]];\n                i = largest;\n            }\n        }\n        return top;\n    }\n    const res = [];\n    for (const [x, y] of queries) {\n        const d = Math.abs(x) + Math.abs(y);\n        if (heap.length < k) {\n            push(d);\n        } else if (heap[0] > d) {\n            pop();\n            push(d);\n        }\n        res.push(heap.length === k ? heap[0] : -1);\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m log k)",
+    "space": "O(k)"
+  }
+}
