@@ -1,0 +1,39 @@
+{
+  "slug": "groups-of-strings",
+  "judge": "exact",
+  "pattern": "Since only the set of letters in a word matters, each word collapses to a 26-bit fingerprint, and 'connected' becomes a graph problem over those fingerprints that a union-find can answer without ever comparing words to each other directly.",
+  "hints": [
+    "Because no word repeats a letter, every word can be reduced to a bitmask of which of the 26 letters it contains -- from that point on you never need the original word again, only its mask.",
+    "For each mask, only a small, fixed number of other masks can ever be directly reachable from it: masks with exactly one extra bit set, masks with exactly one bit cleared, and masks the same size that differ by one swapped bit -- so build a union-find and merge a mask with each of those neighbors that actually occurs among the words.",
+    "The tricky neighbor type is the swapped-bit case: instead of checking all 26x26 possible swaps, merge each mask with a shared 'one bit removed' key -- two masks of the same size that reduce to the exact same key after removing one bit are exactly the ones connected by a single swap, so they end up in the same union-find group automatically; count words (not masks) per group root to get the group count and the largest size."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 20000], "value": [1, 26] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two connected pairs plus one isolated word", "input": [["a", "b", "ab", "cde"]] },
+    { "kind": "edge", "description": "statement example, a chain of three words all in one group", "input": [["a", "ab", "abc"]] },
+    { "kind": "boundary", "description": "only a single word", "input": [["q"]] },
+    { "kind": "trap", "description": "the exact same word repeated several times, all one group", "input": [["ab", "ab", "ab", "ab"]] },
+    { "kind": "trap", "description": "anagrams of one another share an identical letter set", "input": [["abc", "bca", "cab"]] },
+    { "kind": "trap", "description": "same-length words with completely disjoint letters stay in separate groups", "input": [["ab", "cd"]] },
+    { "kind": "trap", "description": "single-letter words of different letters are all mutually swap-connected into one group", "input": [["a", "b", "c", "d", "e"]] },
+    { "kind": "edge", "description": "a growing chain where each word adds one new letter to the last", "input": [["a", "ab", "abc", "abcd"]] },
+    { "kind": "boundary", "description": "two words that together use every letter of the alphabet with no overlap", "input": [["abcdefghijklm", "nopqrstuvwxyz"]] }
+  ],
+  "stress": [
+    {
+      "description": "near the maximum word count, each word a random subset of letters in random order, exercising the full bitmask union-find at scale",
+      "seed": 11,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 20000))\n    words = []\n    for _ in range(n):\n        length = rng.randint(1, 26)\n        letters = rng.sample(range(26), length)\n        words.append(''.join(chr(97 + x) for x in letters))\n    return [words]\n",
+      "note": "letters within each word are sampled without replacement so no word ever repeats a letter, matching the constraint"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def groupStrings(self, words):\n        def mask_of(w):\n            m = 0\n            for ch in w:\n                m |= 1 << (ord(ch) - 97)\n            return m\n        masks = [mask_of(w) for w in words]\n        distinct = sorted(set(masks))\n        def connected(m1, m2):\n            if m1 == m2:\n                return True\n            diff = bin(m1 ^ m2).count('1')\n            if diff == 1:\n                return True\n            if diff == 2 and bin(m1).count('1') == bin(m2).count('1'):\n                return True\n            return False\n        parent = {m: m for m in distinct}\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        n = len(distinct)\n        for i in range(n):\n            for j in range(i + 1, n):\n                if connected(distinct[i], distinct[j]):\n                    union(distinct[i], distinct[j])\n        count = {}\n        for m in masks:\n            r = find(m)\n            count[r] = count.get(r, 0) + 1\n        return [len(count), max(count.values())]\n",
+  "solutions": {
+    "python": "class Solution:\n    def groupStrings(self, words):\n        def mask_of(w):\n            m = 0\n            for ch in w:\n                m |= 1 << (ord(ch) - 97)\n            return m\n        masks = []\n        present = set()\n        for w in words:\n            m = mask_of(w)\n            masks.append(m)\n            present.add(m)\n        parent = {}\n        def find(x):\n            parent.setdefault(x, x)\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for m in present:\n            find(m)\n            for b in range(26):\n                bit = 1 << b\n                if m & bit:\n                    neighbor = m ^ bit\n                    if neighbor in present:\n                        union(m, neighbor)\n                    union(m, ('r', neighbor))\n                else:\n                    neighbor = m | bit\n                    if neighbor in present:\n                        union(m, neighbor)\n        count = {}\n        for m in masks:\n            r = find(m)\n            count[r] = count.get(r, 0) + 1\n        return [len(count), max(count.values())]\n",
+    "javascript": "var groupStrings = function(words) {\n    const present = new Set();\n    const masks = [];\n    for (const w of words) {\n        let m = 0;\n        for (const ch of w) {\n            m |= 1 << (ch.charCodeAt(0) - 97);\n        }\n        masks.push(m);\n        present.add(m);\n    }\n    const parent = new Map();\n    function find(x) {\n        if (!parent.has(x)) parent.set(x, x);\n        let root = x;\n        while (parent.get(root) !== root) root = parent.get(root);\n        let cur = x;\n        while (parent.get(cur) !== root) {\n            const next = parent.get(cur);\n            parent.set(cur, root);\n            cur = next;\n        }\n        return root;\n    }\n    function union(a, b) {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent.set(ra, rb);\n    }\n    for (const m of present) {\n        find('m' + m);\n        for (let b = 0; b < 26; b++) {\n            const bit = 1 << b;\n            if (m & bit) {\n                const neighbor = m ^ bit;\n                if (present.has(neighbor)) union('m' + m, 'm' + neighbor);\n                union('m' + m, 'r' + neighbor);\n            } else {\n                const neighbor = m | bit;\n                if (present.has(neighbor)) union('m' + m, 'm' + neighbor);\n            }\n        }\n    }\n    const count = new Map();\n    for (const m of masks) {\n        const r = find('m' + m);\n        count.set(r, (count.get(r) || 0) + 1);\n    }\n    let maxSize = 0;\n    for (const v of count.values()) maxSize = Math.max(maxSize, v);\n    return [count.size, maxSize];\n};\n"
+  },
+  "complexity": { "time": "O(words * 26)", "space": "O(words)" }
+}
