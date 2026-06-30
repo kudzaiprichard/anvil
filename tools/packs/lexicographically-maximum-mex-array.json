@@ -1,0 +1,43 @@
+{
+  "slug": "lexicographically-maximum-mex-array",
+  "judge": "exact",
+  "pattern": "Because taking more elements into a prefix can only keep its MEX the same or raise it, the best achievable value for the very next result entry is always the MEX of everything remaining, so greedily grab the shortest prefix that already reaches that ceiling and repeat on the rest.",
+  "hints": [
+    "Extending a prefix can never lower its MEX, so the best score obtainable from the whole remaining array is simply the MEX of that entire remaining array -- work out what that ceiling value is first.",
+    "Once you know the ceiling for this round, scan forward from the start of the remaining array and stop the instant the MEX of what you've scanned so far already equals that ceiling; a shorter prefix here always leaves strictly more room for later rounds without sacrificing this round's value.",
+    "Precompute, for every starting position, the MEX of the suffix beginning there by sweeping once from the right (MEX only grows as the suffix grows); then a single left-to-right pass, restarting a small membership tracker at each new round, finds every round's cut point in overall linear time."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two rounds are needed, matching the classic MEX example", "input": [[0, 1, 0]] },
+    { "kind": "edge", "description": "the whole array is consumed in a single round", "input": [[1, 0, 2]] },
+    { "kind": "edge", "description": "no element is ever zero so every round scores zero", "input": [[3, 1]] },
+    { "kind": "boundary", "description": "a single-element array", "input": [[0]] },
+    { "kind": "boundary", "description": "a single nonzero element", "input": [[5]] },
+    { "kind": "trap", "description": "duplicates of zero should not inflate the MEX beyond one", "input": [[0, 0, 0, 1]] },
+    { "kind": "trap", "description": "a long run of increasing values means the true ceiling only appears once the whole prefix is taken", "input": [[0, 1, 2, 3, 4]] },
+    { "kind": "trap", "description": "large values far outside the useful MEX range must not slow down or confuse the tracker", "input": [[100000, 0, 100000, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "large random array with values kept small enough to interact with the MEX repeatedly",
+      "seed": 7,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = size\n    nums = [rng.randint(0, min(50, n)) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "large array at the full value range, mostly sparse zeros",
+      "seed": 8,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = size\n    nums = [rng.randint(0, 100000) for _ in range(n)]\n    for i in range(0, n, 37):\n        nums[i] = 0\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumMEX(self, nums):\n        nums = list(nums)\n        result = []\n        while nums:\n            full_mex = 0\n            full_set = set(nums)\n            while full_mex in full_set:\n                full_mex += 1\n            k = 1\n            while True:\n                seen = set(nums[:k])\n                m = 0\n                while m in seen:\n                    m += 1\n                if m == full_mex:\n                    break\n                k += 1\n            result.append(full_mex)\n            nums = nums[k:]\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumMEX(self, nums):\n        n = len(nums)\n        cap = n + 2\n        lastSeenAt = [-1] * cap\n        mexSuffix = [0] * (n + 1)\n        ptr = 0\n        for i in range(n - 1, -1, -1):\n            v = nums[i]\n            if v < cap:\n                lastSeenAt[v] = i\n            while ptr < cap and lastSeenAt[ptr] != -1:\n                ptr += 1\n            mexSuffix[i] = ptr\n        result = []\n        i = 0\n        seg_id = 0\n        seenStamp = [-1] * cap\n        while i < n:\n            target = mexSuffix[i]\n            seg_id += 1\n            cur_ptr = 0\n            j = i\n            while True:\n                v = nums[j]\n                if v < cap:\n                    seenStamp[v] = seg_id\n                while cur_ptr < cap and seenStamp[cur_ptr] == seg_id:\n                    cur_ptr += 1\n                j += 1\n                if cur_ptr == target:\n                    break\n            result.append(target)\n            i = j\n        return result\n",
+    "javascript": "var maximumMEX = function(nums) {\n    const n = nums.length;\n    const cap = n + 2;\n    const lastSeenAt = new Int32Array(cap).fill(-1);\n    const mexSuffix = new Array(n + 1).fill(0);\n    let ptr = 0;\n    for (let i = n - 1; i >= 0; i--) {\n        const v = nums[i];\n        if (v < cap) lastSeenAt[v] = i;\n        while (ptr < cap && lastSeenAt[ptr] !== -1) ptr++;\n        mexSuffix[i] = ptr;\n    }\n    const result = [];\n    let i = 0;\n    let segId = 0;\n    const seenStamp = new Int32Array(cap).fill(-1);\n    while (i < n) {\n        const target = mexSuffix[i];\n        segId++;\n        let curPtr = 0;\n        let j = i;\n        while (true) {\n            const v = nums[j];\n            if (v < cap) seenStamp[v] = segId;\n            while (curPtr < cap && seenStamp[curPtr] === segId) curPtr++;\n            j++;\n            if (curPtr === target) break;\n        }\n        result.push(target);\n        i = j;\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
