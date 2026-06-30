@@ -1,0 +1,195 @@
+{
+  "slug": "high-access-employees",
+  "judge": "unordered",
+  "pattern": "Once every access time is converted to minutes and grouped per person, flagging someone is just checking whether any three of their sorted times fit inside a 60-minute window.",
+  "hints": [
+    "Group the access times by employee name, and convert each 'HHMM' string into a single minutes-since-midnight number so times are easy to compare.",
+    "Sort each employee's minute values, then slide a window of 3 consecutive sorted times looking for a case where the last minus the first is under 60.",
+    "Only the exact difference matters -- a gap of exactly 60 minutes does not count as the same one-hour period, so use a strict less-than comparison."
+  ],
+  "constraints": [
+    {
+      "param": "access_times",
+      "kind": "string[][]",
+      "len": [
+        1,
+        100
+      ],
+      "value": [
+        1,
+        10
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example one",
+      "input": [
+        [
+          [
+            "a",
+            "0549"
+          ],
+          [
+            "b",
+            "0457"
+          ],
+          [
+            "a",
+            "0532"
+          ],
+          [
+            "a",
+            "0621"
+          ],
+          [
+            "b",
+            "0540"
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example two, two employees flagged",
+      "input": [
+        [
+          [
+            "d",
+            "0002"
+          ],
+          [
+            "c",
+            "0808"
+          ],
+          [
+            "c",
+            "0829"
+          ],
+          [
+            "e",
+            "0215"
+          ],
+          [
+            "d",
+            "1508"
+          ],
+          [
+            "d",
+            "1444"
+          ],
+          [
+            "d",
+            "1410"
+          ],
+          [
+            "c",
+            "0809"
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example three, times given out of order",
+      "input": [
+        [
+          [
+            "cd",
+            "1025"
+          ],
+          [
+            "ab",
+            "1025"
+          ],
+          [
+            "cd",
+            "1046"
+          ],
+          [
+            "cd",
+            "1055"
+          ],
+          [
+            "ab",
+            "1124"
+          ],
+          [
+            "ab",
+            "1120"
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single access time, cannot be high-access",
+      "input": [
+        [
+          [
+            "solo",
+            "1200"
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "three accesses exactly 60 minutes apart, does not count",
+      "input": [
+        [
+          [
+            "a",
+            "0800"
+          ],
+          [
+            "a",
+            "0830"
+          ],
+          [
+            "a",
+            "0900"
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "midnight wraparound is not treated as adjacent",
+      "input": [
+        [
+          [
+            "a",
+            "0005"
+          ],
+          [
+            "a",
+            "2350"
+          ],
+          [
+            "a",
+            "0010"
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random employees with random clustered access times",
+      "seed": 16,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    names = ['emp' + str(i) for i in range(10)]\n    access = []\n    for _ in range(n):\n        name = rng.choice(names)\n        h = rng.randint(0, 23)\n        m = rng.randint(0, 59)\n        access.append([name, f'{h:02d}{m:02d}'])\n    return [access]\n"
+    }
+  ],
+  "oracle_python": "from collections import defaultdict\n\nclass Solution:\n    def findHighAccessEmployees(self, access_times):\n        times = defaultdict(list)\n        for name, t in access_times:\n            minutes = int(t[:2]) * 60 + int(t[2:])\n            times[name].append(minutes)\n        result = []\n        for name, lst in times.items():\n            lst = sorted(lst)\n            n = len(lst)\n            found = False\n            for i in range(n):\n                for j in range(i + 1, n):\n                    for k in range(j + 1, n):\n                        if lst[k] - lst[i] < 60:\n                            found = True\n            if found:\n                result.append(name)\n        return result\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\nclass Solution:\n    def findHighAccessEmployees(self, access_times):\n        times = defaultdict(list)\n        for name, t in access_times:\n            minutes = int(t[:2]) * 60 + int(t[2:])\n            times[name].append(minutes)\n        result = []\n        for name, lst in times.items():\n            lst.sort()\n            n = len(lst)\n            for i in range(n - 2):\n                if lst[i + 2] - lst[i] < 60:\n                    result.append(name)\n                    break\n        return result\n",
+    "javascript": "var findHighAccessEmployees = function(access_times) {\n    const times = new Map();\n    for (const [name, t] of access_times) {\n        const minutes = parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(2), 10);\n        if (!times.has(name)) times.set(name, []);\n        times.get(name).push(minutes);\n    }\n    const result = [];\n    for (const [name, lst] of times) {\n        lst.sort((a, b) => a - b);\n        for (let i = 0; i + 2 < lst.length; i++) {\n            if (lst[i + 2] - lst[i] < 60) {\n                result.push(name);\n                break;\n            }\n        }\n    }\n    return result;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}
