@@ -1,0 +1,223 @@
+{
+  "slug": "k-th-smallest-remaining-even-integer-in-subarray-queries",
+  "judge": "exact",
+  "pattern": "The count of even numbers up to any value V that have been removed is just a prefix-sum lookup over the strictly increasing array, so binary searching on V for the point where 'evens up to V minus removed evens up to V' first reaches k finds the k-th remaining even directly.",
+  "hints": [
+    "For any candidate value V, the number of even integers from 2 up to V is simply floor(V / 2); subtracting how many of the removed values (the ones inside the queried subarray) are at most V tells you how many remain up to V.",
+    "Because nums is strictly increasing, the elements of a subarray that are at most V form a prefix of that subarray, so 'how many removed evens are <= V' is a single lookup once you have a prefix count of even values and can locate V's position with a binary search over the whole array.",
+    "Binary search directly on the candidate value V for the smallest one where (evens up to V) minus (removed evens up to V, restricted to the query's subarray) is at least k -- that V is always exactly the k-th remaining even number."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, three queries over the same array",
+      "input": [
+        [
+          1,
+          4,
+          7
+        ],
+        [
+          [
+            0,
+            2,
+            1
+          ],
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            0,
+            0,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a different array and query set",
+      "input": [
+        [
+          2,
+          5,
+          8
+        ],
+        [
+          [
+            0,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            0,
+            2,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a two-element array",
+      "input": [
+        [
+          3,
+          6
+        ],
+        [
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single-element array with the only possible query",
+      "input": [
+        [
+          5
+        ],
+        [
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the subarray removes several consecutive evens, so k must skip past all of them",
+      "input": [
+        [
+          2,
+          4,
+          6
+        ],
+        [
+          [
+            0,
+            2,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an all-odd subarray removes nothing, so the answer is simply 2 * k",
+      "input": [
+        [
+          1,
+          3,
+          5
+        ],
+        [
+          [
+            0,
+            2,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the query only covers part of the array, so evens outside the queried subarray must NOT be treated as removed",
+      "input": [
+        [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        [
+          [
+            1,
+            3,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "l equals r, a single-element subarray that happens to be odd, so nothing is removed",
+      "input": [
+        [
+          10,
+          11,
+          12
+        ],
+        [
+          [
+            1,
+            1,
+            2
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random strictly increasing arrays with random subarray queries and a wide spread of k values",
+      "seed": 91,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    nums = []\n    cur = 0\n    for _ in range(n):\n        cur += rng.randint(1, 5)\n        nums.append(cur)\n    q = max(1, min(n, 50))\n    queries = []\n    for _ in range(q):\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        k = rng.randint(1, 1000000000)\n        queries.append([l, r, k])\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def kthRemainingInteger(self, nums, queries):\n        ans = []\n        for l, r, k in queries:\n            removed = set(x for x in nums[l:r + 1] if x % 2 == 0)\n            count = 0\n            val = 0\n            while True:\n                val += 2\n                if val in removed:\n                    continue\n                count += 1\n                if count == k:\n                    break\n            ans.append(val)\n        return ans\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def kthRemainingInteger(self, nums: list[int], queries: list[list[int]]) -> list[int]:\n        n = len(nums)\n        prefix_even = [0] * (n + 1)\n        for i in range(n):\n            prefix_even[i + 1] = prefix_even[i] + (1 if nums[i] % 2 == 0 else 0)\n\n        def removed_le(x, l, r):\n            pos = bisect.bisect_right(nums, x) - 1\n            hi = min(pos, r)\n            if hi < l:\n                return 0\n            return prefix_even[hi + 1] - prefix_even[l]\n\n        ans = []\n        for l, r, k in queries:\n            lo, hi = 1, 2 * (k + (r - l + 1) + 2)\n            while lo < hi:\n                mid = (lo + hi) // 2\n                removed = removed_le(mid, l, r)\n                rank = mid // 2 - removed\n                if rank >= k:\n                    hi = mid\n                else:\n                    lo = mid + 1\n            ans.append(lo)\n        return ans\n",
+    "javascript": "var kthRemainingInteger = function(nums, queries) {\n    const n = nums.length;\n    const prefixEven = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        prefixEven[i + 1] = prefixEven[i] + (nums[i] % 2 === 0 ? 1 : 0);\n    }\n    function bisectRight(x) {\n        let lo = 0, hi = n;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (nums[mid] <= x) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n    function removedLe(x, l, r) {\n        const pos = bisectRight(x) - 1;\n        const hi = Math.min(pos, r);\n        if (hi < l) return 0;\n        return prefixEven[hi + 1] - prefixEven[l];\n    }\n    const ans = [];\n    for (const [l, r, k] of queries) {\n        let lo = 1, hi = 2 * (k + (r - l + 1) + 2);\n        while (lo < hi) {\n            const mid = Math.floor((lo + hi) / 2);\n            const removed = removedLe(mid, l, r);\n            const rank = Math.floor(mid / 2) - removed;\n            if (rank >= k) hi = mid; else lo = mid + 1;\n        }\n        ans.push(lo);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + q) log(maxValue))",
+    "space": "O(n)"
+  }
+}
