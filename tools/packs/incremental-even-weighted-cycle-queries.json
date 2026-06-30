@@ -1,0 +1,38 @@
+{
+  "slug": "incremental-even-weighted-cycle-queries",
+  "judge": "exact",
+  "pattern": "Any new cycle a redundant edge creates is checkable in isolation, because combining several even-weight cycles through symmetric difference always stays even -- so a parity-tracking union-find can accept or reject each edge on the spot without ever re-examining earlier ones.",
+  "hints": [
+    "Track each node's cumulative XOR-weight relative to its component's root, the way a weighted union-find tracks distances -- merging two different components is always safe and never creates a cycle.",
+    "The interesting case is when an edge's two endpoints are already in the same component: that edge would close exactly one new cycle, whose total weight is determined by the two endpoints' already-known parities plus the new edge's own weight.",
+    "Because every cycle in the whole graph can be built as a combination of these individual closing edges' cycles, and combining even-weight cycles always yields an even-weight cycle, checking each new edge's own closing condition in isolation is enough -- no need to re-check previously accepted edges."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [3, 50000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 50000], "note": "edges[i] = [ui, vi, wi] with 0 <= ui < vi < n, wi is 0 or 1, all edges distinct" }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "minimum node count, no cycle possible yet with two edges", "input": [3, [[0, 1, 1], [1, 2, 0]]] },
+    { "kind": "trap", "description": "closing an odd-weight triangle -- the closing edge must be rejected", "input": [3, [[0, 1, 1], [1, 2, 1], [0, 2, 1]]] },
+    { "kind": "edge", "description": "closing an even-weight triangle -- the closing edge is accepted", "input": [3, [[0, 1, 1], [1, 2, 1], [0, 2, 0]]] },
+    { "kind": "trap", "description": "two separate components merged later by one edge, always accepted", "input": [4, [[0, 1, 1], [2, 3, 0], [1, 2, 1]]] },
+    { "kind": "trap", "description": "a redundant edge that would create an odd cycle from an all-zero-weight component", "input": [4, [[0, 1, 0], [1, 2, 0], [0, 2, 1]]] },
+    { "kind": "edge", "description": "repeating the same edge twice with a consistent weight -- second copy still accepted", "input": [3, [[0, 1, 1], [0, 1, 1]]] },
+    { "kind": "trap", "description": "repeating the same edge with a conflicting weight -- second copy rejected", "input": [3, [[0, 1, 1], [0, 1, 0]]] },
+    { "kind": "edge", "description": "a longer chain where the final closing edge keeps the total even", "input": [5, [[0, 1, 1], [1, 2, 0], [2, 3, 1], [3, 4, 1], [0, 4, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "a large random graph near the maximum node and edge budget",
+      "seed": 121,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 50000))\n    m = min(n * (n - 1) // 2, 50000)\n    seen = set()\n    edges = []\n    while len(edges) < m:\n        u = rng.randint(0, n - 2)\n        v = rng.randint(u + 1, n - 1)\n        if (u, v) in seen:\n            continue\n        seen.add((u, v))\n        w = rng.randint(0, 1)\n        edges.append([u, v, w])\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque, defaultdict\nclass Solution:\n    def numberOfEdgesAdded(self, n, edges):\n        adj = defaultdict(list)\n        count = 0\n        for u, v, w in edges:\n            visited = {u: 0}\n            q = deque([u])\n            while q:\n                cur = q.popleft()\n                for nxt, wt in adj[cur]:\n                    if nxt not in visited:\n                        visited[nxt] = visited[cur] ^ wt\n                        q.append(nxt)\n            if v in visited:\n                if visited[v] == w:\n                    adj[u].append((v, w))\n                    adj[v].append((u, w))\n                    count += 1\n            else:\n                adj[u].append((v, w))\n                adj[v].append((u, w))\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfEdgesAdded(self, n, edges):\n        parent = list(range(n))\n        potential = [0] * n\n        def find(x):\n            chain = []\n            root = x\n            while parent[root] != root:\n                chain.append(root)\n                root = parent[root]\n            acc = 0\n            par_to_root = {}\n            for node in reversed(chain):\n                acc ^= potential[node]\n                par_to_root[node] = acc\n            for node in chain:\n                parent[node] = root\n                potential[node] = par_to_root[node]\n            return root, (par_to_root[x] if chain else 0)\n        count = 0\n        for u, v, w in edges:\n            ru, pu = find(u)\n            rv, pv = find(v)\n            if ru != rv:\n                parent[ru] = rv\n                potential[ru] = pu ^ pv ^ w\n                count += 1\n            else:\n                if (pu ^ pv) == w:\n                    count += 1\n        return count\n",
+    "javascript": "var numberOfEdgesAdded = function(n, edges) {\n    const parent = new Array(n);\n    const potential = new Array(n).fill(0);\n    for (let i = 0; i < n; i++) parent[i] = i;\n    function find(x) {\n        const chain = [];\n        let root = x;\n        while (parent[root] !== root) {\n            chain.push(root);\n            root = parent[root];\n        }\n        let acc = 0;\n        const parToRoot = new Map();\n        for (let i = chain.length - 1; i >= 0; i--) {\n            const node = chain[i];\n            acc ^= potential[node];\n            parToRoot.set(node, acc);\n        }\n        for (const node of chain) {\n            parent[node] = root;\n            potential[node] = parToRoot.get(node);\n        }\n        return [root, chain.length ? parToRoot.get(x) : 0];\n    }\n    let count = 0;\n    for (const [u, v, w] of edges) {\n        const [ru, pu] = find(u);\n        const [rv, pv] = find(v);\n        if (ru !== rv) {\n            parent[ru] = rv;\n            potential[ru] = pu ^ pv ^ w;\n            count++;\n        } else if ((pu ^ pv) === w) {\n            count++;\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O((n + m) α(n))", "space": "O(n)" }
+}
