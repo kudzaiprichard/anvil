@@ -1,0 +1,138 @@
+{
+  "slug": "maximize-the-minimum-game-score",
+  "judge": "exact",
+  "pattern": "Binary search the achievable minimum score, and check feasibility by greedily working out, index by index, how many extra back-and-forth visits are needed to reach it within the move budget.",
+  "hints": [
+    "For a candidate minimum score x, each index needs to be visited at least ceil(x / points[i]) times -- work out the cheapest walk that guarantees every index that many visits.",
+    "Walking straight through the array once already gives every index one free visit; any shortfall has to be made up with extra back-and-forth steps, and a deficit at one index can often be paid for by a bounce that also helps the very next index.",
+    "The last stretch of the walk is special: if the final index already ends up with more visits than it strictly needs, you can stop the walk one step early instead of continuing on to it -- that shaves one move off the total, but only in that specific situation."
+  ],
+  "constraints": [
+    {
+      "param": "points",
+      "kind": "int[]",
+      "len": [
+        2,
+        50000
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    },
+    {
+      "param": "m",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two indices, exactly enough moves to balance them",
+      "input": [
+        [
+          2,
+          4
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three indices with a slightly larger move budget",
+      "input": [
+        [
+          1,
+          2,
+          3
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "move budget just barely enough to reach the last index once",
+      "input": [
+        [
+          5,
+          5,
+          5,
+          5
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "move budget too small to reach every index at all, so the answer is zero",
+      "input": [
+        [
+          10,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one tiny value forces many extra visits nearby to keep the minimum up",
+      "input": [
+        [
+          1,
+          1000000,
+          1000000
+        ],
+        10
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "large point values (near the maximum) with a modest move budget",
+      "input": [
+        [
+          1000000,
+          1000000
+        ],
+        20
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the weakest index sits in the middle rather than at an edge",
+      "input": [
+        [
+          5,
+          1,
+          5,
+          5
+        ],
+        6
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a long array of random point values with a large random move budget",
+      "seed": 1201,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(50000, size if size >= 2 else 2))\n    points = [rng.randint(1, 1000000) for _ in range(n)]\n    m = rng.randint(n, 1000000000)\n    return [points, m]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxScore(self, points, m):\n        # independent re-derivation: exact breadth-first search over reachable\n        # per-index visit counts, correct but only intended for small inputs\n        import math\n        n = len(points)\n        def min_moves_for_need(need):\n            start_visits = tuple(min(1 if i == 0 else 0, need[i]) for i in range(n))\n            if all(start_visits[i] >= need[i] for i in range(n)):\n                return 1\n            seen = {(0, start_visits)}\n            frontier = [(0, start_visits)]\n            moves = 1\n            while frontier:\n                nxt = []\n                for pos, visits in frontier:\n                    for np in (pos - 1, pos + 1):\n                        if 0 <= np < n:\n                            nv = list(visits)\n                            nv[np] = min(nv[np] + 1, need[np])\n                            nv = tuple(nv)\n                            if all(nv[i] >= need[i] for i in range(n)):\n                                return moves + 1\n                            state = (np, nv)\n                            if state not in seen:\n                                seen.add(state)\n                                nxt.append(state)\n                frontier = nxt\n                moves += 1\n                if moves > 400:\n                    return None\n            return None\n        def feasible(x):\n            if x <= 0:\n                return True\n            need = [math.ceil(x / p) for p in points]\n            bm = min_moves_for_need(need)\n            return bm is not None and bm <= m\n        lo, hi = 0, 1\n        while feasible(hi):\n            hi *= 2\n        while lo < hi:\n            mid = (lo + hi + 1) // 2\n            if feasible(mid):\n                lo = mid\n            else:\n                hi = mid - 1\n        return lo\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxScore(self, points, m):\n        n = len(points)\n        def feasible(x):\n            if x <= 0:\n                return True\n            moves = n\n            carry = 0\n            have_last = 0\n            need_last = 0\n            for i in range(n):\n                have = 1 + carry\n                need = (x + points[i] - 1) // points[i]\n                if i == n - 1:\n                    have_last = have\n                    need_last = need\n                if have < need:\n                    deficit = need - have\n                    moves += 2 * deficit\n                    carry = deficit\n                    if moves > m + 1:\n                        return False\n                else:\n                    carry = 0\n            if have_last > need_last:\n                moves -= 1\n            return moves <= m\n        max_points = max(points)\n        lo, hi = 0, m * max_points + 1\n        while lo < hi:\n            mid = (lo + hi + 1) // 2\n            if feasible(mid):\n                lo = mid\n            else:\n                hi = mid - 1\n        return lo\n",
+    "javascript": "var maxScore = function(points, m) {\n    const n = points.length;\n    let maxP = 0;\n    for (const p of points) if (p > maxP) maxP = p;\n    function feasible(x) {\n        if (x <= 0) return true;\n        let moves = n;\n        let carry = 0;\n        let haveLast = 0, needLast = 0;\n        for (let i = 0; i < n; i++) {\n            const have = 1 + carry;\n            const need = Math.ceil(x / points[i]);\n            if (i === n - 1) { haveLast = have; needLast = need; }\n            if (have < need) {\n                const deficit = need - have;\n                moves += 2 * deficit;\n                carry = deficit;\n                if (moves > m + 1) return false;\n            } else {\n                carry = 0;\n            }\n        }\n        if (haveLast > needLast) moves -= 1;\n        return moves <= m;\n    }\n    let lo = 0, hi = m * maxP + 1;\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi + 1) / 2);\n        if (feasible(mid)) lo = mid; else hi = mid - 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n*log(m*max(points)))",
+    "space": "O(1)"
+  }
+}
