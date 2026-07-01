@@ -1,0 +1,174 @@
+{
+  "slug": "maximize-subarrays-after-removing-one-conflicting-pair",
+  "judge": "exact",
+  "pattern": "Scanning right endpoints while tracking the closest forbidden left boundary -- and, separately, what that boundary would fall back to if a single specific pair were absent -- turns removing the most disruptive pair into a running credit each position hands to whichever pair is currently responsible for it.",
+  "hints": [
+    "For a fixed set of forbidden pairs, the number of valid subarrays ending at each right endpoint depends only on the closest forbidden left-position seen so far -- summing that over every right endpoint gives the total count without the removal.",
+    "As you scan endpoints left to right, keep track not just of the current closest forbidden boundary but also of what the boundary would become if the single pair currently enforcing it were taken away.",
+    "Whenever exactly one pair is solely responsible for the current boundary, credit that pair with the gap between the current boundary and its fallback; the pair with the largest total credit is the one worth removing."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        2,
+        100000
+      ]
+    },
+    {
+      "param": "conflictingPairs",
+      "kind": "int[][]",
+      "len": [
+        1,
+        200000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, removing the first pair helps most",
+      "input": [
+        4,
+        [
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, three pairs sharing an endpoint",
+      "input": [
+        5,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            3,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest array with a single pair",
+      "input": [
+        2,
+        [
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate identical pairs, removing one still leaves the constraint active",
+      "input": [
+        4,
+        [
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two pairs that never both bind the same right endpoint at once",
+      "input": [
+        6,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            5,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "many pairs share the same restrictive left endpoint",
+      "input": [
+        5,
+        [
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "pairs given with the larger index first",
+      "input": [
+        4,
+        [
+          [
+            4,
+            1
+          ],
+          [
+            3,
+            2
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small n with many random pairs, exercising ties and overlaps",
+      "seed": 21,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 500))\n    m = rng.randint(1, min(2 * n, 800))\n    pairs = []\n    for _ in range(m):\n        a = rng.randint(1, n)\n        b = rng.randint(1, n)\n        while b == a:\n            b = rng.randint(1, n)\n        pairs.append([a, b])\n    return [n, pairs]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSubarrays(self, n, conflictingPairs):\n        m = len(conflictingPairs)\n        def count_valid(active):\n            cnt = 0\n            bad = 0\n            for r in range(1, n + 1):\n                for a, b in active:\n                    lo, hi = min(a, b), max(a, b)\n                    if hi == r and lo > bad:\n                        bad = lo\n                cnt += r - bad\n            return cnt\n        best = 0\n        for skip in range(m):\n            active = [conflictingPairs[i] for i in range(m) if i != skip]\n            best = max(best, count_valid(active))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSubarrays(self, n, conflictingPairs):\n        byq = [[] for _ in range(n + 1)]\n        for idx, pair in enumerate(conflictingPairs):\n            a, b = pair[0], pair[1]\n            p, q = (a, b) if a < b else (b, a)\n            byq[q].append((p, idx))\n        curmax = 0\n        second = 0\n        cnt_curmax = 0\n        owner = None\n        credit = {}\n        baseline = 0\n        for r in range(1, n + 1):\n            for p, idx in byq[r]:\n                if p > curmax:\n                    second = curmax\n                    curmax = p\n                    cnt_curmax = 1\n                    owner = idx\n                elif p == curmax:\n                    cnt_curmax += 1\n                    owner = None\n                else:\n                    if p > second:\n                        second = p\n            baseline += (r - curmax)\n            if cnt_curmax == 1 and owner is not None:\n                credit[owner] = credit.get(owner, 0) + (curmax - second)\n        best_gain = 0\n        for g in credit.values():\n            if g > best_gain:\n                best_gain = g\n        return baseline + best_gain\n",
+    "javascript": "var maxSubarrays = function(n, conflictingPairs) {\n    const byq = Array.from({ length: n + 1 }, () => []);\n    conflictingPairs.forEach((pair, idx) => {\n        const a = pair[0], b = pair[1];\n        const p = Math.min(a, b), q = Math.max(a, b);\n        byq[q].push([p, idx]);\n    });\n    let curmax = 0, second = 0, cntCurmax = 0, owner = -1;\n    const credit = new Map();\n    let baseline = 0;\n    for (let r = 1; r <= n; r++) {\n        for (const [p, idx] of byq[r]) {\n            if (p > curmax) {\n                second = curmax;\n                curmax = p;\n                cntCurmax = 1;\n                owner = idx;\n            } else if (p === curmax) {\n                cntCurmax++;\n                owner = -1;\n            } else if (p > second) {\n                second = p;\n            }\n        }\n        baseline += (r - curmax);\n        if (cntCurmax === 1 && owner !== -1) {\n            credit.set(owner, (credit.get(owner) || 0) + (curmax - second));\n        }\n    }\n    let bestGain = 0;\n    for (const g of credit.values()) {\n        if (g > bestGain) bestGain = g;\n    }\n    return baseline + bestGain;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + conflictingPairs.length)",
+    "space": "O(n + conflictingPairs.length)"
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "slug": "maximize-subarray-sum-after-removing-all-occurrences-of-one-element",
+  "judge": "exact",
+  "pattern": "Deleting every copy of one value is the same as replacing every copy of it with a free zero bridge, so the best subarray after the operation is just a Kadane-style merge of the untouched runs between those bridges -- and only negative candidate values are ever worth trying.",
+  "hints": [
+    "Removing all copies of x turns sum(l..r) - x*count_x(l..r) into the sum of the same range with every x swapped for 0, so only negative x can ever help (positive or zero x never improves things).",
+    "For a fixed x, the array splits into runs separated by x's occurrences; treat each x as a free zero and merge the runs left to right the way a segment tree merges Kadane blocks (track each block's total sum, best prefix, best suffix, and best subarray).",
+    "Precompute a Kadane-merge segment tree once for range queries, then for every distinct negative value x, stitch together the runs between its occurrences (with zero blocks in between) and take the merged best subarray as that value's candidate answer; the overall answer is the best candidate over all x plus the untouched baseline."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        -1000000,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, removing a middling negative helps most",
+      "input": [
+        [
+          -3,
+          2,
+          -2,
+          -1,
+          3,
+          -2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all non-negative, no removal ever helps",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element array",
+      "input": [
+        [
+          -5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "removing the only negative value would empty the array, so it must be skipped",
+      "input": [
+        [
+          -1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a very negative single spike separates two positive runs",
+      "input": [
+        [
+          5,
+          4,
+          -1000,
+          6,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all negative, best is a single least-negative element",
+      "input": [
+        [
+          -4,
+          -1,
+          -6,
+          -2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "removing a repeated small negative beats removing a rarer larger one",
+      "input": [
+        [
+          3,
+          -1,
+          3,
+          -1,
+          3,
+          -1,
+          -50,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme magnitude values",
+      "input": [
+        [
+          1000000,
+          -1000000,
+          1000000
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long random array with a healthy mix of repeated negative values",
+      "seed": 13,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = []\n    for _ in range(n):\n        if rng.random() < 0.4:\n            nums.append(-rng.randint(1, 20))\n        else:\n            nums.append(rng.randint(-1000000, 1000000))\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSubarraySum(self, nums):\n        def kadane(arr):\n            best = arr[0]\n            cur = arr[0]\n            for v in arr[1:]:\n                cur = max(v, cur + v)\n                best = max(best, cur)\n            return best\n\n        ans = kadane(nums)\n        for x in set(nums):\n            filtered = [v for v in nums if v != x]\n            if filtered:\n                ans = max(ans, kadane(filtered))\n        return ans\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\nNEG_INF = float('-inf')\n\n\nclass _SegTree:\n    def __init__(self, arr):\n        self.n = len(arr)\n        self.tree = [None] * (4 * self.n)\n        self._build(arr, 1, 0, self.n - 1)\n\n    def _build(self, arr, node, l, r):\n        if l == r:\n            v = arr[l]\n            self.tree[node] = (v, v, v, v)\n            return\n        mid = (l + r) // 2\n        self._build(arr, node * 2, l, mid)\n        self._build(arr, node * 2 + 1, mid + 1, r)\n        self.tree[node] = _SegTree.merge(self.tree[node * 2], self.tree[node * 2 + 1])\n\n    @staticmethod\n    def merge(a, b):\n        if a is None:\n            return b\n        if b is None:\n            return a\n        s = a[0] + b[0]\n        pre = max(a[1], a[0] + b[1])\n        suf = max(b[2], b[0] + a[2])\n        sub = max(a[3], b[3], a[2] + b[1])\n        return (s, pre, suf, sub)\n\n    def query(self, l, r, node=1, nl=0, nr=None):\n        if nr is None:\n            nr = self.n - 1\n        if r < nl or nr < l:\n            return None\n        if l <= nl and nr <= r:\n            return self.tree[node]\n        mid = (nl + nr) // 2\n        left = self.query(l, r, node * 2, nl, mid)\n        right = self.query(l, r, node * 2 + 1, mid + 1, nr)\n        return _SegTree.merge(left, right)\n\n\nclass Solution:\n    def maxSubarraySum(self, nums):\n        n = len(nums)\n        st = _SegTree(nums)\n        ans = st.query(0, n - 1)[3]\n        pos = defaultdict(list)\n        for i, v in enumerate(nums):\n            if v < 0:\n                pos[v].append(i)\n        ZERO = (0, NEG_INF, NEG_INF, NEG_INF)\n        for v, idxs in pos.items():\n            if len(idxs) == n:\n                continue\n            blocks = []\n            prev = -1\n            for idx in idxs:\n                lo, hi = prev + 1, idx - 1\n                if lo <= hi:\n                    blocks.append(st.query(lo, hi))\n                blocks.append(ZERO)\n                prev = idx\n            lo, hi = prev + 1, n - 1\n            if lo <= hi:\n                blocks.append(st.query(lo, hi))\n            merged = None\n            for b in blocks:\n                merged = b if merged is None else _SegTree.merge(merged, b)\n            ans = max(ans, merged[3])\n        return ans\n",
+    "javascript": "function segBuild(arr, node, l, r, tree) {\n    if (l === r) {\n        const v = arr[l];\n        tree[node] = [v, v, v, v];\n        return;\n    }\n    const mid = (l + r) >> 1;\n    segBuild(arr, node * 2, l, mid, tree);\n    segBuild(arr, node * 2 + 1, mid + 1, r, tree);\n    tree[node] = segMerge(tree[node * 2], tree[node * 2 + 1]);\n}\nfunction segMerge(a, b) {\n    if (a === null) return b;\n    if (b === null) return a;\n    const s = a[0] + b[0];\n    const pre = Math.max(a[1], a[0] + b[1]);\n    const suf = Math.max(b[2], b[0] + a[2]);\n    const sub = Math.max(a[3], b[3], a[2] + b[1]);\n    return [s, pre, suf, sub];\n}\nfunction segQuery(tree, n, l, r, node, nl, nr) {\n    if (r < nl || nr < l) return null;\n    if (l <= nl && nr <= r) return tree[node];\n    const mid = (nl + nr) >> 1;\n    const left = segQuery(tree, n, l, r, node * 2, nl, mid);\n    const right = segQuery(tree, n, l, r, node * 2 + 1, mid + 1, nr);\n    return segMerge(left, right);\n}\nvar maxSubarraySum = function(nums) {\n    const n = nums.length;\n    const tree = new Array(4 * n).fill(null);\n    segBuild(nums, 1, 0, n - 1, tree);\n    let ans = segQuery(tree, n, 0, n - 1, 1, 0, n - 1)[3];\n    const pos = new Map();\n    for (let i = 0; i < n; i++) {\n        if (nums[i] < 0) {\n            if (!pos.has(nums[i])) pos.set(nums[i], []);\n            pos.get(nums[i]).push(i);\n        }\n    }\n    const ZERO = [0, -Infinity, -Infinity, -Infinity];\n    for (const [v, idxs] of pos) {\n        if (idxs.length === n) continue;\n        const blocks = [];\n        let prev = -1;\n        for (const idx of idxs) {\n            const lo = prev + 1, hi = idx - 1;\n            if (lo <= hi) blocks.push(segQuery(tree, n, lo, hi, 1, 0, n - 1));\n            blocks.push(ZERO);\n            prev = idx;\n        }\n        const lo = prev + 1, hi = n - 1;\n        if (lo <= hi) blocks.push(segQuery(tree, n, lo, hi, 1, 0, n - 1));\n        let merged = null;\n        for (const b of blocks) merged = merged === null ? b : segMerge(merged, b);\n        ans = Math.max(ans, merged[3]);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}
