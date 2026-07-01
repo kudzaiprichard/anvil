@@ -1,0 +1,37 @@
+{
+  "slug": "longest-square-streak-in-an-array",
+  "judge": "exact",
+  "pattern": "Put every distinct value in a set, then for each value check whether it can be the smallest element of a streak by repeatedly squaring it and testing membership — the streak starting at the smallest untried base gives the true streak length for that whole chain.",
+  "hints": [
+    "Only the distinct values matter (duplicates never extend a streak), so drop them into a hash set for O(1) membership checks.",
+    "For a candidate starting value v, the rest of its streak is forced: it must contain v*v, then (v*v)*(v*v), and so on — walk that chain while each next square is present in the set, counting steps.",
+    "To avoid recomputing the same chain from its middle, only start counting from a value v whose square root is NOT itself present in the set — that guarantees v is the true start of its chain."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [2, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "no square relationship among any pair — no streak exists", "input": [[2, 3, 5, 6, 7]] },
+    { "kind": "edge", "description": "one clean streak buried among unrelated numbers", "input": [[4, 3, 6, 16, 8, 2]] },
+    { "kind": "edge", "description": "minimal streak of exactly two elements", "input": [[3, 9]] },
+    { "kind": "edge", "description": "duplicate values must not inflate the streak length", "input": [[2, 2, 4, 4, 16, 16]] },
+    { "kind": "edge", "description": "two independent streaks of different lengths — the longer one wins", "input": [[2, 4, 16, 5, 25]] },
+    { "kind": "boundary", "description": "longest possible chain of repeated squaring starting from the smallest base value 2 (2, 4, 16, 256, 65536 all within the value range)", "input": [[2, 4, 16, 256, 65536]] },
+    { "kind": "trap", "description": "a value appears both as the square of one number and as a valid starting base for another chain of its own — must not double count or merge unrelated chains", "input": [[3, 9, 81, 2, 4]] },
+    { "kind": "trap", "description": "starting the walk from the middle of a chain instead of its true root would undercount — the true start (3) must be found even though its square (9) appears earlier in the array", "input": [[9, 3, 81, 6561]] }
+  ],
+  "stress": [
+    {
+      "description": "large random array occasionally seeded with genuine square chains to exercise both the no-streak and long-streak paths at scale",
+      "seed": 27,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    nums = []\n    while len(nums) < n:\n        if rng.random() < 0.05:\n            base = rng.randint(2, 300)\n            v = base\n            while v <= 100000 and len(nums) < n:\n                nums.append(v)\n                v = v * v\n        else:\n            nums.append(rng.randint(2, 100000))\n    rng.shuffle(nums)\n    return [nums[:n]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestSquareStreak(self, nums):\n        vals = set(nums)\n        best = -1\n        for v in vals:\n            length = 1\n            cur = v\n            while cur * cur in vals:\n                cur = cur * cur\n                length += 1\n            if length >= 2 and length > best:\n                best = length\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestSquareStreak(self, nums):\n        vals = set(nums)\n        best = -1\n        for v in vals:\n            root = int(v ** 0.5)\n            is_root_present = False\n            for r in (root - 1, root, root + 1):\n                if r * r == v and r in vals:\n                    is_root_present = True\n                    break\n            if is_root_present:\n                continue\n            length = 1\n            cur = v\n            while cur * cur in vals:\n                cur = cur * cur\n                length += 1\n            if length >= 2:\n                best = max(best, length)\n        return best\n",
+    "javascript": "var longestSquareStreak = function(nums) {\n    const vals = new Set(nums);\n    let best = -1;\n    for (const v of vals) {\n        const root = Math.round(Math.sqrt(v));\n        let rootPresent = false;\n        for (const r of [root - 1, root, root + 1]) {\n            if (r * r === v && vals.has(r)) { rootPresent = true; break; }\n        }\n        if (rootPresent) continue;\n        let length = 1;\n        let cur = v;\n        while (vals.has(cur * cur)) {\n            cur = cur * cur;\n            length++;\n        }\n        if (length >= 2 && length > best) best = length;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log log V)", "space": "O(n)" }
+}
