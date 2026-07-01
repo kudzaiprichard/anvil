@@ -1,0 +1,41 @@
+{
+  "slug": "maximize-the-profit-as-the-salesman",
+  "judge": "exact",
+  "pattern": "Every offer only matters at the house where it ends, so scanning houses left to right and asking 'what's the best I could have earned up to just before this offer started, plus this offer's gold' turns the search over exponentially many buyer combinations into one linear pass with a running best-so-far table.",
+  "hints": [
+    "Think of the houses as a number line from 0 to n-1, and imagine sweeping across it left to right while tracking the best total profit achievable using only houses seen so far.",
+    "Group the offers by the house index where they end. When your sweep reaches that house, an offer becomes usable, and taking it only requires knowing the best profit achievable strictly before the offer's start house.",
+    "Keep a running array of best-profit-so-far indexed by house position; at each house, the best value either carries over unchanged (skip every offer ending here) or improves by combining an ending offer's gold with the best profit recorded at its starting house."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "offers", "kind": "int[][]", "len": [0, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three overlapping offers", "input": [5, [[0, 0, 1], [0, 2, 2], [1, 3, 2]]] },
+    { "kind": "edge", "description": "statement example, one dominant offer", "input": [5, [[0, 0, 1], [0, 2, 10], [1, 3, 2]]] },
+    { "kind": "boundary", "description": "single house, single offer covering it", "input": [1, [[0, 0, 5]]] },
+    { "kind": "boundary", "description": "no offers at all", "input": [3, []] },
+    { "kind": "trap", "description": "two small disjoint offers beat one larger overlapping offer", "input": [4, [[0, 1, 5], [0, 3, 6], [2, 3, 5]]] },
+    { "kind": "trap", "description": "duplicate identical intervals with different gold, must pick the richer one", "input": [3, [[0, 2, 5], [0, 2, 9], [1, 2, 3]]] },
+    { "kind": "edge", "description": "three disjoint single-house offers, all can be taken", "input": [3, [[0, 0, 10], [1, 1, 10], [2, 2, 10]]] },
+    { "kind": "trap", "description": "an offer that starts exactly where another ends should chain, not overlap", "input": [6, [[0, 2, 4], [3, 5, 4], [0, 5, 7]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random overlapping offers over a mid-sized house range",
+      "seed": 23,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    m = rng.randint(1, min(n * 2, 100000))\n    offers = []\n    for _ in range(m):\n        s = rng.randint(0, n - 1)\n        e = rng.randint(s, n - 1)\n        g = rng.randint(1, 1000)\n        offers.append([s, e, g])\n    return [n, offers]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximizeTheProfit(self, n, offers):\n        by_start = {}\n        for s, e, g in offers:\n            by_start.setdefault(s, []).append((e, g))\n        dp = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            best = dp[i + 1]\n            for e, g in by_start.get(i, []):\n                cand = dp[e + 1] + g\n                if cand > best:\n                    best = cand\n            dp[i] = best\n        return dp[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximizeTheProfit(self, n, offers):\n        by_end = {}\n        for s, e, g in offers:\n            by_end.setdefault(e, []).append((s, g))\n        dp = [0] * (n + 1)\n        for e in range(n):\n            dp[e + 1] = dp[e]\n            for s, g in by_end.get(e, []):\n                cand = dp[s] + g\n                if cand > dp[e + 1]:\n                    dp[e + 1] = cand\n        return dp[n]\n",
+    "javascript": "var maximizeTheProfit = function(n, offers) {\n    const byEnd = new Map();\n    for (const [s, e, g] of offers) {\n        if (!byEnd.has(e)) byEnd.set(e, []);\n        byEnd.get(e).push([s, g]);\n    }\n    const dp = new Array(n + 1).fill(0);\n    for (let e = 0; e < n; e++) {\n        dp[e + 1] = dp[e];\n        const list = byEnd.get(e);\n        if (list) {\n            for (const [s, g] of list) {\n                const cand = dp[s] + g;\n                if (cand > dp[e + 1]) dp[e + 1] = cand;\n            }\n        }\n    }\n    return dp[n];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + offers.length)",
+    "space": "O(n + offers.length)"
+  }
+}
