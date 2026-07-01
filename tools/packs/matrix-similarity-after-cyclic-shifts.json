@@ -1,0 +1,41 @@
+{
+  "slug": "matrix-similarity-after-cyclic-shifts",
+  "judge": "exact",
+  "pattern": "Repeating the same single-step rotation on a row over and over is periodic in the row's own length, so only the net rotation left after reducing the repeat count against that length ever matters, and comparing that one rotated copy to the original settles the whole matrix.",
+  "hints": [
+    "Repeating a rotation of a fixed-length row many times cycles back to the start once you've gone all the way around, so only how far short of a full lap you land actually changes the row.",
+    "For each row, reduce the number of repeats against how many columns it has to get the true net shift, rather than replaying every single step.",
+    "Build the one rotated copy each row would end up as (left for even-indexed rows, right for odd-indexed rows) using that net shift, and compare it directly to the original row -- the matrix is similar to itself exactly when every row survives its own rotation unchanged."
+  ],
+  "constraints": [
+    { "param": "mat", "kind": "int[][]", "len": [1, 25], "value": [1, 25] },
+    { "param": "k", "kind": "int", "value": [1, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, a 3x3 grid that ends up different", "input": [[[1, 2, 3], [4, 5, 6], [7, 8, 9]], 4] },
+    { "kind": "edge", "description": "statement example, a repeating row pattern survives the shift", "input": [[[1, 2, 1, 2], [5, 5, 5, 5], [6, 3, 6, 3]], 2] },
+    { "kind": "edge", "description": "statement example, uniform values are always similar", "input": [[[2, 2], [2, 2]], 3] },
+    { "kind": "boundary", "description": "a single cell, trivially unaffected by any shift", "input": [[[5]], 50] },
+    { "kind": "boundary", "description": "a single row near the maximum k with a shift that does not divide evenly", "input": [[[1, 2, 3, 4, 5]], 49] },
+    { "kind": "trap", "description": "single-column rows are unaffected by any rotation regardless of k", "input": [[[1], [2], [3]], 37] },
+    { "kind": "trap", "description": "identical rows where the even row's left shift does not survive", "input": [[[1, 2, 3], [1, 2, 3]], 1] },
+    { "kind": "edge", "description": "one periodic row and one non-periodic row under the same shift", "input": [[[3, 3, 3, 3], [1, 2, 3, 4]], 6] }
+  ],
+  "stress": [
+    {
+      "description": "random matrix at the maximum dimensions and k",
+      "seed": 5,
+      "size": 25,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 25))\n    n = max(1, min(size, 25))\n    mat = [[rng.randint(1, 25) for _ in range(n)] for _ in range(m)]\n    k = rng.randint(1, 50)\n    return [mat, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def areSimilar(self, mat, k):\n        original = [row[:] for row in mat]\n        cur = [row[:] for row in mat]\n        for _ in range(k):\n            nxt = []\n            for r, row in enumerate(cur):\n                if r % 2 == 0:\n                    nxt.append(row[1:] + row[:1])\n                else:\n                    nxt.append(row[-1:] + row[:-1])\n            cur = nxt\n        return cur == original\n",
+  "solutions": {
+    "python": "class Solution:\n    def areSimilar(self, mat, k):\n        for r, row in enumerate(mat):\n            n = len(row)\n            s = k % n\n            if s == 0:\n                continue\n            if r % 2 == 0:\n                rotated = row[s:] + row[:s]\n            else:\n                rotated = row[-s:] + row[:-s]\n            if rotated != row:\n                return False\n        return True\n",
+    "javascript": "var areSimilar = function(mat, k) {\n    for (let r = 0; r < mat.length; r++) {\n        const row = mat[r];\n        const n = row.length;\n        const s = k % n;\n        if (s === 0) continue;\n        let rotated;\n        if (r % 2 === 0) {\n            rotated = row.slice(s).concat(row.slice(0, s));\n        } else {\n            rotated = row.slice(n - s).concat(row.slice(0, n - s));\n        }\n        for (let i = 0; i < n; i++) {\n            if (rotated[i] !== row[i]) return false;\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m*n)",
+    "space": "O(n)"
+  }
+}
