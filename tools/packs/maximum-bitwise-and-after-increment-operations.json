@@ -1,0 +1,46 @@
+{
+  "slug": "maximum-bitwise-and-after-increment-operations",
+  "judge": "exact",
+  "pattern": "Deciding the answer one bit at a time from the most significant bit down, and at each step asking only 'can some group of m numbers afford to be raised so every one of them already has all the bits chosen so far', turns an exponential search into a small number of cheap feasibility checks.",
+  "hints": [
+    "For a fixed set of required bits, the cheapest way to raise a single number up to the next value that already contains all of those bits can be computed directly by comparing the number to the requirement bit by bit from the top down, rather than by trying every possible increase.",
+    "Try building the final answer bit by bit starting from the highest bit: tentatively add a bit to the running requirement, compute the cheapest way for every number to reach a value satisfying that requirement, and check whether the m cheapest of those costs still fit within the allowed budget.",
+    "Keep a bit only when the m cheapest costs for satisfying the requirement (so far, plus this bit) still fit the budget; otherwise drop that bit and move to the next lower one, since once a requirement is unaffordable adding even more requirements can only make it worse."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 50000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] },
+    { "param": "m", "kind": "int", "value": [1, 50000], "note": "1 <= m <= nums.length" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the reference example choosing a subset of two out of three numbers", "input": [[3, 1, 2], 8, 2] },
+    { "kind": "edge", "description": "the reference example choosing three out of four numbers", "input": [[1, 2, 8, 4], 7, 3] },
+    { "kind": "edge", "description": "the reference example requiring every number to be used", "input": [[1, 1], 3, 2] },
+    { "kind": "edge", "description": "a single number with m equal to one, so the best strategy is simply to spend the whole budget on it", "input": [[5], 10, 1] },
+    { "kind": "boundary", "description": "m equal to the full array length, forcing every element into the chosen subset", "input": [[1, 4, 6, 9], 5, 4] },
+    { "kind": "boundary", "description": "the smallest possible budget of one, barely enough to change a single low bit", "input": [[5], 1, 1] },
+    { "kind": "trap", "description": "covering a required bit is not a simple bitwise OR of the number and the requirement, since a smaller qualifying value can exist in between", "input": [[5], 1, 1] },
+    { "kind": "trap", "description": "one number already satisfies a high requirement for free while another would need most of the budget, so the cheap element should be preferred", "input": [[15, 1], 3, 1] },
+    { "kind": "trap", "description": "all numbers are already equal, so covering any bit costs the same for every element", "input": [[6, 6, 6, 6], 5, 3] }
+  ],
+  "stress": [
+    {
+      "description": "a small random instance across the full value range, checked against a brute-force search over every subset of the required size",
+      "seed": 111,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 10))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    k = rng.randint(1, 1000000000)\n    m = rng.randint(1, n)\n    return [nums, k, m]\n"
+    },
+    {
+      "description": "small values and a small budget, so many bits are borderline affordable and the greedy must reject some of them",
+      "seed": 112,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 10))\n    nums = [rng.randint(1, 40) for _ in range(n)]\n    k = rng.randint(1, 40)\n    m = rng.randint(1, n)\n    return [nums, k, m]\n"
+    }
+  ],
+  "oracle_python": "import itertools\n\nclass Solution:\n    def maximumAND(self, nums, k, m):\n        BITS = 31\n        def min_cover(x, mask):\n            y = 0\n            tight = True\n            for b in range(BITS - 1, -1, -1):\n                mb = (mask >> b) & 1\n                xb = (x >> b) & 1\n                if tight:\n                    if mb == 1:\n                        yb = 1\n                        if yb > xb:\n                            tight = False\n                    else:\n                        yb = xb\n                else:\n                    yb = mb\n                y = (y << 1) | yb\n            return y\n        n = len(nums)\n        best = 0\n        for combo in itertools.combinations(range(n), m):\n            chosen = [nums[i] for i in combo]\n            cur = 0\n            for b in range(BITS - 1, -1, -1):\n                cand = cur | (1 << b)\n                total = 0\n                ok = True\n                for x in chosen:\n                    total += min_cover(x, cand) - x\n                    if total > k:\n                        ok = False\n                        break\n                if ok:\n                    cur = cand\n            if cur > best:\n                best = cur\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumAND(self, nums, k: int, m: int) -> int:\n        BITS = 31\n\n        def min_cover(x, mask):\n            y = 0\n            tight = True\n            for b in range(BITS - 1, -1, -1):\n                mb = (mask >> b) & 1\n                xb = (x >> b) & 1\n                if tight:\n                    if mb == 1:\n                        yb = 1\n                        if yb > xb:\n                            tight = False\n                    else:\n                        yb = xb\n                else:\n                    yb = mb\n                y = (y << 1) | yb\n            return y\n\n        def feasible(mask):\n            costs = [min_cover(x, mask) - x for x in nums]\n            costs.sort()\n            return sum(costs[:m]) <= k\n\n        ans = 0\n        for b in range(BITS - 1, -1, -1):\n            cand = ans | (1 << b)\n            if feasible(cand):\n                ans = cand\n        return ans\n",
+    "javascript": "var maximumAND = function(nums, k, m) {\n    const BITS = 31;\n    function minCover(x, mask) {\n        let y = 0;\n        let tight = true;\n        for (let b = BITS - 1; b >= 0; b--) {\n            const mb = (mask >>> b) & 1;\n            const xb = (x >>> b) & 1;\n            let yb;\n            if (tight) {\n                if (mb === 1) {\n                    yb = 1;\n                    if (yb > xb) tight = false;\n                } else {\n                    yb = xb;\n                }\n            } else {\n                yb = mb;\n            }\n            y = y * 2 + yb;\n        }\n        return y;\n    }\n    function feasible(mask) {\n        const costs = nums.map((x) => minCover(x, mask) - x);\n        costs.sort((a, b) => a - b);\n        let total = 0;\n        for (let i = 0; i < m; i++) total += costs[i];\n        return total <= k;\n    }\n    let ans = 0;\n    for (let b = BITS - 1; b >= 0; b--) {\n        const cand = ans | (1 << b);\n        if (feasible(cand)) ans = cand;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(bits * n log n)", "space": "O(n)" }
+}
