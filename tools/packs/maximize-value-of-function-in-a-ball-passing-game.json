@@ -1,0 +1,131 @@
+{
+  "slug": "maximize-value-of-function-in-a-ball-passing-game",
+  "judge": "exact",
+  "pattern": "The receiver array is a functional graph where every node has exactly one outgoing edge, so binary lifting precomputes 2^j-step jumps and their path sums, letting any k-step score be assembled from at most log(k) precomputed pieces.",
+  "hints": [
+    "Every player has exactly one receiver, so following passes from any start traces a path through a functional graph; k passes visits k+1 players total, including the start.",
+    "Precompute, for every player and every power of two j, where you land after 2^j passes and the sum of the players visited along that jump -- doubling the table from smaller jumps.",
+    "For a given start, decompose the total number of players to visit into binary and combine the matching precomputed jumps to get the path sum in logarithmic time, then take the best starting player."
+  ],
+  "constraints": [
+    {
+      "param": "receiver",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        10000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a three-player cycle where the best start is not player zero",
+      "input": [
+        [
+          2,
+          0,
+          1
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a chain that funnels into a self-loop",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          2,
+          3
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single player who always passes to themselves",
+      "input": [
+        [
+          0
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equal to one, just a single pass",
+      "input": [
+        [
+          1,
+          0
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the highest-indexed player is not on the best cycle",
+      "input": [
+        [
+          0,
+          0,
+          1
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every player points to the same hub, collapsing all paths quickly",
+      "input": [
+        [
+          3,
+          3,
+          3,
+          3
+        ],
+        6
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small random functional graphs with a modest k, for a direct-simulation cross-check",
+      "seed": 151,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 10))\n    receiver = [rng.randint(0, n - 1) for _ in range(n)]\n    k = rng.randint(1, 2000)\n    return [receiver, k]\n",
+      "note": "kept small so a direct O(k) simulation stays feasible during authoring"
+    },
+    {
+      "description": "large functional graphs with k at the full 10^10 scale",
+      "seed": 152,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    receiver = [rng.randint(0, n - 1) for _ in range(n)]\n    k = rng.randint(10**9, 10**10)\n    return [receiver, k]\n",
+      "note": "exercises the full binary-lifting depth needed for huge k"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getMaxFunctionValue(self, receiver, k):\n        # Independent direct simulation: literally follow k passes from every\n        # start (only feasible when k is modest) instead of binary lifting.\n        n = len(receiver)\n        best = 0\n        for start in range(n):\n            cur = start\n            total = start\n            for _ in range(k):\n                cur = receiver[cur]\n                total += cur\n            best = max(best, total)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def getMaxFunctionValue(self, receiver, k):\n        n = len(receiver)\n        steps = k + 1\n        LOG = max(1, steps.bit_length())\n        up = [[0] * n for _ in range(LOG)]\n        sm = [[0] * n for _ in range(LOG)]\n        for v in range(n):\n            up[0][v] = receiver[v]\n            sm[0][v] = v\n        for j in range(1, LOG):\n            for v in range(n):\n                mid = up[j - 1][v]\n                up[j][v] = up[j - 1][mid]\n                sm[j][v] = sm[j - 1][v] + sm[j - 1][mid]\n        best = 0\n        for start in range(n):\n            cur = start\n            total = 0\n            rem = steps\n            for j in range(LOG - 1, -1, -1):\n                if (rem >> j) & 1:\n                    total += sm[j][cur]\n                    cur = up[j][cur]\n            best = max(best, total)\n        return best\n",
+    "javascript": "var getMaxFunctionValue = function(receiver, k) {\n    const n = receiver.length;\n    const steps = k + 1;\n    let LOG = 1;\n    while (Math.pow(2, LOG) <= steps) LOG++;\n    LOG += 1;\n    const up = Array.from({length: LOG}, () => new Array(n).fill(0));\n    const sm = Array.from({length: LOG}, () => new Array(n).fill(0));\n    for (let v = 0; v < n; v++) { up[0][v] = receiver[v]; sm[0][v] = v; }\n    for (let j = 1; j < LOG; j++) {\n        for (let v = 0; v < n; v++) {\n            const mid = up[j - 1][v];\n            up[j][v] = up[j - 1][mid];\n            sm[j][v] = sm[j - 1][v] + sm[j - 1][mid];\n        }\n    }\n    let best = 0;\n    for (let start = 0; start < n; start++) {\n        let cur = start, total = 0;\n        let rem = steps;\n        for (let j = LOG - 1; j >= 0; j--) {\n            const p2 = Math.pow(2, j);\n            if (rem >= p2) {\n                total += sm[j][cur];\n                cur = up[j][cur];\n                rem -= p2;\n            }\n        }\n        if (total > best) best = total;\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log k)",
+    "space": "O(n log k)"
+  }
+}
