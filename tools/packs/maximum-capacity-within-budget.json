@@ -1,0 +1,170 @@
+{
+  "slug": "maximum-capacity-within-budget",
+  "judge": "exact",
+  "pattern": "Sort by cost so the budget cutoff becomes a shrinking prefix, then track the best and second-best capacity in that prefix to pair with any right-hand item in O(n log n).",
+  "hints": [
+    "You may buy zero, one, or two machines - the cost pair must be strictly under budget. What's the brute-force pairing cost, and how would sorting by cost help shrink the search?",
+    "After sorting by cost ascending, for a fixed machine the set of partners it can afford is a prefix of the sorted order. What do you need to know about that prefix to answer instantly?",
+    "Keep a running best and second-best capacity over the cost-sorted prefix (with their positions). For each machine, binary-search the largest affordable prefix and combine with whichever of best/second-best isn't the machine itself."
+  ],
+  "constraints": [
+    {
+      "param": "costs",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "capacity",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "budget",
+      "kind": "int",
+      "value": [
+        1,
+        200000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "budget too small for any purchase",
+      "input": [
+        [
+          5,
+          5
+        ],
+        [
+          10,
+          10
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "pairing beats the single best-capacity machine",
+      "input": [
+        [
+          1,
+          100
+        ],
+        [
+          1,
+          100
+        ],
+        101
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single machine, affordable",
+      "input": [
+        [
+          5
+        ],
+        [
+          9
+        ],
+        6
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single machine, exactly unaffordable",
+      "input": [
+        [
+          5
+        ],
+        [
+          9
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "tied costs must still combine two distinct machines",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          10,
+          1,
+          1,
+          1
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "cheapest pair is not the two cheapest by cost alone",
+      "input": [
+        [
+          1,
+          2,
+          2
+        ],
+        [
+          1,
+          50,
+          3
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "budget at the declared maximum",
+      "input": [
+        [
+          100000,
+          100000
+        ],
+        [
+          1,
+          2
+        ],
+        200000
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "10k random machines near the cost ceiling to stress the prefix binary search",
+      "seed": 7,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    costs = [rng.randint(1, 100000) for _ in range(n)]\n    capacity = [rng.randint(1, 100000) for _ in range(n)]\n    budget = rng.randint(1, 200000)\n    return [costs, capacity, budget]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxCapacity(self, costs, capacity, budget):\n        n = len(costs)\n        best = 0\n        for i in range(n):\n            if costs[i] < budget:\n                best = max(best, capacity[i])\n            for j in range(i + 1, n):\n                if costs[i] + costs[j] < budget:\n                    best = max(best, capacity[i] + capacity[j])\n        return best\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def maxCapacity(self, costs, capacity, budget):\n        n = len(costs)\n        pairs = sorted(zip(costs, capacity))\n        costs_sorted = [c for c, _ in pairs]\n        NEG = float('-inf')\n        top1_val = [NEG] * (n + 1)\n        top1_idx = [-1] * (n + 1)\n        top2_val = [NEG] * (n + 1)\n        for i in range(1, n + 1):\n            c, v = pairs[i - 1]\n            if v > top1_val[i - 1]:\n                top2_val[i] = top1_val[i - 1]\n                top1_val[i] = v\n                top1_idx[i] = i - 1\n            elif v > top2_val[i - 1]:\n                top1_val[i] = top1_val[i - 1]\n                top1_idx[i] = top1_idx[i - 1]\n                top2_val[i] = v\n            else:\n                top1_val[i] = top1_val[i - 1]\n                top1_idx[i] = top1_idx[i - 1]\n                top2_val[i] = top2_val[i - 1]\n\n        best = 0\n        for c, v in pairs:\n            if c < budget:\n                best = max(best, v)\n\n        for j in range(n):\n            cj, vj = pairs[j]\n            threshold = budget - 1 - cj\n            r = bisect.bisect_right(costs_sorted, threshold)\n            if r == 0:\n                continue\n            if top1_idx[r] != j:\n                cand = top1_val[r]\n            else:\n                cand = top2_val[r]\n            if cand != NEG:\n                best = max(best, vj + cand)\n        return best\n",
+    "javascript": "var maxCapacity = function(costs, capacity, budget) {\n    const n = costs.length;\n    const pairs = costs.map((c, i) => [c, capacity[i]]).sort((a, b) => a[0] - b[0]);\n    const costsSorted = pairs.map(p => p[0]);\n    const NEG = -Infinity;\n    const top1Val = new Array(n + 1).fill(NEG);\n    const top1Idx = new Array(n + 1).fill(-1);\n    const top2Val = new Array(n + 1).fill(NEG);\n    for (let i = 1; i <= n; i++) {\n        const v = pairs[i - 1][1];\n        if (v > top1Val[i - 1]) {\n            top2Val[i] = top1Val[i - 1];\n            top1Val[i] = v;\n            top1Idx[i] = i - 1;\n        } else if (v > top2Val[i - 1]) {\n            top1Val[i] = top1Val[i - 1];\n            top1Idx[i] = top1Idx[i - 1];\n            top2Val[i] = v;\n        } else {\n            top1Val[i] = top1Val[i - 1];\n            top1Idx[i] = top1Idx[i - 1];\n            top2Val[i] = top2Val[i - 1];\n        }\n    }\n\n    let best = 0;\n    for (const [c, v] of pairs) {\n        if (c < budget) best = Math.max(best, v);\n    }\n\n    const upperBound = (arr, target) => {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] <= target) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    };\n\n    for (let j = 0; j < n; j++) {\n        const [cj, vj] = pairs[j];\n        const threshold = budget - 1 - cj;\n        const r = upperBound(costsSorted, threshold);\n        if (r === 0) continue;\n        const cand = top1Idx[r] !== j ? top1Val[r] : top2Val[r];\n        if (cand !== NEG) best = Math.max(best, vj + cand);\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}
