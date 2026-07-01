@@ -1,0 +1,38 @@
+{
+  "slug": "maximize-active-section-with-trade-i",
+  "judge": "exact",
+  "pattern": "Padding the string with a sentinel active cell on each side turns every inactive stretch into something bounded by active neighbors, so the one useful trade is always: erase some isolated block of active cells and let its two neighboring inactive stretches merge and flip on -- the best gain is just the largest sum of two neighboring inactive-run lengths around any interior active run.",
+  "hints": [
+    "Pad the string with an extra active cell on both ends first (conceptually); then split the padded string into maximal runs of the same character.",
+    "Only an active run that has an inactive run immediately before AND after it (i.e. not the very first or very last run) can ever be the block you erase -- erasing it merges its two neighboring inactive runs into one, which then flips fully active.",
+    "For every such interior active run, the trade's payoff equals the combined length of the inactive run just before it plus the inactive run just after it; the answer is the string's original active-cell count plus the best payoff found (or just the original count if no such run exists)."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000], "note": "characters are '0' or '1'" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, no interior block to trade", "input": ["01"] },
+    { "kind": "edge", "description": "statement example, a single isolated active cell between two inactive runs", "input": ["0100"] },
+    { "kind": "edge", "description": "statement example, active cells at both ends with an interior block", "input": ["1000100"] },
+    { "kind": "edge", "description": "statement example, alternating cells with two candidate interior blocks", "input": ["01010"] },
+    { "kind": "boundary", "description": "single inactive cell, no trade possible", "input": ["0"] },
+    { "kind": "boundary", "description": "single active cell, already maximal", "input": ["1"] },
+    { "kind": "edge", "description": "entirely inactive, no active runs exist at all", "input": ["00000"] },
+    { "kind": "edge", "description": "entirely active already, a trade could only ever break it", "input": ["11111"] },
+    { "kind": "trap", "description": "two isolated active cells flanked by unequal inactive runs, so the larger payoff is not the first candidate encountered", "input": ["000010001000000"] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings up to the maximum length",
+      "seed": 8,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(100000, size))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxActiveSectionsAfterTrade(self, s):\n        t = '1' + s + '1'\n        n = len(t)\n        runs = []\n        i = 0\n        while i < n:\n            j = i\n            while j < n and t[j] == t[i]:\n                j += 1\n            runs.append((i, j, t[i]))\n            i = j\n        base = s.count('1')\n        best = base\n        for idx in range(1, len(runs) - 1):\n            start, end, ch = runs[idx]\n            if ch != '1':\n                continue\n            grid = list(t)\n            for p in range(start, end):\n                grid[p] = '0'\n            left = start\n            while left > 0 and grid[left - 1] == '0':\n                left -= 1\n            right = end\n            while right < n and grid[right] == '0':\n                right += 1\n            for p in range(left, right):\n                grid[p] = '1'\n            count = ''.join(grid[1:-1]).count('1')\n            if count > best:\n                best = count\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxActiveSectionsAfterTrade(self, s):\n        t = '1' + s + '1'\n        n = len(t)\n        runs = []\n        i = 0\n        while i < n:\n            j = i\n            while j < n and t[j] == t[i]:\n                j += 1\n            runs.append((t[i], j - i))\n            i = j\n        best = 0\n        for idx in range(1, len(runs) - 1):\n            ch, length = runs[idx]\n            if ch == '1':\n                gain = runs[idx - 1][1] + runs[idx + 1][1]\n                if gain > best:\n                    best = gain\n        return s.count('1') + best\n",
+    "javascript": "var maxActiveSectionsAfterTrade = function(s) {\n    const t = '1' + s + '1';\n    const n = t.length;\n    const runs = [];\n    let i = 0;\n    while (i < n) {\n        let j = i;\n        while (j < n && t[j] === t[i]) j++;\n        runs.push([t[i], j - i]);\n        i = j;\n    }\n    let best = 0;\n    for (let idx = 1; idx < runs.length - 1; idx++) {\n        if (runs[idx][0] === '1') {\n            const gain = runs[idx - 1][1] + runs[idx + 1][1];\n            if (gain > best) best = gain;\n        }\n    }\n    let ones = 0;\n    for (let i2 = 0; i2 < s.length; i2++) if (s[i2] === '1') ones++;\n    return ones + best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
