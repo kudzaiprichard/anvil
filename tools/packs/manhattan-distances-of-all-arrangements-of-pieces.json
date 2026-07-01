@@ -1,0 +1,38 @@
+{
+  "slug": "manhattan-distances-of-all-arrangements-of-pieces",
+  "judge": "exact",
+  "pattern": "Manhattan distance splits cleanly into a row part and a column part, and any specific pair of cells co-occurs in exactly the same number of arrangements no matter which pair it is, so the whole sum collapses into one combinatorial multiplier times the total row-distance and column-distance across every possible pair of cells on the board.",
+  "hints": [
+    "Instead of thinking about individual arrangements, ask: across the whole grid, how many arrangements contain any two SPECIFIC cells together? That count is the same for every pair of cells, so it factors out of the entire sum.",
+    "Manhattan distance between two cells is just the row difference plus the column difference, so the sum over every pair of cells in the whole grid splits into a row-only sum and a column-only sum, each of which only depends on the grid's dimensions.",
+    "The row-only sum over all cell pairs is (number of columns squared) times the sum of |r1 - r2| over every pair of distinct rows, and the column-only sum mirrors this with rows and columns swapped; multiply the combined total by the number of arrangements that keep any fixed pair of cells both occupied."
+  ],
+  "constraints": [
+    { "param": "m", "kind": "int", "value": [1, 100000] },
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [2, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "smallest square grid with every cell occupied", "input": [2, 2, 4] },
+    { "kind": "edge", "description": "a single row grid", "input": [1, 5, 2] },
+    { "kind": "edge", "description": "a single column grid", "input": [5, 1, 3] },
+    { "kind": "boundary", "description": "smallest possible grid and smallest possible k", "input": [1, 2, 2] },
+    { "kind": "boundary", "description": "every cell occupied on a rectangular grid", "input": [2, 3, 6] },
+    { "kind": "trap", "description": "k equal to two, only pairwise placements matter directly", "input": [3, 3, 2] },
+    { "kind": "trap", "description": "a tall thin grid where column spread barely matters", "input": [6, 2, 5] }
+  ],
+  "stress": [
+    {
+      "description": "random grid dimensions with a random k bounded by the grid size",
+      "seed": 53,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 300)))\n    n = rng.randint(1, max(1, min(size, 300)))\n    total = m * n\n    if total < 2:\n        m, n, total = 1, 2, 2\n    k = rng.randint(2, total)\n    return [m, n, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def distanceSum(self, m, n, k):\n        MOD = 10 ** 9 + 7\n        cells = [(r, c) for r in range(m) for c in range(n)]\n        total = 0\n        for combo in combinations(range(len(cells)), k):\n            chosen = [cells[i] for i in combo]\n            for i in range(len(chosen)):\n                for j in range(i + 1, len(chosen)):\n                    r1, c1 = chosen[i]\n                    r2, c2 = chosen[j]\n                    total += abs(r1 - r2) + abs(c1 - c2)\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def distanceSum(self, m, n, k):\n        MOD = 10 ** 9 + 7\n        total_cells = m * n\n\n        def pair_gap_sum(size):\n            s = 0\n            for d in range(1, size):\n                s += d * (size - d)\n            return s\n\n        row_pair_sum = pair_gap_sum(m)\n        col_pair_sum = pair_gap_sum(n)\n        all_pairs_distance = (n * n * row_pair_sum + m * m * col_pair_sum) % MOD\n\n        max_n = total_cells + 1\n        fact = [1] * max_n\n        for i in range(1, max_n):\n            fact[i] = fact[i - 1] * i % MOD\n        invfact = [1] * max_n\n        invfact[max_n - 1] = pow(fact[max_n - 1], MOD - 2, MOD)\n        for i in range(max_n - 2, -1, -1):\n            invfact[i] = invfact[i + 1] * (i + 1) % MOD\n\n        def comb(a, b):\n            if b < 0 or b > a:\n                return 0\n            return fact[a] * invfact[b] % MOD * invfact[a - b] % MOD\n\n        co_occurring = comb(total_cells - 2, k - 2)\n        return co_occurring * all_pairs_distance % MOD\n",
+    "javascript": "var distanceSum = function(m, n, k) {\n    const MOD = 1000000007n;\n    const totalCells = m * n;\n\n    function pairGapSum(size) {\n        let s = 0n;\n        for (let d = 1; d < size; d++) {\n            s += BigInt(d) * BigInt(size - d);\n        }\n        return s;\n    }\n\n    const rowPairSum = pairGapSum(m);\n    const colPairSum = pairGapSum(n);\n    const allPairsDistance = (BigInt(n) * BigInt(n) % MOD * rowPairSum % MOD + BigInt(m) * BigInt(m) % MOD * colPairSum % MOD) % MOD;\n\n    const maxN = totalCells + 1;\n    const fact = new Array(maxN);\n    fact[0] = 1n;\n    for (let i = 1; i < maxN; i++) fact[i] = (fact[i - 1] * BigInt(i)) % MOD;\n    function power(a, b, mod) {\n        a %= mod;\n        let r = 1n;\n        while (b > 0n) {\n            if (b & 1n) r = (r * a) % mod;\n            a = (a * a) % mod;\n            b >>= 1n;\n        }\n        return r;\n    }\n    const invfact = new Array(maxN);\n    invfact[maxN - 1] = power(fact[maxN - 1], MOD - 2n, MOD);\n    for (let i = maxN - 2; i >= 0; i--) invfact[i] = (invfact[i + 1] * BigInt(i + 1)) % MOD;\n    function comb(a, b) {\n        if (b < 0 || b > a) return 0n;\n        return (fact[a] * invfact[b] % MOD) * invfact[a - b] % MOD;\n    }\n\n    const coOccurring = comb(totalCells - 2, k - 2);\n    const ans = coOccurring * allPairsDistance % MOD;\n    return Number(ans);\n};\n"
+  },
+  "complexity": { "time": "O(m + n)", "space": "O(m * n)" }
+}
