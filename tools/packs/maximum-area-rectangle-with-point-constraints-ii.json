@@ -1,0 +1,191 @@
+{
+  "slug": "maximum-area-rectangle-with-point-constraints-ii",
+  "judge": "exact",
+  "pattern": "A rectangle's left and right edges can only be a column's two points that sit right next to each other in that column, so anchor on adjacent pairs and sweep outward until something blocks the view.",
+  "hints": [
+    "In any valid rectangle, the two points sharing an x-coordinate must be adjacent in that column's sorted y-order -- otherwise a third point of that column would sit on the edge between them.",
+    "Starting from such an adjacent pair, walk through the other columns left to right: a column with a point strictly between the two y-values kills every rectangle further out, so you can stop looking past it.",
+    "A column that contains both of the two y-values (and nothing strictly between them) completes a valid rectangle -- record its area, but you still cannot look past that column, since even one of the two y-values alone would end up sitting on a border of anything wider."
+  ],
+  "constraints": [
+    {
+      "param": "xCoord",
+      "kind": "int[]",
+      "len": [
+        1,
+        200000
+      ],
+      "value": [
+        0,
+        80000000
+      ]
+    },
+    {
+      "param": "yCoord",
+      "kind": "int[]",
+      "len": [
+        1,
+        200000
+      ],
+      "value": [
+        0,
+        80000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "fewer than four points, no rectangle possible",
+      "input": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "exactly the four corners of a square",
+      "input": [
+        [
+          1,
+          1,
+          3,
+          3
+        ],
+        [
+          1,
+          3,
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a fifth point sits exactly on the border of the only candidate rectangle",
+      "input": [
+        [
+          1,
+          1,
+          3,
+          3,
+          2
+        ],
+        [
+          1,
+          3,
+          1,
+          3,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a fifth point sits strictly inside the only candidate rectangle",
+      "input": [
+        [
+          1,
+          1,
+          3,
+          3,
+          2
+        ],
+        [
+          1,
+          3,
+          1,
+          3,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "points at the extreme coordinate values",
+      "input": [
+        [
+          0,
+          0,
+          80000000,
+          80000000
+        ],
+        [
+          0,
+          80000000,
+          0,
+          80000000
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an obstructing column sits between two otherwise-matching columns",
+      "input": [
+        [
+          1,
+          1,
+          2,
+          3,
+          3
+        ],
+        [
+          1,
+          3,
+          2,
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several columns share the same adjacent y-pair, widening the best rectangle",
+      "input": [
+        [
+          1,
+          1,
+          2,
+          3,
+          3,
+          5,
+          5
+        ],
+        [
+          1,
+          3,
+          5,
+          1,
+          3,
+          1,
+          3
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "many points on a moderate coordinate grid, exercising long column-to-column sweeps",
+      "seed": 1101,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(1200, size if size >= 1 else 1))\n    pts = set()\n    while len(pts) < n:\n        pts.add((rng.randint(0, 2000), rng.randint(0, 2000)))\n    pts = list(pts)\n    xCoord = [p[0] for p in pts]\n    yCoord = [p[1] for p in pts]\n    return [xCoord, yCoord]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxRectangleArea(self, xCoord, yCoord):\n        # independent re-derivation: brute force over distinct x/y coordinate\n        # pairs, correct but only intended for small inputs\n        pts = set(zip(xCoord, yCoord))\n        xs = sorted(set(xCoord))\n        ys = sorted(set(yCoord))\n        best = -1\n        for ai in range(len(xs)):\n            for bi in range(ai + 1, len(xs)):\n                x1, x2 = xs[ai], xs[bi]\n                for ci in range(len(ys)):\n                    for di in range(ci + 1, len(ys)):\n                        y1, y2 = ys[ci], ys[di]\n                        corners = [(x1, y1), (x1, y2), (x2, y1), (x2, y2)]\n                        if not all(c in pts for c in corners):\n                            continue\n                        ok = True\n                        for p in pts:\n                            if x1 <= p[0] <= x2 and y1 <= p[1] <= y2 and p not in corners:\n                                ok = False\n                                break\n                        if ok:\n                            area = (x2 - x1) * (y2 - y1)\n                            if area > best:\n                                best = area\n        return best\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def maxRectangleArea(self, xCoord, yCoord):\n        cols = {}\n        for x, y in zip(xCoord, yCoord):\n            cols.setdefault(x, []).append(y)\n        for x in cols:\n            cols[x].sort()\n        xs_sorted = sorted(cols.keys())\n        col_set = {x: set(cols[x]) for x in cols}\n        best = -1\n        for xi, x1 in enumerate(xs_sorted):\n            ys = cols[x1]\n            for i in range(len(ys) - 1):\n                y_lo, y_hi = ys[i], ys[i + 1]\n                for x2 in xs_sorted[xi + 1:]:\n                    col2 = cols[x2]\n                    lo_i = bisect.bisect_right(col2, y_lo)\n                    hi_i = bisect.bisect_left(col2, y_hi)\n                    if lo_i < hi_i:\n                        break\n                    has_lo = y_lo in col_set[x2]\n                    has_hi = y_hi in col_set[x2]\n                    if has_lo and has_hi:\n                        area = (x2 - x1) * (y_hi - y_lo)\n                        if area > best:\n                            best = area\n                        break\n                    if has_lo or has_hi:\n                        break\n        return best\n",
+    "javascript": "var maxRectangleArea = function(xCoord, yCoord) {\n    const n = xCoord.length;\n    const cols = new Map();\n    for (let i = 0; i < n; i++) {\n        if (!cols.has(xCoord[i])) cols.set(xCoord[i], []);\n        cols.get(xCoord[i]).push(yCoord[i]);\n    }\n    const xsSorted = Array.from(cols.keys()).sort((a, b) => a - b);\n    for (const x of xsSorted) cols.get(x).sort((a, b) => a - b);\n    const colSet = new Map();\n    for (const x of xsSorted) colSet.set(x, new Set(cols.get(x)));\n    function bisectRight(arr, val) {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] <= val) lo = mid + 1; else hi = mid; }\n        return lo;\n    }\n    function bisectLeft(arr, val) {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] < val) lo = mid + 1; else hi = mid; }\n        return lo;\n    }\n    let best = -1;\n    for (let xi = 0; xi < xsSorted.length; xi++) {\n        const x1 = xsSorted[xi];\n        const ys = cols.get(x1);\n        for (let i = 0; i + 1 < ys.length; i++) {\n            const yLo = ys[i], yHi = ys[i + 1];\n            for (let xj = xi + 1; xj < xsSorted.length; xj++) {\n                const x2 = xsSorted[xj];\n                const col2 = cols.get(x2);\n                const loI = bisectRight(col2, yLo);\n                const hiI = bisectLeft(col2, yHi);\n                if (loI < hiI) break;\n                const hasLo = colSet.get(x2).has(yLo);\n                const hasHi = colSet.get(x2).has(yHi);\n                if (hasLo && hasHi) {\n                    const area = (x2 - x1) * (yHi - yLo);\n                    if (area > best) best = area;\n                    break;\n                }\n                if (hasLo || hasHi) break;\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2) worst case, typically much less",
+    "space": "O(n)"
+  }
+}
