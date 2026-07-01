@@ -1,0 +1,72 @@
+{
+  "slug": "maximize-amount-after-two-days-of-conversions",
+  "judge": { "type": "float", "epsilon": 1e-6 },
+  "pattern": "Model each day's currency conversions as a tree of rates rooted at the starting currency, then combine both trees only through the currencies they both reach.",
+  "hints": [
+    "Since each day's conversions never contradict each other, the currencies and rates for a single day always form a tree, not a general graph -- so there is only one way to get from the starting currency to any other reachable currency on that day.",
+    "Compute, for every currency reachable on day 1, the single multiplier that takes your starting currency to it, then separately compute the same kind of multiplier for day 2.",
+    "For every currency reached on day 1, check whether day 2 can also reach it -- if so you can return home through that currency using day 2's inverse rate, so compare (day-1 multiplier) divided by (day-2 multiplier) across every shared currency, and keep the best, treating staying in the starting currency the whole time (multiplier 1) as a valid option too."
+  ],
+  "constraints": [
+    { "param": "initialCurrency", "kind": "string", "len": [1, 3] },
+    { "param": "pairs1", "kind": "string[][]", "len": [1, 10] },
+    { "param": "rates1", "kind": "float[]", "len": [1, 10] },
+    { "param": "pairs2", "kind": "string[][]", "len": [1, 10] },
+    { "param": "rates2", "kind": "float[]", "len": [1, 10] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two-hop day 1 chain and three-hop day 2 chain",
+      "input": ["EUR", [["EUR", "USD"], ["USD", "JPY"]], [2.0, 3.0], [["JPY", "USD"], ["USD", "CHF"], ["CHF", "EUR"]], [4.0, 5.0, 6.0]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, converting out and back through the same pair",
+      "input": ["NGN", [["NGN", "EUR"]], [9.0], [["NGN", "EUR"]], [6.0]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, no conversion is ever worthwhile",
+      "input": ["USD", [["USD", "EUR"]], [1.0], [["EUR", "JPY"]], [10.0]]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimal one-letter currencies, a single pair on each day",
+      "input": ["A", [["A", "B"]], [5.0], [["A", "B"]], [2.0]]
+    },
+    {
+      "kind": "trap",
+      "description": "day 2's graph is entirely disconnected from the starting currency, so no conversion beats staying put",
+      "input": ["USD", [["USD", "EUR"]], [3.0], [["GBP", "JPY"]], [2.0]]
+    },
+    {
+      "kind": "trap",
+      "description": "a long day-1 chain combined with a direct day-2 shortcut back",
+      "input": ["A", [["A", "B"], ["B", "C"], ["C", "D"]], [2.0, 2.0, 2.0], [["A", "D"]], [1.0]]
+    },
+    {
+      "kind": "trap",
+      "description": "the only reachable shared currency is a net loss, so the best answer is to never convert at all",
+      "input": ["A", [["A", "B"]], [0.5], [["A", "B"]], [3.0]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random forests of two-letter currencies for each day, rates spanning the full allowed range",
+      "seed": 7,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'\n    pool = set()\n    while len(pool) < 24:\n        pool.add(''.join(rng.choice(letters) for _ in range(2)))\n    pool = list(pool)\n    initial = pool[0]\n    def build(rest):\n        rng.shuffle(rest)\n        n = rng.randint(1, min(10, len(rest)))\n        chosen = rest[:n]\n        pairs, rates = [], []\n        connected = [initial]\n        for c in chosen:\n            parent = rng.choice(connected)\n            pairs.append([parent, c])\n            rates.append(round(rng.uniform(1.0, 10.0), 4))\n            connected.append(c)\n        return pairs, rates\n    rest = pool[1:]\n    pairs1, rates1 = build(list(rest))\n    pairs2, rates2 = build(list(rest))\n    return [initial, pairs1, rates1, pairs2, rates2]\n",
+      "note": "each day's pairs always form a tree rooted at the initial currency, matching the problem's no-contradiction guarantee"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxAmount(self, initialCurrency, pairs1, rates1, pairs2, rates2):\n        def best_multipliers(pairs, rates):\n            currencies = {initialCurrency}\n            edges = []\n            for (a, b), r in zip(pairs, rates):\n                currencies.add(a)\n                currencies.add(b)\n                edges.append((a, b, r))\n                edges.append((b, a, 1.0 / r))\n            mult = {c: 0.0 for c in currencies}\n            mult[initialCurrency] = 1.0\n            for _ in range(len(currencies)):\n                changed = False\n                for a, b, r in edges:\n                    if mult[a] > 0 and mult[a] * r > mult[b]:\n                        mult[b] = mult[a] * r\n                        changed = True\n                if not changed:\n                    break\n            return mult\n\n        day1 = best_multipliers(pairs1, rates1)\n        day2 = best_multipliers(pairs2, rates2)\n        best = 1.0\n        for c, amt in day1.items():\n            if amt > 0 and day2.get(c, 0.0) > 0:\n                back = amt / day2[c]\n                if back > best:\n                    best = back\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxAmount(self, initialCurrency, pairs1, rates1, pairs2, rates2):\n        def build_graph(pairs, rates):\n            graph = {}\n            for (a, b), r in zip(pairs, rates):\n                graph.setdefault(a, []).append((b, r))\n                graph.setdefault(b, []).append((a, 1.0 / r))\n            return graph\n\n        def multipliers(graph, start):\n            mult = {start: 1.0}\n            stack = [start]\n            while stack:\n                cur = stack.pop()\n                for nxt, rate in graph.get(cur, []):\n                    if nxt not in mult:\n                        mult[nxt] = mult[cur] * rate\n                        stack.append(nxt)\n            return mult\n\n        graph1 = build_graph(pairs1, rates1)\n        graph2 = build_graph(pairs2, rates2)\n        day1 = multipliers(graph1, initialCurrency)\n        day2 = multipliers(graph2, initialCurrency)\n\n        best = 1.0\n        for currency, amt in day1.items():\n            if currency in day2:\n                back = amt / day2[currency]\n                if back > best:\n                    best = back\n        return best\n",
+    "javascript": "var maxAmount = function(initialCurrency, pairs1, rates1, pairs2, rates2) {\n    function buildGraph(pairs, rates) {\n        const graph = new Map();\n        for (let i = 0; i < pairs.length; i++) {\n            const a = pairs[i][0], b = pairs[i][1];\n            const r = rates[i];\n            if (!graph.has(a)) graph.set(a, []);\n            if (!graph.has(b)) graph.set(b, []);\n            graph.get(a).push([b, r]);\n            graph.get(b).push([a, 1.0 / r]);\n        }\n        return graph;\n    }\n\n    function multipliers(graph, start) {\n        const mult = new Map();\n        mult.set(start, 1.0);\n        const stack = [start];\n        while (stack.length) {\n            const cur = stack.pop();\n            const neighbors = graph.get(cur) || [];\n            for (const [nxt, rate] of neighbors) {\n                if (!mult.has(nxt)) {\n                    mult.set(nxt, mult.get(cur) * rate);\n                    stack.push(nxt);\n                }\n            }\n        }\n        return mult;\n    }\n\n    const graph1 = buildGraph(pairs1, rates1);\n    const graph2 = buildGraph(pairs2, rates2);\n    const day1 = multipliers(graph1, initialCurrency);\n    const day2 = multipliers(graph2, initialCurrency);\n\n    let best = 1.0;\n    for (const [currency, amt] of day1) {\n        if (day2.has(currency)) {\n            const back = amt / day2.get(currency);\n            if (back > best) best = back;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + m) to build and traverse each day's currency tree",
+    "space": "O(n + m) for the adjacency lists and multiplier maps"
+  }
+}
