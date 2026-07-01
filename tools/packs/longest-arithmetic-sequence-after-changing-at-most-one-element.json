@@ -1,0 +1,51 @@
+{
+  "slug": "longest-arithmetic-sequence-after-changing-at-most-one-element",
+  "judge": "exact",
+  "pattern": "Track, from both directions, how long the run of equal consecutive differences is at every position; then for each index treated as the one you're allowed to overwrite, either extend one neighboring run by a single matching step, or -- when the two neighbors' target difference lines up -- bridge both runs together through the freshly chosen value.",
+  "hints": [
+    "Build two arrays from the array of consecutive differences: how long the constant-difference run is ending at each index, and how long it is starting at each index.",
+    "Changing one element can always extend the run immediately to its left (or right) by exactly one step, since the replacement value is free to match whatever difference that run already has.",
+    "Changing an interior element can bridge its left and right neighbors together only if their combined gap is even, giving a single needed difference -- and even then, each side's full run only carries over if that side's own existing difference already equals the bridging difference; otherwise only the one adjacent element carries over.",
+    "The answer is the best of: the longest run with no change at all, extending a single run by one, and bridging both neighbors, maximized over every index."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [4, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "bridging the interior fixes the whole array into one run", "input": [[9, 7, 5, 10, 1]] },
+    { "kind": "edge", "description": "only one side can be extended, the other side breaks off", "input": [[1, 2, 6, 7]] },
+    { "kind": "boundary", "description": "minimum length array, already perfectly arithmetic", "input": [[3, 6, 9, 12]] },
+    { "kind": "boundary", "description": "minimum length array, needs exactly one change to become arithmetic", "input": [[1, 2, 3, 100]] },
+    { "kind": "trap", "description": "no run of equal differences anywhere -- the answer still can't drop below length 2", "input": [[5, 100000, 1, 99999, 2]] },
+    { "kind": "trap", "description": "reversing an already-arithmetic run means no change ever helps beyond its own length", "input": [[10, 8, 6, 4, 2]] },
+    { "kind": "trap", "description": "the interior bridge is blocked by an odd combined gap, only single-step extension applies", "input": [[1, 2, 4, 100, 5]] },
+    { "kind": "trap", "description": "two separate long runs with mismatched differences meeting at a single junction element", "input": [[1, 2, 3, 4, 20, 17, 14, 11]] },
+    { "kind": "trap", "description": "changing the very first or very last element can only ever extend one side", "input": [[100, 1, 2, 3, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random large array, exercising the linear scan and bridging logic at scale",
+      "seed": 111,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(size, 100000))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "mostly-arithmetic runs with a few injected disruptions, more likely to hit the bridging branch",
+      "seed": 112,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(size, 20000))\n    nums = [0] * n\n    nums[0] = rng.randint(1, 1000)\n    step = rng.randint(1, 20)\n    for i in range(1, n):\n        nums[i] = nums[i-1] + step\n        if rng.randint(0, 20) == 0:\n            nums[i] = rng.randint(1, 100000)\n    nums = [max(1, min(100000, v)) for v in nums]\n    return [nums]\n"
+    },
+    {
+      "description": "small arrays for exhaustive brute-force cross-checking",
+      "seed": 113,
+      "size": 11,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(4, 11)\n    nums = [rng.randint(1, 8) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestArithmetic(self, nums):\n        n = len(nums)\n        # small arrays: true brute force over every subarray and every single index that\n        # could be freely rewritten, independent of the run-length bookkeeping below.\n        if n <= 11:\n            best = 1\n            for start in range(n):\n                for end in range(start, n):\n                    length = end - start + 1\n                    if length <= 2:\n                        best = max(best, length)\n                        continue\n                    feasible = False\n                    for k in range(start, end + 1):\n                        forced = None\n                        ok = True\n                        for i in range(start, end):\n                            if i == k or i + 1 == k:\n                                continue\n                            dd = nums[i+1] - nums[i]\n                            if forced is None:\n                                forced = dd\n                            elif forced != dd:\n                                ok = False\n                                break\n                        if not ok:\n                            continue\n                        interior = start < k < end\n                        if interior:\n                            if (nums[k+1] - nums[k-1]) % 2 != 0:\n                                continue\n                            d = (nums[k+1] - nums[k-1]) // 2\n                            if forced is not None and forced != d:\n                                continue\n                        feasible = True\n                        break\n                    if feasible:\n                        best = max(best, length)\n            return best\n        # larger arrays: an independently-structured pass over consecutive gaps that builds\n        # a flat list of length candidates (run-length, single-step extension, bridged\n        # extension) and takes their maximum, rather than folding everything into one\n        # running `ans` variable as the optimal solution does.\n        gaps = [b - a for a, b in zip(nums, nums[1:])]\n        run_end = [1] * n\n        run_begin = [1] * n\n        for i in range(1, n):\n            run_end[i] = 2 if i == 1 or gaps[i-1] != gaps[i-2] else run_end[i-1] + 1\n        for i in range(n - 2, -1, -1):\n            run_begin[i] = 2 if i == n - 2 or gaps[i] != gaps[i+1] else run_begin[i+1] + 1\n        candidates = list(run_end)\n        for i in range(n):\n            if i - 1 >= 0:\n                candidates.append(run_end[i-1] + 1)\n            if i + 1 <= n - 1:\n                candidates.append(run_begin[i+1] + 1)\n            if 0 < i < n - 1 and (nums[i+1] - nums[i-1]) % 2 == 0:\n                need = (nums[i+1] - nums[i-1]) // 2\n                left_part = run_end[i-1] if (i - 1 > 0 and gaps[i-2] == need) else 1\n                right_part = run_begin[i+1] if (i + 1 < n - 1 and gaps[i+1] == need) else 1\n                candidates.append(left_part + 1 + right_part)\n        return min(max(candidates), n)\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestArithmetic(self, nums):\n        n = len(nums)\n        if n <= 2:\n            return n\n        diff = [nums[i+1] - nums[i] for i in range(n - 1)]\n        L = [1] * n\n        for i in range(1, n):\n            if i == 1:\n                L[i] = 2\n            else:\n                L[i] = L[i-1] + 1 if diff[i-1] == diff[i-2] else 2\n        R = [1] * n\n        for i in range(n - 2, -1, -1):\n            if i == n - 2:\n                R[i] = 2\n            else:\n                R[i] = R[i+1] + 1 if diff[i] == diff[i+1] else 2\n        ans = max(L)\n        for i in range(n):\n            if i >= 1:\n                ans = max(ans, L[i-1] + 1)\n            if i <= n - 2:\n                ans = max(ans, R[i+1] + 1)\n            if 1 <= i <= n - 2 and (nums[i-1] + nums[i+1]) % 2 == 0:\n                d = (nums[i+1] - nums[i-1]) // 2\n                leftc = L[i-1] if (i - 1 >= 1 and diff[i-2] == d) else 1\n                rightc = R[i+1] if (i + 1 <= n - 2 and diff[i+1] == d) else 1\n                ans = max(ans, leftc + 1 + rightc)\n        return min(ans, n)\n",
+    "javascript": "var longestArithmetic = function(nums) {\n    const n = nums.length;\n    if (n <= 2) return n;\n    const diff = new Array(n - 1);\n    for (let i = 0; i < n - 1; i++) diff[i] = nums[i+1] - nums[i];\n    const L = new Array(n).fill(1);\n    for (let i = 1; i < n; i++) {\n        if (i === 1) L[i] = 2;\n        else L[i] = diff[i-1] === diff[i-2] ? L[i-1] + 1 : 2;\n    }\n    const R = new Array(n).fill(1);\n    for (let i = n - 2; i >= 0; i--) {\n        if (i === n - 2) R[i] = 2;\n        else R[i] = diff[i] === diff[i+1] ? R[i+1] + 1 : 2;\n    }\n    let ans = Math.max(...L);\n    for (let i = 0; i < n; i++) {\n        if (i >= 1) ans = Math.max(ans, L[i-1] + 1);\n        if (i <= n - 2) ans = Math.max(ans, R[i+1] + 1);\n        if (i >= 1 && i <= n - 2 && (nums[i-1] + nums[i+1]) % 2 === 0) {\n            const d = (nums[i+1] - nums[i-1]) / 2;\n            const leftc = (i - 1 >= 1 && diff[i-2] === d) ? L[i-1] : 1;\n            const rightc = (i + 1 <= n - 2 && diff[i+1] === d) ? R[i+1] : 1;\n            ans = Math.max(ans, leftc + 1 + rightc);\n        }\n    }\n    return Math.min(ans, n);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
