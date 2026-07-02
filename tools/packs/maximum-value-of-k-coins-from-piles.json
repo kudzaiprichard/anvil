@@ -1,0 +1,168 @@
+{
+  "slug": "maximum-value-of-k-coins-from-piles",
+  "judge": "exact",
+  "pattern": "Because coins can only be taken from the top of each pile, the choice per pile collapses to 'how many of its first coins do I take', which is a small knapsack-style decision repeated across piles.",
+  "hints": [
+    "For any pile, taking coins is only ever about how many from the top, in order -- prefix sums over each pile capture every reachable value from that pile alone.",
+    "Process piles one at a time, tracking the best total value achievable for every possible number of coins spent so far; combining piles is exactly like a knapsack where each pile offers a menu of prefix-sum choices.",
+    "For each pile and each remaining budget, try every possible number of coins to take from just that pile (from zero up to the pile's size or the budget, whichever is smaller), combining with the best result already found for the rest of the budget."
+  ],
+  "constraints": [
+    {
+      "param": "piles",
+      "kind": "int[][]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        2000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "a single pile, take all its coins",
+      "input": [
+        [
+          [
+            3,
+            1,
+            4,
+            1,
+            5
+          ]
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two piles, k smaller than the total coins available",
+      "input": [
+        [
+          [
+            2,
+            7,
+            4
+          ],
+          [
+            3,
+            3,
+            3,
+            3
+          ]
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the best value requires skipping a pile entirely in favor of two others",
+      "input": [
+        [
+          [
+            100
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            50,
+            50
+          ]
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equals the total number of coins across all piles",
+      "input": [
+        [
+          [
+            6,
+            2
+          ],
+          [
+            1,
+            9
+          ],
+          [
+            4
+          ]
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "many small piles competing for a limited k",
+      "input": [
+        [
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ],
+          [
+            4
+          ],
+          [
+            5
+          ]
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a deep pile whose big coin is buried and only reachable after small ones",
+      "input": [
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            100
+          ]
+        ],
+        5
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "many piles whose lengths sum to the constraint maximum, with a random k",
+      "seed": 17,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    total_len = max(1, min(size, 2000))\n    n = min(1000, total_len)\n    lengths = [1] * n\n    remaining = total_len - n\n    for _ in range(remaining):\n        lengths[rng.randrange(n)] += 1\n    piles = [[rng.randint(1, 100000) for _ in range(l)] for l in lengths]\n    k = rng.randint(1, total_len)\n    return [piles, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxValueOfCoins(self, piles, k):\n        n = len(piles)\n        best = [0]\n\n        def rec(i, remaining, total):\n            if total > best[0]:\n                best[0] = total\n            if i == n or remaining == 0:\n                return\n            cur = 0\n            limit = min(len(piles[i]), remaining)\n            for c in range(0, limit + 1):\n                rec(i + 1, remaining - c, total + cur)\n                if c < limit:\n                    cur += piles[i][c]\n\n        rec(0, k, 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxValueOfCoins(self, piles, k):\n        n = len(piles)\n        prefix = []\n        for pile in piles:\n            p = [0]\n            for c in pile:\n                p.append(p[-1] + c)\n            prefix.append(p)\n        dp = [0] * (k + 1)\n        for i in range(n):\n            new_dp = dp[:]\n            p = prefix[i]\n            max_take = len(piles[i])\n            for j in range(k + 1):\n                best = dp[j]\n                limit = min(max_take, j)\n                for c in range(1, limit + 1):\n                    val = dp[j - c] + p[c]\n                    if val > best:\n                        best = val\n                new_dp[j] = best\n            dp = new_dp\n        return dp[k]\n",
+    "javascript": "var maxValueOfCoins = function(piles, k) {\n    const n = piles.length;\n    const prefix = piles.map(pile => {\n        const p = [0];\n        for (const c of pile) p.push(p[p.length - 1] + c);\n        return p;\n    });\n    let dp = new Array(k + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        const newDp = dp.slice();\n        const p = prefix[i];\n        const maxTake = piles[i].length;\n        for (let j = 0; j <= k; j++) {\n            let best = dp[j];\n            const limit = Math.min(maxTake, j);\n            for (let c = 1; c <= limit; c++) {\n                const val = dp[j - c] + p[c];\n                if (val > best) best = val;\n            }\n            newDp[j] = best;\n        }\n        dp = newDp;\n    }\n    return dp[k];\n};\n"
+  },
+  "complexity": {
+    "time": "O(sum(len(piles[i])) * k)",
+    "space": "O(k)"
+  }
+}
