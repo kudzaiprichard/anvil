@@ -1,0 +1,160 @@
+{
+  "slug": "maximum-sum-of-alternating-subsequence-with-distance-at-least-k",
+  "judge": "exact",
+  "pattern": "Ending an alternating pick at index i in an 'up' state only ever needs the best 'down' score among far-enough-back indices with a smaller value, and vice versa, so two value-indexed max structures that only admit indices once they are far enough back answer every position in one left-to-right sweep.",
+  "hints": [
+    "For every index, think of two separate best scores: the best alternating subsequence ending here where the last step was an increase, and the best one where the last step was a decrease.",
+    "To extend to index i with an increase, you need the best 'ending in a decrease' score among indices at least k back whose value is smaller than nums[i] -- and symmetrically for extending with a decrease.",
+    "Query that 'best score among smaller/larger values so far' with two Fenwick trees keyed by value (one for max after an increase, one for max after a decrease), only inserting an index's scores once the sweep has moved at least k positions past it."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two far-apart indices form a strictly decreasing pair",
+      "input": [
+        [
+          5,
+          4,
+          2
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, four indices with distance exactly one",
+      "input": [
+        [
+          3,
+          5,
+          4,
+          2,
+          4
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a single element",
+      "input": [
+        [
+          5
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "n equals 1 with the value at the maximum bound",
+      "input": [
+        [
+          100000
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equals n: only a single-element subsequence is ever reachable, so the answer is the maximum value alone",
+      "input": [
+        [
+          1,
+          5,
+          2,
+          6
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every value is identical, so no two indices can strictly alternate and only a single element counts",
+      "input": [
+        [
+          5,
+          5,
+          5
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "values at the maximum bound alternating with the minimum, checking the sum stays exact at scale",
+      "input": [
+        [
+          100000,
+          1,
+          100000,
+          1,
+          100000
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a zig-zag array where k forces skipping over some of the natural alternation points",
+      "input": [
+        [
+          9,
+          1,
+          8,
+          2,
+          7,
+          3,
+          6,
+          4,
+          5
+        ],
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random arrays up to the full length constraint with random k",
+      "seed": 131,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n"
+    },
+    {
+      "description": "long zig-zag arrays with a small k, maximizing the number of valid alternation points",
+      "seed": 132,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = []\n    for i in range(n):\n        if i % 2 == 0:\n            nums.append(rng.randint(50001, 100000))\n        else:\n            nums.append(rng.randint(1, 50000))\n    k = rng.randint(1, max(1, min(5, n)))\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxAlternatingSum(self, nums, k):\n        n = len(nums)\n        inc = [0] * n\n        dec = [0] * n\n        best = 0\n        for i in range(n):\n            v = nums[i]\n            best_dec_before = 0\n            best_inc_before = 0\n            for j in range(0, i - k + 1):\n                if nums[j] < v and dec[j] > best_dec_before:\n                    best_dec_before = dec[j]\n                if nums[j] > v and inc[j] > best_inc_before:\n                    best_inc_before = inc[j]\n            inc[i] = v + best_dec_before\n            dec[i] = v + best_inc_before\n            if inc[i] > best:\n                best = inc[i]\n            if dec[i] > best:\n                best = dec[i]\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxAlternatingSum(self, nums: list[int], k: int) -> int:\n        n = len(nums)\n        max_v = max(nums)\n\n        class FenwickMax:\n            def __init__(self, size):\n                self.n = size\n                self.tree = [0] * (size + 1)\n\n            def update(self, i, value):\n                while i <= self.n:\n                    if self.tree[i] < value:\n                        self.tree[i] = value\n                    i += i & (-i)\n\n            def query(self, i):\n                res = 0\n                while i > 0:\n                    if self.tree[i] > res:\n                        res = self.tree[i]\n                    i -= i & (-i)\n                return res\n\n        fen_dec = FenwickMax(max_v)\n        fen_inc = FenwickMax(max_v)\n        inc = [0] * n\n        dec = [0] * n\n        ans = 0\n        ptr = 0\n        for i in range(n):\n            while ptr <= i - k:\n                fen_dec.update(nums[ptr], dec[ptr])\n                fen_inc.update(max_v - nums[ptr] + 1, inc[ptr])\n                ptr += 1\n            v = nums[i]\n            best_dec_less = fen_dec.query(v - 1) if v - 1 >= 1 else 0\n            inc_i = v + best_dec_less\n            rev_pos = max_v - v\n            best_inc_greater = fen_inc.query(rev_pos) if rev_pos >= 1 else 0\n            dec_i = v + best_inc_greater\n            inc[i] = inc_i\n            dec[i] = dec_i\n            if inc_i > ans:\n                ans = inc_i\n            if dec_i > ans:\n                ans = dec_i\n        return ans\n",
+    "javascript": "var maxAlternatingSum = function(nums, k) {\n    const n = nums.length;\n    const maxV = Math.max(...nums);\n\n    function makeFenwick(size) {\n        const tree = new Array(size + 1).fill(0);\n        return {\n            update(i, value) {\n                while (i <= size) {\n                    if (tree[i] < value) tree[i] = value;\n                    i += i & (-i);\n                }\n            },\n            query(i) {\n                let res = 0;\n                while (i > 0) {\n                    if (tree[i] > res) res = tree[i];\n                    i -= i & (-i);\n                }\n                return res;\n            }\n        };\n    }\n\n    const fenDec = makeFenwick(maxV);\n    const fenInc = makeFenwick(maxV);\n    const inc = new Array(n).fill(0);\n    const dec = new Array(n).fill(0);\n    let ans = 0;\n    let ptr = 0;\n    for (let i = 0; i < n; i++) {\n        while (ptr <= i - k) {\n            fenDec.update(nums[ptr], dec[ptr]);\n            fenInc.update(maxV - nums[ptr] + 1, inc[ptr]);\n            ptr++;\n        }\n        const v = nums[i];\n        const bestDecLess = v - 1 >= 1 ? fenDec.query(v - 1) : 0;\n        const incI = v + bestDecLess;\n        const revPos = maxV - v;\n        const bestIncGreater = revPos >= 1 ? fenInc.query(revPos) : 0;\n        const decI = v + bestIncGreater;\n        inc[i] = incI;\n        dec[i] = decI;\n        if (incI > ans) ans = incI;\n        if (decI > ans) ans = decI;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log(max(nums)))",
+    "space": "O(n)"
+  }
+}
