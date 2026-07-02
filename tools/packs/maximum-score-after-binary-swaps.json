@@ -1,0 +1,47 @@
+{
+  "slug": "maximum-score-after-binary-swaps",
+  "judge": "exact",
+  "pattern": "Since a '1' can only ever migrate leftward past zeros and never cross another '1', the reachable final layouts are exactly those where the j-th one (counted left to right) lands at or before its own original index, so choosing the best layout becomes a scheduling problem where each one is assigned the earliest still-open slot within its reach.",
+  "hints": [
+    "A single allowed swap only ever moves one specific '1' one step to the left past a '0' -- ones can never move right, and two ones can never pass each other, so their left-to-right order is permanent.",
+    "This means the j-th one (in original left-to-right order) can end up anywhere from index 0 up to its own original index, as long as the chosen final positions stay in the same increasing order -- and no '1' can ever reach a position to the right of the last one's original index.",
+    "Process every index up to the last one's original position, sorted by value from largest to smallest, and greedily assign each candidate index to the smallest still-open \"slot\" among the ones whose original position is at or beyond it (a union-find over slots makes each assignment fast); summing the assigned values gives the maximum score."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "s", "kind": "string", "len": [1, 100000], "note": "binary string of the same length as nums, consisting only of '0' and '1'" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": [[2, 1, 5, 2, 3], "01010"] },
+    { "kind": "edge", "description": "statement example two, no ones at all", "input": [[4, 7, 2, 9], "0000"] },
+    { "kind": "edge", "description": "a single one that is free to move all the way to the highest value before it", "input": [[5, 6, 9, 1, 8], "00001"] },
+    { "kind": "trap", "description": "the leftmost one is already stuck at index 0 and can never move, even though a much larger value sits further right", "input": [[1, 2, 3, 100, 100, 1], "100001"] },
+    { "kind": "trap", "description": "every position is already a one, so no swap is ever possible", "input": [[3, 5, 2], "111"] },
+    { "kind": "trap", "description": "all ones are already packed at the front, leaving nothing to gain from swapping", "input": [[9, 9, 1, 1], "1100"] },
+    { "kind": "boundary", "description": "single element, either state is unaffected by swaps", "input": [[42], "1"] },
+    { "kind": "boundary", "description": "single element that is off", "input": [[42], "0"] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings and values across a moderate length",
+      "seed": 7701,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    s = ''.join(rng.choice('01') for _ in range(n))\n    return [nums, s]\n"
+    },
+    {
+      "description": "sparse ones scattered across a long mostly-zero string",
+      "seed": 7702,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    chars = ['0'] * n\n    ones = max(1, n // 20)\n    idxs = rng.sample(range(n), min(ones, n))\n    for i in idxs:\n        chars[i] = '1'\n    return [nums, ''.join(chars)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumScore(self, nums, s):\n        ones = [i for i, c in enumerate(s) if c == '1']\n        k = len(ones)\n        if k == 0:\n            return 0\n        r_last = ones[-1]\n        NEG = float('-inf')\n        dp = [NEG] * (k + 1)\n        dp[0] = 0\n        ptr = 0\n        for i in range(r_last + 1):\n            new_dp = dp[:]\n            for j in range(k, 0, -1):\n                if dp[j - 1] != NEG:\n                    cand = dp[j - 1] + nums[i]\n                    if cand > new_dp[j]:\n                        new_dp[j] = cand\n            dp = new_dp\n            if ptr < k and ones[ptr] == i:\n                m = ptr + 1\n                for j in range(0, m):\n                    dp[j] = NEG\n                ptr += 1\n        return dp[k]\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def maximumScore(self, nums, s):\n        n = len(nums)\n        ones = [i for i in range(n) if s[i] == '1']\n        k = len(ones)\n        if k == 0:\n            return 0\n        r_last = ones[-1]\n        parent = list(range(k + 1))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        items = sorted(range(r_last + 1), key=lambda i: -nums[i])\n        total = 0\n        count = 0\n        for i in items:\n            idx = bisect.bisect_left(ones, i)\n            slot = find(idx)\n            if slot < k:\n                total += nums[i]\n                parent[slot] = slot + 1\n                count += 1\n                if count == k:\n                    break\n        return total\n",
+    "javascript": "var maximumScore = function(nums, s) {\n    const n = nums.length;\n    const ones = [];\n    for (let i = 0; i < n; i++) if (s[i] === '1') ones.push(i);\n    const k = ones.length;\n    if (k === 0) return 0;\n    const rLast = ones[ones.length - 1];\n    const parent = new Array(k + 1);\n    for (let i = 0; i <= k; i++) parent[i] = i;\n    function find(x) {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    }\n    function bisectLeft(target) {\n        let lo = 0, hi = ones.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (ones[mid] < target) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n    const items = [];\n    for (let i = 0; i <= rLast; i++) items.push(i);\n    items.sort((a, b) => nums[b] - nums[a]);\n    let total = 0, count = 0;\n    for (const i of items) {\n        const idx = bisectLeft(i);\n        const slot = find(idx);\n        if (slot < k) {\n            total += nums[i];\n            parent[slot] = slot + 1;\n            count++;\n            if (count === k) break;\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}
