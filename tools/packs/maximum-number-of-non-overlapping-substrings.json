@@ -1,0 +1,88 @@
+{
+  "slug": "maximum-number-of-non-overlapping-substrings",
+  "judge": "unordered",
+  "pattern": "A substring is 'self-contained' exactly when expanding its window to absorb every occurrence of every character inside it reaches a fixed point, and those fixed-point windows are always either nested or disjoint - so a simple earliest-finish-time greedy over them is both optimal and length-minimal.",
+  "hints": [
+    "For a substring to legally contain a character, it must contain ALL occurrences of that character - so start from each character's first occurrence and keep growing the window to also cover every other character's occurrences that fall inside, until the window stops changing.",
+    "If, while growing a window that starts at position i, you discover a character whose own first occurrence is before i, no valid self-contained substring can start at i at all - discard that attempt.",
+    "The surviving candidate windows are always either nested inside each other or completely disjoint (never partially overlapping); sort them by their end position and greedily take each one that starts after the last one you took to get the unique maximum-count, minimum-length answer."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several small self-contained pieces plus a larger merged one",
+      "input": [
+        "adefaddaccc"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a character repeated across the string forces a merge, leaving distinct pieces around it",
+      "input": [
+        "abbaccd"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single character is trivially its own substring",
+      "input": [
+        "a"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "every character distinct, each is its own substring",
+      "input": [
+        "abcdefghij"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "interleaved repeats force the whole string into one substring",
+      "input": [
+        "abab"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one repeated character with nothing else collapses to a single whole-string substring, not one per letter",
+      "input": [
+        "aaaa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a small nested interval must be preferred over the larger enclosing one on a length tie-break",
+      "input": [
+        "aabaa"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random strings over a small alphabet near the maximum length, biasing toward heavy nesting and overlap",
+      "seed": 33,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    alphabet = 'abcde'\n    return [''.join(rng.choice(alphabet) for _ in range(n))]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxNumOfSubstrings(self, s):\n        n = len(s)\n        first = {}\n        last = {}\n        for i, c in enumerate(s):\n            if c not in first:\n                first[c] = i\n            last[c] = i\n        interval_at = {}\n        for i in range(n):\n            c = s[i]\n            if first[c] != i:\n                continue\n            start, end = i, last[c]\n            j = start\n            valid = True\n            while j <= end:\n                c2 = s[j]\n                if first[c2] < start:\n                    valid = False\n                    break\n                if last[c2] > end:\n                    end = last[c2]\n                j += 1\n            if valid:\n                interval_at[start] = end\n        best_count = [0] * (n + 1)\n        best_len = [0] * (n + 1)\n        take = [False] * (n + 1)\n        take_end = [-1] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            best_count[i] = best_count[i + 1]\n            best_len[i] = best_len[i + 1]\n            take[i] = False\n            if i in interval_at:\n                end = interval_at[i]\n                c2 = best_count[end + 1] + 1\n                l2 = best_len[end + 1] + (end - i + 1)\n                if c2 > best_count[i] or (c2 == best_count[i] and l2 < best_len[i]):\n                    best_count[i], best_len[i] = c2, l2\n                    take[i] = True\n                    take_end[i] = end\n        res = []\n        i = 0\n        while i < n:\n            if take[i]:\n                res.append(s[i:take_end[i] + 1])\n                i = take_end[i] + 1\n            else:\n                i += 1\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxNumOfSubstrings(self, s: str):\n        first = {}\n        last = {}\n        for i, c in enumerate(s):\n            if c not in first:\n                first[c] = i\n            last[c] = i\n        candidates = []\n        n = len(s)\n        for i in range(n):\n            c = s[i]\n            if first[c] != i:\n                continue\n            start, end = i, last[c]\n            j = start\n            valid = True\n            while j <= end:\n                c2 = s[j]\n                if first[c2] < start:\n                    valid = False\n                    break\n                if last[c2] > end:\n                    end = last[c2]\n                j += 1\n            if valid:\n                candidates.append((end, start))\n        candidates.sort()\n        res = []\n        prev_end = -1\n        for end, start in candidates:\n            if start > prev_end:\n                res.append(s[start:end + 1])\n                prev_end = end\n        return res\n",
+    "javascript": "var maxNumOfSubstrings = function(s) {\n    const first = new Map();\n    const last = new Map();\n    for (let i = 0; i < s.length; i++) {\n        const c = s[i];\n        if (!first.has(c)) first.set(c, i);\n        last.set(c, i);\n    }\n    const candidates = [];\n    const n = s.length;\n    for (let i = 0; i < n; i++) {\n        const c = s[i];\n        if (first.get(c) !== i) continue;\n        let start = i, end = last.get(c);\n        let j = start;\n        let valid = true;\n        while (j <= end) {\n            const c2 = s[j];\n            if (first.get(c2) < start) {\n                valid = false;\n                break;\n            }\n            if (last.get(c2) > end) end = last.get(c2);\n            j++;\n        }\n        if (valid) candidates.push([end, start]);\n    }\n    candidates.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]));\n    const res = [];\n    let prevEnd = -1;\n    for (const [end, start] of candidates) {\n        if (start > prevEnd) {\n            res.push(s.slice(start, end + 1));\n            prevEnd = end;\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * alphabet)",
+    "space": "O(n)"
+  }
+}
