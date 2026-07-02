@@ -1,0 +1,258 @@
+{
+  "judge": "exact",
+  "pattern": "Each day's best score only depends on where you ended the previous day, so the whole k-day journey is a small day-by-city dynamic program that tries staying versus arriving from every other city.",
+  "hints": [
+    "The tourist can start in any city for free, so day 0's best score at city c is either staying there right away or having 'started' at some other city and immediately traveled into c.",
+    "For every later day, the best score ending at city c is the better of: continuing to stay in c from wherever yesterday's best score at c was, or traveling into c from whichever other city had the best score yesterday once you add that city's travel score into c.",
+    "Track one running best score per city across the k days -- at the very end the answer is simply the largest score among all cities on the final day."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        200
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        200
+      ]
+    },
+    {
+      "param": "stayScore",
+      "kind": "int[][]",
+      "len": [
+        1,
+        200
+      ],
+      "value": [
+        1,
+        100
+      ]
+    },
+    {
+      "param": "travelScore",
+      "kind": "int[][]",
+      "len": [
+        1,
+        200
+      ],
+      "value": [
+        0,
+        100
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, staying put beats traveling",
+      "input": [
+        2,
+        1,
+        [
+          [
+            2,
+            3
+          ]
+        ],
+        [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a single travel move on day two",
+      "input": [
+        3,
+        2,
+        [
+          [
+            3,
+            4,
+            2
+          ],
+          [
+            2,
+            1,
+            2
+          ]
+        ],
+        [
+          [
+            0,
+            2,
+            1
+          ],
+          [
+            2,
+            0,
+            4
+          ],
+          [
+            3,
+            2,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single city means only staying is possible every day",
+      "input": [
+        1,
+        3,
+        [
+          [
+            5
+          ],
+          [
+            7
+          ],
+          [
+            2
+          ]
+        ],
+        [
+          [
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single day, single city",
+      "input": [
+        1,
+        1,
+        [
+          [
+            9
+          ]
+        ],
+        [
+          [
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "travel is always strictly better than staying every day",
+      "input": [
+        3,
+        3,
+        [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1
+          ]
+        ],
+        [
+          [
+            0,
+            100,
+            100
+          ],
+          [
+            100,
+            0,
+            100
+          ],
+          [
+            100,
+            100,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "staying is always strictly better than any travel option",
+      "input": [
+        3,
+        3,
+        [
+          [
+            50,
+            50,
+            50
+          ],
+          [
+            50,
+            50,
+            50
+          ],
+          [
+            50,
+            50,
+            50
+          ]
+        ],
+        [
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            1
+          ],
+          [
+            1,
+            1,
+            0
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random stay and travel score tables at moderate size",
+      "seed": 17,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    k = max(1, min(size, 60))\n    stay_score = [[rng.randint(1, 100) for _ in range(n)] for _ in range(k)]\n    travel_score = [[0 if i == j else rng.randint(0, 100) for j in range(n)] for i in range(n)]\n    return [n, k, stay_score, travel_score]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxScore(self, n, k, stayScore, travelScore):\n        from functools import lru_cache\n\n        @lru_cache(maxsize=None)\n        def solve(day, city):\n            if day == k:\n                return 0\n            best = stayScore[day][city] + solve(day + 1, city)\n            for dest in range(n):\n                if dest != city:\n                    cand = travelScore[city][dest] + solve(day + 1, dest)\n                    if cand > best:\n                        best = cand\n            return best\n\n        return max(solve(0, c) for c in range(n))\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxScore(self, n: int, k: int, stayScore: List[List[int]], travelScore: List[List[int]]) -> int:\n        dp = [0] * n\n        for c in range(n):\n            best = stayScore[0][c]\n            for p in range(n):\n                if p != c and travelScore[p][c] > best:\n                    best = travelScore[p][c]\n            dp[c] = best\n        for day in range(1, k):\n            new_dp = [0] * n\n            for c in range(n):\n                best = dp[c] + stayScore[day][c]\n                for p in range(n):\n                    if p != c:\n                        cand = dp[p] + travelScore[p][c]\n                        if cand > best:\n                            best = cand\n                new_dp[c] = best\n            dp = new_dp\n        return max(dp)\n",
+    "javascript": "var maxScore = function(n, k, stayScore, travelScore) {\n    let dp = new Array(n).fill(0);\n    for (let c = 0; c < n; c++) {\n        let best = stayScore[0][c];\n        for (let p = 0; p < n; p++) {\n            if (p !== c && travelScore[p][c] > best) best = travelScore[p][c];\n        }\n        dp[c] = best;\n    }\n    for (let day = 1; day < k; day++) {\n        const newDp = new Array(n).fill(0);\n        for (let c = 0; c < n; c++) {\n            let best = dp[c] + stayScore[day][c];\n            for (let p = 0; p < n; p++) {\n                if (p !== c) {\n                    const cand = dp[p] + travelScore[p][c];\n                    if (cand > best) best = cand;\n                }\n            }\n            newDp[c] = best;\n        }\n        dp = newDp;\n    }\n    return Math.max(...dp);\n};\n"
+  },
+  "complexity": {
+    "time": "O(k * n^2)",
+    "space": "O(n)"
+  },
+  "slug": "maximum-points-tourist-can-earn"
+}
