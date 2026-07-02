@@ -1,0 +1,39 @@
+{
+  "slug": "maximum-score-from-removing-substrings",
+  "judge": "exact",
+  "pattern": "Because removing a two-letter pattern only ever depends on which letters are currently adjacent, greedily clearing the higher-scoring pattern first everywhere it can appear (with a stack), then clearing whatever is left of the lower-scoring pattern, always beats interleaving the two removal types.",
+  "hints": [
+    "Whichever of \"ab\" or \"ba\" is worth more points should always be removed first, everywhere it occurs, before touching the other pattern.",
+    "You can strip every occurrence of a single two-letter pattern from a string in one left-to-right pass with a stack: push characters, and whenever the top of the stack plus the current character form the pattern, pop instead of pushing and add its score.",
+    "After exhausting the higher-value pattern this way, run the exact same stack pass over what remains to remove the lower-value pattern, and sum both scores."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] },
+    { "param": "x", "kind": "int", "value": [1, 10000] },
+    { "param": "y", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, ba worth more than ab", "input": ["cdbcbbaaabab", 4, 5] },
+    { "kind": "edge", "description": "statement example, ab worth more than ba", "input": ["aabbaaxybbaabb", 5, 4] },
+    { "kind": "boundary", "description": "single character, nothing removable", "input": ["a", 1, 1] },
+    { "kind": "trap", "description": "equal scores for both patterns", "input": ["abab", 3, 3] },
+    { "kind": "trap", "description": "no matching pair anywhere", "input": ["aaaabbbb", 2, 9] },
+    { "kind": "trap", "description": "only the lower-priority pattern is present", "input": ["ba", 1, 100] },
+    { "kind": "trap", "description": "third unrelated letter breaks up otherwise removable runs", "input": ["axbxaxb", 10, 3] }
+  ],
+  "stress": [
+    {
+      "description": "random string over a/b/c so both patterns and blockers are common",
+      "seed": 11,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 400))\n    s = ''.join(rng.choice('aabbc') for _ in range(n))\n    x = rng.randint(1, 10000)\n    y = rng.randint(1, 10000)\n    return [s, x, y]\n",
+      "note": "kept modest so the pass-based oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumGain(self, s, x, y):\n        total = 0\n        if x >= y:\n            first_pat, first_score, second_pat, second_score = 'ab', x, 'ba', y\n        else:\n            first_pat, first_score, second_pat, second_score = 'ba', y, 'ab', x\n        chars = list(s)\n        for pat, score in ((first_pat, first_score), (second_pat, second_score)):\n            changed = True\n            while changed:\n                changed = False\n                out = []\n                j = 0\n                n = len(chars)\n                while j < n:\n                    if j + 1 < n and chars[j] == pat[0] and chars[j + 1] == pat[1]:\n                        total += score\n                        j += 2\n                        changed = True\n                    else:\n                        out.append(chars[j])\n                        j += 1\n                chars = out\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumGain(self, s, x, y):\n        def remove_pair(string, a, b, score):\n            stack = []\n            total = 0\n            for ch in string:\n                if stack and stack[-1] == a and ch == b:\n                    stack.pop()\n                    total += score\n                else:\n                    stack.append(ch)\n            return ''.join(stack), total\n\n        if x >= y:\n            s1, sc1 = remove_pair(s, 'a', 'b', x)\n            s2, sc2 = remove_pair(s1, 'b', 'a', y)\n        else:\n            s1, sc1 = remove_pair(s, 'b', 'a', y)\n            s2, sc2 = remove_pair(s1, 'a', 'b', x)\n        return sc1 + sc2\n",
+    "javascript": "var maximumGain = function(s, x, y) {\n    function removePair(str, a, b, score) {\n        const stack = [];\n        let total = 0;\n        for (const ch of str) {\n            if (stack.length && stack[stack.length - 1] === a && ch === b) {\n                stack.pop();\n                total += score;\n            } else {\n                stack.push(ch);\n            }\n        }\n        return [stack.join(''), total];\n    }\n\n    let s1, sc1, s2, sc2;\n    if (x >= y) {\n        [s1, sc1] = removePair(s, 'a', 'b', x);\n        [s2, sc2] = removePair(s1, 'b', 'a', y);\n    } else {\n        [s1, sc1] = removePair(s, 'b', 'a', y);\n        [s2, sc2] = removePair(s1, 'a', 'b', x);\n    }\n    return sc1 + sc2;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
