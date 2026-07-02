@@ -1,0 +1,48 @@
+{
+  "slug": "maximum-number-of-tasks-you-can-assign",
+  "judge": "exact",
+  "pattern": "Binary search on the count of tasks completed, then check feasibility for a given count by matching the easiest tasks against the strongest workers, spending pills only on the weakest worker in the current window who cannot otherwise reach the requirement.",
+  "hints": [
+    "If some k tasks can all be completed, the k easiest tasks can also all be completed using the k strongest workers, so binary search on k and only test that specific pairing.",
+    "Within a feasibility check, walk the k chosen tasks from hardest to easiest, revealing workers strongest-first into a working window as soon as a worker (even with a pill) could reach the current requirement.",
+    "At each task, if the strongest worker revealed so far already meets it unpilled, use that worker directly; otherwise spend a pill on the weakest worker currently in the window, since every worker still in the window is guaranteed to clear the requirement once pilled."
+  ],
+  "constraints": [
+    { "param": "tasks", "kind": "int[]", "len": [1, 50000], "value": [0, 1000000000] },
+    { "param": "workers", "kind": "int[]", "len": [1, 50000], "value": [0, 1000000000] },
+    { "param": "pills", "kind": "int", "value": [0, 50000] },
+    { "param": "strength", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three tasks, one pill covers the weakest worker to complete every task", "input": [[3, 2, 1], [0, 3, 3], 1, 1] },
+    { "kind": "edge", "description": "two demanding tasks, three idle workers, only one is reachable even pilled", "input": [[5, 4], [0, 0, 0], 1, 5] },
+    { "kind": "edge", "description": "wide spread of requirements against several equal-strength workers with multiple pills available", "input": [[10, 15, 30], [0, 10, 10, 10, 10], 3, 10] },
+    { "kind": "trap", "description": "no pills available at all, so only raw worker strength counts", "input": [[5, 5, 5], [1, 2, 3], 0, 10] },
+    { "kind": "trap", "description": "every worker needs and gets a pill to reach the requirement", "input": [[8, 8], [3, 3], 2, 5] },
+    { "kind": "trap", "description": "a worker already strong enough for the task, so the available pill goes unused", "input": [[5], [10], 1, 100] },
+    { "kind": "trap", "description": "even a full pill cannot lift any worker to the requirement, so nothing can be done", "input": [[100, 100], [1, 1], 2, 5] },
+    { "kind": "boundary", "description": "requirement and worker strength sit at the top of the allowed range, closed by exactly one pill", "input": [[1000000000], [999999999], 1, 1] },
+    { "kind": "boundary", "description": "a single task and a single worker matching exactly, with no pill capacity at all", "input": [[1], [1], 0, 0] },
+    { "kind": "edge", "description": "more workers than tasks, so the weaker extra workers are simply left unused", "input": [[2, 2], [1, 5, 5, 1], 0, 0] }
+  ],
+  "stress": [
+    {
+      "description": "randomized tasks and workers across the full value range with a random pill budget",
+      "seed": 5,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 1500)))\n    m = rng.randint(1, max(1, min(size, 1500)))\n    cap = 1000000000\n    tasks = [rng.randint(0, cap) for _ in range(n)]\n    workers = [rng.randint(0, cap) for _ in range(m)]\n    pills = rng.randint(0, m)\n    strength = rng.randint(0, cap)\n    return [tasks, workers, pills, strength]\n"
+    },
+    {
+      "description": "many workers clustered just below a shared task requirement, forcing heavy pill usage",
+      "seed": 11,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 800)))\n    m = rng.randint(n, max(n, min(size, 800)))\n    req = rng.randint(10, 1000)\n    tasks = [req + rng.randint(-5, 5) for _ in range(n)]\n    strength = rng.randint(1, 20)\n    workers = [max(0, req - rng.randint(1, strength)) for _ in range(m)]\n    pills = rng.randint(0, m)\n    return [tasks, workers, pills, strength]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations, permutations\n\n\nclass Solution:\n    def maxTaskAssign(self, tasks, workers, pills, strength):\n        n, m = len(tasks), len(workers)\n        for k in range(min(n, m), 0, -1):\n            found = False\n            for task_idx in combinations(range(n), k):\n                t_sub = [tasks[i] for i in task_idx]\n                for work_idx in combinations(range(m), k):\n                    w_sub = [workers[i] for i in work_idx]\n                    for perm in permutations(range(k)):\n                        needed = 0\n                        ok = True\n                        for i in range(k):\n                            w = w_sub[perm[i]]\n                            t = t_sub[i]\n                            if w >= t:\n                                continue\n                            elif w + strength >= t:\n                                needed += 1\n                            else:\n                                ok = False\n                                break\n                        if ok and needed <= pills:\n                            found = True\n                            break\n                    if found:\n                        break\n                if found:\n                    break\n            if found:\n                return k\n        return 0\n",
+  "solutions": {
+    "python": "from collections import deque\n\n\nclass Solution:\n    def maxTaskAssign(self, tasks, workers, pills, strength):\n        tasks = sorted(tasks)\n        workers = sorted(workers)\n        n, m = len(tasks), len(workers)\n\n        def check(k):\n            if k == 0:\n                return True\n            p = pills\n            ptr = m - 1\n            window = deque()\n            for i in range(k - 1, -1, -1):\n                while ptr >= m - k and workers[ptr] + strength >= tasks[i]:\n                    window.append(workers[ptr])\n                    ptr -= 1\n                if not window:\n                    return False\n                if window[0] >= tasks[i]:\n                    window.popleft()\n                else:\n                    if p == 0:\n                        return False\n                    p -= 1\n                    window.pop()\n            return True\n\n        lo, hi, ans = 0, min(n, m), 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if check(mid):\n                ans = mid\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        return ans\n",
+    "javascript": "var maxTaskAssign = function(tasks, workers, pills, strength) {\n    tasks = tasks.slice().sort((a, b) => a - b);\n    workers = workers.slice().sort((a, b) => a - b);\n    const n = tasks.length, m = workers.length;\n\n    function check(k) {\n        if (k === 0) return true;\n        let p = pills;\n        let ptr = m - 1;\n        const window = [];\n        for (let i = k - 1; i >= 0; i--) {\n            while (ptr >= m - k && workers[ptr] + strength >= tasks[i]) {\n                window.push(workers[ptr]);\n                ptr -= 1;\n            }\n            if (window.length === 0) return false;\n            if (window[0] >= tasks[i]) {\n                window.shift();\n            } else {\n                if (p === 0) return false;\n                p -= 1;\n                window.pop();\n            }\n        }\n        return true;\n    }\n\n    let lo = 0, hi = Math.min(n, m), ans = 0;\n    while (lo <= hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (check(mid)) {\n            ans = mid;\n            lo = mid + 1;\n        } else {\n            hi = mid - 1;\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + m) log(min(n, m)) log(max(n, m)))", "space": "O(min(n, m))" }
+}

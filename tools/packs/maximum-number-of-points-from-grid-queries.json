@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-number-of-points-from-grid-queries",
+  "judge": "exact",
+  "pattern": "Answer the queries from smallest to largest while growing one shared frontier: keep a min-heap of the border cells reachable so far, and before answering a query keep popping cells whose value is below it (adding their unvisited neighbors to the heap) so each query only ever pays for the growth since the previous one.",
+  "hints": [
+    "Process the queries sorted from smallest to largest value, remembering each query's original position so the final answer can be placed back in the right slot.",
+    "Maintain one min-heap of frontier cells (starting from the top-left) shared across all queries: for the current query, repeatedly pop the smallest cell while its value is strictly less than the query, counting it and pushing its unvisited neighbors — this reuses all the work done for smaller queries.",
+    "Once the smallest remaining cell in the heap is no longer strictly less than the query, stop popping — the running count at that moment is exactly the answer for this query, and the heap/visited state carries over unchanged into the next (larger) query."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [2, 1000], "value": [1, 1000000], "note": "m rows, n cols, 2<=m,n<=1000, 4<=m*n<=100000" },
+    { "param": "queries", "kind": "int[]", "len": [1, 10000], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the very first query is at or below the top-left cell's value — the traversal never even starts", "input": [[[3, 1], [2, 2]], [1]] },
+    { "kind": "edge", "description": "uniform grid — a query threshold either unlocks nothing or the entire grid", "input": [[[1, 1], [1, 1]], [1, 2]] },
+    { "kind": "edge", "description": "duplicate query values must each independently receive the same correct answer", "input": [[[2, 4], [4, 4]], [3, 3, 10]] },
+    { "kind": "trap", "description": "a narrow path of increasing values flanked by high-value walls — the frontier must grow strictly along the path and never jump through a wall cell", "input": [[[1, 2, 3], [8, 8, 4], [8, 8, 5]], [6]] },
+    { "kind": "trap", "description": "queries listed out of increasing order must still each land the correct cumulative count in their own original slot", "input": [[[1, 3, 5], [2, 4, 6], [9, 9, 9]], [10, 2, 6]] },
+    { "kind": "boundary", "description": "smallest possible grid, 2x2", "input": [[[1, 2], [3, 4]], [2, 5]] },
+    { "kind": "boundary", "description": "top-left cell holds the maximum possible value, so no query (itself capped at the same maximum) can ever strictly exceed it", "input": [[[1000000, 1], [1, 1]], [1, 500000, 1000000]] }
+  ],
+  "stress": [
+    {
+      "description": "grid sized close to the 100000-cell budget with up to 10000 random queries across the full value range",
+      "seed": 31,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    rows = max(2, min(300, size))\n    cols = max(2, min(300, 100000 // rows))\n    grid = [[rng.randint(1, 1000000) for _ in range(cols)] for _ in range(rows)]\n    k = min(10000, max(1, size // 20))\n    queries = [rng.randint(1, 1000000) for _ in range(k)]\n    return [grid, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPoints(self, grid, queries):\n        from collections import deque\n        m, n = len(grid), len(grid[0])\n\n        def count_reachable(q):\n            if grid[0][0] >= q:\n                return 0\n            visited = [[False] * n for _ in range(m)]\n            visited[0][0] = True\n            dq = deque([(0, 0)])\n            count = 0\n            while dq:\n                r, c = dq.popleft()\n                count += 1\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < m and 0 <= nc < n and not visited[nr][nc] and grid[nr][nc] < q:\n                        visited[nr][nc] = True\n                        dq.append((nr, nc))\n            return count\n\n        return [count_reachable(q) for q in queries]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPoints(self, grid, queries):\n        import heapq\n        m, n = len(grid), len(grid[0])\n        k = len(queries)\n        order = sorted(range(k), key=lambda i: queries[i])\n        answer = [0] * k\n        visited = [[False] * n for _ in range(m)]\n        visited[0][0] = True\n        heap = [(grid[0][0], 0, 0)]\n        points = 0\n        for idx in order:\n            q = queries[idx]\n            while heap and heap[0][0] < q:\n                val, r, c = heapq.heappop(heap)\n                points += 1\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < m and 0 <= nc < n and not visited[nr][nc]:\n                        visited[nr][nc] = True\n                        heapq.heappush(heap, (grid[nr][nc], nr, nc))\n            answer[idx] = points\n        return answer\n",
+    "javascript": "var maxPoints = function(grid, queries) {\n    const m = grid.length, n = grid[0].length;\n    const k = queries.length;\n    const order = Array.from({ length: k }, (_, i) => i).sort((a, b) => queries[a] - queries[b]);\n    const answer = new Array(k).fill(0);\n    const visited = Array.from({ length: m }, () => new Array(n).fill(false));\n    visited[0][0] = true;\n\n    class MinHeap {\n        constructor() { this.a = []; }\n        get size() { return this.a.length; }\n        peek() { return this.a[0]; }\n        push(item) {\n            const a = this.a;\n            a.push(item);\n            let i = a.length - 1;\n            while (i > 0) {\n                const p = (i - 1) >> 1;\n                if (a[p][0] <= a[i][0]) break;\n                [a[p], a[i]] = [a[i], a[p]];\n                i = p;\n            }\n        }\n        pop() {\n            const a = this.a;\n            const top = a[0];\n            const last = a.pop();\n            if (a.length) {\n                a[0] = last;\n                let i = 0;\n                while (true) {\n                    let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                    if (l < a.length && a[l][0] < a[s][0]) s = l;\n                    if (r < a.length && a[r][0] < a[s][0]) s = r;\n                    if (s === i) break;\n                    [a[s], a[i]] = [a[i], a[s]];\n                    i = s;\n                }\n            }\n            return top;\n        }\n    }\n\n    const heap = new MinHeap();\n    heap.push([grid[0][0], 0, 0]);\n    let points = 0;\n    for (const idx of order) {\n        const q = queries[idx];\n        while (heap.size && heap.peek()[0] < q) {\n            const [val, r, c] = heap.pop();\n            points++;\n            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n            for (const [dr, dc] of dirs) {\n                const nr = r + dr, nc = c + dc;\n                if (nr >= 0 && nr < m && nc >= 0 && nc < n && !visited[nr][nc]) {\n                    visited[nr][nc] = true;\n                    heap.push([grid[nr][nc], nr, nc]);\n                }\n            }\n        }\n        answer[idx] = points;\n    }\n    return answer;\n};\n"
+  },
+  "complexity": { "time": "O(m*n log(m*n) + k log k)", "space": "O(m*n + k)" }
+}
