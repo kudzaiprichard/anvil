@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-strictly-increasing-cells-in-a-matrix",
+  "judge": "exact",
+  "pattern": "Because a jump can land on any cell in the same row or column (not just an adjacent one), the longest chain only cares about relative value order, so processing cells value-tier by value-tier and remembering the best chain seen so far per row and per column beats exploring every pair directly.",
+  "hints": [
+    "A jump can land anywhere in the same row or column as long as the value strictly increases, so distance between cells never matters -- only which row/column a cell belongs to and its value.",
+    "Sort all cells by value and sweep them from smallest to largest, keeping a running best chain-length for every row and every column seen so far.",
+    "When several cells share the exact same value, compute all of their chain lengths using the row/column bests from strictly smaller values first, and only fold their own results into the row/column bests afterward -- equal-value cells must never chain off each other."
+  ],
+  "constraints": [
+    { "param": "mat", "kind": "int[][]", "len": [1, 100000], "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small 2x2 with a repeated value blocking one path", "input": [[[3, 1], [3, 4]]] },
+    { "kind": "trap", "description": "every cell identical, no strictly greater neighbor exists anywhere", "input": [[[1, 1], [1, 1]]] },
+    { "kind": "edge", "description": "2x3 with a negative value and a mixed chain", "input": [[[3, 1, 6], [-9, 5, 7]]] },
+    { "kind": "boundary", "description": "single cell matrix", "input": [[[5]]] },
+    { "kind": "boundary", "description": "single row, strictly increasing left to right", "input": [[[1, 2, 3, 4, 5]]] },
+    { "kind": "boundary", "description": "single column with values in decreasing physical order but still chainable by value", "input": [[[5], [4], [3], [2], [1]]] },
+    { "kind": "trap", "description": "an entire row of repeated values, no increase possible within it", "input": [[[2, 2, 2], [2, 2, 2]]] },
+    { "kind": "trap", "description": "negative and zero values mixed across a small grid", "input": [[[-5, -1], [0, -3]]] },
+    { "kind": "edge", "description": "4x4 grid with scattered values including negatives and repeats", "input": [[[1, 5, 9, 4], [8, 2, 6, 3], [7, 10, 12, 11], [0, -1, 2, 15]]] }
+  ],
+  "stress": [
+    {
+      "description": "small random matrices with repeated values to stress the equal-value batching",
+      "seed": 23,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    dim = max(1, min(size, 8))\n    m = rng.randint(1, dim)\n    n = rng.randint(1, dim)\n    mat = [[rng.randint(-50, 50) for _ in range(n)] for _ in range(m)]\n    return [mat]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxIncreasingCells(self, mat) -> int:\n        m, n = len(mat), len(mat[0])\n        memo = {}\n        def neighbors(r, c):\n            v = mat[r][c]\n            res = []\n            for cc in range(n):\n                if cc != c and mat[r][cc] > v:\n                    res.append((r, cc))\n            for rr in range(m):\n                if rr != r and mat[rr][c] > v:\n                    res.append((rr, c))\n            return res\n        def dp(r, c):\n            if (r, c) in memo:\n                return memo[(r, c)]\n            best = 1\n            for (rr, cc) in neighbors(r, c):\n                cand = 1 + dp(rr, cc)\n                if cand > best:\n                    best = cand\n            memo[(r, c)] = best\n            return best\n        return max(dp(r, c) for r in range(m) for c in range(n))\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxIncreasingCells(self, mat) -> int:\n        from collections import defaultdict\n        m, n = len(mat), len(mat[0])\n        value_cells = defaultdict(list)\n        for r in range(m):\n            for c in range(n):\n                value_cells[mat[r][c]].append((r, c))\n        row_best = [0] * m\n        col_best = [0] * n\n        ans = 0\n        for v in sorted(value_cells.keys()):\n            cells = value_cells[v]\n            dp_vals = []\n            for (r, c) in cells:\n                dp = max(row_best[r], col_best[c]) + 1\n                dp_vals.append(dp)\n                if dp > ans:\n                    ans = dp\n            for (r, c), dp in zip(cells, dp_vals):\n                if dp > row_best[r]:\n                    row_best[r] = dp\n                if dp > col_best[c]:\n                    col_best[c] = dp\n        return ans\n",
+    "javascript": "var maxIncreasingCells = function(mat) {\n    const m = mat.length, n = mat[0].length;\n    const valueCells = new Map();\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            const v = mat[r][c];\n            if (!valueCells.has(v)) valueCells.set(v, []);\n            valueCells.get(v).push([r, c]);\n        }\n    }\n    const rowBest = new Array(m).fill(0);\n    const colBest = new Array(n).fill(0);\n    const values = Array.from(valueCells.keys()).sort((a, b) => a - b);\n    let ans = 0;\n    for (const v of values) {\n        const cells = valueCells.get(v);\n        const dpVals = [];\n        for (const [r, c] of cells) {\n            const dp = Math.max(rowBest[r], colBest[c]) + 1;\n            dpVals.push(dp);\n            if (dp > ans) ans = dp;\n        }\n        for (let i = 0; i < cells.length; i++) {\n            const [r, c] = cells[i];\n            const dp = dpVals[i];\n            if (dp > rowBest[r]) rowBest[r] = dp;\n            if (dp > colBest[c]) colBest[c] = dp;\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(mn log(mn))", "space": "O(mn)" }
+}
