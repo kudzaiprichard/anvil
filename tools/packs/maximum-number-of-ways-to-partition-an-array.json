@@ -1,0 +1,130 @@
+{
+  "slug": "maximum-number-of-ways-to-partition-an-array",
+  "judge": "exact",
+  "pattern": "Changing one element only shifts which pivots balance, so tracking how a pivot's balance value would shift under that change (split into pivots before vs. after the changed index) turns an O(n^2) search into a single linear sweep.",
+  "hints": [
+    "First count how many pivots already balance the array with no changes at all — that is a baseline you can only improve on.",
+    "For a pivot p, define its imbalance as twice the left-side sum minus the total; changing one element only shifts that imbalance for pivots strictly on one side of the changed index.",
+    "Precompute imbalance values for every pivot into a multiset. Sweep the changed index left to right, keeping a 'pivots before me' multiset and a 'pivots after me' multiset; for the change at i (delta = k - nums[i]), the answer candidate is count(delta) in the before-set plus count(-delta) in the after-set, then move pivot i+1 from after to before."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        -100000,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        -100000,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "minimum length array",
+      "input": [
+        [
+          5,
+          5
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "changing to k has no effect since it matches the existing value",
+      "input": [
+        [
+          4,
+          4,
+          4,
+          4
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all zeros already balance everywhere",
+      "input": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        100000
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "negative and positive values mixed",
+      "input": [
+        [
+          -5,
+          10,
+          -5,
+          10,
+          -5
+        ],
+        -10
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme constraint values for nums and k",
+      "input": [
+        [
+          100000,
+          -100000,
+          100000,
+          -100000
+        ],
+        -100000
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "only the last element change creates a balance point",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1,
+          100
+        ],
+        -97
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random array and k within the full constraint range",
+      "seed": 41,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    nums = [rng.randint(-100000, 100000) for _ in range(n)]\n    k = rng.randint(-100000, 100000)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def waysToPartition(self, nums, k):\n        n = len(nums)\n        def count(arr):\n            total = sum(arr)\n            c = 0\n            s = 0\n            for p in range(1, n):\n                s += arr[p - 1]\n                if 2 * s == total:\n                    c += 1\n            return c\n        best = count(nums)\n        for i in range(n):\n            arr = nums[:i] + [k] + nums[i + 1:]\n            best = max(best, count(arr))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def waysToPartition(self, nums, k):\n        from collections import defaultdict\n        n = len(nums)\n        total = sum(nums)\n        prefix = [0] * (n + 1)\n        for idx in range(n):\n            prefix[idx + 1] = prefix[idx] + nums[idx]\n        right_count = defaultdict(int)\n        for p in range(1, n):\n            val = 2 * prefix[p] - total\n            right_count[val] += 1\n        base = right_count.get(0, 0)\n        left_count = defaultdict(int)\n        ans = base\n        for i in range(n):\n            delta = k - nums[i]\n            cur = left_count.get(delta, 0) + right_count.get(-delta, 0)\n            if cur > ans:\n                ans = cur\n            p = i + 1\n            if p <= n - 1:\n                val = 2 * prefix[p] - total\n                right_count[val] -= 1\n                left_count[val] += 1\n        return ans\n",
+    "javascript": "var waysToPartition = function(nums, k) {\n    const n = nums.length;\n    let total = 0;\n    for (const v of nums) total += v;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i];\n    const rightCount = new Map();\n    for (let p = 1; p < n; p++) {\n        const val = 2 * prefix[p] - total;\n        rightCount.set(val, (rightCount.get(val) || 0) + 1);\n    }\n    let base = rightCount.get(0) || 0;\n    const leftCount = new Map();\n    let ans = base;\n    for (let i = 0; i < n; i++) {\n        const delta = k - nums[i];\n        const cur = (leftCount.get(delta) || 0) + (rightCount.get(-delta) || 0);\n        if (cur > ans) ans = cur;\n        const p = i + 1;\n        if (p <= n - 1) {\n            const val = 2 * prefix[p] - total;\n            rightCount.set(val, (rightCount.get(val) || 0) - 1);\n            leftCount.set(val, (leftCount.get(val) || 0) + 1);\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}
