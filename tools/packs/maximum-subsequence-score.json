@@ -1,0 +1,207 @@
+{
+  "slug": "maximum-subsequence-score",
+  "judge": "exact",
+  "pattern": "Fixing the smallest of the second array's chosen values by processing indices from largest to smallest of that value turns the problem into tracking the best-sum group of a fixed size seen so far.",
+  "hints": [
+    "If you fix which element supplies the minimum from the second array, only elements with a second-array value at least that large are eligible partners.",
+    "Process indices sorted by the second array's value from largest to smallest, keeping a running pool of the k largest first-array values seen so far.",
+    "Each time the pool reaches exactly k elements, its sum times the current (smallest-so-far) second-array value is a candidate answer; a min-heap keeps the pool's smallest easy to evict when a bigger first-array value arrives."
+  ],
+  "constraints": [
+    {
+      "param": "nums1",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "nums2",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a small mixed case with k less than the array length",
+      "input": [
+        [
+          2,
+          4,
+          3,
+          1
+        ],
+        [
+          3,
+          2,
+          4,
+          1
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "k = 1 reduces to the best single product",
+      "input": [
+        [
+          5,
+          3,
+          2,
+          6
+        ],
+        [
+          8,
+          5,
+          10,
+          7
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible arrays, k = 1",
+      "input": [
+        [
+          0
+        ],
+        [
+          0
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "all first-array values are zero",
+      "input": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          5,
+          5,
+          5
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "both arrays at the maximum value with k equal to the length",
+      "input": [
+        [
+          100000,
+          100000
+        ],
+        [
+          100000,
+          100000
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k equals the length so every element must be included, no choice",
+      "input": [
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          9,
+          1,
+          5
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the largest first-array value pairs with the smallest second-array value, tempting a greedy-by-nums1 mistake",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          1
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "ties in the second array force a stable choice among equal candidates",
+      "input": [
+        [
+          3,
+          3,
+          3,
+          3
+        ],
+        [
+          5,
+          5,
+          5,
+          5
+        ],
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large random arrays near the maximum length",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums1 = [rng.randint(0, 100000) for _ in range(n)]\n    nums2 = [rng.randint(0, 100000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums1, nums2, k]\n"
+    },
+    {
+      "description": "small random arrays, sized for differential checking against a brute-force oracle",
+      "seed": 6,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 8))\n    nums1 = [rng.randint(0, 20) for _ in range(n)]\n    nums2 = [rng.randint(0, 20) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums1, nums2, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def maxScore(self, nums1, nums2, k):\n        n = len(nums1)\n        best = 0\n        for combo in combinations(range(n), k):\n            s = sum(nums1[i] for i in combo)\n            m = min(nums2[i] for i in combo)\n            best = max(best, s * m)\n        return best\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def maxScore(self, nums1, nums2, k):\n        n = len(nums1)\n        order = sorted(range(n), key=lambda i: -nums2[i])\n        heap = []\n        s = 0\n        best = 0\n        for idx in order:\n            heapq.heappush(heap, nums1[idx])\n            s += nums1[idx]\n            if len(heap) > k:\n                s -= heapq.heappop(heap)\n            if len(heap) == k:\n                best = max(best, s * nums2[idx])\n        return best\n",
+    "javascript": "var maxScore = function(nums1, nums2, k) {\n    const n = nums1.length;\n    const order = Array.from({length: n}, (_, i) => i).sort((a, b) => nums2[b] - nums2[a]);\n    const heap = [];\n    function push(v) {\n        heap.push(v);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p] <= heap[i]) break;\n            [heap[p], heap[i]] = [heap[i], heap[p]];\n            i = p;\n        }\n    }\n    function pop() {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length > 0) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                const l = 2 * i + 1, r = 2 * i + 2;\n                let smallest = i;\n                if (l < heap.length && heap[l] < heap[smallest]) smallest = l;\n                if (r < heap.length && heap[r] < heap[smallest]) smallest = r;\n                if (smallest === i) break;\n                [heap[i], heap[smallest]] = [heap[smallest], heap[i]];\n                i = smallest;\n            }\n        }\n        return top;\n    }\n    let s = 0, best = 0;\n    for (const idx of order) {\n        push(nums1[idx]);\n        s += nums1[idx];\n        if (heap.length > k) {\n            s -= pop();\n        }\n        if (heap.length === k) {\n            best = Math.max(best, s * nums2[idx]);\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}
