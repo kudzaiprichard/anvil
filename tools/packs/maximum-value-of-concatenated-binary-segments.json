@@ -1,0 +1,43 @@
+{
+  "slug": "maximum-value-of-concatenated-binary-segments",
+  "judge": "exact",
+  "pattern": "Every arrangement produces a bit string of the same total length, so maximizing the numeric value is exactly maximizing lexicographic order, which a pairwise ones-first, then most-ones-then-fewest-zeros comparator sorts correctly without ever building the giant string.",
+  "hints": [
+    "All segments concatenated together always have the same total length no matter the order, so the biggest resulting binary number is simply whichever arrangement is lexicographically largest as a bit string.",
+    "A segment made of pure ones (no trailing zeros) should always be placed ahead of any segment that has trailing zeros, since its leading ones win the very first differing bit position.",
+    "Among segments that each have at least one one and one zero, more leading ones always wins outright; only break ties between equal leading-one counts by preferring the shorter run of trailing zeros, and segments made purely of zeros should go last since they contribute nothing but padding."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 100000], "value": [0, 10000] },
+    { "param": "nums0", "kind": "int[]", "len": [1, 100000], "value": [0, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two segments where reordering to put more ones first beats the input order", "input": [[1, 2], [1, 0]] },
+    { "kind": "edge", "description": "one pure-ones segment and one mixed segment", "input": [[3, 1], [0, 3]] },
+    { "kind": "trap", "description": "a pure-ones segment must be placed ahead of a segment with more total ones but a trailing zero", "input": [[2, 5], [0, 1]] },
+    { "kind": "trap", "description": "two segments tie on leading ones, so the shorter trailing-zero run must come first", "input": [[2, 2], [1, 3]] },
+    { "kind": "trap", "description": "a pure-zero segment must be pushed to the very end even though it appears first in the input", "input": [[0, 4], [3, 0]] },
+    { "kind": "boundary", "description": "a single segment needs no reordering at all", "input": [[5], [2]] },
+    { "kind": "boundary", "description": "every segment is pure zeros, giving a value of zero regardless of order", "input": [[0, 0], [2, 3]] }
+  ],
+  "stress": [
+    {
+      "description": "random small segments to cross-check ordering against the brute-force oracle",
+      "seed": 71,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 6))\n    nums1 = []\n    nums0 = []\n    for _ in range(n):\n        a = rng.randint(0, 4)\n        b = rng.randint(0, 4)\n        if a == 0 and b == 0:\n            b = 1\n        nums1.append(a)\n        nums0.append(b)\n    return [nums1, nums0]\n"
+    },
+    {
+      "description": "large number of segments near the full length and per-segment bound",
+      "seed": 72,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums1 = []\n    nums0 = []\n    total = 0\n    for _ in range(n):\n        a = rng.randint(0, 3)\n        b = rng.randint(0, 3)\n        if a == 0 and b == 0:\n            b = 1\n        nums1.append(a)\n        nums0.append(b)\n    return [nums1, nums0]\n"
+    }
+  ],
+  "oracle_python": "import itertools\nclass Solution:\n    def maxValue(self, nums1, nums0):\n        MOD = 10**9 + 7\n        n = len(nums1)\n        segs = list(zip(nums1, nums0))\n        def seg_str(a, b):\n            return '1' * a + '0' * b\n        def cmp_key(pair):\n            return None\n        import functools\n        def cmp(x, y):\n            sx = seg_str(*x)\n            sy = seg_str(*y)\n            A = sx + sy\n            B = sy + sx\n            if A > B:\n                return -1\n            if A < B:\n                return 1\n            return 0\n        segs.sort(key=functools.cmp_to_key(cmp))\n        val = 0\n        for a, b in segs:\n            length = a + b\n            segval = (pow(2, a, MOD) - 1) * pow(2, b, MOD) % MOD\n            val = (val * pow(2, length, MOD) + segval) % MOD\n        return val\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxValue(self, nums1, nums0) -> int:\n        MOD = 10**9 + 7\n        segs = list(zip(nums1, nums0))\n        pure_ones = [(a, b) for a, b in segs if b == 0 and a > 0]\n        mixed = [(a, b) for a, b in segs if a > 0 and b > 0]\n        pure_zero = [(a, b) for a, b in segs if a == 0]\n        mixed.sort(key=lambda x: (-x[0], x[1]))\n        ordered = pure_ones + mixed + pure_zero\n        val = 0\n        for a, b in ordered:\n            length = a + b\n            segval = (pow(2, a, MOD) - 1) * pow(2, b, MOD) % MOD\n            val = (val * pow(2, length, MOD) + segval) % MOD\n        return val\n",
+    "javascript": "var maxValue = function(nums1, nums0) {\n    const MOD = 1000000007n;\n    function power(base, exp) {\n        base = ((base % MOD) + MOD) % MOD;\n        let result = 1n;\n        while (exp > 0n) {\n            if (exp & 1n) result = (result * base) % MOD;\n            base = (base * base) % MOD;\n            exp >>= 1n;\n        }\n        return result;\n    }\n    const n = nums1.length;\n    const segs = [];\n    for (let i = 0; i < n; i++) segs.push([nums1[i], nums0[i]]);\n    const pureOnes = segs.filter(([a, b]) => b === 0 && a > 0);\n    const mixed = segs.filter(([a, b]) => a > 0 && b > 0);\n    const pureZero = segs.filter(([a, b]) => a === 0);\n    mixed.sort((x, y) => (y[0] - x[0]) || (x[1] - y[1]));\n    const ordered = pureOnes.concat(mixed, pureZero);\n    let val = 0n;\n    for (const [a, b] of ordered) {\n        const length = BigInt(a + b);\n        const segval = ((power(2n, BigInt(a)) - 1n + MOD) % MOD) * power(2n, BigInt(b)) % MOD;\n        val = (val * power(2n, length) + segval) % MOD;\n    }\n    return Number(val);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}
