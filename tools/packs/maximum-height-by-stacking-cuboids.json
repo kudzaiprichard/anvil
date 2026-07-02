@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-height-by-stacking-cuboids",
+  "judge": "exact",
+  "pattern": "Since any cuboid can be rotated freely, first normalize each one to its own sorted dimensions, then a taller stack is just the longest chain where every dimension of the piece above never exceeds the matching dimension of the piece below.",
+  "hints": [
+    "Rotation means only the multiset of three dimensions matters for each cuboid, not which face was originally the height -- so sort each cuboid's three numbers ascending before comparing anything.",
+    "One cuboid can sit on another exactly when all three of its sorted dimensions are less than or equal to the other's sorted dimensions in the same order, and sorting the whole list of cuboids lexicographically makes a valid stack always read as a non-decreasing sequence in that order.",
+    "Run a longest-chain dynamic program over the sorted cuboids: for each cuboid, look back at every earlier cuboid it could sit on and take the best total height, using its own largest sorted dimension as the height it contributes."
+  ],
+  "constraints": [
+    { "param": "cuboids", "kind": "int[][]", "len": [1, 100], "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three cuboids needing no rotation to chain", "input": [[[50, 45, 20], [95, 37, 53], [45, 23, 12]]] },
+    { "kind": "edge", "description": "statement example, two cuboids where neither fits the other without rotating", "input": [[[38, 25, 45], [76, 35, 3]]] },
+    { "kind": "edge", "description": "statement example, six rotations of the same cuboid", "input": [[[7, 11, 17], [7, 17, 11], [11, 7, 17], [11, 17, 7], [17, 7, 11], [17, 11, 7]]] },
+    { "kind": "boundary", "description": "a single cuboid", "input": [[[10, 20, 30]]] },
+    { "kind": "boundary", "description": "every dimension at the maximum value", "input": [[[100, 100, 100], [100, 100, 100]]] },
+    { "kind": "trap", "description": "a cuboid that is long and flat cannot sit on a cuboid that is tall and narrow even though their volumes are similar", "input": [[[100, 100, 1], [1, 1, 100]]] },
+    { "kind": "trap", "description": "identical cubes stack directly on top of each other", "input": [[[5, 5, 5], [5, 5, 5], [5, 5, 5]]] },
+    { "kind": "trap", "description": "one cuboid dominates every other in all three dimensions after rotation, so it must be the base", "input": [[[2, 2, 2], [1, 1, 1], [3, 3, 3], [1, 2, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random cuboids near the count bound with dimensions spread across the allowed range",
+      "seed": 7,
+      "size": 90,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    cuboids = []\n    for _ in range(n):\n        cuboids.append([rng.randint(1, 100), rng.randint(1, 100), rng.randint(1, 100)])\n    return [cuboids]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxHeight(self, cuboids):\n        # Independent derivation: normalize, then order by TOTAL dimension sum\n        # (elementwise <= always implies sum <=, so this is a different but still\n        # valid topological order from the lexicographic sort used in the optimal\n        # solution), and push each base FORWARD onto every later cuboid it can\n        # support instead of pulling from earlier compatible bases.\n        n = len(cuboids)\n        norm = [tuple(sorted(c)) for c in cuboids]\n        order = sorted(range(n), key=lambda idx: sum(norm[idx]))\n        best = [norm[idx][2] for idx in order]\n        for a in range(n):\n            i = order[a]\n            for b in range(a + 1, n):\n                j = order[b]\n                if norm[i][0] <= norm[j][0] and norm[i][1] <= norm[j][1] and norm[i][2] <= norm[j][2]:\n                    candidate = best[a] + norm[j][2]\n                    if candidate > best[b]:\n                        best[b] = candidate\n        return max(best) if best else 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxHeight(self, cuboids: List[List[int]]) -> int:\n        norm = sorted(sorted(c) for c in cuboids)\n        n = len(norm)\n        dp = [c[2] for c in norm]\n        for i in range(n):\n            for j in range(i):\n                if norm[j][0] <= norm[i][0] and norm[j][1] <= norm[i][1] and norm[j][2] <= norm[i][2]:\n                    dp[i] = max(dp[i], dp[j] + norm[i][2])\n        return max(dp)\n",
+    "javascript": "var maxHeight = function(cuboids) {\n    const norm = cuboids.map(c => c.slice().sort((a, b) => a - b));\n    norm.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);\n    const n = norm.length;\n    const dp = norm.map(c => c[2]);\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < i; j++) {\n            if (norm[j][0] <= norm[i][0] && norm[j][1] <= norm[i][1] && norm[j][2] <= norm[i][2]) {\n                dp[i] = Math.max(dp[i], dp[j] + norm[i][2]);\n            }\n        }\n    }\n    return Math.max(...dp);\n};\n"
+  },
+  "complexity": { "time": "O(n^2) after an O(n log n) sort", "space": "O(n)" }
+}
