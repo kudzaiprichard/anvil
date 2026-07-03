@@ -1,0 +1,82 @@
+{
+  "slug": "minimum-deletions-to-make-character-frequencies-unique",
+  "judge": "exact",
+  "pattern": "Once you reduce a string down to a multiset of letter frequencies, the cheapest way to make every frequency distinct is to process the frequencies from largest to smallest, shrinking any that collide with one already claimed until it lands on a free value.",
+  "hints": [
+    "Only the count of each letter matters, not which letters they are or where they sit in the string -- start by tallying how many times each letter appears.",
+    "Sort those counts from largest to smallest, and keep a set of counts you've already 'claimed'. When a count collides with one already claimed, it has to shrink, and shrinking it never helps to skip past a still-claimed value.",
+    "Walk the sorted counts and, for each one, keep lowering it by one (each step is one deletion) until it either hits a value nobody has claimed yet or hits zero -- zero is free for everyone, since a letter that's gone entirely can't collide with anything."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [1, 100000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, already unique frequencies",
+      "input": ["aab"]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, one collision needs two deletions",
+      "input": ["aaabbbcc"]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, chained collisions cascade down",
+      "input": ["ceabaacb"]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character, single letter",
+      "input": ["a"]
+    },
+    {
+      "kind": "boundary",
+      "description": "every letter already appears exactly once",
+      "input": ["abcdefg"]
+    },
+    {
+      "kind": "trap",
+      "description": "two letters tied at the same frequency, one must drop to zero",
+      "input": ["aabb"]
+    },
+    {
+      "kind": "trap",
+      "description": "every letter has the same frequency, forcing a full staircase of deletions",
+      "input": ["aaabbbcccddd"]
+    },
+    {
+      "kind": "trap",
+      "description": "all 26 letters present with the same count, worst-case collision chain",
+      "input": ["aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz"]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase strings of varying length, biased toward few distinct letters to force collisions",
+      "seed": 7,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, min(size, 20000))\n    alphabet = string.ascii_lowercase[: rng.randint(1, 26)]\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "large string using the full alphabet with skewed frequencies",
+      "seed": 99,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(26, min(size, 100000))\n    counts = [1] * 26\n    remaining = n - 26\n    for _ in range(remaining):\n        counts[rng.randint(0, 25)] += 1\n    chars = []\n    for i, c in enumerate(counts):\n        chars.append(string.ascii_lowercase[i] * c)\n    s = ''.join(chars)\n    lst = list(s)\n    rng.shuffle(lst)\n    return [''.join(lst)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minDeletions(self, s: str) -> int:\n        from collections import Counter\n        import heapq\n        freqs = list(Counter(s).values())\n        heap = [-f for f in freqs]\n        heapq.heapify(heap)\n        used = set()\n        deletions = 0\n        while heap:\n            f = -heapq.heappop(heap)\n            while f > 0 and f in used:\n                f -= 1\n                deletions += 1\n            used.add(f)\n        return deletions\n",
+  "solutions": {
+    "python": "class Solution:\n    def minDeletions(self, s: str) -> int:\n        from collections import Counter\n        freqs = sorted(Counter(s).values(), reverse=True)\n        deletions = 0\n        cap = None\n        for f in freqs:\n            if cap is None:\n                allowed = f\n            elif f < cap:\n                allowed = f\n            else:\n                allowed = cap - 1\n            if allowed < 0:\n                allowed = 0\n            deletions += f - allowed\n            cap = allowed\n        return deletions\n",
+    "javascript": "var minDeletions = function(s) {\n    const counts = new Map();\n    for (const ch of s) {\n        counts.set(ch, (counts.get(ch) || 0) + 1);\n    }\n    const freqs = Array.from(counts.values()).sort((a, b) => b - a);\n    let deletions = 0;\n    let cap = null;\n    for (const f of freqs) {\n        let allowed;\n        if (cap === null) {\n            allowed = f;\n        } else if (f < cap) {\n            allowed = f;\n        } else {\n            allowed = cap - 1;\n        }\n        if (allowed < 0) allowed = 0;\n        deletions += f - allowed;\n        cap = allowed;\n    }\n    return deletions;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + k log k)",
+    "space": "O(k)"
+  }
+}
