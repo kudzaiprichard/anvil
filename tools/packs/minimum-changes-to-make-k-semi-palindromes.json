@@ -1,0 +1,112 @@
+{
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "The cost of forcing any one substring into the cheapest semi-palindrome shape can be worked out on its own, so splitting the whole string into k pieces optimally becomes an ordinary partition dynamic program layered on top of those precomputed per-substring costs.",
+  "hints": [
+    "For a single substring, checking whether a candidate divisor d makes it a semi-palindrome only requires grouping its characters by position modulo d and counting mismatches within each group as if making that group a palindrome on its own -- try every valid divisor and keep the cheapest.",
+    "Precompute that cheapest cost for every possible contiguous substring of s once, since the same substring cost may be needed for several different ways of splitting the string.",
+    "With those substring costs available, run a partition dynamic program: dp[end][pieces] = the minimum total cost of splitting the first `end` characters into exactly `pieces` semi-palindromic substrings, built by extending from every earlier cut point."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        2,
+        200
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        100
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, one part already qualifies and the other needs one change",
+      "input": [
+        "abcac",
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, both halves need exactly one change each",
+      "input": [
+        "abcdef",
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, every part is already a semi-palindrome",
+      "input": [
+        "aabbaa",
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "shortest possible string with the only allowed split",
+      "input": [
+        "ab",
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k at its maximum relative to the string length",
+      "input": [
+        "aabbccdd",
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single part covering the whole string",
+      "input": [
+        "abcabc",
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a string that is already fully palindromic but split forces extra changes",
+      "input": [
+        "abccba",
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "repeating three-letter pattern that is a semi-palindrome only with divisor three",
+      "input": [
+        "abcabc",
+        1
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "moderate-length strings over a small alphabet with a modest k, exercising the partition DP",
+      "seed": 59,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(size, 60))\n    if n % 2 == 1:\n        n -= 1\n    s = ''.join(rng.choice('abc') for _ in range(n))\n    k = rng.randint(1, max(1, n // 2))\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\n\ndef _semipal_cost_alt(sub):\n    length = len(sub)\n    best = float('inf')\n    for d in range(1, length):\n        if length % d != 0:\n            continue\n        changes = 0\n        for r in range(d):\n            idxs = list(range(r, length, d))\n            gl = len(idxs)\n            for i in range(gl // 2):\n                a = idxs[i]\n                b = idxs[gl - 1 - i]\n                if sub[a] != sub[b]:\n                    changes += 1\n        if changes < best:\n            best = changes\n    return best\n\n\nclass Solution:\n    def minimumChanges(self, s, k):\n        n = len(s)\n        best = None\n        for cuts in combinations(range(1, n), k - 1):\n            bounds = [0] + list(cuts) + [n]\n            total = 0\n            for i in range(len(bounds) - 1):\n                total += _semipal_cost_alt(s[bounds[i]:bounds[i + 1]])\n            if best is None or total < best:\n                best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumChanges(self, s: str, k: int) -> int:\n        n = len(s)\n\n        def semipal_cost(sub):\n            length = len(sub)\n            best = float('inf')\n            for d in range(1, length):\n                if length % d != 0:\n                    continue\n                total = 0\n                for r in range(d):\n                    group = sub[r::d]\n                    gl = len(group)\n                    for i in range(gl // 2):\n                        if group[i] != group[gl - 1 - i]:\n                            total += 1\n                if total < best:\n                    best = total\n            return best\n\n        cost = [[0] * (n + 1) for _ in range(n + 1)]\n        for i in range(n):\n            for j in range(i + 1, n + 1):\n                cost[i][j] = semipal_cost(s[i:j])\n\n        INF = float('inf')\n        dp = [[INF] * (k + 1) for _ in range(n + 1)]\n        dp[0][0] = 0\n        for end in range(1, n + 1):\n            for pieces in range(1, k + 1):\n                best = INF\n                for start in range(pieces - 1, end):\n                    if dp[start][pieces - 1] == INF:\n                        continue\n                    cand = dp[start][pieces - 1] + cost[start][end]\n                    if cand < best:\n                        best = cand\n                dp[end][pieces] = best\n        return dp[n][k]\n",
+    "javascript": "var minimumChanges = function(s, k) {\n    const n = s.length;\n    const semipalCost = (sub) => {\n        const length = sub.length;\n        let best = Infinity;\n        for (let d = 1; d < length; d++) {\n            if (length % d !== 0) continue;\n            let total = 0;\n            for (let r = 0; r < d; r++) {\n                const idxs = [];\n                for (let p = r; p < length; p += d) idxs.push(p);\n                const gl = idxs.length;\n                for (let i = 0; i < Math.floor(gl / 2); i++) {\n                    if (sub[idxs[i]] !== sub[idxs[gl - 1 - i]]) total++;\n                }\n            }\n            if (total < best) best = total;\n        }\n        return best;\n    };\n    const cost = Array.from({ length: n + 1 }, () => new Array(n + 1).fill(0));\n    for (let i = 0; i < n; i++) {\n        for (let j = i + 1; j <= n; j++) {\n            cost[i][j] = semipalCost(s.slice(i, j));\n        }\n    }\n    const INF = Infinity;\n    const dp = Array.from({ length: n + 1 }, () => new Array(k + 1).fill(INF));\n    dp[0][0] = 0;\n    for (let end = 1; end <= n; end++) {\n        for (let pieces = 1; pieces <= k; pieces++) {\n            let best = INF;\n            for (let start = pieces - 1; start < end; start++) {\n                if (dp[start][pieces - 1] === INF) continue;\n                const cand = dp[start][pieces - 1] + cost[start][end];\n                if (cand < best) best = cand;\n            }\n            dp[end][pieces] = best;\n        }\n    }\n    return dp[n][k];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2 * k) after O(n^3) substring precompute",
+    "space": "O(n^2)"
+  },
+  "slug": "minimum-changes-to-make-k-semi-palindromes"
+}
