@@ -1,0 +1,136 @@
+{
+  "slug": "minimum-cost-to-cut-a-stick",
+  "judge": "exact",
+  "pattern": "The cost of any single cut only depends on the two boundaries it falls between right now, so once the cut positions are sorted, the cheapest full plan is an interval DP over pairs of boundaries, same shape as matrix-chain multiplication.",
+  "hints": [
+    "Sort the cut positions and add the two ends of the stick (0 and n) to the list -- every future cut cost is just the distance between two boundaries that are currently adjacent-or-not in this list.",
+    "Define the cost of fully cutting the piece between boundary i and boundary j (with everything strictly between them still to be cut) as a function of just i and j.",
+    "To cut piece (i, j), pick which remaining cut point k between them goes first: that first cut costs (points[j] - points[i]), and the rest is two independent smaller subproblems, (i, k) and (k, j) -- try every k and keep the minimum."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        2,
+        1000000
+      ]
+    },
+    {
+      "param": "cuts",
+      "kind": "int[]",
+      "len": [
+        1,
+        100
+      ],
+      "value": [
+        1,
+        999999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "four cuts, unordered in the input",
+      "input": [
+        7,
+        [
+          1,
+          3,
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "five cuts, unordered in the input",
+      "input": [
+        9,
+        [
+          5,
+          6,
+          1,
+          4,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single cut, right in the middle",
+      "input": [
+        10,
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single cut, near one end",
+      "input": [
+        1000000,
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "cuts already given in sorted order",
+      "input": [
+        10,
+        [
+          2,
+          4,
+          6,
+          8
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "cuts already given in reverse-sorted order",
+      "input": [
+        10,
+        [
+          8,
+          6,
+          4,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "cuts clustered near one end of a long stick",
+      "input": [
+        100,
+        [
+          1,
+          2,
+          3
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random distinct cut positions on a stick of moderate length",
+      "seed": 29,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 1000))\n    k = min(n - 1, max(1, size // 3), 60)\n    cuts = rng.sample(range(1, n), k)\n    return [n, cuts]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCost(self, n: int, cuts) -> int:\n        points = sorted(cuts)\n        points = [0] + points + [n]\n        m = len(points)\n        dp = [[0] * m for _ in range(m)]\n        for length in range(2, m):\n            for i in range(0, m - length):\n                j = i + length\n                if j - i <= 1:\n                    continue\n                best = min(dp[i][k] + dp[k][j] for k in range(i + 1, j))\n                dp[i][j] = best + (points[j] - points[i])\n        return dp[0][m - 1]\n",
+  "solutions": {
+    "python": "import functools\n\nclass Solution:\n    def minCost(self, n: int, cuts) -> int:\n        points = sorted(cuts)\n        points = [0] + points + [n]\n        m = len(points)\n\n        @functools.lru_cache(maxsize=None)\n        def dp(i, j):\n            if j - i <= 1:\n                return 0\n            best = min(dp(i, k) + dp(k, j) for k in range(i + 1, j))\n            return best + (points[j] - points[i])\n\n        result = dp(0, m - 1)\n        dp.cache_clear()\n        return result\n",
+    "javascript": "var minCost = function(n, cuts) {\n    const points = cuts.slice().sort((a, b) => a - b);\n    points.unshift(0);\n    points.push(n);\n    const m = points.length;\n    const memo = new Map();\n    function dp(i, j) {\n        if (j - i <= 1) return 0;\n        const key = i * m + j;\n        if (memo.has(key)) return memo.get(key);\n        let best = Infinity;\n        for (let k = i + 1; k < j; k++) {\n            const cost = dp(i, k) + dp(k, j);\n            if (cost < best) best = cost;\n        }\n        const result = best + (points[j] - points[i]);\n        memo.set(key, result);\n        return result;\n    }\n    return dp(0, m - 1);\n};\n"
+  },
+  "complexity": {
+    "time": "O(m^3) where m is the number of cuts",
+    "space": "O(m^2)"
+  }
+}
