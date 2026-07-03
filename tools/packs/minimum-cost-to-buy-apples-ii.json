@@ -1,0 +1,253 @@
+{
+  "slug": "minimum-cost-to-buy-apples-ii",
+  "judge": "exact",
+  "pattern": "The forward (empty-handed) and return (laden) legs of a detour use two different edge weights on the same roads, so building two separate shortest-path graphs -- one weighted by cost, one by cost times tax -- and adding the two distances from every shop to every other shop finds the cheapest detour for each starting point.",
+  "hints": [
+    "Build two weighted graphs on the same shops: one where every road's weight is its plain cost (for the empty-handed leg), and one where every road's weight is cost times tax (for the laden return leg).",
+    "For each starting shop i, run a shortest-path search from i in both graphs at once; the cost of buying at shop j and bringing the apples back to i is (distance from i to j in the cost graph) + (distance from i to j in the cost*tax graph) + prices[j] -- note both distances start FROM i, since the tax graph is undirected and symmetric.",
+    "The answer for shop i is the minimum of prices[i] itself (buy locally, j = i gives distance 0 + 0) and that combined detour cost over every other shop j; repeat the two-graph search once per starting shop."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "prices",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "roads",
+      "kind": "int[][]",
+      "len": [
+        0,
+        2000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two shops and one road",
+      "input": [
+        2,
+        [
+          8,
+          3
+        ],
+        [
+          [
+            0,
+            1,
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, three shops in a line",
+      "input": [
+        3,
+        [
+          9,
+          4,
+          6
+        ],
+        [
+          [
+            0,
+            1,
+            1,
+            3
+          ],
+          [
+            1,
+            2,
+            4,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a triangle of roads",
+      "input": [
+        3,
+        [
+          10,
+          11,
+          1
+        ],
+        [
+          [
+            0,
+            2,
+            1,
+            3
+          ],
+          [
+            1,
+            2,
+            3,
+            4
+          ],
+          [
+            0,
+            1,
+            5,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single shop with no roads at all",
+      "input": [
+        1,
+        [
+          500
+        ],
+        []
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two shops with no connecting road",
+      "input": [
+        2,
+        [
+          5,
+          1
+        ],
+        []
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "buying locally already beats every detour",
+      "input": [
+        3,
+        [
+          1,
+          1000,
+          1000
+        ],
+        [
+          [
+            0,
+            1,
+            1,
+            1
+          ],
+          [
+            0,
+            2,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "tax multiplier makes the return trip much more expensive than the forward trip",
+      "input": [
+        3,
+        [
+          50,
+          1,
+          50
+        ],
+        [
+          [
+            0,
+            1,
+            1,
+            100
+          ],
+          [
+            1,
+            2,
+            1,
+            100
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a square of four shops with uniform road weights",
+      "input": [
+        4,
+        [
+          20,
+          5,
+          20,
+          20
+        ],
+        [
+          [
+            0,
+            1,
+            2,
+            2
+          ],
+          [
+            1,
+            2,
+            2,
+            2
+          ],
+          [
+            2,
+            3,
+            2,
+            2
+          ],
+          [
+            3,
+            0,
+            2,
+            2
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random sparse road networks with random prices",
+      "seed": 37,
+      "size": 150,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 150))\n    prices = [rng.randint(1, 1000000000) for _ in range(n)]\n    m = min(2 * n, 300)\n    roads = []\n    seen = set()\n    attempts = 0\n    while len(roads) < m and attempts < m * 5 and n > 1:\n        attempts += 1\n        u = rng.randint(0, n - 1)\n        v = rng.randint(0, n - 1)\n        if u == v or (min(u, v), max(u, v)) in seen:\n            continue\n        seen.add((min(u, v), max(u, v)))\n        cost = rng.randint(1, 1000000000)\n        tax = rng.randint(1, 100)\n        roads.append([u, v, cost, tax])\n    return [n, prices, roads]\n"
+    }
+  ],
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def minCost(self, n, prices, roads):\n        adj_cost = [[] for _ in range(n)]\n        adj_tax = [[] for _ in range(n)]\n        for u, v, cost, tax in roads:\n            adj_cost[u].append((v, cost))\n            adj_cost[v].append((u, cost))\n            taxed = cost * tax\n            adj_tax[u].append((v, taxed))\n            adj_tax[v].append((u, taxed))\n\n        def dijkstra(adj, src):\n            dist = [float('inf')] * n\n            dist[src] = 0\n            pq = [(0, src)]\n            while pq:\n                d, u = heapq.heappop(pq)\n                if d > dist[u]:\n                    continue\n                for v, w in adj[u]:\n                    nd = d + w\n                    if nd < dist[v]:\n                        dist[v] = nd\n                        heapq.heappush(pq, (nd, v))\n            return dist\n\n        ans = []\n        for i in range(n):\n            dc = dijkstra(adj_cost, i)\n            dt = dijkstra(adj_tax, i)\n            best = prices[i]\n            for j in range(n):\n                if dc[j] == float('inf') or dt[j] == float('inf'):\n                    continue\n                total = dc[j] + dt[j] + prices[j]\n                if total < best:\n                    best = total\n            ans.append(best)\n        return ans\n",
+    "javascript": "function dijkstra(adj, src, n) {\n    const dist = new Array(n).fill(Infinity);\n    dist[src] = 0;\n    const visited = new Array(n).fill(false);\n    const pq = [[0, src]];\n    while (pq.length) {\n        pq.sort((a, b) => a[0] - b[0]);\n        const [d, u] = pq.shift();\n        if (visited[u]) continue;\n        visited[u] = true;\n        for (const [v, w] of adj[u]) {\n            const nd = d + w;\n            if (nd < dist[v]) {\n                dist[v] = nd;\n                pq.push([nd, v]);\n            }\n        }\n    }\n    return dist;\n}\n\nvar minCost = function(n, prices, roads) {\n    const adjCost = Array.from({ length: n }, () => []);\n    const adjTax = Array.from({ length: n }, () => []);\n    for (const [u, v, cost, tax] of roads) {\n        adjCost[u].push([v, cost]);\n        adjCost[v].push([u, cost]);\n        const taxed = cost * tax;\n        adjTax[u].push([v, taxed]);\n        adjTax[v].push([u, taxed]);\n    }\n    const ans = [];\n    for (let i = 0; i < n; i++) {\n        const dc = dijkstra(adjCost, i, n);\n        const dt = dijkstra(adjTax, i, n);\n        let best = prices[i];\n        for (let j = 0; j < n; j++) {\n            if (dc[j] === Infinity || dt[j] === Infinity) continue;\n            const total = dc[j] + dt[j] + prices[j];\n            if (total < best) best = total;\n        }\n        ans.push(best);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * (n + m) log n)",
+    "space": "O(n + m)"
+  }
+}
