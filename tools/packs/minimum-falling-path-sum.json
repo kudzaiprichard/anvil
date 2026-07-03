@@ -1,37 +1,195 @@
 {
   "slug": "minimum-falling-path-sum",
   "judge": "exact",
-  "pattern": "Row-by-row dynamic programming where each cell stores the cheapest descent ending on it, combining its value with the best of the three cells above.",
+  "pattern": "The cheapest way to reach any cell from the top is fixed once the cheapest way to reach the three cells above it (straight up or diagonally) is known, so the answer can be filled in one row at a time.",
   "hints": [
-    "The cheapest path ending at a cell depends only on the cheapest paths ending in the row directly above it.",
-    "For each cell take its own value plus the minimum of the cell above and its two diagonal neighbors, clamping at the row edges.",
-    "Carry one row of best sums; update it in place row by row, and the answer is the smallest entry of the final row."
+    "Process the grid row by row, keeping only the best running total for each column reached so far.",
+    "A cell's best total is its own value plus the smallest of the totals directly above it and diagonally above-left and above-right, whichever of those exist.",
+    "The two edge columns only have two cells above them instead of three, since one diagonal falls off the grid; the final answer is the smallest total across the last row."
   ],
   "constraints": [
-    { "param": "matrix", "kind": "int[][]", "len": [1, 100], "value": [-100, 100] }
+    {
+      "param": "matrix",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100
+      ],
+      "value": [
+        -100,
+        100
+      ]
+    }
   ],
   "edge_inputs": [
-    { "kind": "edge", "description": "three by three with two equal minimal paths", "input": [[[2, 1, 3], [6, 5, 4], [7, 8, 9]]] },
-    { "kind": "edge", "description": "two by two with negatives", "input": [[[-19, 57], [-40, -5]]] },
-    { "kind": "boundary", "description": "single cell is its own path", "input": [[[7]]] },
-    { "kind": "trap", "description": "greedy first-row choice is not optimal", "input": [[[1, 100], [100, 1]]] },
-    { "kind": "edge", "description": "all negatives, deepest descent wins", "input": [[[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]] },
-    { "kind": "trap", "description": "diagonal moves required to dodge a high middle column", "input": [[[10, 1, 10], [10, 100, 10], [10, 1, 10]]] },
-    { "kind": "boundary", "description": "single column forces one straight descent", "input": [[[5], [-3], [8]]] }
+    {
+      "kind": "edge",
+      "description": "a small three by three grid with a clear cheapest path",
+      "input": [
+        [
+          [
+            2,
+            1,
+            3
+          ],
+          [
+            6,
+            5,
+            4
+          ],
+          [
+            7,
+            8,
+            9
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a two by two grid with negative values",
+      "input": [
+        [
+          [
+            -19,
+            57
+          ],
+          [
+            -40,
+            -5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single cell, the smallest possible grid",
+      "input": [
+        [
+          [
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single cell at the minimum value bound",
+      "input": [
+        [
+          [
+            -100
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the cheapest path must hug the left edge, exercising the missing left-diagonal neighbor",
+      "input": [
+        [
+          [
+            1,
+            100,
+            100
+          ],
+          [
+            100,
+            100,
+            2
+          ],
+          [
+            100,
+            3,
+            100
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the cheapest path must hug the right edge, exercising the missing right-diagonal neighbor",
+      "input": [
+        [
+          [
+            100,
+            100,
+            1
+          ],
+          [
+            2,
+            100,
+            100
+          ],
+          [
+            100,
+            3,
+            100
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "values spanning both extremes of the allowed range",
+      "input": [
+        [
+          [
+            100,
+            -100
+          ],
+          [
+            -100,
+            100
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every cell is identical, so many falling paths tie for the minimum",
+      "input": [
+        [
+          [
+            5,
+            5,
+            5
+          ],
+          [
+            5,
+            5,
+            5
+          ],
+          [
+            5,
+            5,
+            5
+          ]
+        ]
+      ]
+    }
   ],
   "stress": [
     {
-      "description": "random square matrices within the value bounds",
-      "seed": 53,
-      "size": 60,
-      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 100)))\n    matrix = [[rng.randint(-100, 100) for _ in range(n)] for _ in range(n)]\n    return [matrix]\n",
-      "note": "square shape matches the n by n constraint"
+      "description": "moderate-size random grid",
+      "seed": 8,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    matrix = [[rng.randint(-100, 100) for _ in range(n)] for _ in range(n)]\n    return [matrix]\n"
+    },
+    {
+      "description": "grid at the maximum constraint size",
+      "seed": 9,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    matrix = [[rng.randint(-100, 100) for _ in range(n)] for _ in range(n)]\n    return [matrix]\n"
     }
   ],
-  "oracle_python": "class Solution:\n    def minFallingPathSum(self, matrix):\n        n = len(matrix)\n        from functools import lru_cache\n        import sys\n        sys.setrecursionlimit(100000)\n        @lru_cache(None)\n        def best(r, c):\n            if c < 0 or c >= n:\n                return float('inf')\n            if r == 0:\n                return matrix[0][c]\n            return matrix[r][c] + min(best(r - 1, c - 1), best(r - 1, c), best(r - 1, c + 1))\n        return min(best(n - 1, c) for c in range(n))\n",
+  "oracle_python": "class Solution:\n    def minFallingPathSum(self, matrix):\n        n = len(matrix)\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(r, c):\n            if r == n - 1:\n                return matrix[r][c]\n            best = None\n            for nc in (c - 1, c, c + 1):\n                if 0 <= nc < n:\n                    val = dp(r + 1, nc)\n                    if best is None or val < best:\n                        best = val\n            return matrix[r][c] + best\n        result = min(dp(0, c) for c in range(n))\n        dp.cache_clear()\n        return result\n",
   "solutions": {
-    "python": "class Solution:\n    def minFallingPathSum(self, matrix):\n        n = len(matrix)\n        row = matrix[0][:]\n        for r in range(1, n):\n            nxt = [0] * n\n            for c in range(n):\n                best = row[c]\n                if c > 0:\n                    best = min(best, row[c - 1])\n                if c < n - 1:\n                    best = min(best, row[c + 1])\n                nxt[c] = matrix[r][c] + best\n            row = nxt\n        return min(row)\n",
-    "javascript": "var minFallingPathSum = function(matrix) {\n    const n = matrix.length;\n    let row = matrix[0].slice();\n    for (let r = 1; r < n; r++) {\n        const nxt = new Array(n);\n        for (let c = 0; c < n; c++) {\n            let best = row[c];\n            if (c > 0) best = Math.min(best, row[c - 1]);\n            if (c < n - 1) best = Math.min(best, row[c + 1]);\n            nxt[c] = matrix[r][c] + best;\n        }\n        row = nxt;\n    }\n    return Math.min(...row);\n};\n"
+    "python": "class Solution:\n    def minFallingPathSum(self, matrix):\n        n = len(matrix)\n        prev = matrix[0][:]\n        for r in range(1, n):\n            cur = [0] * n\n            for c in range(n):\n                best = prev[c]\n                if c > 0 and prev[c - 1] < best:\n                    best = prev[c - 1]\n                if c < n - 1 and prev[c + 1] < best:\n                    best = prev[c + 1]\n                cur[c] = matrix[r][c] + best\n            prev = cur\n        return min(prev)\n",
+    "javascript": "var minFallingPathSum = function(matrix) {\n    const n = matrix.length;\n    let prev = matrix[0].slice();\n    for (let r = 1; r < n; r++) {\n        const cur = new Array(n).fill(0);\n        for (let c = 0; c < n; c++) {\n            let best = prev[c];\n            if (c > 0 && prev[c - 1] < best) best = prev[c - 1];\n            if (c < n - 1 && prev[c + 1] < best) best = prev[c + 1];\n            cur[c] = matrix[r][c] + best;\n        }\n        prev = cur;\n    }\n    return Math.min(...prev);\n};\n"
   },
-  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+  "complexity": {
+    "time": "O(n^2)",
+    "space": "O(n)"
+  }
 }
