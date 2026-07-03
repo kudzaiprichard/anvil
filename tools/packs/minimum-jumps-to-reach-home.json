@@ -1,0 +1,41 @@
+{
+  "slug": "minimum-jumps-to-reach-home",
+  "judge": "exact",
+  "pattern": "Model each reachable position together with whether a backward hop is still legal as one search state, then explore that state graph breadth-first so the first time a state lands on the target position it has used the fewest jumps.",
+  "hints": [
+    "Every position the bug visits also carries a hidden flag: whether its last move was backward, since two backward hops in a row are illegal.",
+    "That makes each state a (position, can-still-jump-back) pair; explore states level by level with a queue so the first time you dequeue the target position you have the minimum jump count.",
+    "Bound the search: positions far beyond the target or beyond the farthest forbidden spot never help, so cap exploration near the largest of those two plus one forward and one backward hop, skip forbidden spots, and never revisit a state already seen."
+  ],
+  "constraints": [
+    { "param": "forbidden", "kind": "int[]", "len": [1, 1000], "value": [1, 2000] },
+    { "param": "a", "kind": "int", "value": [1, 2000] },
+    { "param": "b", "kind": "int", "value": [1, 2000] },
+    { "param": "x", "kind": "int", "value": [0, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "home is the starting position, zero jumps needed", "input": [[2], 1, 1, 0] },
+    { "kind": "edge", "description": "one forward jump reaches home directly", "input": [[1], 2, 1, 2] },
+    { "kind": "boundary", "description": "far forbidden value forces a long unobstructed forward chain", "input": [[2000], 1, 2000, 5] },
+    { "kind": "boundary", "description": "large forward and backward step sizes at once", "input": [[500], 2000, 2000, 1998] },
+    { "kind": "trap", "description": "the only forward-reachable spot is forbidden and backward would go negative", "input": [[3], 3, 5, 9] },
+    { "kind": "trap", "description": "a dense forbidden band just past the start forces a backward detour", "input": [[3, 6, 9, 12], 3, 4, 15] },
+    { "kind": "trap", "description": "home lies behind the start relative to the forward stride, needs backward hops", "input": [[7], 5, 2, 3] },
+    { "kind": "edge", "description": "single-element forbidden far away, unrestricted short hop", "input": [[1999], 4, 3, 8] }
+  ],
+  "stress": [
+    {
+      "description": "random forbidden sets of near-maximum size with random strides, home never forbidden",
+      "seed": 41,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    a = rng.randint(1, 2000)\n    b = rng.randint(1, 2000)\n    x = rng.randint(0, 2000)\n    count = max(1, min(1000, size))\n    forbidden = set()\n    while len(forbidden) < count:\n        v = rng.randint(1, 2000)\n        if v != x:\n            forbidden.add(v)\n    return [list(forbidden), a, b, x]\n",
+      "note": "forbidden excludes x so the target itself is always reachable-in-principle"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumJumps(self, forbidden, a, b, x):\n        from collections import deque\n        blocked = set(forbidden)\n        if 0 in blocked:\n            return -1\n        if x == 0:\n            return 0\n        limit = max([x] + list(forbidden)) + a + b + 1\n        seen_fwd = [False] * (limit + 1)\n        seen_back = [False] * (limit + 1)\n        seen_fwd[0] = True\n        queue = deque([(0, 0, True)])\n        while queue:\n            pos, steps, can_back = queue.popleft()\n            moves = [(pos + a, True)]\n            if can_back:\n                moves.append((pos - b, False))\n            for nxt, nxt_can_back in moves:\n                if 0 <= nxt <= limit and nxt not in blocked:\n                    if nxt == x:\n                        return steps + 1\n                    marker = seen_fwd if nxt_can_back else seen_back\n                    if not marker[nxt]:\n                        marker[nxt] = True\n                        queue.append((nxt, steps + 1, nxt_can_back))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumJumps(self, forbidden, a, b, x):\n        from collections import deque\n        blocked = set(forbidden)\n        if 0 in blocked:\n            return -1\n        limit = max([x] + list(forbidden)) + a + b\n        visited = {(0, True)}\n        queue = deque([(0, True, 0)])\n        while queue:\n            pos, can_back, steps = queue.popleft()\n            if pos == x:\n                return steps\n            forward = pos + a\n            if 0 <= forward <= limit and forward not in blocked and (forward, True) not in visited:\n                visited.add((forward, True))\n                queue.append((forward, True, steps + 1))\n            if can_back:\n                backward = pos - b\n                if 0 <= backward <= limit and backward not in blocked and (backward, False) not in visited:\n                    visited.add((backward, False))\n                    queue.append((backward, False, steps + 1))\n        return -1\n",
+    "javascript": "var minimumJumps = function(forbidden, a, b, x) {\n    const blocked = new Set(forbidden);\n    if (blocked.has(0)) return -1;\n    const limit = Math.max(x, ...forbidden) + a + b;\n    const visitedFwd = new Set([0]);\n    const visitedBack = new Set();\n    const queue = [[0, true, 0]];\n    let head = 0;\n    while (head < queue.length) {\n        const [pos, canBack, steps] = queue[head++];\n        if (pos === x) return steps;\n        const fwd = pos + a;\n        if (fwd >= 0 && fwd <= limit && !blocked.has(fwd) && !visitedFwd.has(fwd)) {\n            visitedFwd.add(fwd);\n            queue.push([fwd, true, steps + 1]);\n        }\n        if (canBack) {\n            const bwd = pos - b;\n            if (bwd >= 0 && bwd <= limit && !blocked.has(bwd) && !visitedBack.has(bwd)) {\n                visitedBack.add(bwd);\n                queue.push([bwd, false, steps + 1]);\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(limit)", "space": "O(limit)" }
+}
