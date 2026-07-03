@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-initial-energy-to-finish-tasks",
+  "judge": "exact",
+  "pattern": "Order tasks by how much slack energy they demand beyond what they actually consume, then greedily top up a running energy total only when a task's minimum requirement isn't already met.",
+  "hints": [
+    "Doing tasks in an arbitrary order can force you to carry more starting energy than necessary — the order in which you attempt tasks changes the answer.",
+    "A task with a big gap between its minimum requirement and its actual cost should be done while your energy is highest, so sort tasks by (minimum - actual) descending.",
+    "Walk the sorted tasks keeping a running energy total; whenever it's below a task's minimum, record how much extra you'd have needed and top the running total up to that minimum, then subtract the actual cost — the sum of all top-ups is the answer."
+  ],
+  "constraints": [
+    { "param": "tasks", "kind": "int[][]", "len": [1, 100000], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single task, needed energy equals its own minimum", "input": [[[4, 9]]] },
+    { "kind": "trap", "description": "every task has zero slack, actual equals minimum for all of them", "input": [[[3, 3], [7, 7], [2, 2]]] },
+    { "kind": "boundary", "description": "one task demands far more minimum energy than the rest combined", "input": [[[1, 9000], [50, 60], [30, 40]]] },
+    { "kind": "edge", "description": "tasks already given in the order the greedy would pick them", "input": [[[1, 10000], [8000, 8000], [2, 3]]] },
+    { "kind": "trap", "description": "tasks given in the opposite order the greedy would pick them", "input": [[[2, 3], [8000, 8000], [1, 10000]]] },
+    { "kind": "boundary", "description": "tasks sit at the value extremes, actual = 1 and minimum = 10000", "input": [[[1, 10000], [1, 10000]]] },
+    { "kind": "trap", "description": "two tasks tie on slack, ordering between equal-slack tasks must not change the total", "input": [[[5, 15], [10, 20], [3, 6]]] }
+  ],
+  "stress": [
+    {
+      "description": "many tasks with random actual/minimum pairs and random slack, in random input order",
+      "seed": 29,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    tasks = []\n    for _ in range(n):\n        actual = rng.randint(1, 10000)\n        minimum = rng.randint(actual, 10000)\n        tasks.append([actual, minimum])\n    rng.shuffle(tasks)\n    return [tasks]\n",
+      "note": "minimum is always sampled >= actual to respect the constraint that minimum requirement never falls below the task's own cost"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumEffort(self, tasks):\n        order = sorted(tasks, key=lambda t: t[1] - t[0], reverse=True)\n\n        def feasible(start):\n            energy = start\n            for actual, minimum in order:\n                if energy < minimum:\n                    return False\n                energy -= actual\n            return True\n\n        lo, hi = 0, sum(t[1] for t in tasks)\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumEffort(self, tasks) -> int:\n        order = sorted(tasks, key=lambda t: t[1] - t[0], reverse=True)\n        energy = 0\n        needed = 0\n        for actual, minimum in order:\n            if energy < minimum:\n                needed += minimum - energy\n                energy = minimum\n            energy -= actual\n        return needed\n",
+    "javascript": "var minimumEffort = function(tasks) {\n    const order = [...tasks].sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]));\n    let energy = 0;\n    let needed = 0;\n    for (const [actual, minimum] of order) {\n        if (energy < minimum) {\n            needed += minimum - energy;\n            energy = minimum;\n        }\n        energy -= actual;\n    }\n    return needed;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}
