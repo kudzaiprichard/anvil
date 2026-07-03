@@ -1,0 +1,132 @@
+{
+  "slug": "minimize-the-maximum-adjacent-element-difference",
+  "judge": "exact",
+  "pattern": "Only one pair of fill values ever gets chosen for the whole array, so every gap of missing entries becomes a tiny interval constraint on those two shared numbers -- binary searching the answer turns 'pick the best pair' into 'can any pair satisfy every gap at once'.",
+  "hints": [
+    "Binary search the answer d: for a fixed d, check whether SOME pair of fill values can make every adjacent difference at most d, rather than trying to construct the pair directly.",
+    "A run of missing entries bounded by known neighbors p and q can be satisfied by a single fill value only when p and q are within 2d of each other; a run of two or more missing entries can instead switch fill values partway through, at the cost of tying the two fill values to each other within d.",
+    "Fixing one fill value to the smallest known entry in the array plus d is always safe, so you only need to search for a second value that satisfies every run this first value doesn't already cover."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        -1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, one gap of one missing entry",
+      "input": [
+        [
+          1,
+          2,
+          -1,
+          10,
+          8
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, entire array missing",
+      "input": [
+        [
+          -1,
+          -1,
+          -1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, two separate single-gap runs",
+      "input": [
+        [
+          -1,
+          10,
+          -1,
+          8
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "no missing entries at all",
+      "input": [
+        [
+          5,
+          5,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two elements, one missing",
+      "input": [
+        [
+          7,
+          -1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "leading run of two missing entries needing a transition",
+      "input": [
+        [
+          -1,
+          -1,
+          100
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "trailing run of two missing entries",
+      "input": [
+        [
+          3,
+          -1,
+          -1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "adjacent known values already far apart",
+      "input": [
+        [
+          1,
+          50
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small values with random -1 gaps",
+      "seed": 3,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 300))\n    nums = []\n    for _ in range(n):\n        if rng.random() < 0.35:\n            nums.append(-1)\n        else:\n            nums.append(rng.randint(1, 200))\n    if all(v == -1 for v in nums):\n        nums[0] = rng.randint(1, 200)\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minDifference(self, nums):\n        vals = [v for v in nums if v != -1]\n        limit = (max(vals) if vals else 1) + 12\n        n = len(nums)\n        best = None\n        for x in range(1, limit + 1):\n            for y in range(1, limit + 1):\n                first = nums[0]\n                cur = {x: 0, y: 0} if first == -1 else {first: 0}\n                for i in range(1, n):\n                    choices = [nums[i]] if nums[i] != -1 else [x, y]\n                    nxt = {}\n                    for lastv, md in cur.items():\n                        for c in choices:\n                            d = max(md, abs(lastv - c))\n                            if c not in nxt or d < nxt[c]:\n                                nxt[c] = d\n                    cur = nxt\n                if cur:\n                    m = min(cur.values())\n                    if best is None or m < best:\n                        best = m\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minDifference(self, nums):\n        n = len(nums)\n        known_idx = [i for i, v in enumerate(nums) if v != -1]\n        if not known_idx:\n            return 0\n        first_known = nums[known_idx[0]]\n        last_known = nums[known_idx[-1]]\n        positions = [-1] + known_idx + [n]\n        values = [first_known] + [nums[i] for i in known_idx] + [last_known]\n        runs = []\n        for i in range(len(positions) - 1):\n            gap = positions[i + 1] - positions[i] - 1\n            runs.append((values[i], values[i + 1], gap))\n        all_values = [nums[i] for i in known_idx]\n\n        def feasible(d):\n            for p, q, gap in runs:\n                if gap == 0 and abs(p - q) > d:\n                    return False\n            gap_runs = [r for r in runs if r[2] > 0]\n            if not gap_runs:\n                return True\n            x_val = min(all_values) + d\n            need_y = []\n            for p, q, length in gap_runs:\n                if abs(p - x_val) <= d and abs(q - x_val) <= d:\n                    continue\n                cands = []\n                lo_all = max(p, q) - d\n                hi_all = min(p, q) + d\n                if lo_all <= hi_all:\n                    cands.append((max(lo_all, 1), hi_all))\n                if length >= 2:\n                    if abs(p - x_val) <= d:\n                        lo = max(q - d, x_val - d)\n                        hi = min(q + d, x_val + d)\n                        if lo <= hi:\n                            cands.append((max(lo, 1), hi))\n                    if abs(q - x_val) <= d:\n                        lo = max(p - d, x_val - d)\n                        hi = min(p + d, x_val + d)\n                        if lo <= hi:\n                            cands.append((max(lo, 1), hi))\n                if not cands:\n                    return False\n                need_y.append(cands)\n            if not need_y:\n                return True\n            candidate_ys = set()\n            for cands in need_y:\n                for lo, hi in cands:\n                    candidate_ys.add(lo)\n                    candidate_ys.add(hi)\n            for y in candidate_ys:\n                if all(any(lo <= y <= hi for lo, hi in cands) for cands in need_y):\n                    return True\n            return False\n\n        lo, hi = 0, 2 * 10 ** 9\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var minDifference = function(nums) {\n    const n = nums.length;\n    const knownIdx = [];\n    for (let i = 0; i < n; i++) if (nums[i] !== -1) knownIdx.push(i);\n    if (knownIdx.length === 0) return 0;\n    const firstKnown = nums[knownIdx[0]];\n    const lastKnown = nums[knownIdx[knownIdx.length - 1]];\n    const positions = [-1, ...knownIdx, n];\n    const values = [firstKnown, ...knownIdx.map(i => nums[i]), lastKnown];\n    const runs = [];\n    for (let i = 0; i < positions.length - 1; i++) {\n        const gap = positions[i + 1] - positions[i] - 1;\n        runs.push([values[i], values[i + 1], gap]);\n    }\n    const allValues = knownIdx.map(i => nums[i]);\n    const minKnown = Math.min(...allValues);\n\n    const feasible = (d) => {\n        for (const [p, q, gap] of runs) {\n            if (gap === 0 && Math.abs(p - q) > d) return false;\n        }\n        const gapRuns = runs.filter(r => r[2] > 0);\n        if (gapRuns.length === 0) return true;\n        const xVal = minKnown + d;\n        const needY = [];\n        for (const [p, q, length] of gapRuns) {\n            if (Math.abs(p - xVal) <= d && Math.abs(q - xVal) <= d) continue;\n            const cands = [];\n            const loAll = Math.max(p, q) - d;\n            const hiAll = Math.min(p, q) + d;\n            if (loAll <= hiAll) cands.push([Math.max(loAll, 1), hiAll]);\n            if (length >= 2) {\n                if (Math.abs(p - xVal) <= d) {\n                    const lo = Math.max(q - d, xVal - d);\n                    const hi = Math.min(q + d, xVal + d);\n                    if (lo <= hi) cands.push([Math.max(lo, 1), hi]);\n                }\n                if (Math.abs(q - xVal) <= d) {\n                    const lo = Math.max(p - d, xVal - d);\n                    const hi = Math.min(p + d, xVal + d);\n                    if (lo <= hi) cands.push([Math.max(lo, 1), hi]);\n                }\n            }\n            if (cands.length === 0) return false;\n            needY.push(cands);\n        }\n        if (needY.length === 0) return true;\n        const candidateYs = new Set();\n        for (const cands of needY) {\n            for (const [lo, hi] of cands) { candidateYs.add(lo); candidateYs.add(hi); }\n        }\n        for (const y of candidateYs) {\n            if (needY.every(cands => cands.some(([lo, hi]) => lo <= y && y <= hi))) return true;\n        }\n        return false;\n    };\n\n    let lo = 0, hi = 2 * 1e9;\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (feasible(mid)) hi = mid; else lo = mid + 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log V)",
+    "space": "O(n)"
+  }
+}

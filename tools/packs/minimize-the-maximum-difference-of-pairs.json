@@ -1,0 +1,38 @@
+{
+  "slug": "minimize-the-maximum-difference-of-pairs",
+  "judge": "exact",
+  "pattern": "Because a larger candidate maximum difference can only make it easier to assemble p disjoint pairs, binary searching on the candidate answer and checking feasibility with a greedy adjacent-pairing sweep over the sorted values pins down the true minimum.",
+  "hints": [
+    "First ask: for one fixed candidate maximum difference d, what is the fastest way to check whether p disjoint pairs, each within d of each other, can be formed at all?",
+    "Sort the values, then sweep left to right: whenever two neighbors differ by at most d, commit them as a pair immediately and skip past both -- this never wastes an element compared to waiting.",
+    "The number of pairs this greedy sweep can find only grows as d grows, so binary search for the smallest d whose greedy count reaches p -- and remember p = 0 always answers 0, since the max of an empty set is defined as zero."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000] },
+    { "param": "p", "kind": "int", "value": [0, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "trap", "description": "p = 0 must answer 0 regardless of how spread out the values are", "input": [[5, 9, 1], 0] },
+    { "kind": "boundary", "description": "smallest possible array, p at its maximum of n/2", "input": [[5, 10], 1] },
+    { "kind": "edge", "description": "duplicate values let every pair achieve a difference of zero", "input": [[1, 1, 1, 1], 2] },
+    { "kind": "boundary", "description": "p equal to n/2, every element must be paired", "input": [[10, 1, 2, 7, 1, 3], 3] },
+    { "kind": "trap", "description": "a single far outlier forces a large difference when only one pair is possible", "input": [[0, 1000000000], 1] },
+    { "kind": "boundary", "description": "single element array with p = 0", "input": [[100], 0] },
+    { "kind": "trap", "description": "already-sorted ascending values where the best pairing is not simply the first two elements", "input": [[1, 3, 6, 19, 20], 2] },
+    { "kind": "edge", "description": "every value identical, so any pairing of any size costs zero", "input": [[5, 5, 5, 5, 5, 5], 3] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays with a random feasible p, exercising many different sorted-gap structures",
+      "seed": 23,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 4000))\n    nums = [rng.randint(0, 10**9) for _ in range(n)]\n    p = rng.randint(0, n // 2)\n    return [nums, p]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\ndef _all_pairings(indices):\n    if not indices:\n        yield []\n        return\n    first = indices[0]\n    rest = indices[1:]\n    for i in range(len(rest)):\n        pair = (first, rest[i])\n        remaining = rest[:i] + rest[i + 1:]\n        for sub in _all_pairings(remaining):\n            yield [pair] + sub\n\nclass Solution:\n    def minimizeMax(self, nums, p):\n        if p == 0:\n            return 0\n        n = len(nums)\n        best = None\n        for subset in combinations(range(n), 2 * p):\n            for pairing in _all_pairings(list(subset)):\n                m = max(abs(nums[a] - nums[b]) for a, b in pairing)\n                if best is None or m < best:\n                    best = m\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimizeMax(self, nums, p):\n        if p == 0:\n            return 0\n        arr = sorted(nums)\n        n = len(arr)\n        def count_pairs(d):\n            i = 0\n            cnt = 0\n            while i < n - 1:\n                if arr[i + 1] - arr[i] <= d:\n                    cnt += 1\n                    i += 2\n                else:\n                    i += 1\n            return cnt\n        lo, hi = 0, arr[-1] - arr[0]\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if count_pairs(mid) >= p:\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var minimizeMax = function(nums, p) {\n    if (p === 0) return 0;\n    const arr = nums.slice().sort((a, b) => a - b);\n    const n = arr.length;\n    function countPairs(d) {\n        let i = 0, cnt = 0;\n        while (i < n - 1) {\n            if (arr[i + 1] - arr[i] <= d) {\n                cnt++;\n                i += 2;\n            } else {\n                i++;\n            }\n        }\n        return cnt;\n    }\n    let lo = 0, hi = arr[n - 1] - arr[0];\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (countPairs(mid) >= p) hi = mid;\n        else lo = mid + 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}
