@@ -1,0 +1,177 @@
+{
+  "slug": "minimum-number-of-days-to-disconnect-island",
+  "judge": "exact",
+  "pattern": "Because at most two removals can always separate any connected shape on a grid, the answer only ever takes one of three values -- so check whether it is already disconnected, then whether any single cell's removal disconnects it, and fall back to the remaining case.",
+  "hints": [
+    "First count connected land regions with a flood fill: if that count is already anything other than exactly one, zero days are needed.",
+    "If it's a single connected region, try removing each land cell one at a time (turning it to water), re-run the flood fill, and check whether that one change alone breaks it into zero or multiple regions.",
+    "If no single removal works, the answer is always two -- a connected shape on a grid never needs more than two cell removals to separate it, so that is the guaranteed fallback."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [
+        1,
+        900
+      ],
+      "value": [
+        0,
+        1
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a single land cell, already its own island with no way to disconnect further by removal",
+      "input": [
+        [
+          [
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "an all-water grid, already disconnected with zero islands",
+      "input": [
+        [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a solid 2x2 block of land, where removing any single corner still leaves a connected L-shape",
+      "input": [
+        [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a straight line of three land cells, where removing the middle cell splits it into two islands",
+      "input": [
+        [
+          [
+            1,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two separate land cells already forming two islands, needing no removal at all",
+      "input": [
+        [
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a plus-shaped island where the center cell is a single point of failure",
+      "input": [
+        [
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            0,
+            1,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single row with only two adjacent land cells, needing both removed to reach zero islands",
+      "input": [
+        [
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a thin ring of land surrounding a water hole, where no single cell removal breaks the loop",
+      "input": [
+        [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            0,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small grids with a random land density, sized within the constraint limits",
+      "seed": 31,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 10)))\n    n = rng.randint(1, max(1, min(size, 10)))\n    density = rng.uniform(0.3, 0.8)\n    grid = [[1 if rng.random() < density else 0 for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "kept small (up to 10x10) since the reference solution re-runs a flood fill for every land cell"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minDays(self, grid):\n        m, n = len(grid), len(grid[0])\n\n        def count_islands(g):\n            parent = list(range(m * n))\n\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n\n            def union(a, b):\n                ra, rb = find(a), find(b)\n                if ra != rb:\n                    parent[ra] = rb\n\n            for i in range(m):\n                for j in range(n):\n                    if g[i][j] == 1:\n                        if i + 1 < m and g[i + 1][j] == 1:\n                            union(i * n + j, (i + 1) * n + j)\n                        if j + 1 < n and g[i][j + 1] == 1:\n                            union(i * n + j, i * n + j + 1)\n            roots = set()\n            for i in range(m):\n                for j in range(n):\n                    if g[i][j] == 1:\n                        roots.add(find(i * n + j))\n            return len(roots)\n\n        g = [row[:] for row in grid]\n        if count_islands(g) != 1:\n            return 0\n        for i in range(m):\n            for j in range(n):\n                if g[i][j] == 1:\n                    g[i][j] = 0\n                    if count_islands(g) != 1:\n                        g[i][j] = 1\n                        return 1\n                    g[i][j] = 1\n        return 2\n",
+  "solutions": {
+    "python": "class Solution:\n    def minDays(self, grid):\n        m, n = len(grid), len(grid[0])\n\n        def count_islands(g):\n            seen = [[False] * n for _ in range(m)]\n            count = 0\n            for i in range(m):\n                for j in range(n):\n                    if g[i][j] == 1 and not seen[i][j]:\n                        count += 1\n                        if count > 1:\n                            return count\n                        stack = [(i, j)]\n                        seen[i][j] = True\n                        while stack:\n                            x, y = stack.pop()\n                            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                                nx, ny = x + dx, y + dy\n                                if 0 <= nx < m and 0 <= ny < n and g[nx][ny] == 1 and not seen[nx][ny]:\n                                    seen[nx][ny] = True\n                                    stack.append((nx, ny))\n            return count\n\n        g = [row[:] for row in grid]\n        if count_islands(g) != 1:\n            return 0\n        for i in range(m):\n            for j in range(n):\n                if g[i][j] == 1:\n                    g[i][j] = 0\n                    if count_islands(g) != 1:\n                        g[i][j] = 1\n                        return 1\n                    g[i][j] = 1\n        return 2\n",
+    "javascript": "var minDays = function(grid) {\n    const m = grid.length, n = grid[0].length;\n\n    function countIslands(g) {\n        const seen = Array.from({ length: m }, () => new Array(n).fill(false));\n        let count = 0;\n        for (let i = 0; i < m; i++) {\n            for (let j = 0; j < n; j++) {\n                if (g[i][j] === 1 && !seen[i][j]) {\n                    count++;\n                    if (count > 1) return count;\n                    const stack = [[i, j]];\n                    seen[i][j] = true;\n                    while (stack.length) {\n                        const [x, y] = stack.pop();\n                        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n                        for (const [dx, dy] of dirs) {\n                            const nx = x + dx, ny = y + dy;\n                            if (nx >= 0 && nx < m && ny >= 0 && ny < n && g[nx][ny] === 1 && !seen[nx][ny]) {\n                                seen[nx][ny] = true;\n                                stack.push([nx, ny]);\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        return count;\n    }\n\n    const g = grid.map(row => row.slice());\n    if (countIslands(g) !== 1) return 0;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (g[i][j] === 1) {\n                g[i][j] = 0;\n                if (countIslands(g) !== 1) {\n                    g[i][j] = 1;\n                    return 1;\n                }\n                g[i][j] = 1;\n            }\n        }\n    }\n    return 2;\n};\n"
+  },
+  "complexity": {
+    "time": "O((m*n)^2) -- a flood fill of the whole grid retried for every land cell",
+    "space": "O(m*n)"
+  }
+}
