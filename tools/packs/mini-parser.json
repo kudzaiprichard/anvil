@@ -1,0 +1,46 @@
+{
+  "slug": "mini-parser",
+  "judge": "exact",
+  "pattern": "A nested-list grammar with only integers, commas, and brackets can be decoded with a single left-to-right scan by treating '[' and ']' as push/pop signals and everything else as accumulating digits of a number.",
+  "hints": [
+    "Read the string once from left to right; you never need to look backward.",
+    "Whenever you see '[', you are starting a new list; whenever you see ']', the list you were building is finished and belongs to whatever list (or nothing) came before it.",
+    "Use recursion (or an explicit stack) keyed off '[' and ']': a bare run of digits (with an optional leading '-') is an integer, anything inside a bracket pair is a list of comma-separated recursively-parsed items, and an immediate '[]' is an empty list."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "bare non-negative integer with no brackets at all", "input": ["0"] },
+    { "kind": "edge", "description": "bare negative integer with no brackets", "input": ["-7"] },
+    { "kind": "edge", "description": "empty list", "input": ["[]"] },
+    { "kind": "edge", "description": "single-element list", "input": ["[42]"] },
+    { "kind": "edge", "description": "nested list mixing depths and negative values", "input": ["[5,[-6,[7]],-8]"] },
+    { "kind": "boundary", "description": "an empty list nested as a non-first element between integers", "input": ["[1,[],3]"] },
+    { "kind": "boundary", "description": "deeply nested single-integer chain", "input": ["[[[[[9]]]]]"] },
+    { "kind": "trap", "description": "list of only empty lists, no integers anywhere", "input": ["[[],[],[]]"] },
+    { "kind": "trap", "description": "sibling lists at the same level with differing lengths and a negative number spanning multiple digits", "input": ["[[1,2],[-345],[6,[7,8],9]]"] }
+  ],
+  "stress": [
+    {
+      "description": "randomly generated nested-list strings of varying shape and depth",
+      "seed": 7,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    def build(depth):\n        if depth <= 0 or rng.random() < 0.45:\n            return rng.randint(-1000000, 1000000)\n        n = rng.randint(0, 5)\n        return [build(depth - 1) for _ in range(n)]\n    count = max(1, size // 30)\n    top = [build(3) for _ in range(count)]\n    def fmt(x):\n        if isinstance(x, list):\n            return '[' + ','.join(fmt(e) for e in x) + ']'\n        return str(x)\n    return [fmt(top)]\n",
+      "note": "size scales how many top-level siblings are packed into one list string; depth is capped locally so recursion stays shallow"
+    },
+    {
+      "description": "randomly generated bare (bracket-free) integers",
+      "seed": 8,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    return [str(rng.randint(-1000000, 1000000))]\n",
+      "note": "exercises the top-level-integer branch (no brackets) across the full value range"
+    }
+  ],
+  "oracle_python": "def _oracle_deserialize(s):\n    if s[0] != '[':\n        return int(s)\n    stack = []\n    num = ''\n    result = None\n    for ch in s:\n        if ch == '[':\n            stack.append([])\n        elif ch == ']':\n            if num:\n                stack[-1].append(int(num))\n                num = ''\n            popped = stack.pop()\n            if stack:\n                stack[-1].append(popped)\n            else:\n                result = popped\n        elif ch == ',':\n            if num:\n                stack[-1].append(int(num))\n                num = ''\n        else:\n            num += ch\n    return result\n\n\nclass Solution:\n    def deserialize(self, s):\n        return _oracle_deserialize(s)\n",
+  "solutions": {
+    "python": "class Solution:\n    def deserialize(self, s):\n        def parse(i):\n            if s[i] == '[':\n                i += 1\n                lst = []\n                if s[i] == ']':\n                    return lst, i + 1\n                while True:\n                    val, i = parse(i)\n                    lst.append(val)\n                    if s[i] == ',':\n                        i += 1\n                    elif s[i] == ']':\n                        i += 1\n                        break\n                return lst, i\n            else:\n                j = i\n                while j < len(s) and s[j] not in ',]':\n                    j += 1\n                return int(s[i:j]), j\n        value, _ = parse(0)\n        return value\n",
+    "javascript": "var deserialize = function(s) {\n    function parse(i) {\n        if (s[i] === '[') {\n            i += 1;\n            const lst = [];\n            if (s[i] === ']') {\n                return [lst, i + 1];\n            }\n            while (true) {\n                const r = parse(i);\n                lst.push(r[0]);\n                i = r[1];\n                if (s[i] === ',') {\n                    i += 1;\n                } else if (s[i] === ']') {\n                    i += 1;\n                    break;\n                }\n            }\n            return [lst, i];\n        } else {\n            let j = i;\n            while (j < s.length && s[j] !== ',' && s[j] !== ']') {\n                j += 1;\n            }\n            return [parseInt(s.slice(i, j), 10), j];\n        }\n    }\n    return parse(0)[0];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
