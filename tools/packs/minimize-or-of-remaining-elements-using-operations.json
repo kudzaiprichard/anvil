@@ -1,0 +1,152 @@
+{
+  "slug": "minimize-or-of-remaining-elements-using-operations",
+  "judge": "exact",
+  "pattern": "Merging adjacent elements with AND is the same as choosing a contiguous partition of the array (segment count = n minus operations used); deciding the answer bit by bit from the top, greedily assuming a bit can be zero and checking feasibility, pins down the minimum achievable OR.",
+  "hints": [
+    "Repeatedly AND-merging two neighbors is equivalent to picking a partition of the array into contiguous groups, each group collapsing to the AND of its members; using at most k operations means keeping at least n-k groups.",
+    "For a candidate bitmask x, a group is 'safe' when its AND has no bit outside x; greedily close a group the moment its running AND becomes safe -- that maximizes the number of groups you can form while staying inside x.",
+    "Decide the answer bit by bit from the highest bit down: tentatively leave the current bit at 0 (with every lower bit granted for free) and count the maximum groups achievable within at most k operations; if that's impossible even with all lower bits free, the bit must be forced to 1, and you carry that forced bit into every later check."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        1073741823
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two operations available",
+      "input": [
+        [
+          3,
+          5,
+          3,
+          2,
+          7
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, four operations available",
+      "input": [
+        [
+          7,
+          3,
+          15,
+          14,
+          2,
+          8
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, only one operation available",
+      "input": [
+        [
+          10,
+          7,
+          10,
+          3,
+          9,
+          14,
+          9,
+          4
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element, k must be 0",
+      "input": [
+        [
+          42
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two elements, one operation merges everything",
+      "input": [
+        [
+          6,
+          3
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all zeros already OR to zero no matter what",
+      "input": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k allows merging the whole array into a single AND",
+      "input": [
+        [
+          15,
+          9,
+          12,
+          3
+        ],
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small random arrays with random k, exhaustively comparable to the oracle",
+      "seed": 21,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 12)))\n    nums = [rng.randint(0, 31) for _ in range(n)]\n    k = rng.randint(0, n - 1) if n > 1 else 0\n    return [nums, k]\n",
+      "note": "kept small so the exponential partition oracle stays fast"
+    },
+    {
+      "description": "larger random arrays with wider value range, no oracle involved at this size",
+      "seed": 22,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 20000))\n    nums = [rng.randint(0, (1 << 30) - 1) for _ in range(n)]\n    k = rng.randint(0, n - 1)\n    return [nums, k]\n",
+      "note": "exercises the bit-greedy solution at realistic scale"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minOrAfterOperations(self, nums, k):\n        n = len(nums)\n        best = None\n        for boundary_mask in range(1 << (n - 1)):\n            merges_used = (n - 1) - bin(boundary_mask).count('1')\n            if merges_used > k:\n                continue\n            segments = []\n            cur = nums[0]\n            for i in range(n - 1):\n                if (boundary_mask >> i) & 1:\n                    segments.append(cur)\n                    cur = nums[i + 1]\n                else:\n                    cur &= nums[i + 1]\n            segments.append(cur)\n            orv = 0\n            for s in segments:\n                orv |= s\n            if best is None or orv < best:\n                best = orv\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minOrAfterOperations(self, nums, k):\n        n = len(nums)\n        FULL = (1 << 30) - 1\n        def feasible(x):\n            segments = 0\n            cur = FULL\n            for v in nums:\n                cur &= v\n                if (cur & ~x) & FULL == 0:\n                    segments += 1\n                    cur = FULL\n            return segments >= n - k\n        answer = 0\n        for bit in range(29, -1, -1):\n            candidate = answer | ((1 << bit) - 1)\n            if not feasible(candidate):\n                answer |= (1 << bit)\n        return answer\n",
+    "javascript": "var minOrAfterOperations = function(nums, k) {\n    const n = nums.length;\n    const FULL = (1 << 30) - 1;\n    function feasible(x) {\n        let segments = 0;\n        let cur = FULL;\n        for (const v of nums) {\n            cur &= v;\n            if ((cur & ~x & FULL) === 0) {\n                segments++;\n                cur = FULL;\n            }\n        }\n        return segments >= n - k;\n    }\n    let answer = 0;\n    for (let bit = 29; bit >= 0; bit--) {\n        const candidate = answer | ((1 << bit) - 1);\n        if (!feasible(candidate)) {\n            answer |= (1 << bit);\n        }\n    }\n    return answer >>> 0;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log(max nums))",
+    "space": "O(1)"
+  }
+}
