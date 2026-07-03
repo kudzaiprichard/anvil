@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-bitwise-or-from-grid",
+  "judge": "exact",
+  "pattern": "Because a bit set anywhere in the final OR costs strictly more than every lower bit combined, the answer can be built one bit at a time from the most significant down, at each step checking whether every row still has SOME value compatible with keeping that bit at 0 — greedily forcing a bit to 1 only when a row has no other option.",
+  "hints": [
+    "Picking the smallest value in each row independently does NOT always minimize the OR — two rows might each have a slightly-larger value that happens to share the same bits, avoiding an extra bit that their individual minimums would have introduced.",
+    "Build the answer bit by bit, from the highest bit down to the lowest. Keep a running mask of the bits already decided. At each new bit, ask: if this bit stays 0, is there still at least one value in EVERY row whose bits above (and including) this position fit inside what's already been decided?",
+    "A value 'fits' a tentative mask (decided bits, this bit at 0, all lower bits treated as free/don't-care) exactly when value OR mask equals mask. If every row has such a value, leave the bit at 0 and move to the next lower bit; if any row has no compatible value, that bit must be forced to 1 in the answer before continuing."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000], "note": "grid.length * grid[i].length <= 100000; every row has at least one element" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single row, single column — the answer is just that one value", "input": [[[5]]] },
+    { "kind": "edge", "description": "single row with several candidates — pick the smallest value", "input": [[[7, 9, 8]]] },
+    { "kind": "trap", "description": "picking the row-wise minimum from each row (1 and 2) gives OR=3, but picking 2 from both rows gives the smaller OR=2 — proves naive per-row minimum is not optimal", "input": [[[1, 2], [2, 3]]] },
+    { "kind": "trap", "description": "both rows are forced to the same single value — OR is unavoidable regardless of any strategy", "input": [[[1], [1]]] },
+    { "kind": "trap", "description": "three rows where only a shared low-bit value across all rows avoids setting any higher bit", "input": [[[4, 1], [5, 1], [1, 6]]] },
+    { "kind": "boundary", "description": "two rows each with only one (large, max-value) candidate — no choice possible", "input": [[[100000], [100000]]] },
+    { "kind": "boundary", "description": "single row containing the max value alongside 1 — the minimum is 1", "input": [[[100000, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random small-to-medium grids with random row widths and values, seeded, covering many overlapping-bit scenarios",
+      "seed": 17,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 50)\n    n = rng.randint(1, 50)\n    grid = [[rng.randint(1, 100000) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "from itertools import product\n\nclass Solution:\n    def minimumOR(self, grid) -> int:\n        # Independent approach: literally enumerate every combination of one\n        # value per row (feasible only for the small literal inputs this\n        # oracle is checked against) and keep the smallest resulting OR.\n        best = None\n        for combo in product(*grid):\n            v = 0\n            for x in combo:\n                v |= x\n            if best is None or v < best:\n                best = v\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumOR(self, grid) -> int:\n        ans = 0\n        for bit in range(19, -1, -1):\n            mask = ans | ((1 << bit) - 1)\n            ok = True\n            for row in grid:\n                if not any((v | mask) == mask for v in row):\n                    ok = False\n                    break\n            if not ok:\n                ans |= (1 << bit)\n        return ans\n",
+    "javascript": "var minimumOR = function(grid) {\n    let ans = 0;\n    for (let bit = 19; bit >= 0; bit--) {\n        const mask = ans | ((1 << bit) - 1);\n        let ok = true;\n        for (const row of grid) {\n            let found = false;\n            for (const v of row) {\n                if ((v | mask) === mask) { found = true; break; }\n            }\n            if (!found) { ok = false; break; }\n        }\n        if (!ok) ans |= (1 << bit);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(B * total elements) where B is the bit width (~17)", "space": "O(1)" }
+}
