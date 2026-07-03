@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-incompatibility",
+  "judge": "exact",
+  "pattern": "Splitting a small array into equal-size groups with no repeated value inside a group is a set-partition problem: precompute every valid group's cost, then bitmask-DP over which elements have been assigned, always filling the lowest still-unassigned slot next to avoid counting the same partition twice.",
+  "hints": [
+    "Every group must have exactly n/k elements with all distinct values, and its cost is max minus min of that group; precompute this cost for every subset of the right size that qualifies.",
+    "Think of building the partition bit by bit: a state is which elements have already been placed into some group, and a transition adds one more complete valid group.",
+    "To avoid re-deriving the same partition twice (since groups aren't ordered), always grow the state by choosing a group that contains the lowest-indexed element not yet placed; take the DP value at the full mask, or -1 if it's unreachable."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 16], "value": [1, 16] },
+    { "param": "k", "kind": "int", "value": [1, 16] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one duplicate pair forces a specific split", "input": [[1, 2, 1, 4], 2] },
+    { "kind": "edge", "description": "several repeats across a larger array", "input": [[6, 3, 8, 1, 3, 1, 2, 2], 4] },
+    { "kind": "boundary", "description": "k equals array length, each group is a single element so cost is always zero", "input": [[5, 3, 3, 6], 4] },
+    { "kind": "boundary", "description": "k = 1, the whole array is one group", "input": [[4, 1, 3, 2], 1] },
+    { "kind": "trap", "description": "a value repeated more times than k allows makes the partition impossible", "input": [[1, 1, 1, 2], 2] },
+    { "kind": "trap", "description": "all identical values with k > 1 groups of size > 1 is always impossible", "input": [[3, 3, 3, 3], 2] },
+    { "kind": "trap", "description": "distinct values already, so grouping choice still matters for minimizing spread", "input": [[1, 2, 3, 4, 5, 6], 3] }
+  ],
+  "stress": [
+    {
+      "description": "arrays near the maximum size 16 with a random group count that divides evenly",
+      "seed": 29,
+      "size": 16,
+      "generator_python": "def gen(rng, size):\n    n = 16\n    divisors = [d for d in range(1, n + 1) if n % d == 0]\n    k = rng.choice(divisors)\n    nums = [rng.randint(1, n) for _ in range(n)]\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumIncompatibility(self, nums, k):\n        n = len(nums)\n        size = n // k\n        groups = [set() for _ in range(k)]\n        gmin = [None] * k\n        gmax = [None] * k\n        best = [-1]\n\n        def backtrack(i, used_groups):\n            if i == n:\n                total = 0\n                for g in range(k):\n                    if len(groups[g]) != size:\n                        return\n                    total += gmax[g] - gmin[g]\n                if best[0] == -1 or total < best[0]:\n                    best[0] = total\n                return\n            v = nums[i]\n            limit = min(used_groups + 1, k)\n            for g in range(limit):\n                if len(groups[g]) >= size:\n                    continue\n                if v in groups[g]:\n                    continue\n                old_min, old_max = gmin[g], gmax[g]\n                groups[g].add(v)\n                gmin[g] = v if old_min is None else min(old_min, v)\n                gmax[g] = v if old_max is None else max(old_max, v)\n                nu = used_groups + 1 if g == used_groups else used_groups\n                backtrack(i + 1, nu)\n                groups[g].discard(v)\n                gmin[g], gmax[g] = old_min, old_max\n\n        backtrack(0, 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumIncompatibility(self, nums, k):\n        n = len(nums)\n        size = n // k\n        full = 1 << n\n        cost = [-1] * full\n        for mask in range(full):\n            if bin(mask).count('1') != size:\n                continue\n            vals = [nums[i] for i in range(n) if mask & (1 << i)]\n            if len(set(vals)) != size:\n                continue\n            cost[mask] = max(vals) - min(vals)\n        INF = float('inf')\n        dp = [INF] * full\n        dp[0] = 0\n        for mask in range(full):\n            if dp[mask] == INF:\n                continue\n            rem = (~mask) & (full - 1)\n            if rem == 0:\n                continue\n            low = rem & (-rem)\n            sub = rem\n            while sub:\n                if (sub & low) and cost[sub] != -1:\n                    nm = mask | sub\n                    if dp[mask] + cost[sub] < dp[nm]:\n                        dp[nm] = dp[mask] + cost[sub]\n                sub = (sub - 1) & rem\n        return dp[full - 1] if dp[full - 1] != INF else -1\n",
+    "javascript": "var minimumIncompatibility = function(nums, k) {\n    const n = nums.length;\n    const size = n / k;\n    const full = 1 << n;\n    const cost = new Array(full).fill(-1);\n    for (let mask = 0; mask < full; mask++) {\n        let bits = 0;\n        for (let b = 0; b < n; b++) if (mask & (1 << b)) bits++;\n        if (bits !== size) continue;\n        const seen = new Set();\n        let mn = Infinity, mx = -Infinity;\n        let dup = false;\n        for (let b = 0; b < n; b++) {\n            if (mask & (1 << b)) {\n                if (seen.has(nums[b])) { dup = true; break; }\n                seen.add(nums[b]);\n                mn = Math.min(mn, nums[b]);\n                mx = Math.max(mx, nums[b]);\n            }\n        }\n        if (!dup) cost[mask] = mx - mn;\n    }\n    const INF = Infinity;\n    const dp = new Array(full).fill(INF);\n    dp[0] = 0;\n    for (let mask = 0; mask < full; mask++) {\n        if (dp[mask] === INF) continue;\n        const rem = (~mask) & (full - 1);\n        if (rem === 0) continue;\n        const low = rem & (-rem);\n        let sub = rem;\n        while (sub) {\n            if ((sub & low) && cost[sub] !== -1) {\n                const nm = mask | sub;\n                if (dp[mask] + cost[sub] < dp[nm]) dp[nm] = dp[mask] + cost[sub];\n            }\n            sub = (sub - 1) & rem;\n        }\n    }\n    return dp[full - 1] === INF ? -1 : dp[full - 1];\n};\n"
+  },
+  "complexity": { "time": "O(3^n) amortized subset DP", "space": "O(2^n)" }
+}
