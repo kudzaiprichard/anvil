@@ -1,0 +1,43 @@
+{
+  "slug": "minimum-cost-to-make-array-equalindromic",
+  "judge": "exact",
+  "pattern": "Ignoring the palindrome rule, the value that minimizes total distance to every element is the median, so the true answer must be a palindrome sitting very close to that median -- only a handful of nearby palindromes need to be checked.",
+  "hints": [
+    "Without any restriction on the target value, the cost-minimizing target for 'move everything to one number' is always the median of the array -- so the answer has to be a palindrome near that median.",
+    "Look at the median's digit count. Build candidate palindromes by taking the first half of its digits, then trying that half unchanged, one less, and one more, mirroring each into a full palindrome of the same length.",
+    "Don't forget the two boundary candidates where the digit count itself changes: the largest palindrome with one fewer digit (all nines), and the smallest palindrome with one more digit (a 1, some zeros, then a 1). Compute the total distance from every element to each candidate using sorted prefix sums and take the minimum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element that is already a palindrome costs nothing", "input": [[7]] },
+    { "kind": "edge", "description": "single element far from any small palindrome", "input": [[500]] },
+    { "kind": "boundary", "description": "largest allowed value, one below the smallest ten-digit number", "input": [[1000000000]] },
+    { "kind": "boundary", "description": "several copies of the largest allowed value", "input": [[1000000000, 1000000000, 1000000000, 1000000000, 1000000000]] },
+    { "kind": "trap", "description": "median sits just above a power of ten, forcing the digit-length-change candidates to matter", "input": [[99, 100, 101]] },
+    { "kind": "trap", "description": "median sits just below a power of ten from the other side", "input": [[9, 10, 11]] },
+    { "kind": "edge", "description": "already uniform and palindromic, so zero cost", "input": [[121, 121, 121]] },
+    { "kind": "edge", "description": "widely spread values forcing a real trade-off around the median", "input": [[3, 400000000, 7]] }
+  ],
+  "stress": [
+    {
+      "description": "large random array across the full value range",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "large array clustered tightly around a random power-of-ten boundary to stress candidate generation",
+      "seed": 6,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    center = 10 ** rng.randint(1, 9)\n    nums = [max(1, min(1000000000, center + rng.randint(-50, 50))) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumCost(self, nums):\n        import bisect\n        srt = sorted(nums)\n        n = len(srt)\n        prefix = [0] * (n + 1)\n        for i, v in enumerate(srt):\n            prefix[i + 1] = prefix[i] + v\n\n        def cost(y):\n            idx = bisect.bisect_left(srt, y)\n            left_sum = prefix[idx]\n            left_count = idx\n            right_sum = prefix[n] - prefix[idx]\n            right_count = n - idx\n            return (y * left_count - left_sum) + (right_sum - y * right_count)\n\n        # brute: try every palindrome under 10**9 (fewer than 120000 of them)\n        best = None\n        for length in range(1, 10):\n            half_len = (length + 1) // 2\n            start = 10 ** (half_len - 1) if half_len > 1 else 1\n            end = 10 ** half_len\n            for h in range(start, end):\n                hs = str(h)\n                s = hs + hs[::-1] if length % 2 == 0 else hs + hs[:-1][::-1]\n                y = int(s)\n                if y >= 10 ** 9:\n                    continue\n                c = cost(y)\n                if best is None or c < best:\n                    best = c\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumCost(self, nums):\n        import bisect\n        srt = sorted(nums)\n        n = len(srt)\n        median = srt[n // 2]\n        prefix = [0] * (n + 1)\n        for i, v in enumerate(srt):\n            prefix[i + 1] = prefix[i] + v\n\n        def cost(y):\n            idx = bisect.bisect_left(srt, y)\n            left_sum = prefix[idx]\n            left_count = idx\n            right_sum = prefix[n] - prefix[idx]\n            right_count = n - idx\n            return (y * left_count - left_sum) + (right_sum - y * right_count)\n\n        def make_pal(prefix_str, total_len):\n            half = prefix_str\n            if total_len % 2 == 0:\n                pal = half + half[::-1]\n            else:\n                pal = half + half[:-1][::-1]\n            return int(pal)\n\n        s = str(median)\n        length = len(s)\n        half_len = (length + 1) // 2\n        half_num = int(s[:half_len])\n\n        candidates = set()\n        for delta in (-1, 0, 1):\n            h = half_num + delta\n            if h <= 0:\n                continue\n            hs = str(h)\n            if len(hs) != half_len:\n                continue\n            candidates.add(make_pal(hs, length))\n\n        if length > 1:\n            candidates.add(int('9' * (length - 1)))\n        if length + 1 <= 9:\n            biglen = length + 1\n            half_big = (biglen + 1) // 2\n            s2 = '1' + '0' * (half_big - 1)\n            candidates.add(make_pal(s2, biglen))\n\n        candidates = {c for c in candidates if 1 <= c < 10 ** 9}\n        return min(cost(y) for y in candidates)\n",
+    "javascript": "var minimumCost = function(nums) {\n    const srt = nums.slice().sort((a, b) => a - b);\n    const n = srt.length;\n    const median = srt[Math.floor(n / 2)];\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + srt[i];\n\n    function bisectLeft(y) {\n        let lo = 0, hi = n;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (srt[mid] < y) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n\n    function cost(y) {\n        const idx = bisectLeft(y);\n        const leftSum = prefix[idx];\n        const leftCount = idx;\n        const rightSum = prefix[n] - prefix[idx];\n        const rightCount = n - idx;\n        return (y * leftCount - leftSum) + (rightSum - y * rightCount);\n    }\n\n    function makePal(prefixStr, totalLen) {\n        const half = prefixStr;\n        const pal = totalLen % 2 === 0\n            ? half + half.split('').reverse().join('')\n            : half + half.slice(0, -1).split('').reverse().join('');\n        return parseInt(pal, 10);\n    }\n\n    const s = String(median);\n    const length = s.length;\n    const halfLen = Math.floor((length + 1) / 2);\n    const halfNum = parseInt(s.slice(0, halfLen), 10);\n\n    const candidates = new Set();\n    for (const delta of [-1, 0, 1]) {\n        const h = halfNum + delta;\n        if (h <= 0) continue;\n        const hs = String(h);\n        if (hs.length !== halfLen) continue;\n        candidates.add(makePal(hs, length));\n    }\n\n    if (length > 1) candidates.add(parseInt('9'.repeat(length - 1), 10));\n    if (length + 1 <= 9) {\n        const bigLen = length + 1;\n        const halfBig = Math.floor((bigLen + 1) / 2);\n        const s2 = '1' + '0'.repeat(halfBig - 1);\n        candidates.add(makePal(s2, bigLen));\n    }\n\n    let best = null;\n    for (const c of candidates) {\n        if (c < 1 || c >= 10 ** 9) continue;\n        const c2 = cost(c);\n        if (best === null || c2 < best) best = c2;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}
