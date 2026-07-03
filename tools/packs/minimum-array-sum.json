@@ -1,0 +1,166 @@
+{
+  "slug": "minimum-array-sum",
+  "judge": "exact",
+  "pattern": "Every element independently offers a small menu of outcomes -- leave it, halve it, subtract k, or do both in whichever order is cheaper -- so tracking how many of each operation remain turns the whole array into one shared budget DP.",
+  "hints": [
+    "Process the array from right to left, tracking a DP state of how many op1 uses and how many op2 uses remain -- each element only cares about that remaining budget, not which specific elements used the operations before it.",
+    "For a single element, applying both operations can happen in either order, and only one of those orders (or neither) may even be allowed depending on whether the value is at least k at the moment op2 is applied -- check both orders and keep whichever is smaller.",
+    "At every element, compare doing nothing against every combination of spending one op1, one op2, or one of each (in either valid order), and carry forward whichever leftover budget gave the smallest total."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "op1",
+      "kind": "int",
+      "value": [
+        0,
+        100
+      ]
+    },
+    {
+      "param": "op2",
+      "kind": "int",
+      "value": [
+        0,
+        100
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example one",
+      "input": [
+        [
+          2,
+          8,
+          3,
+          19,
+          3
+        ],
+        3,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example two",
+      "input": [
+        [
+          2,
+          4,
+          3
+        ],
+        3,
+        2,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "no operations allowed at all",
+      "input": [
+        [
+          5,
+          5,
+          5
+        ],
+        3,
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "enough operations of both kinds for every element",
+      "input": [
+        [
+          4,
+          4,
+          4
+        ],
+        2,
+        3,
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "op2 only ever valid on one element, others below k",
+      "input": [
+        [
+          1,
+          1,
+          100
+        ],
+        50,
+        0,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "combining both operations only helps on one element",
+      "input": [
+        [
+          20,
+          1,
+          1
+        ],
+        10,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all zeros, operations cannot reduce further",
+      "input": [
+        [
+          0,
+          0
+        ],
+        5,
+        2,
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small arrays with random operation budgets",
+      "seed": 10,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    nums = [rng.randint(0, 200) for _ in range(n)]\n    k = rng.randint(0, 50)\n    op1 = rng.randint(0, n)\n    op2 = rng.randint(0, n)\n    return [nums, k, op1, op2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minArraySum(self, nums, k, op1, op2):\n        n = len(nums)\n        best = [float('inf')]\n\n        def dfs(i, o1, o2, total):\n            if total >= best[0]:\n                return\n            if i == n:\n                best[0] = min(best[0], total)\n                return\n            v = nums[i]\n            dfs(i + 1, o1, o2, total + v)\n            if o1 > 0:\n                dfs(i + 1, o1 - 1, o2, total + -(-v // 2))\n            if o2 > 0 and v >= k:\n                dfs(i + 1, o1, o2 - 1, total + (v - k))\n            if o1 > 0 and o2 > 0:\n                half = -(-v // 2)\n                if half >= k:\n                    dfs(i + 1, o1 - 1, o2 - 1, total + half - k)\n                if v >= k:\n                    dfs(i + 1, o1 - 1, o2 - 1, total + -(-(v - k) // 2))\n\n        dfs(0, op1, op2, 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minArraySum(self, nums, k, op1, op2):\n        n = len(nums)\n        dp = [[0] * (op2 + 1) for _ in range(op1 + 1)]\n        for i in range(n - 1, -1, -1):\n            v = nums[i]\n            new_dp = [[0] * (op2 + 1) for _ in range(op1 + 1)]\n            for o1 in range(op1 + 1):\n                for o2 in range(op2 + 1):\n                    best = v + dp[o1][o2]\n                    if o1 > 0:\n                        cand = -(-v // 2) + dp[o1 - 1][o2]\n                        if cand < best:\n                            best = cand\n                    if o2 > 0 and v >= k:\n                        cand = (v - k) + dp[o1][o2 - 1]\n                        if cand < best:\n                            best = cand\n                    if o1 > 0 and o2 > 0:\n                        options = []\n                        half = -(-v // 2)\n                        if half >= k:\n                            options.append(half - k)\n                        if v >= k:\n                            options.append(-(-(v - k) // 2))\n                        if options:\n                            cand = min(options) + dp[o1 - 1][o2 - 1]\n                            if cand < best:\n                                best = cand\n                    new_dp[o1][o2] = best\n            dp = new_dp\n        return dp[op1][op2]\n",
+    "javascript": "var minArraySum = function(nums, k, op1, op2) {\n    const n = nums.length;\n    let dp = Array.from({ length: op1 + 1 }, () => new Array(op2 + 1).fill(0));\n    for (let i = n - 1; i >= 0; i--) {\n        const v = nums[i];\n        const newDp = Array.from({ length: op1 + 1 }, () => new Array(op2 + 1).fill(0));\n        for (let o1 = 0; o1 <= op1; o1++) {\n            for (let o2 = 0; o2 <= op2; o2++) {\n                let best = v + dp[o1][o2];\n                if (o1 > 0) {\n                    const cand = Math.ceil(v / 2) + dp[o1 - 1][o2];\n                    if (cand < best) best = cand;\n                }\n                if (o2 > 0 && v >= k) {\n                    const cand = (v - k) + dp[o1][o2 - 1];\n                    if (cand < best) best = cand;\n                }\n                if (o1 > 0 && o2 > 0) {\n                    const options = [];\n                    const half = Math.ceil(v / 2);\n                    if (half >= k) options.push(half - k);\n                    if (v >= k) options.push(Math.ceil((v - k) / 2));\n                    if (options.length) {\n                        const cand = Math.min(...options) + dp[o1 - 1][o2 - 1];\n                        if (cand < best) best = cand;\n                    }\n                }\n                newDp[o1][o2] = best;\n            }\n        }\n        dp = newDp;\n    }\n    return dp[op1][op2];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * op1 * op2)",
+    "space": "O(op1 * op2)"
+  }
+}
