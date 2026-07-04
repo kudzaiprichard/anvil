@@ -1,0 +1,294 @@
+{
+  "slug": "minimum-threshold-path-with-limited-heavy-edges",
+  "judge": "exact",
+  "pattern": "The threshold only ever changes behavior at the exact weight values that appear on an edge, so binary searching over those candidate thresholds and, for each guess, finding the path that uses the fewest heavy edges with a 0/1 shortest-path sweep pins down the smallest threshold that still lets a valid path through.",
+  "hints": [
+    "For a fixed threshold, classify every edge as light (weight <= threshold, cost 0 to cross) or heavy (cost 1 to cross), then find the minimum number of heavy edges on any source-to-target path -- that's a shortest-path problem with only 0/1 edge costs, solvable with a double-ended queue instead of a full priority queue.",
+    "Whether a guessed threshold works only ever changes at the exact weight values that appear in the edge list (plus the floor value where every edge is heavy) -- so only those candidate values, plus zero, ever need to be tested, and feasibility only improves as the threshold grows.",
+    "Binary search over the sorted candidate thresholds for the smallest one whose minimum heavy-edge count is at most k; if source and target are the same node the answer is immediately 0, and if no candidate ever works the answer is -1."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        0,
+        1000
+      ],
+      "value": [
+        0,
+        1000000000
+      ]
+    },
+    {
+      "param": "source",
+      "kind": "int",
+      "value": [
+        0,
+        999
+      ]
+    },
+    {
+      "param": "target",
+      "kind": "int",
+      "value": [
+        0,
+        999
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, one heavy edge allowed",
+      "input": [
+        6,
+        [
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            3,
+            4,
+            4
+          ],
+          [
+            4,
+            5,
+            1
+          ],
+          [
+            1,
+            4,
+            2
+          ]
+        ],
+        0,
+        3,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, target unreachable entirely",
+      "input": [
+        6,
+        [
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            1,
+            2,
+            4
+          ],
+          [
+            3,
+            4,
+            5
+          ],
+          [
+            4,
+            5,
+            6
+          ]
+        ],
+        0,
+        4,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, source equals target",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            2,
+            3,
+            2
+          ],
+          [
+            3,
+            0,
+            2
+          ]
+        ],
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node, no edges, trivially at the source",
+      "input": [
+        1,
+        [],
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "no heavy edges allowed at all",
+      "input": [
+        3,
+        [
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            1,
+            2,
+            9
+          ]
+        ],
+        0,
+        2,
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a cheaper-weight detour needs one extra heavy edge",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1,
+            10
+          ],
+          [
+            0,
+            2,
+            1
+          ],
+          [
+            2,
+            3,
+            1
+          ],
+          [
+            1,
+            3,
+            1
+          ]
+        ],
+        0,
+        3,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "disconnected graph, no path exists regardless of threshold",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            2,
+            3,
+            5
+          ]
+        ],
+        0,
+        3,
+        5
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "every edge shares the same weight",
+      "input": [
+        5,
+        [
+          [
+            0,
+            1,
+            7
+          ],
+          [
+            1,
+            2,
+            7
+          ],
+          [
+            2,
+            3,
+            7
+          ],
+          [
+            3,
+            4,
+            7
+          ]
+        ],
+        0,
+        4,
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random sparse graphs with random source/target/k",
+      "seed": 17,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    m = min(2 * n, 1000)\n    edges = []\n    seen = set()\n    attempts = 0\n    while len(edges) < m and attempts < m * 5:\n        attempts += 1\n        u = rng.randint(0, n - 1)\n        v = rng.randint(0, n - 1)\n        if u == v or (min(u, v), max(u, v)) in seen:\n            continue\n        seen.add((min(u, v), max(u, v)))\n        w = rng.randint(1, 1000000000)\n        edges.append([u, v, w])\n    source = rng.randint(0, n - 1)\n    target = rng.randint(0, n - 1)\n    k = rng.randint(0, len(edges))\n    return [n, edges, source, target, k]\n"
+    }
+  ],
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def minimumThreshold(self, n, edges, source, target, k):\n        if source == target:\n            return 0\n\n        def heavy_needed(threshold):\n            adj = [[] for _ in range(n)]\n            for u, v, w in edges:\n                cost = 0 if w <= threshold else 1\n                adj[u].append((v, cost))\n                adj[v].append((u, cost))\n            INF = float('inf')\n            dist = [INF] * n\n            dist[source] = 0\n            dq = deque([source])\n            while dq:\n                u = dq.popleft()\n                for v, c in adj[u]:\n                    nd = dist[u] + c\n                    if nd < dist[v]:\n                        dist[v] = nd\n                        if c == 0:\n                            dq.appendleft(v)\n                        else:\n                            dq.append(v)\n            return dist[target]\n\n        candidates = sorted(set([0] + [w for _, _, w in edges]))\n        lo, hi = 0, len(candidates) - 1\n        ans = -1\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            d = heavy_needed(candidates[mid])\n            if d != float('inf') and d <= k:\n                ans = candidates[mid]\n                hi = mid - 1\n            else:\n                lo = mid + 1\n        return ans\n",
+    "javascript": "var minimumThreshold = function(n, edges, source, target, k) {\n    if (source === target) return 0;\n\n    function heavyNeeded(threshold) {\n        const adj = Array.from({ length: n }, () => []);\n        for (const [u, v, w] of edges) {\n            const cost = w <= threshold ? 0 : 1;\n            adj[u].push([v, cost]);\n            adj[v].push([u, cost]);\n        }\n        const INF = Infinity;\n        const dist = new Array(n).fill(INF);\n        dist[source] = 0;\n        const dq = [source];\n        let head = 0;\n        while (head < dq.length) {\n            const u = dq[head++];\n            for (const [v, c] of adj[u]) {\n                const nd = dist[u] + c;\n                if (nd < dist[v]) {\n                    dist[v] = nd;\n                    if (c === 0) {\n                        dq.splice(head, 0, v);\n                    } else {\n                        dq.push(v);\n                    }\n                }\n            }\n        }\n        return dist[target];\n    }\n\n    const weightSet = new Set([0]);\n    for (const [, , w] of edges) weightSet.add(w);\n    const candidates = Array.from(weightSet).sort((a, b) => a - b);\n    let lo = 0, hi = candidates.length - 1;\n    let ans = -1;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        const d = heavyNeeded(candidates[mid]);\n        if (d !== Infinity && d <= k) {\n            ans = candidates[mid];\n            hi = mid - 1;\n        } else {\n            lo = mid + 1;\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + m) log m)",
+    "space": "O(n + m)"
+  }
+}
