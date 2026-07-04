@@ -1,0 +1,163 @@
+{
+  "slug": "minimum-time-to-visit-a-cell-in-a-grid",
+  "judge": "exact",
+  "pattern": "Because you can always burn extra time in even increments by bouncing back to a cell you already legally reached, entering a cell too early is fixable by waiting -- except at the very first move, where no such bounce partner yet exists.",
+  "hints": [
+    "Think of this as a shortest-path search where the 'cost' to step into a neighboring cell is not always exactly one more second -- sometimes you must wait first.",
+    "If you already legally occupy a cell, you can always delay arrival at a neighbor by two-second increments (step away and back) without breaking any rule, so you can always wait until the neighbor's required time, adjusting for parity.",
+    "Run a Dijkstra-style search from the top-left, where relaxing an edge computes the earliest legal arrival time at the neighbor (waiting forward to the required time, and to the correct parity, if you arrive too early); handle the very first move as a special case, since there is nothing to bounce against yet -- if neither of the two cells reachable from the start allows entry after a single second, the target is unreachable."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [
+        2,
+        1000
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "trivial all-zero grid, no waiting ever needed",
+      "input": [
+        [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "both cells adjacent to the start are open immediately",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "both first-move neighbors are blocked, a true dead end",
+      "input": [
+        [
+          [
+            0,
+            4
+          ],
+          [
+            4,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a uniform threshold across the interior forces some amount of waiting",
+      "input": [
+        [
+          [
+            0,
+            2,
+            2
+          ],
+          [
+            2,
+            2,
+            2
+          ],
+          [
+            2,
+            2,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a high-threshold middle column blocks the direct route, forcing a detour",
+      "input": [
+        [
+          [
+            0,
+            5,
+            0
+          ],
+          [
+            0,
+            5,
+            0
+          ],
+          [
+            0,
+            5,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a non-square grid with an easy first move but a slower second row",
+      "input": [
+        [
+          [
+            0,
+            1,
+            2,
+            3
+          ],
+          [
+            4,
+            3,
+            2,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random thresholds on a roughly square grid at moderate scale",
+      "seed": 1601,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    target = max(4, min(size, 40000))\n    m = max(2, min(200, int(target ** 0.5)))\n    n = max(2, min(200, target // m))\n    while m * n > 100000:\n        if m > n:\n            m -= 1\n        else:\n            n -= 1\n        m = max(m, 2)\n        n = max(n, 2)\n    grid = [[rng.randint(0, 100000) for _ in range(n)] for _ in range(m)]\n    grid[0][0] = 0\n    return [grid]\n"
+    },
+    {
+      "description": "mostly-open grid with a sparse scattering of high thresholds",
+      "seed": 1602,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    target = max(4, min(size, 40000))\n    m = max(2, min(200, int(target ** 0.5)))\n    n = max(2, min(200, target // m))\n    while m * n > 100000:\n        if m > n:\n            m -= 1\n        else:\n            n -= 1\n        m = max(m, 2)\n        n = max(n, 2)\n    grid = [[0 for _ in range(n)] for _ in range(m)]\n    for _ in range(max(1, (m * n) // 10)):\n        r = rng.randrange(m)\n        c = rng.randrange(n)\n        grid[r][c] = rng.randint(1, 100000)\n    grid[0][0] = 0\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTime(self, grid):\n        m, n = len(grid), len(grid[0])\n        if (m - 1, n - 1) == (0, 0):\n            return 0\n        dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n        reachable = {(0, 0)}\n        t = 0\n        max_t = 4 * m * n + 400\n        while t < max_t:\n            nxt = set()\n            nt = t + 1\n            for (r, c) in reachable:\n                for dr, dc in dirs:\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] <= nt:\n                        nxt.add((nr, nc))\n            t = nt\n            if (m - 1, n - 1) in nxt:\n                return t\n            if not nxt:\n                return -1\n            reachable = nxt\n        return -1\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass Solution:\n    def minimumTime(self, grid):\n        m, n = len(grid), len(grid[0])\n        if grid[0][1] > 1 and grid[1][0] > 1:\n            return -1\n        dist = [[float('inf')] * n for _ in range(m)]\n        dist[0][0] = 0\n        pq = [(0, 0, 0)]\n        dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n        while pq:\n            d, r, c = heapq.heappop(pq)\n            if d > dist[r][c]:\n                continue\n            if r == m - 1 and c == n - 1:\n                return d\n            for dr, dc in dirs:\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n:\n                    need = grid[nr][nc]\n                    arrive = d + 1\n                    if arrive < need:\n                        extra = need - arrive\n                        if extra % 2 == 1:\n                            extra += 1\n                        arrive += extra\n                    if arrive < dist[nr][nc]:\n                        dist[nr][nc] = arrive\n                        heapq.heappush(pq, (arrive, nr, nc))\n        best = dist[m - 1][n - 1]\n        return best if best != float('inf') else -1\n",
+    "javascript": "var minimumTime = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    if (grid[0][1] > 1 && grid[1][0] > 1) return -1;\n    const dist = new Array(m * n).fill(Infinity);\n    dist[0] = 0;\n    const heap = [[0, 0, 0]];\n    function swap(i, j) { const t = heap[i]; heap[i] = heap[j]; heap[j] = t; }\n    function push(item) {\n        heap.push(item);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p][0] > heap[i][0]) { swap(p, i); i = p; } else break;\n        }\n    }\n    function pop() {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length > 0) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                const l = 2 * i + 1, r = 2 * i + 2;\n                let smallest = i;\n                if (l < heap.length && heap[l][0] < heap[smallest][0]) smallest = l;\n                if (r < heap.length && heap[r][0] < heap[smallest][0]) smallest = r;\n                if (smallest !== i) { swap(i, smallest); i = smallest; } else break;\n            }\n        }\n        return top;\n    }\n    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];\n    while (heap.length > 0) {\n        const [d, r, c] = pop();\n        const idx = r * n + c;\n        if (d > dist[idx]) continue;\n        if (r === m - 1 && c === n - 1) return d;\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < m && nc >= 0 && nc < n) {\n                const need = grid[nr][nc];\n                let arrive = d + 1;\n                if (arrive < need) {\n                    let extra = need - arrive;\n                    if (extra % 2 === 1) extra += 1;\n                    arrive += extra;\n                }\n                const nidx = nr * n + nc;\n                if (arrive < dist[nidx]) {\n                    dist[nidx] = arrive;\n                    push([arrive, nr, nc]);\n                }\n            }\n        }\n    }\n    const finalIdx = (m - 1) * n + (n - 1);\n    return dist[finalIdx] === Infinity ? -1 : dist[finalIdx];\n};\n"
+  },
+  "complexity": {
+    "time": "O(mn log(mn))",
+    "space": "O(mn)"
+  }
+}

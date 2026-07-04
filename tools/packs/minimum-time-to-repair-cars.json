@@ -1,0 +1,134 @@
+{
+  "slug": "minimum-time-to-repair-cars",
+  "judge": "exact",
+  "pattern": "The total cars every mechanic can finish by time t only grows as t grows, so binary search the answer instead of simulating who repairs what.",
+  "hints": [
+    "For a fixed amount of time t, a mechanic of rank r can finish exactly floor(sqrt(t / r)) cars -- that count never decreases as t grows.",
+    "Sum that count across every mechanic to get a feasibility check: can everyone together finish at least `cars` cars by time t?",
+    "Binary search t between 1 and the time it would take the single fastest-ranked mechanic to do every car alone, using the feasibility check to shrink the range."
+  ],
+  "constraints": [
+    {
+      "param": "ranks",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        100
+      ]
+    },
+    {
+      "param": "cars",
+      "kind": "int",
+      "value": [
+        1,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several mechanics of differing rank",
+      "input": [
+        [
+          4,
+          2,
+          3,
+          1
+        ],
+        10
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two mechanics, one much faster",
+      "input": [
+        [
+          5,
+          1,
+          8
+        ],
+        6
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single mechanic, single car",
+      "input": [
+        [
+          1
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single mechanic at the slowest rank with many cars",
+      "input": [
+        [
+          100
+        ],
+        50
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "many mechanics all at the fastest rank",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        1000000
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "identical ranks, work should split evenly rather than favor one index",
+      "input": [
+        [
+          3,
+          3,
+          3
+        ],
+        9
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one very slow mechanic among fast ones should end up doing the least work",
+      "input": [
+        [
+          1,
+          1,
+          100
+        ],
+        20
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "many mechanics with random ranks and a large car count",
+      "seed": 44,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    ranks = [rng.randint(1, 100) for _ in range(n)]\n    cars = rng.randint(1, 1000000)\n    return [ranks, cars]\n"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def repairCars(self, ranks, cars):\n        heap = [(r, r, 1) for r in ranks]\n        heapq.heapify(heap)\n        served = 0\n        last_time = 0\n        while served < cars:\n            finish, r, cnt = heapq.heappop(heap)\n            served += 1\n            last_time = finish\n            heapq.heappush(heap, (r * (cnt + 1) * (cnt + 1), r, cnt + 1))\n        return last_time\n",
+  "solutions": {
+    "python": "import math\nclass Solution:\n    def repairCars(self, ranks, cars):\n        def can(t):\n            total = 0\n            for r in ranks:\n                total += math.isqrt(t // r)\n                if total >= cars:\n                    return True\n            return total >= cars\n        lo, hi = 1, min(ranks) * cars * cars\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if can(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "function isqrt(x) {\n    if (x <= 0) return 0;\n    let s = Math.floor(Math.sqrt(x));\n    while ((s + 1) * (s + 1) <= x) s++;\n    while (s * s > x) s--;\n    return s;\n}\nvar repairCars = function(ranks, cars) {\n    const minRank = Math.min(...ranks);\n    let lo = 1, hi = minRank * cars * cars;\n    const can = (t) => {\n        let total = 0;\n        for (const r of ranks) {\n            total += isqrt(Math.floor(t / r));\n            if (total >= cars) return true;\n        }\n        return total >= cars;\n    };\n    while (lo < hi) {\n        const mid = Math.floor(lo + (hi - lo) / 2);\n        if (can(mid)) hi = mid; else lo = mid + 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log(rank_min * cars^2))",
+    "space": "O(1)"
+  }
+}
