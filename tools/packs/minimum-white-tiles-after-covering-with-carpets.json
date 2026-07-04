@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-white-tiles-after-covering-with-carpets",
+  "judge": "exact",
+  "pattern": "At each tile you either leave it exposed or spend one carpet to blanket the next carpetLen tiles starting there, so the visible-white-tile count is a straightforward take-or-skip decision chained left to right, which is exactly what dynamic programming tracks.",
+  "hints": [
+    "Process the floor left to right; at each position you have exactly two choices - leave the current tile uncovered, or lay a carpet starting here that covers the next carpetLen tiles in one go.",
+    "Let dp[i][c] be the minimum visible white tiles among the first i tiles using at most c carpets; either dp[i-1][c] plus this tile's own color (skip), or dp[max(0,i-carpetLen)][c-1] (cover this tile and the carpetLen-1 before it with one carpet).",
+    "Carpets only ever need to be placed so their right edge lines up with some tile, so you never need to consider a carpet start offset by anything other than exactly carpetLen back from the current position."
+  ],
+  "constraints": [
+    { "param": "floor", "kind": "string", "len": [1, 1000], "value": [0, 0] },
+    { "param": "numCarpets", "kind": "int", "value": [1, 1000] },
+    { "param": "carpetLen", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "carpets that can overlap to clear all but two tiles", "input": ["10110101", 2, 2] },
+    { "kind": "edge", "description": "enough carpet coverage to clear the whole floor", "input": ["11111", 2, 3] },
+    { "kind": "boundary", "description": "single tile, single carpet at least as long as the floor", "input": ["1", 1, 1] },
+    { "kind": "boundary", "description": "carpetLen equal to floor length, one carpet covers everything at once", "input": ["10101", 1, 5] },
+    { "kind": "trap", "description": "far more carpets available than needed, extra carpets must not be forced to be used", "input": ["1000000001", 5, 1] },
+    { "kind": "trap", "description": "floor is entirely black already, answer is zero regardless of carpets", "input": ["0000", 1, 2] },
+    { "kind": "trap", "description": "zero carpets worth of budget is never given, but one single carpet must still be optimally placed rather than defaulting to the first tiles", "input": ["01100", 1, 2] }
+  ],
+  "stress": [
+    {
+      "description": "300-tile random floor with a moderate carpet budget and length, exercising the DP transition boundaries",
+      "seed": 12,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    floor = ''.join(rng.choice('01') for _ in range(n))\n    carpet_len = rng.randrange(1, n + 1)\n    num_carpets = rng.randrange(1, min(n, 50) + 1)\n    return [floor, num_carpets, carpet_len]\n",
+      "note": "carpetLen bounded by floor length as required; moderate size keeps the O(n * numCarpets) oracle fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumWhiteTiles(self, floor, numCarpets, carpetLen):\n        n = len(floor)\n        from functools import lru_cache\n\n        @lru_cache(maxsize=None)\n        def rec(i, c):\n            if i >= n:\n                return 0\n            skip = (1 if floor[i] == '1' else 0) + rec(i + 1, c)\n            if c > 0:\n                cover = rec(min(n, i + carpetLen), c - 1)\n                return min(skip, cover)\n            return skip\n\n        result = rec(0, numCarpets)\n        rec.cache_clear()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumWhiteTiles(self, floor, numCarpets, carpetLen):\n        n = len(floor)\n        prev = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            prev[i] = prev[i + 1] + (1 if floor[i] == '1' else 0)\n        dp = [[0] * (numCarpets + 1) for _ in range(n + 1)]\n        for i in range(n + 1):\n            dp[i][0] = prev[i]\n        for c in range(1, numCarpets + 1):\n            dp[n][c] = 0\n        for i in range(n - 1, -1, -1):\n            for c in range(1, numCarpets + 1):\n                skip = (1 if floor[i] == '1' else 0) + dp[i + 1][c]\n                cover = dp[min(n, i + carpetLen)][c - 1]\n                dp[i][c] = min(skip, cover)\n        return dp[0][numCarpets]\n",
+    "javascript": "var minimumWhiteTiles = function(floor, numCarpets, carpetLen) {\n    const n = floor.length;\n    const dp = Array.from({ length: n + 1 }, () => new Array(numCarpets + 1).fill(0));\n    for (let i = n - 1; i >= 0; i--) {\n        dp[i][0] = dp[i + 1][0] + (floor[i] === '1' ? 1 : 0);\n    }\n    for (let i = n - 1; i >= 0; i--) {\n        for (let c = 1; c <= numCarpets; c++) {\n            const skip = (floor[i] === '1' ? 1 : 0) + dp[i + 1][c];\n            const cover = dp[Math.min(n, i + carpetLen)][c - 1];\n            dp[i][c] = Math.min(skip, cover);\n        }\n    }\n    return dp[0][numCarpets];\n};\n"
+  },
+  "complexity": { "time": "O(n * numCarpets)", "space": "O(n * numCarpets)" }
+}
