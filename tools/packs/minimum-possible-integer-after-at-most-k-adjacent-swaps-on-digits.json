@@ -1,0 +1,112 @@
+{
+  "slug": "minimum-possible-integer-after-at-most-k-adjacent-swaps-on-digits",
+  "judge": "exact",
+  "pattern": "Greedily dragging the smallest reachable digit to the front is optimal, and tracking how many not-yet-placed digits still sit in front of a candidate -- rather than its raw original index -- turns each drag's swap cost into a simple prefix-count query.",
+  "hints": [
+    "Process the answer left to right: at each output position, you want the smallest digit that is close enough (in swap cost) to reach the front given your remaining budget.",
+    "The cost to bring a not-yet-used digit to the current front equals the number of not-yet-used digits that currently sit before it -- not its original string index, since digits already placed no longer count.",
+    "Keep, per digit value, a queue of its remaining original positions, and use a Fenwick tree over 'still unused' flags to get that before-count in O(log n); after choosing a digit, remove it from the tree and subtract its cost from the budget."
+  ],
+  "constraints": [
+    {
+      "param": "num",
+      "kind": "string",
+      "len": [
+        1,
+        30000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, four swaps available",
+      "input": [
+        "4321",
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, leading zero allowed in the output",
+      "input": [
+        "100",
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, budget far exceeds what's needed",
+      "input": [
+        "36789",
+        1000
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single digit, any budget leaves it unchanged",
+      "input": [
+        "5",
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "fully descending digits with enough budget to fully sort ascending",
+      "input": [
+        "987654321",
+        100
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "exactly one swap needed and exactly one allowed",
+      "input": [
+        "21",
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all identical digits, budget is irrelevant",
+      "input": [
+        "1111111",
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "budget covers only part of the needed drag distance",
+      "input": [
+        "998",
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a longer random digit string with a moderate swap budget, deterministic seed",
+      "seed": 23,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1500))\n    digits = [str(rng.randint(0, 9)) for _ in range(n)]\n    if n > 1 and digits[0] == '0':\n        digits[0] = '1'\n    num = ''.join(digits)\n    k = rng.randint(1, n * 5 + 1)\n    return [num, k]\n",
+      "note": "n kept modest so the O(n^2) reference-check oracle (a direct swap simulation) stays fast; the optimized solution itself scales to the full 3e4 constraint"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minInteger(self, num, k):\n        arr = list(num)\n        n = len(arr)\n        remaining = k\n        for i in range(n):\n            if remaining <= 0:\n                break\n            best_j = i\n            best_d = arr[i]\n            limit = min(n - 1, i + remaining)\n            for j in range(i + 1, limit + 1):\n                if arr[j] < best_d:\n                    best_d = arr[j]\n                    best_j = j\n            cost = best_j - i\n            j = best_j\n            while j > i:\n                arr[j], arr[j - 1] = arr[j - 1], arr[j]\n                j -= 1\n            remaining -= cost\n        return ''.join(arr)\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def minInteger(self, num, k):\n        n = len(num)\n        digits = [int(c) for c in num]\n        pos = [deque() for _ in range(10)]\n        for i, d in enumerate(digits):\n            pos[d].append(i)\n        bit = [0] * (n + 1)\n\n        def update(i, delta):\n            i += 1\n            while i <= n:\n                bit[i] += delta\n                i += i & (-i)\n\n        def query(i):\n            s = 0\n            while i > 0:\n                s += bit[i]\n                i -= i & (-i)\n            return s\n\n        for i in range(n):\n            update(i, 1)\n        remaining = k\n        result = []\n        for _ in range(n):\n            for d in range(10):\n                if not pos[d]:\n                    continue\n                original_index = pos[d][0]\n                cost = query(original_index)\n                if cost <= remaining:\n                    pos[d].popleft()\n                    update(original_index, -1)\n                    remaining -= cost\n                    result.append(str(d))\n                    break\n        return ''.join(result)\n",
+    "javascript": "var minInteger = function(num, k) {\n    const n = num.length;\n    const digits = new Array(n);\n    for (let i = 0; i < n; i++) digits[i] = num.charCodeAt(i) - 48;\n    const pos = Array.from({ length: 10 }, () => []);\n    for (let i = 0; i < n; i++) pos[digits[i]].push(i);\n    const head = new Array(10).fill(0);\n    const bit = new Array(n + 1).fill(0);\n    function update(i, delta) {\n        i += 1;\n        while (i <= n) {\n            bit[i] += delta;\n            i += i & (-i);\n        }\n    }\n    function query(i) {\n        let s = 0;\n        while (i > 0) {\n            s += bit[i];\n            i -= i & (-i);\n        }\n        return s;\n    }\n    for (let i = 0; i < n; i++) update(i, 1);\n    let remaining = k;\n    const result = new Array(n);\n    for (let idx = 0; idx < n; idx++) {\n        for (let d = 0; d < 10; d++) {\n            if (head[d] >= pos[d].length) continue;\n            const originalIndex = pos[d][head[d]];\n            const cost = query(originalIndex);\n            if (cost <= remaining) {\n                head[d]++;\n                update(originalIndex, -1);\n                remaining -= cost;\n                result[idx] = String(d);\n                break;\n            }\n        }\n    }\n    return result.join('');\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * 10 * log n)",
+    "space": "O(n)"
+  }
+}
