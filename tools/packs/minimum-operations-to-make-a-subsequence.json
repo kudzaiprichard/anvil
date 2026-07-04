@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-operations-to-make-a-subsequence",
+  "judge": "exact",
+  "pattern": "Since target has no repeats, matching arr against target reduces to indices: replace every arr value that appears in target by its target position, then the longest run of those indices that stays increasing is the longest stretch you never have to touch, so the answer is target's length minus that longest increasing run.",
+  "hints": [
+    "Only the elements of arr that also appear in target matter -- everything else can be ignored entirely.",
+    "Map each such element to its index within target, in the order it appears in arr; the problem becomes finding how long a run of those indices you can keep without inserting anything, i.e. the longest increasing subsequence of that index list.",
+    "Every target value not covered by that longest increasing run needs exactly one insertion, so track patience-sorted tails with binary search to get the longest increasing subsequence in O(m log m) instead of O(m^2)."
+  ],
+  "constraints": [
+    { "param": "target", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "arr", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two insertions needed", "input": [[5, 1, 3], [9, 4, 2, 3, 4]] },
+    { "kind": "edge", "description": "statement example, three insertions needed", "input": [[6, 4, 8, 1, 3, 2], [4, 7, 6, 2, 3, 8, 6, 1]] },
+    { "kind": "boundary", "description": "single-element target and arr, already matching", "input": [[7], [7]] },
+    { "kind": "boundary", "description": "single-element target, arr has no match at all", "input": [[7], [2, 3]] },
+    { "kind": "trap", "description": "arr already equals target exactly, zero operations needed", "input": [[1, 2, 3, 4], [1, 2, 3, 4]] },
+    { "kind": "trap", "description": "arr contains target values but in fully reversed order", "input": [[1, 2, 3, 4, 5], [5, 4, 3, 2, 1]] },
+    { "kind": "trap", "description": "arr has none of target's values, every insertion required", "input": [[10, 20, 30], [1, 2, 3, 4]] },
+    { "kind": "trap", "description": "arr repeats a matching value many times but never advances", "input": [[1, 2, 3], [1, 1, 1, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "target is a random permutation; arr mixes shuffled target values with noise values not in target",
+      "seed": 5,
+      "size": 700,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 700))\n    target = list(range(1, n + 1))\n    rng.shuffle(target)\n    m = max(1, min(size, 700))\n    arr = []\n    for _ in range(m):\n        if rng.random() < 0.7:\n            arr.append(rng.choice(target))\n        else:\n            arr.append(rng.randint(2000000, 3000000))\n    return [target, arr]\n",
+      "note": "kept at 700 so the O(m^2) oracle LIS stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minOperations(self, target, arr):\n        pos = {v: i for i, v in enumerate(target)}\n        seq = [pos[v] for v in arr if v in pos]\n        n = len(seq)\n        if n == 0:\n            return len(target)\n        dp = [1] * n\n        for i in range(n):\n            for j in range(i):\n                if seq[j] < seq[i] and dp[j] + 1 > dp[i]:\n                    dp[i] = dp[j] + 1\n        return len(target) - max(dp)\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def minOperations(self, target, arr):\n        pos = {v: i for i, v in enumerate(target)}\n        seq = [pos[v] for v in arr if v in pos]\n        tails = []\n        for x in seq:\n            i = bisect.bisect_left(tails, x)\n            if i == len(tails):\n                tails.append(x)\n            else:\n                tails[i] = x\n        return len(target) - len(tails)\n",
+    "javascript": "var minOperations = function(target, arr) {\n    const pos = new Map();\n    for (let i = 0; i < target.length; i++) pos.set(target[i], i);\n    const seq = [];\n    for (const v of arr) if (pos.has(v)) seq.push(pos.get(v));\n    const tails = [];\n    for (const x of seq) {\n        let lo = 0, hi = tails.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (tails[mid] < x) lo = mid + 1; else hi = mid;\n        }\n        if (lo === tails.length) tails.push(x); else tails[lo] = x;\n    }\n    return target.length - tails.length;\n};\n"
+  },
+  "complexity": { "time": "O((n + m) log n)", "space": "O(n)" }
+}
