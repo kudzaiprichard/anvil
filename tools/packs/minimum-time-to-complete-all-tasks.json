@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-time-to-complete-all-tasks",
+  "judge": "exact",
+  "pattern": "Handling tasks in order of how soon their window closes and, for each one, turning the machine on during the seconds closest to that deadline (reusing any seconds already on from earlier tasks) keeps every choice as reusable as possible for tasks that come later.",
+  "hints": [
+    "Process tasks sorted by their ending time first, since a task with an earlier deadline has the least flexibility and should be settled before tasks that still have room to maneuver.",
+    "For each task, first check how many seconds within its window are already turned on from satisfying earlier tasks — those seconds are free reuse and need no extra time.",
+    "For whatever duration is still missing, turn the machine on for the missing number of seconds as close to the task's own deadline as possible (working backward from its end), since seconds near the end of an already-processed window are the ones most likely to also fall inside a later task's window."
+  ],
+  "constraints": [
+    { "param": "tasks", "kind": "int[][]", "len": [1, 2000], "value": [1, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single task, start equals end, minimal duration", "input": [[[3, 3, 1]]] },
+    { "kind": "edge", "description": "three identical, fully overlapping tasks sharing the same window", "input": [[[1, 3, 2], [1, 3, 2], [1, 3, 2]]] },
+    { "kind": "trap", "description": "one task's window exactly equals its duration, leaving no slack at all", "input": [[[2, 5, 4]]] },
+    { "kind": "edge", "description": "two windows with no overlap at all, so both must be paid for separately", "input": [[[1, 2, 2], [4, 5, 2]]] },
+    { "kind": "trap", "description": "windows chain together requiring the run to be placed as late as possible in the first task to help the second", "input": [[[1, 3, 1], [3, 5, 1], [1, 5, 1]]] },
+    { "kind": "boundary", "description": "smallest legal start and end values", "input": [[[1, 1, 1]]] },
+    { "kind": "edge", "description": "several small overlapping windows sharing a narrow common slice", "input": [[[1, 4, 2], [2, 5, 2], [3, 6, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random tasks with valid, sometimes tight, duration windows",
+      "seed": 27,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = min(2000, max(1, size))\n    tasks = []\n    for _ in range(n):\n        s = rng.randint(1, 2000)\n        e = rng.randint(s, 2000)\n        d = rng.randint(1, e - s + 1)\n        tasks.append([s, e, d])\n    return [tasks]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMinimumTime(self, tasks):\n        end_max = max(t[1] for t in tasks)\n        best = end_max + 1\n        for mask in range(1 << end_max):\n            ok = True\n            for s, e, d in tasks:\n                cnt = 0\n                for slot in range(s, e + 1):\n                    if mask & (1 << (slot - 1)):\n                        cnt += 1\n                if cnt < d:\n                    ok = False\n                    break\n            if ok:\n                bits = bin(mask).count('1')\n                if bits < best:\n                    best = bits\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMinimumTime(self, tasks):\n        tasks_sorted = sorted(tasks, key=lambda t: t[1])\n        max_time = max(t[1] for t in tasks_sorted)\n        on = [False] * (max_time + 1)\n        for start, end, duration in tasks_sorted:\n            need = duration - sum(1 for t in range(start, end + 1) if on[t])\n            t = end\n            while need > 0:\n                if not on[t]:\n                    on[t] = True\n                    need -= 1\n                t -= 1\n        return sum(on)\n",
+    "javascript": "var findMinimumTime = function(tasks) {\n    const sorted = tasks.slice().sort((a, b) => a[1] - b[1]);\n    const maxTime = Math.max(...sorted.map((t) => t[1]));\n    const on = new Array(maxTime + 1).fill(false);\n    for (const [start, end, duration] of sorted) {\n        let need = duration;\n        for (let t = start; t <= end; t++) {\n            if (on[t]) need--;\n        }\n        let t = end;\n        while (need > 0) {\n            if (!on[t]) {\n                on[t] = true;\n                need--;\n            }\n            t--;\n        }\n    }\n    return on.filter(Boolean).length;\n};\n"
+  },
+  "complexity": { "time": "O(n log n + n * maxEnd)", "space": "O(maxEnd)" }
+}
