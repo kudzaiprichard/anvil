@@ -1,0 +1,88 @@
+{
+  "slug": "minimum-number-of-food-buckets-to-feed-the-hamsters",
+  "judge": "exact",
+  "pattern": "Because one bucket placed between two hamsters can feed both at once, always preferring to feed a hamster from the cell ahead of it rather than the cell behind it leaves the most future flexibility, which makes a single greedy left-to-right pass optimal.",
+  "hints": [
+    "Only empty cells can ever hold a bucket, and a hamster is satisfied the moment a bucket sits directly to its left or its right, so scan left to right and only act when you reach a hamster that isn't already satisfied by a bucket placed earlier.",
+    "When an unsatisfied hamster needs a bucket, prefer placing it in the empty cell just after the hamster rather than just before it -- a forward bucket can still go on to feed the next hamster too, while a backward one never helps anything later.",
+    "Only fall back to the cell just before the hamster if the cell just after it isn't available (out of bounds or already occupied by another hamster); if neither side offers an empty cell, feeding every hamster is impossible and the answer is -1."
+  ],
+  "constraints": [
+    {
+      "param": "hamsters",
+      "kind": "string",
+      "len": [1, 100000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two separated hamsters each needing their own bucket",
+      "input": ["H..H"]
+    },
+    {
+      "kind": "edge",
+      "description": "one bucket placed between two hamsters feeds both at once",
+      "input": [".H.H."]
+    },
+    {
+      "kind": "trap",
+      "description": "a hamster flanked by hamsters on both sides has no empty cell available at all",
+      "input": [".HHH."]
+    },
+    {
+      "kind": "trap",
+      "description": "two adjacent hamsters with no gap between them or room outside",
+      "input": ["HH"]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single hamster and nothing else, no adjacent cell exists in bounds",
+      "input": ["H"]
+    },
+    {
+      "kind": "boundary",
+      "description": "a hamster flush against the very start of the string",
+      "input": ["H."]
+    },
+    {
+      "kind": "boundary",
+      "description": "a hamster flush against the very end of the string",
+      "input": [".H"]
+    },
+    {
+      "kind": "trap",
+      "description": "a strictly alternating pattern where a naive one-bucket-per-hamster approach would overcount",
+      "input": ["H.H.H.H"]
+    },
+    {
+      "kind": "edge",
+      "description": "a long run of empty cells around a single hamster needs only one bucket",
+      "input": ["....H...."]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random hamster strings of varying density, sized up to a few thousand characters, for the optimal linear-scan solution",
+      "seed": 5,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    density = rng.choice([0.2, 0.35, 0.5, 0.65, 0.8])\n    s = ''.join('H' if rng.random() < density else '.' for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "random hamster strings capped at a short length so an exponential brute-force cross-check would still stay fast",
+      "seed": 6,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 20))\n    density = rng.choice([0.2, 0.35, 0.5, 0.65, 0.8])\n    s = ''.join('H' if rng.random() < density else '.' for _ in range(n))\n    return [s]\n",
+      "note": "kept short (<=20 chars) so an exponential subset-based oracle stays fast if ever exercised against it"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumBuckets(self, hamsters):\n        dots = [i for i, c in enumerate(hamsters) if c == '.']\n        hs = [i for i, c in enumerate(hamsters) if c == 'H']\n        m = len(dots)\n        best = -1\n        for mask in range(1 << m):\n            chosen = set(dots[j] for j in range(m) if mask & (1 << j))\n            feasible = True\n            for h in hs:\n                if (h - 1) not in chosen and (h + 1) not in chosen:\n                    feasible = False\n                    break\n            if feasible:\n                cnt = bin(mask).count('1')\n                if best == -1 or cnt < best:\n                    best = cnt\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumBuckets(self, hamsters):\n        s = list(hamsters)\n        n = len(s)\n        for i in range(n):\n            if s[i] == 'H':\n                if i > 0 and s[i - 1] == 'B':\n                    continue\n                if i + 1 < n and s[i + 1] == '.':\n                    s[i + 1] = 'B'\n                elif i > 0 and s[i - 1] == '.':\n                    s[i - 1] = 'B'\n                else:\n                    return -1\n        return s.count('B')\n",
+    "javascript": "var minimumBuckets = function(hamsters) {\n    const s = hamsters.split('');\n    const n = s.length;\n    for (let i = 0; i < n; i++) {\n        if (s[i] === 'H') {\n            if (i > 0 && s[i - 1] === 'B') continue;\n            if (i + 1 < n && s[i + 1] === '.') {\n                s[i + 1] = 'B';\n            } else if (i > 0 && s[i - 1] === '.') {\n                s[i - 1] = 'B';\n            } else {\n                return -1;\n            }\n        }\n    }\n    return s.filter(c => c === 'B').length;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

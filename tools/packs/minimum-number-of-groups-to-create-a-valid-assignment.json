@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-number-of-groups-to-create-a-valid-assignment",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Fixing a common 'floor' group size s and requiring every group to have size s or s+1 turns the problem into: find the largest s for which every value's count can be split into that few groups, since a bigger floor size always needs fewer groups when it is achievable.",
+  "hints": [
+    "Every group holds copies of a single value, and the biggest group can be at most one larger than the smallest, so at any moment there are really only two allowed group sizes: some s and s+1.",
+    "For a fixed floor size s, a value that appears c times needs at least ceil(c / (s+1)) groups; that many groups only works if it is also possible to keep every group at least size s, i.e. that group count times s does not exceed c.",
+    "Try candidate floor sizes s starting from the smallest value's own count down to 1, and take the first (largest) s that is achievable for every distinct value; sum the minimum group counts for that s."
+  ],
+  "constraints": [
+    { "param": "balls", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two values with counts that split unevenly", "input": [[9, 9, 9, 4, 4]] },
+    { "kind": "edge", "description": "three distinct values with mixed counts", "input": [[7, 7, 7, 7, 2, 5, 5]] },
+    { "kind": "boundary", "description": "single ball, single group needed", "input": [[42]] },
+    { "kind": "boundary", "description": "every ball identical, one group suffices", "input": [[6, 6, 6, 6, 6, 6]] },
+    { "kind": "trap", "description": "one rare value forces small group size for everyone", "input": [[1, 1, 1, 1, 1, 1, 1, 2]] },
+    { "kind": "trap", "description": "counts that are prime relative to each other so no shared floor size larger than one works well", "input": [[3, 3, 3, 3, 3, 3, 3, 8, 8, 8, 8, 8]] },
+    { "kind": "edge", "description": "all distinct values, one ball each", "input": [[10, 20, 30, 40]] }
+  ],
+  "stress": [
+    {
+      "description": "many distinct values with random skewed counts",
+      "seed": 21,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    num_distinct = max(1, min(n, rng.randint(1, 50)))\n    values = rng.sample(range(1, 1000000000), num_distinct)\n    balls = []\n    remaining = n\n    for idx, v in enumerate(values):\n        left = num_distinct - idx\n        take = 1 if left == 1 else rng.randint(1, max(1, remaining - (left - 1)))\n        take = max(1, min(take, remaining - (left - 1)))\n        balls.extend([v] * take)\n        remaining -= take\n    rng.shuffle(balls)\n    return [balls]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minGroupsForValidAssignment(self, balls):\n        from collections import Counter\n        counts = list(Counter(balls).values())\n\n        def min_boxes_for_size(c, s):\n            # Independent DP: smallest number of parts, each of size s or s+1,\n            # that sum exactly to c. Returns None if impossible.\n            INF = float('inf')\n            dp = [INF] * (c + 1)\n            dp[0] = 0\n            for x in range(1, c + 1):\n                best = INF\n                if x >= s and dp[x - s] + 1 < best:\n                    best = dp[x - s] + 1\n                if x >= s + 1 and dp[x - (s + 1)] + 1 < best:\n                    best = dp[x - (s + 1)] + 1\n                dp[x] = best\n            return dp[c] if dp[c] != INF else None\n\n        max_size = max(counts)\n        for s in range(max_size, 0, -1):\n            total = 0\n            feasible = True\n            for c in counts:\n                m = min_boxes_for_size(c, s)\n                if m is None:\n                    feasible = False\n                    break\n                total += m\n            if feasible:\n                return total\n        return len(counts)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minGroupsForValidAssignment(self, balls):\n        from collections import Counter\n        counts = list(Counter(balls).values())\n        min_freq = min(counts)\n        for s in range(min_freq, 0, -1):\n            total = 0\n            feasible = True\n            for c in counts:\n                m = (c + s) // (s + 1)\n                if m == 0:\n                    m = 1\n                if m * s > c:\n                    feasible = False\n                    break\n                total += m\n            if feasible:\n                return total\n        return len(counts)\n",
+    "javascript": "var minGroupsForValidAssignment = function(balls) {\n    const freq = new Map();\n    for (const b of balls) freq.set(b, (freq.get(b) || 0) + 1);\n    const counts = Array.from(freq.values());\n    const minFreq = Math.min(...counts);\n    for (let s = minFreq; s >= 1; s--) {\n        let total = 0;\n        let feasible = true;\n        for (const c of counts) {\n            let m = Math.floor((c + s) / (s + 1));\n            if (m === 0) m = 1;\n            if (m * s > c) {\n                feasible = false;\n                break;\n            }\n            total += m;\n        }\n        if (feasible) return total;\n    }\n    return counts.length;\n};\n"
+  },
+  "complexity": { "time": "O(n + maxFreq * distinct)", "space": "O(n)" }
+}
