@@ -1,36 +1,180 @@
 {
   "slug": "queue-reconstruction-by-height",
   "judge": "exact",
-  "pattern": "Placing the tallest people first and inserting each at the index equal to its count of taller-or-equal predecessors yields the one queue consistent with every height-and-rank pair.",
+  "pattern": "Placing the tallest people first means every k value becomes an absolute position, because no one placed later can ever count as 'in front and taller' for someone already seated -- so a straightforward sorted insertion reconstructs the whole queue.",
   "hints": [
-    "Each person records how many people ahead of them are at least as tall, so shorter people never affect a taller person's required position.",
-    "Sort by descending height, breaking ties by ascending count, so that when you place someone, everyone already placed is at least as tall.",
-    "Insert each sorted person into the result list at the index given by their count; earlier insertions of taller people make that index exactly correct."
+    "If you only ever look at people from tallest to shortest, then whenever you place someone, everyone already placed is at least as tall as them -- so their k value tells you exactly how many of the already-placed people must come before them.",
+    "Sort people by height descending, and for ties, by k ascending; then insert each person into a growing result list at the index equal to their own k.",
+    "Because of the sort order, a person's k is always within the bounds of the list built so far, so inserting at index k (shifting everyone from that point on to the right) is always valid and never needs to look past the current length."
   ],
   "constraints": [
-    { "param": "people", "kind": "int[][]", "len": [1, 2000], "value": [0, 1000000] }
+    {
+      "param": "people",
+      "kind": "int[][]",
+      "len": [
+        1,
+        2000
+      ],
+      "value": [
+        0,
+        1000000
+      ]
+    }
   ],
   "edge_inputs": [
-    { "kind": "edge", "description": "mixed heights with varying ranks", "input": [[[7,0],[4,4],[7,1],[5,0],[6,1],[5,2]]] },
-    { "kind": "boundary", "description": "strictly decreasing heights all with rank zero", "input": [[[6,0],[5,0],[4,0],[3,2],[2,2],[1,4]]] },
-    { "kind": "edge", "description": "single person", "input": [[[3,0]]] },
-    { "kind": "trap", "description": "equal heights ordered only by their counts", "input": [[[5,0],[5,1],[5,2],[5,3]]] },
-    { "kind": "trap", "description": "tallest placed last by count goes to the back", "input": [[[2,0],[2,1],[1,2]]] },
-    { "kind": "edge", "description": "two people same height different rank", "input": [[[7,1],[7,0]]] }
+    {
+      "kind": "edge",
+      "description": "statement example, six people",
+      "input": [
+        [
+          [
+            7,
+            0
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            6,
+            1
+          ],
+          [
+            5,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, another six people",
+      "input": [
+        [
+          [
+            6,
+            0
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single person",
+      "input": [
+        [
+          [
+            5,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "same height, increasing k values",
+      "input": [
+        [
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "same height entries given out of k order in the input",
+      "input": [
+        [
+          [
+            5,
+            2
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all distinct heights already front-loaded by tallest",
+      "input": [
+        [
+          [
+            9,
+            0
+          ],
+          [
+            8,
+            0
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            6,
+            0
+          ]
+        ]
+      ]
+    }
   ],
   "stress": [
     {
-      "description": "build a random valid queue then shuffle the (height,count) pairs as input",
-      "seed": 23,
-      "size": 500,
-      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    heights = [rng.randint(0, 30) for _ in range(n)]\n    # arrange into some queue order, then compute each person's true count\n    order = list(range(n))\n    rng.shuffle(order)\n    queue = [heights[i] for i in order]\n    people = []\n    for idx, h in enumerate(queue):\n        cnt = sum(1 for j in range(idx) if queue[j] >= h)\n        people.append([h, cnt])\n    rng.shuffle(people)\n    return [people]\n",
-      "note": "counts derive from a real queue, so a unique consistent reconstruction always exists"
+      "description": "a random valid arrangement is generated first, then k values are derived from it so the input is always reconstructable",
+      "seed": 19,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    heights = [rng.randint(1, 1000000) for _ in range(n)]\n    order = heights[:]\n    rng.shuffle(order)\n    people = []\n    for i in range(n):\n        h = order[i]\n        k = sum(1 for j in range(i) if order[j] >= h)\n        people.append([h, k])\n    rng.shuffle(people)\n    return [people]\n",
+      "note": "k values always come from a real valid arrangement, so a reconstruction is guaranteed to exist"
     }
   ],
-  "oracle_python": "class Solution:\n    def reconstructQueue(self, people):\n        # independent: brute-force search a permutation that satisfies all counts,\n        # but greedily prune using the fact that placing tallest-first is forced.\n        # For verification we use a different mechanism: repeatedly pick the person\n        # whose count equals the number of not-yet-placed people taller-or-equal... \n        # simpler independent method: try positions for shortest-first.\n        people = sorted(people, key=lambda p: (p[0], p[1]))\n        n = len(people)\n        res = [None] * n\n        for h, k in people:\n            # this person needs exactly k taller-or-equal ahead. Among empty slots,\n            # the (k+1)-th empty slot (counting from front) such that all already\n            # filled taller people are accounted for. Since we go shortest-first,\n            # all already placed are <= h; place at the slot leaving k empty slots\n            # before it (those will be filled by taller people later).\n            empties = [i for i in range(n) if res[i] is None]\n            res[empties[k]] = [h, k]\n        return res\n",
+  "oracle_python": "from itertools import permutations\n\nclass Solution:\n    def reconstructQueue(self, people):\n        n = len(people)\n        for perm in permutations(people):\n            ok = True\n            for i in range(n):\n                h, k = perm[i]\n                count = sum(1 for j in range(i) if perm[j][0] >= h)\n                if count != k:\n                    ok = False\n                    break\n            if ok:\n                return [list(p) for p in perm]\n        return []\n",
   "solutions": {
-    "python": "class Solution:\n    def reconstructQueue(self, people):\n        people.sort(key=lambda p: (-p[0], p[1]))\n        res = []\n        for p in people:\n            res.insert(p[1], p)\n        return res\n",
-    "javascript": "var reconstructQueue = function(people) {\n    people.sort((a, b) => b[0] - a[0] || a[1] - b[1]);\n    const res = [];\n    for (const p of people) {\n        res.splice(p[1], 0, p);\n    }\n    return res;\n};\n"
+    "python": "class Solution:\n    def reconstructQueue(self, people):\n        ordered = sorted(people, key=lambda p: (-p[0], p[1]))\n        result = []\n        for p in ordered:\n            result.insert(p[1], p)\n        return result\n",
+    "javascript": "var reconstructQueue = function(people) {\n    const ordered = people.slice().sort((a, b) => (b[0] - a[0]) || (a[1] - b[1]));\n    const result = [];\n    for (const p of ordered) {\n        result.splice(p[1], 0, p);\n    }\n    return result;\n};\n"
   },
-  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+  "complexity": {
+    "time": "O(n^2) worst case for the insertions",
+    "space": "O(n)"
+  }
 }
