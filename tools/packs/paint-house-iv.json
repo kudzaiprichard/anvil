@@ -1,0 +1,37 @@
+{
+  "slug": "paint-house-iv",
+  "judge": "exact",
+  "pattern": "Because the two houses that mirror each other around the middle must differ in color just like true neighbors do, folding the row in half and tracking a state of (color of house i, color of house n-1-i) turns the row into a short chain of paired decisions solvable with a small dynamic program.",
+  "hints": [
+    "Instead of thinking about n separate houses, pair up house i with its mirror house n-1-i for i from 0 up to n/2-1 -- each pair must use two different colors from one another.",
+    "Track a dynamic-programming state that is the pair of colors used for the current pair of houses, and only allow transitioning from a previous pair's colors when neither color repeats against its own neighbor (house i against house i-1, and house n-1-i against house n-i).",
+    "At the very first pair there is no previous neighbor to worry about, so every pair of distinct colors is a valid starting state; the answer is the minimum total cost over all valid color-pair states at the last pair."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "cost", "kind": "int[][]", "len": [2, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "smallest possible row of two houses", "input": [2, [[5, 1, 9], [2, 8, 3]]] },
+    { "kind": "edge", "description": "four houses with clearly distinct color costs", "input": [4, [[1, 100, 100], [100, 1, 100], [100, 100, 1], [1, 100, 100]]] },
+    { "kind": "boundary", "description": "all costs at zero, any valid coloring is free", "input": [4, [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]] },
+    { "kind": "boundary", "description": "all costs at the maximum bound", "input": [2, [[100000, 100000, 100000], [100000, 100000, 100000]]] },
+    { "kind": "trap", "description": "one color is always cheapest, but reusing it on a mirrored pair is forbidden and forces a costlier choice", "input": [6, [[1, 50, 50], [1, 50, 50], [1, 50, 50], [1, 50, 50], [1, 50, 50], [1, 50, 50]]] },
+    { "kind": "trap", "description": "adjacent-only reasoning would wrongly allow the two middle houses to match", "input": [4, [[9, 1, 9], [9, 1, 9], [9, 1, 9], [9, 1, 9]]] },
+    { "kind": "edge", "description": "eight houses with varied costs per position", "input": [8, [[3, 5, 7], [6, 2, 9], [4, 8, 1], [7, 3, 5], [2, 6, 4], [9, 1, 8], [5, 7, 3], [8, 4, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random even-length rows with random small costs",
+      "seed": 11,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 2000))) * 2\n    cost = [[rng.randint(0, 100000) for _ in range(3)] for _ in range(n)]\n    return [n, cost]\n"
+    }
+  ],
+  "oracle_python": "import itertools\nclass Solution:\n    def minCost(self, n, cost):\n        best = None\n        for colors in itertools.product(range(3), repeat=n):\n            ok = True\n            for i in range(1, n):\n                if colors[i] == colors[i - 1]:\n                    ok = False\n                    break\n            if ok:\n                for i in range(n // 2):\n                    if colors[i] == colors[n - 1 - i]:\n                        ok = False\n                        break\n            if not ok:\n                continue\n            total = sum(cost[i][colors[i]] for i in range(n))\n            if best is None or total < best:\n                best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCost(self, n, cost):\n        INF = float('inf')\n        dp = [[INF] * 3 for _ in range(3)]\n        for c1 in range(3):\n            for c2 in range(3):\n                if c1 != c2:\n                    dp[c1][c2] = cost[0][c1] + cost[n - 1][c2]\n        half = n // 2\n        for i in range(1, half):\n            j = n - 1 - i\n            ndp = [[INF] * 3 for _ in range(3)]\n            for c1 in range(3):\n                for c2 in range(3):\n                    if c1 == c2:\n                        continue\n                    base = cost[i][c1] + cost[j][c2]\n                    best_prev = INF\n                    for pc1 in range(3):\n                        if pc1 == c1:\n                            continue\n                        for pc2 in range(3):\n                            if pc2 == c2:\n                                continue\n                            if dp[pc1][pc2] < best_prev:\n                                best_prev = dp[pc1][pc2]\n                    ndp[c1][c2] = base + best_prev\n            dp = ndp\n        ans = INF\n        for c1 in range(3):\n            for c2 in range(3):\n                if c1 != c2 and dp[c1][c2] < ans:\n                    ans = dp[c1][c2]\n        return ans\n",
+    "javascript": "var minCost = function(n, cost) {\n    const INF = Infinity;\n    let dp = [[INF, INF, INF], [INF, INF, INF], [INF, INF, INF]];\n    for (let c1 = 0; c1 < 3; c1++) {\n        for (let c2 = 0; c2 < 3; c2++) {\n            if (c1 !== c2) dp[c1][c2] = cost[0][c1] + cost[n - 1][c2];\n        }\n    }\n    const half = Math.floor(n / 2);\n    for (let i = 1; i < half; i++) {\n        const j = n - 1 - i;\n        const ndp = [[INF, INF, INF], [INF, INF, INF], [INF, INF, INF]];\n        for (let c1 = 0; c1 < 3; c1++) {\n            for (let c2 = 0; c2 < 3; c2++) {\n                if (c1 === c2) continue;\n                const base = cost[i][c1] + cost[j][c2];\n                let bestPrev = INF;\n                for (let pc1 = 0; pc1 < 3; pc1++) {\n                    if (pc1 === c1) continue;\n                    for (let pc2 = 0; pc2 < 3; pc2++) {\n                        if (pc2 === c2) continue;\n                        if (dp[pc1][pc2] < bestPrev) bestPrev = dp[pc1][pc2];\n                    }\n                }\n                ndp[c1][c2] = base + bestPrev;\n            }\n        }\n        dp = ndp;\n    }\n    let ans = INF;\n    for (let c1 = 0; c1 < 3; c1++) {\n        for (let c2 = 0; c2 < 3; c2++) {\n            if (c1 !== c2 && dp[c1][c2] < ans) ans = dp[c1][c2];\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}
