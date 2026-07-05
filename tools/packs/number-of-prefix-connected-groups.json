@@ -1,0 +1,45 @@
+{
+  "slug": "number-of-prefix-connected-groups",
+  "judge": "exact",
+  "pattern": "Prefix-connection is really just an equivalence relation: instead of testing every pair of words for a shared first-k-characters prefix, bucket the eligible words by that prefix once and count which buckets ended up with more than one occupant.",
+  "hints": [
+    "Testing every pair of words for a shared k-length prefix is wasteful — a word's first k characters fully determine which bucket it belongs to, so just compute that bucket key once per word.",
+    "Drop any word shorter than k immediately (it can never be prefix-connected to anything), then group the remaining words by their first k characters using a hash map from prefix to a running count.",
+    "The final answer is simply how many distinct prefix keys ended up with a count of 2 or more — a size-1 bucket represents a word with no partner and must not be counted."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 5000] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "four words, two groups of size two by 2-char prefix", "input": [["apple", "apply", "banana", "bandit"], 2] },
+    { "kind": "edge", "description": "one group of two plus one lone word by 3-char prefix", "input": [["car", "cat", "cartoon"], 3] },
+    { "kind": "edge", "description": "repeated identical strings counted as separate indices across two prefix groups", "input": [["bat", "dog", "dog", "doggy", "bat"], 3] },
+    { "kind": "edge", "description": "every word shorter than k, so nothing is eligible and the answer is 0", "input": [["a", "bb", "ccc"], 5] },
+    { "kind": "edge", "description": "all words identical: one big group counts once, not once per pair", "input": [["same", "same", "same"], 2] },
+    { "kind": "boundary", "description": "k equal to the longest eligible word's length, with a shorter word dropped entirely", "input": [["hello", "hello", "hi"], 5] },
+    { "kind": "edge", "description": "k=1: grouping collapses to matching only the very first letter", "input": [["apple", "avocado", "banana", "kiwi"], 1] },
+    { "kind": "trap", "description": "one word is exactly length k-1 (must be dropped, not truncated and compared)", "input": [["abcd", "abc"], 4] },
+    { "kind": "boundary", "description": "smallest possible input: a single word can never form a group", "input": [["only"], 2] }
+  ],
+  "stress": [
+    {
+      "description": "many short random lowercase words with a small k, exercising lots of small prefix buckets",
+      "seed": 7,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    alphabet = 'abcdefghijklmnopqrstuvwxyz'\n    k = rng.randint(1, 20)\n    words = []\n    for _ in range(size):\n        length = rng.randint(1, 30)\n        w = ''.join(rng.choice(alphabet) for _ in range(length))\n        words.append(w)\n    return [words, k]\n"
+    },
+    {
+      "description": "fewer, longer random words with k near the upper constraint bound, testing long-prefix comparisons",
+      "seed": 13,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    alphabet = 'abcdefghijklmnopqrstuvwxyz'\n    k = rng.randint(50, 100)\n    words = []\n    for _ in range(size):\n        length = rng.randint(1, 100)\n        w = ''.join(rng.choice(alphabet) for _ in range(length))\n        words.append(w)\n    return [words, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def prefixConnected(self, words, k):\n        # Independent sort-and-scan approach (rather than the hash-map grouping\n        # used by the optimal solution): sort the eligible prefixes, then walk\n        # the sorted list counting equal-prefix runs.\n        eligible = [w[:k] for w in words if len(w) >= k]\n        eligible.sort()\n        count = 0\n        i = 0\n        n = len(eligible)\n        while i < n:\n            j = i\n            while j < n and eligible[j] == eligible[i]:\n                j += 1\n            if j - i >= 2:\n                count += 1\n            i = j\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def prefixConnected(self, words: List[str], k: int) -> int:\n        from collections import Counter\n        counts = Counter()\n        for w in words:\n            if len(w) >= k:\n                counts[w[:k]] += 1\n        return sum(1 for v in counts.values() if v >= 2)\n",
+    "javascript": "var prefixConnected = function(words, k) {\n    const counts = new Map();\n    for (const w of words) {\n        if (w.length >= k) {\n            const p = w.slice(0, k);\n            counts.set(p, (counts.get(p) || 0) + 1);\n        }\n    }\n    let total = 0;\n    for (const v of counts.values()) {\n        if (v >= 2) total++;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n * k)", "space": "O(n * k)" }
+}
