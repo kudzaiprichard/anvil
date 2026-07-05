@@ -1,0 +1,152 @@
+{
+  "slug": "number-of-ways-to-reorder-array-to-get-same-bst",
+  "judge": "exact",
+  "pattern": "Since a binary search tree is fully determined by, at every node, which of the remaining values came before which, the count of equivalent orderings only depends on how the left and right subtree elements can be interleaved -- counted with binomial coefficients and multiplied recursively.",
+  "hints": [
+    "The very first element you insert always becomes the root, so every reordering that yields the same tree must keep that same value first; everything else just needs to preserve, for every pair of values, which side of the root each one falls on.",
+    "Split the remaining values into the ones smaller than the root (destined for the left subtree) and the ones larger (destined for the right subtree) -- any way of interleaving those two groups while preserving each group's own relative order gives a valid reordering, and the number of interleavings is a binomial coefficient.",
+    "Recurse: multiply the interleaving count by the number of equivalent orderings within the left group and within the right group (each computed the same way), and subtract one at the very end to exclude the original array itself from the count."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a single-element array",
+      "input": [
+        [
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a two-element array, where swapping the order always changes the root",
+      "input": [
+        [
+          5,
+          9
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a small mixed array with one value on each side of the root",
+      "input": [
+        [
+          3,
+          1,
+          4,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a strictly ascending sequence, forming a fully right-skewed chain",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a strictly descending sequence, forming a fully left-skewed chain",
+      "input": [
+        [
+          6,
+          5,
+          4,
+          3,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a root followed by a long increasing run entirely on one side",
+      "input": [
+        [
+          5,
+          1,
+          2,
+          3,
+          4,
+          6,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "an eight-element permutation, near the largest size still cheap to brute-force exhaustively",
+      "input": [
+        [
+          4,
+          2,
+          6,
+          1,
+          3,
+          5,
+          8,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "values that are not the identity order but still a distinct permutation of the same set",
+      "input": [
+        [
+          3,
+          5,
+          1,
+          4,
+          2
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random permutations of 1..n at sizes up to the constraint maximum",
+      "seed": 43,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    nums = list(range(1, n + 1))\n    rng.shuffle(nums)\n    return [nums]\n"
+    },
+    {
+      "description": "mostly-sorted permutations with a handful of random swaps, stressing skewed tree shapes",
+      "seed": 44,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    nums = list(range(1, n + 1))\n    swaps = max(1, n // 20)\n    for _ in range(swaps):\n        i = rng.randint(0, n - 1)\n        j = rng.randint(0, n - 1)\n        nums[i], nums[j] = nums[j], nums[i]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "from itertools import permutations\n\nclass Solution:\n    def numOfWays(self, nums):\n        MOD = 10 ** 9 + 7\n\n        def insert(node, v):\n            if node is None:\n                return [v, None, None]\n            if v < node[0]:\n                node[1] = insert(node[1], v)\n            else:\n                node[2] = insert(node[2], v)\n            return node\n\n        def build(order):\n            root = None\n            for v in order:\n                root = insert(root, v)\n            return root\n\n        def same(a, b):\n            if a is None or b is None:\n                return a is None and b is None\n            return a[0] == b[0] and same(a[1], b[1]) and same(a[2], b[2])\n\n        target = build(nums)\n        count = 0\n        for perm in permutations(nums):\n            if same(build(list(perm)), target):\n                count += 1\n        return (count - 1) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numOfWays(self, nums):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        C = [[0] * (n + 1) for _ in range(n + 1)]\n        for i in range(n + 1):\n            C[i][0] = 1\n            for j in range(1, i + 1):\n                C[i][j] = (C[i - 1][j - 1] + C[i - 1][j]) % MOD\n\n        root = None\n        for v in nums:\n            if root is None:\n                root = [v, None, None]\n                continue\n            cur = root\n            while True:\n                if v < cur[0]:\n                    if cur[1] is None:\n                        cur[1] = [v, None, None]\n                        break\n                    cur = cur[1]\n                else:\n                    if cur[2] is None:\n                        cur[2] = [v, None, None]\n                        break\n                    cur = cur[2]\n\n        size_of = {}\n        ways_of = {}\n        stack = [(root, False)]\n        while stack:\n            node, processed = stack.pop()\n            if node is None:\n                continue\n            if processed:\n                left, right = node[1], node[2]\n                ls = size_of.get(id(left), 0)\n                rs = size_of.get(id(right), 0)\n                lw = ways_of.get(id(left), 1)\n                rw = ways_of.get(id(right), 1)\n                size_of[id(node)] = ls + rs + 1\n                ways_of[id(node)] = (C[ls + rs][ls] * lw % MOD) * rw % MOD\n            else:\n                stack.append((node, True))\n                stack.append((node[1], False))\n                stack.append((node[2], False))\n\n        total = ways_of.get(id(root), 1)\n        return (total - 1) % MOD\n",
+    "javascript": "var numOfWays = function(nums) {\n    const MOD = 1000000007n;\n    const n = nums.length;\n    const C = [];\n    for (let i = 0; i <= n; i++) {\n        C.push(new Array(n + 1).fill(0n));\n        C[i][0] = 1n;\n        for (let j = 1; j <= i; j++) {\n            C[i][j] = (C[i - 1][j - 1] + C[i - 1][j]) % MOD;\n        }\n    }\n\n    let root = null;\n    for (const v of nums) {\n        if (root === null) {\n            root = { v, left: null, right: null };\n            continue;\n        }\n        let cur = root;\n        while (true) {\n            if (v < cur.v) {\n                if (cur.left === null) { cur.left = { v, left: null, right: null }; break; }\n                cur = cur.left;\n            } else {\n                if (cur.right === null) { cur.right = { v, left: null, right: null }; break; }\n                cur = cur.right;\n            }\n        }\n    }\n\n    const sizeOf = new Map();\n    const waysOf = new Map();\n    const stack = [[root, false]];\n    while (stack.length) {\n        const [node, processed] = stack.pop();\n        if (node === null) continue;\n        if (processed) {\n            const ls = node.left ? sizeOf.get(node.left) : 0;\n            const rs = node.right ? sizeOf.get(node.right) : 0;\n            const lw = node.left ? waysOf.get(node.left) : 1n;\n            const rw = node.right ? waysOf.get(node.right) : 1n;\n            sizeOf.set(node, ls + rs + 1);\n            waysOf.set(node, (C[ls + rs][ls] * lw % MOD) * rw % MOD);\n        } else {\n            stack.push([node, true]);\n            stack.push([node.left, false]);\n            stack.push([node.right, false]);\n        }\n    }\n\n    const total = root ? waysOf.get(root) : 1n;\n    return Number(((total - 1n) % MOD + MOD) % MOD);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2) for the combination table and the tree accounting",
+    "space": "O(n^2)"
+  }
+}
