@@ -1,0 +1,220 @@
+{
+  "slug": "number-of-nodes-in-the-sub-tree-with-the-same-label",
+  "judge": "exact",
+  "pattern": "Accumulating a 26-letter frequency table upward from leaves to the root, one subtree at a time, turns 'how many matching labels below me' into a single post-order pass.",
+  "hints": [
+    "Root the tree at node 0 and think of each node's answer as 'count of my own label among everyone in my subtree'.",
+    "Process nodes from the leaves upward: once a node's own 26-letter label tally is known, merge it into its parent's tally.",
+    "Do this with an explicit iterative post-order traversal (a stack, not recursion) since the tree can be up to 100,000 nodes deep in a worst-case chain."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        0,
+        99999
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    },
+    {
+      "param": "labels",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a small branching tree with mixed labels",
+      "input": [
+        7,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            6
+          ]
+        ],
+        "abaedcd"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "every node shares the same label",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            0,
+            3
+          ]
+        ],
+        "bbbb"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a shallow tree with a repeated non-root label",
+      "input": [
+        5,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            0,
+            4
+          ]
+        ],
+        "aabab"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single node with no edges",
+      "input": [
+        1,
+        [],
+        "a"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two nodes sharing a label",
+      "input": [
+        2,
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        "aa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a star graph where the root must count every leaf",
+      "input": [
+        5,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ]
+        ],
+        "aaaaa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a deep chain with alternating labels, exercising accumulation through many levels",
+      "input": [
+        6,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        "ababab"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random tree built by attaching each new node to a uniformly random earlier node, near the maximum size",
+      "seed": 19,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    edges = []\n    for i in range(1, n):\n        j = rng.randint(0, i - 1)\n        edges.append([i, j])\n    labels = ''.join(rng.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(n))\n    return [n, edges, labels]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countSubTrees(self, n, edges, labels):\n        from collections import deque\n        graph = [[] for _ in range(n)]\n        for a, b in edges:\n            graph[a].append(b)\n            graph[b].append(a)\n        parent = [-1] * n\n        visited = [False] * n\n        visited[0] = True\n        order = [0]\n        dq = deque([0])\n        while dq:\n            u = dq.popleft()\n            for v in graph[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    parent[v] = u\n                    order.append(v)\n                    dq.append(v)\n        count = [[0] * 26 for _ in range(n)]\n        for node in order:\n            count[node][ord(labels[node]) - 97] += 1\n        ans = [0] * n\n        for node in reversed(order):\n            idx = ord(labels[node]) - 97\n            ans[node] = count[node][idx]\n            p = parent[node]\n            if p != -1:\n                for k in range(26):\n                    count[p][k] += count[node][k]\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def countSubTrees(self, n, edges, labels):\n        graph = [[] for _ in range(n)]\n        for a, b in edges:\n            graph[a].append(b)\n            graph[b].append(a)\n        count = [[0] * 26 for _ in range(n)]\n        ans = [0] * n\n        parent = [-1] * n\n        visited = [False] * n\n        visited[0] = True\n        node_stack = [0]\n        it_stack = [iter(graph[0])]\n        while node_stack:\n            node = node_stack[-1]\n            it = it_stack[-1]\n            descended = False\n            for nxt in it:\n                if not visited[nxt]:\n                    visited[nxt] = True\n                    parent[nxt] = node\n                    node_stack.append(nxt)\n                    it_stack.append(iter(graph[nxt]))\n                    descended = True\n                    break\n            if not descended:\n                idx = ord(labels[node]) - 97\n                count[node][idx] += 1\n                p = parent[node]\n                if p != -1:\n                    for k in range(26):\n                        count[p][k] += count[node][k]\n                ans[node] = count[node][idx]\n                node_stack.pop()\n                it_stack.pop()\n        return ans\n",
+    "javascript": "var countSubTrees = function(n, edges, labels) {\n    const graph = Array.from({ length: n }, () => []);\n    for (const [a, b] of edges) {\n        graph[a].push(b);\n        graph[b].push(a);\n    }\n    const count = Array.from({ length: n }, () => new Array(26).fill(0));\n    const ans = new Array(n).fill(0);\n    const parent = new Array(n).fill(-1);\n    const visited = new Array(n).fill(false);\n    visited[0] = true;\n    const nodeStack = [0];\n    const idxStack = [0];\n    while (nodeStack.length) {\n        const node = nodeStack[nodeStack.length - 1];\n        let i = idxStack[idxStack.length - 1];\n        let descended = false;\n        while (i < graph[node].length) {\n            const nxt = graph[node][i];\n            i++;\n            if (!visited[nxt]) {\n                visited[nxt] = true;\n                parent[nxt] = node;\n                idxStack[idxStack.length - 1] = i;\n                nodeStack.push(nxt);\n                idxStack.push(0);\n                descended = true;\n                break;\n            }\n        }\n        if (!descended) {\n            idxStack[idxStack.length - 1] = i;\n            const idx = labels.charCodeAt(node) - 97;\n            count[node][idx] += 1;\n            const p = parent[node];\n            if (p !== -1) {\n                for (let k = 0; k < 26; k++) count[p][k] += count[node][k];\n            }\n            ans[node] = count[node][idx];\n            nodeStack.pop();\n            idxStack.pop();\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * 26)",
+    "space": "O(n * 26)"
+  }
+}
