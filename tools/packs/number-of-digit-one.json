@@ -1,45 +1,96 @@
 {
   "slug": "number-of-digit-one",
   "judge": "exact",
-  "pattern": "Counting the digit one up to n is done per place value: for each power of ten, a closed-form formula counts how many times a one appears in that position across all numbers from 0 to n.",
+  "pattern": "Counting how many numbers up to n have a 1 in a specific decimal place is a closed-form function of that place's higher digits, current digit, and lower digits, so summing over every place gives the total without ever iterating over the numbers themselves.",
   "hints": [
-    "Iterating every number to count ones is far too slow near a billion, so count contributions one digit position at a time instead.",
-    "Fix a place value (units, tens, hundreds, ...) and ask how many numbers in [0, n] have a one in exactly that position.",
-    "Split n at that place into high, current, and low parts: full cycles contribute high * place, and the partial cycle adds 0, the low part plus one, or a full place depending on whether the current digit is 0, 1, or more."
+    "Instead of scanning every number from 0 to n, count contributions place by place: for the units place, then the tens place, and so on, working out how many numbers have a 1 sitting in that exact place.",
+    "Split n around the place you're counting into a 'higher' part, the single 'current' digit at that place, and a 'lower' remainder; the count of 1s contributed by that place depends only on whether the current digit is less than, equal to, or greater than 1.",
+    "If the current digit is 0, that place contributes higher * place_value; if it's exactly 1, it contributes higher * place_value + (lower + 1); otherwise it contributes (higher + 1) * place_value -- sum this over every place value (1, 10, 100, ...) up to n."
   ],
   "constraints": [
-    { "param": "n", "kind": "int", "value": [0, 1000000000] }
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        0,
+        1000000000
+      ]
+    }
   ],
   "edge_inputs": [
-    { "kind": "edge", "description": "small value covering single and double digit ones", "input": [13] },
-    { "kind": "boundary", "description": "zero contains no digit one", "input": [0] },
-    { "kind": "edge", "description": "exactly one", "input": [1] },
-    { "kind": "edge", "description": "nine has a single one (in the number 1)", "input": [9] },
-    { "kind": "trap", "description": "a value whose current digit at a place is exactly one", "input": [110] },
-    { "kind": "trap", "description": "a run of ones across the teens region", "input": [19] },
-    { "kind": "trap", "description": "a value full of ones tests every place's partial cycle", "input": [1111] },
-    { "kind": "boundary", "description": "maximum allowed n", "input": [1000000000] }
+    {
+      "kind": "edge",
+      "description": "statement example",
+      "input": [
+        13
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "statement example, zero",
+      "input": [
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest positive value",
+      "input": [
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a run of nines just below a power of ten",
+      "input": [
+        999
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "exactly a power of ten",
+      "input": [
+        1000
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a number whose own digits include several ones",
+      "input": [
+        111
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a six-digit boundary value well past a power of ten",
+      "input": [
+        123456
+      ]
+    }
   ],
   "stress": [
     {
-      "description": "random n across the full allowed range so every digit-length is exercised",
-      "seed": 71,
-      "size": 1,
-      "generator_python": "def gen(rng, size):\n    return [rng.randint(0, 1000000000)]\n",
-      "note": "single argument; optimal closed-form handles the full range instantly while the oracle brute-force is bounded by the input"
+      "description": "random n across a moderate range, checkable against a literal digit-count brute force",
+      "seed": 2,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(0, max(1, min(size, 5000)))\n    return [n]\n",
+      "note": "kept small so the literal brute force stays fast"
     },
     {
-      "description": "smaller random n that the brute-force oracle can still count digit by digit quickly",
-      "seed": 72,
-      "size": 1,
-      "generator_python": "def gen(rng, size):\n    return [rng.randint(0, 200000)]\n",
-      "note": "kept under a few hundred thousand so the O(n) oracle stays well under the time budget"
+      "description": "random n up to the real constraint",
+      "seed": 42,
+      "size": 1000000000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(0, min(size, 1000000000))\n    return [n]\n",
+      "note": "exercises the closed-form counting at realistic scale"
     }
   ],
-  "oracle_python": "class Solution:\n    def countDigitOne(self, n):\n        total = 0\n        for x in range(1, n + 1):\n            total += str(x).count('1')\n        return total\n",
+  "oracle_python": "class Solution:\n    def countDigitOne(self, n):\n        if n < 1:\n            return 0\n        return sum(str(x).count('1') for x in range(0, n + 1))\n",
   "solutions": {
-    "python": "class Solution:\n    def countDigitOne(self, n):\n        count = 0\n        place = 1\n        while place <= n:\n            high = n // (place * 10)\n            cur = (n // place) % 10\n            low = n % place\n            if cur == 0:\n                count += high * place\n            elif cur == 1:\n                count += high * place + low + 1\n            else:\n                count += (high + 1) * place\n            place *= 10\n        return count\n",
-    "javascript": "var countDigitOne = function(n) {\n    let count = 0;\n    let place = 1;\n    while (place <= n) {\n        const high = Math.floor(n / (place * 10));\n        const cur = Math.floor(n / place) % 10;\n        const low = n % place;\n        if (cur === 0) count += high * place;\n        else if (cur === 1) count += high * place + low + 1;\n        else count += (high + 1) * place;\n        place *= 10;\n    }\n    return count;\n};\n"
+    "python": "class Solution:\n    def countDigitOne(self, n):\n        if n < 1:\n            return 0\n        count = 0\n        i = 1\n        while i <= n:\n            divider = i * 10\n            higher = n // divider\n            cur = (n // i) % 10\n            lower = n % i\n            if cur == 0:\n                count += higher * i\n            elif cur == 1:\n                count += higher * i + (lower + 1)\n            else:\n                count += (higher + 1) * i\n            i *= 10\n        return count\n",
+    "javascript": "var countDigitOne = function(n) {\n    if (n < 1) return 0;\n    let count = 0;\n    for (let i = 1; i <= n; i *= 10) {\n        const divider = i * 10;\n        const higher = Math.floor(n / divider);\n        const cur = Math.floor(n / i) % 10;\n        const lower = n % i;\n        if (cur === 0) {\n            count += higher * i;\n        } else if (cur === 1) {\n            count += higher * i + (lower + 1);\n        } else {\n            count += (higher + 1) * i;\n        }\n    }\n    return count;\n};\n"
   },
-  "complexity": { "time": "O(log n)", "space": "O(1)" }
+  "complexity": {
+    "time": "O(log n)",
+    "space": "O(1)"
+  }
 }
