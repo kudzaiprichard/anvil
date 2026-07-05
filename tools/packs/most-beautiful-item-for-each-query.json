@@ -1,0 +1,201 @@
+{
+  "slug": "most-beautiful-item-for-each-query",
+  "judge": "exact",
+  "pattern": "Sorting items by price and carrying a running maximum beauty turns 'best beauty at price <= q' into a binary search for the last affordable item followed by an O(1) lookup.",
+  "hints": [
+    "Sort the items by price, then walk them in order keeping a running maximum beauty so far -- that running maximum at position i is the best beauty among all items priced at or below items[i]'s price.",
+    "For a query q, binary search for the last item whose price is <= q; the running maximum stored at that position is the answer.",
+    "If no item's price is low enough for a query, the answer is 0, not undefined or -1."
+  ],
+  "constraints": [
+    {
+      "param": "items",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several items and queries spanning the whole price range",
+      "input": [
+        [
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            4,
+            6
+          ]
+        ],
+        [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "duplicate prices with different beauty, must pick the max",
+      "input": [
+        [
+          [
+            2,
+            5
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            2,
+            9
+          ]
+        ],
+        [
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single item priced above the only query",
+      "input": [
+        [
+          [
+            10,
+            1000
+          ]
+        ],
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every item priced above every query",
+      "input": [
+        [
+          [
+            100,
+            50
+          ],
+          [
+            200,
+            80
+          ]
+        ],
+        [
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "query exactly equal to an item's price, inclusive boundary",
+      "input": [
+        [
+          [
+            5,
+            10
+          ],
+          [
+            5,
+            20
+          ],
+          [
+            6,
+            5
+          ]
+        ],
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the cheapest item has the highest beauty, must carry it forward past pricier items",
+      "input": [
+        [
+          [
+            1,
+            100
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            3,
+            1
+          ]
+        ],
+        [
+          3
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random items and queries with the product of their sizes bounded so the brute-force oracle stays fast",
+      "seed": 151,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 1000))\n    items = [[rng.randint(1, 1000000000), rng.randint(1, 1000000000)] for _ in range(m)]\n    q = max(1, min(size, 1000))\n    queries = [rng.randint(1, 1000000000) for _ in range(q)]\n    return [items, queries]\n",
+      "note": "items and queries both capped at 1000 so the O(items*queries) oracle stays well under the time budget"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumBeauty(self, items, queries):\n        res = []\n        for q in queries:\n            best = 0\n            for p, b in items:\n                if p <= q and b > best:\n                    best = b\n            res.append(best)\n        return res\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass Solution:\n    def maximumBeauty(self, items, queries):\n        items = sorted(items)\n        n = len(items)\n        prefix_max = [0] * n\n        best = 0\n        prices = []\n        for i, (p, b) in enumerate(items):\n            best = max(best, b)\n            prefix_max[i] = best\n            prices.append(p)\n        res = []\n        for q in queries:\n            idx = bisect.bisect_right(prices, q) - 1\n            res.append(prefix_max[idx] if idx >= 0 else 0)\n        return res\n",
+    "javascript": "var maximumBeauty = function(items, queries) {\n    const sorted = items.slice().sort((a, b) => a[0] - b[0]);\n    const n = sorted.length;\n    const prices = new Array(n);\n    const prefixMax = new Array(n);\n    let best = 0;\n    for (let i = 0; i < n; i++) {\n        best = Math.max(best, sorted[i][1]);\n        prefixMax[i] = best;\n        prices[i] = sorted[i][0];\n    }\n    function upperBound(target) {\n        let lo = 0, hi = n;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (prices[mid] <= target) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n    const res = [];\n    for (const q of queries) {\n        const idx = upperBound(q) - 1;\n        res.push(idx >= 0 ? prefixMax[idx] : 0);\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + q) log n)",
+    "space": "O(n)"
+  }
+}
