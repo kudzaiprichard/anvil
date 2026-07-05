@@ -1,0 +1,46 @@
+{
+  "slug": "number-of-balanced-integers-in-a-range",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Counting numbers whose left-half digit weight matches their right-half digit weight over a huge range is a job for digit-by-digit construction with a running balance, not for testing every number one at a time; the running total of a range then falls out of counting up to each endpoint and subtracting.",
+  "hints": [
+    "Iterating every integer between low and high individually is far too slow when the range can span up to a quadrillion values — think about counting, for a single upper limit N, how many balanced integers lie in [1, N], then combine two such counts to answer a range.",
+    "Build numbers one digit at a time from the most significant digit down, carrying a running difference between the digits placed so far at odd slots and at even slots (counting slots only from the first non-zero digit actually placed, since leading zeros aren't real digits of the number); a digit-DP over (position, still-matching-the-limit's-prefix, how many real digits placed so far capped at two, that running difference) counts everything in one pass per limit.",
+    "count(N) - count(low - 1) gives the answer for [low, high]; a number only qualifies once at least two real digits have been placed and the running odd-minus-even difference lands back on zero at the end, so the digit-DP's terminal check is exactly those two conditions together."
+  ],
+  "constraints": [
+    { "param": "low", "kind": "int", "value": [1, 1000000000000000] },
+    { "param": "high", "kind": "int", "value": [1, 1000000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "sample: repdigits 11..99 are the only balanced values up to 100", "input": [1, 100] },
+    { "kind": "edge", "description": "sample: only 121 balances in this narrow window", "input": [120, 129] },
+    { "kind": "edge", "description": "sample: a single 4-digit value that is not balanced", "input": [1234, 1234] },
+    { "kind": "trap", "description": "crossing from single-digit (never balanced, needs 2+ digits) into the first 2-digit balanced value", "input": [9, 11] },
+    { "kind": "trap", "description": "crossing a digit-length boundary from 2-digit into 3-digit territory", "input": [99, 101] },
+    { "kind": "edge", "description": "every value is a single digit, so none can qualify", "input": [1, 9] },
+    { "kind": "boundary", "description": "the maximum constraint value alone, a 16-digit number", "input": [1000000000000000, 1000000000000000] },
+    { "kind": "boundary", "description": "narrow window straddling the 15-digit to 16-digit boundary at the very top of the range", "input": [999999999999999, 1000000000000000] },
+    { "kind": "edge", "description": "a wider mid-range window spanning several digit-lengths", "input": [500, 100000] }
+  ],
+  "stress": [
+    {
+      "description": "seeded random narrow-to-moderate windows (kept well under the oracle's practical range-width budget) scattered across the 1..10^6 span, exercising many digit-length transitions",
+      "seed": 3,
+      "size": 40000,
+      "generator_python": "def gen(rng, size):\n    lo = rng.randint(1, 1000000)\n    width = rng.randint(0, min(size, 40000))\n    hi = lo + width\n    return [lo, hi]\n"
+    },
+    {
+      "description": "narrow windows anchored right at large powers of ten, to stress the leading-digit/digit-length edge of the DP without a wide brute-force range",
+      "seed": 17,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    power = rng.randint(1, 15)\n    center = 10 ** power\n    lo = max(1, center - rng.randint(0, min(size, 500)))\n    hi = center + rng.randint(0, min(size, 500))\n    return [lo, hi]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countBalanced(self, low, high):\n        # Direct enumeration: convert every integer in range to a string and check\n        # the odd/even positional digit sums directly. Only ever exercised on\n        # narrow ranges by this pack's own edge/stress inputs.\n        count = 0\n        for x in range(low, high + 1):\n            s = str(x)\n            if len(s) < 2:\n                continue\n            odd_sum = sum(int(s[i]) for i in range(0, len(s), 2))\n            even_sum = sum(int(s[i]) for i in range(1, len(s), 2))\n            if odd_sum == even_sum:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countBalanced(self, low, high):\n        from functools import lru_cache\n\n        def count_upto(N):\n            if N < 1:\n                return 0\n            s = str(N)\n            L = len(s)\n\n            @lru_cache(maxsize=None)\n            def dp(i, tight, digits, parity, diff):\n                if i == L:\n                    return 1 if digits >= 2 and diff == 0 else 0\n                limit = int(s[i]) if tight else 9\n                total = 0\n                for d in range(0, limit + 1):\n                    nt = tight and d == limit\n                    if digits == 0 and d == 0:\n                        total += dp(i + 1, nt, 0, parity, diff)\n                    else:\n                        ndigits = 2 if digits >= 1 else 1\n                        if parity == 0:\n                            ndiff = diff + d\n                        else:\n                            ndiff = diff - d\n                        total += dp(i + 1, nt, ndigits, 1 - parity, ndiff)\n                return total\n\n            result = dp(0, True, 0, 0, 0)\n            dp.cache_clear()\n            return result\n\n        return count_upto(high) - count_upto(low - 1)\n",
+    "javascript": "var countBalanced = function(low, high) {\n    function countUpto(N) {\n        if (N < 1) return 0;\n        const s = String(N);\n        const L = s.length;\n        const memo = new Map();\n\n        function dp(i, tight, digits, parity, diff) {\n            if (i === L) {\n                return (digits >= 2 && diff === 0) ? 1 : 0;\n            }\n            const key = i + ',' + (tight ? 1 : 0) + ',' + digits + ',' + parity + ',' + diff;\n            if (memo.has(key)) return memo.get(key);\n            const limit = tight ? (s.charCodeAt(i) - 48) : 9;\n            let total = 0;\n            for (let d = 0; d <= limit; d++) {\n                const nt = tight && d === limit;\n                if (digits === 0 && d === 0) {\n                    total += dp(i + 1, nt, 0, parity, diff);\n                } else {\n                    const ndigits = digits >= 1 ? 2 : 1;\n                    const ndiff = parity === 0 ? diff + d : diff - d;\n                    total += dp(i + 1, nt, ndigits, 1 - parity, ndiff);\n                }\n            }\n            memo.set(key, total);\n            return total;\n        }\n\n        return dp(0, true, 0, 0, 0);\n    }\n\n    return countUpto(high) - countUpto(low - 1);\n};\n"
+  },
+  "complexity": { "time": "O((log N)^2)", "space": "O((log N)^2)" }
+}
