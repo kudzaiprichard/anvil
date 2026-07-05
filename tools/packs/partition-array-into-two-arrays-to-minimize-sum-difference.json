@@ -1,0 +1,140 @@
+{
+  "slug": "partition-array-into-two-arrays-to-minimize-sum-difference",
+  "judge": "exact",
+  "pattern": "Splitting 2n numbers into equal halves to minimize the sum difference is a meet-in-the-middle search: enumerate every subset sum of each half by chosen-count, then pair counts that add to n while binary-searching for the closest match to half the total.",
+  "hints": [
+    "Brute-force subset enumeration over all 2n elements is too slow, but splitting the array into two halves of size n each and enumerating subsets of each half separately is fast enough.",
+    "For each half, group its subset sums by how many elements were chosen; a full partition takes i elements from one half and (n - i) from the other, for every i from 0 to n.",
+    "Precompute, for each half, the sorted list of subset sums for every possible chosen-count. For each count i and each sum 'a' from the first half, binary-search the second half's (n - i)-count sums for the value closest to total/2 - a, and track the smallest resulting |total - 2*(a+b)|."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        2,
+        30
+      ],
+      "value": [
+        -10000000,
+        10000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "smallest possible array, n=1",
+      "input": [
+        [
+          5,
+          9
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "perfectly balanced partition exists",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "large positive and negative values that must be split apart",
+      "input": [
+        [
+          -50,
+          50,
+          -50,
+          50
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all identical values",
+      "input": [
+        [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme value magnitudes",
+      "input": [
+        [
+          10000000,
+          -10000000,
+          10000000,
+          -10000000
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum constraint size, n=15",
+      "input": [
+        [
+          19,
+          -3,
+          42,
+          7,
+          -18,
+          25,
+          0,
+          11,
+          -30,
+          6,
+          14,
+          -7,
+          22,
+          1,
+          -9,
+          5,
+          33,
+          -21,
+          8,
+          2,
+          -4,
+          12,
+          -16,
+          3,
+          27,
+          -2,
+          9,
+          -11,
+          4,
+          15
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random arrays up to the maximum n=15 constraint",
+      "seed": 111,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 15))\n    nums = [rng.randint(-10000000, 10000000) for _ in range(2 * n)]\n    return [nums]\n"
+    }
+  ],
+  "solutions": {
+    "python": "import bisect\n\n\nclass Solution:\n    def minimumDifference(self, nums):\n        total = sum(nums)\n        n2 = len(nums)\n        n = n2 // 2\n        A = nums[:n]\n        B = nums[n:]\n\n        def subset_sums_by_size(arr):\n            m = len(arr)\n            sums = [[] for _ in range(m + 1)]\n            for mask in range(1 << m):\n                cnt = bin(mask).count('1')\n                s = 0\n                for i in range(m):\n                    if mask & (1 << i):\n                        s += arr[i]\n                sums[cnt].append(s)\n            return sums\n\n        sums_a = subset_sums_by_size(A)\n        sums_b = subset_sums_by_size(B)\n        for lst in sums_b:\n            lst.sort()\n\n        best = None\n        for i in range(n + 1):\n            j = n - i\n            blist = sums_b[j]\n            for a in sums_a[i]:\n                target = total / 2 - a\n                pos = bisect.bisect_left(blist, target)\n                for p in (pos - 1, pos):\n                    if 0 <= p < len(blist):\n                        b = blist[p]\n                        diff = abs(total - 2 * (a + b))\n                        if best is None or diff < best:\n                            best = diff\n        return best\n",
+    "javascript": "var minimumDifference = function(nums) {\n    const n2 = nums.length;\n    const n = n2 / 2;\n    const A = nums.slice(0, n);\n    const B = nums.slice(n);\n    let total = 0;\n    for (const v of nums) total += v;\n\n    function subsetSumsBySize(arr) {\n        const m = arr.length;\n        const sums = Array.from({ length: m + 1 }, () => []);\n        for (let mask = 0; mask < (1 << m); mask++) {\n            let cnt = 0, s = 0;\n            for (let i = 0; i < m; i++) {\n                if (mask & (1 << i)) {\n                    cnt++;\n                    s += arr[i];\n                }\n            }\n            sums[cnt].push(s);\n        }\n        return sums;\n    }\n\n    const sumsA = subsetSumsBySize(A);\n    const sumsB = subsetSumsBySize(B);\n    for (const lst of sumsB) lst.sort((a, b) => a - b);\n\n    function lowerBound(arr, target) {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] < target) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n\n    let best = null;\n    for (let i = 0; i <= n; i++) {\n        const j = n - i;\n        const blist = sumsB[j];\n        for (const a of sumsA[i]) {\n            const target = total / 2 - a;\n            const pos = lowerBound(blist, target);\n            for (const p of [pos - 1, pos]) {\n                if (p >= 0 && p < blist.length) {\n                    const b = blist[p];\n                    const diff = Math.abs(total - 2 * (a + b));\n                    if (best === null || diff < best) best = diff;\n                }\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(2^n * n)",
+    "space": "O(2^n)"
+  }
+}
