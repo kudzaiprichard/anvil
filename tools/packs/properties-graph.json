@@ -1,0 +1,35 @@
+{
+  "slug": "properties-graph",
+  "judge": "exact",
+  "pattern": "Reducing a pairwise-intersection threshold rule to a graph lets connected-component counting via union-find answer the grouping question directly.",
+  "hints": [
+    "Convert each property list into a set so 'distinct integers in common' becomes a plain set intersection.",
+    "Build an edge between every pair of indices whose intersection size reaches k, then the question becomes counting connected components.",
+    "Use union-find (or a visited-based traversal): union every qualifying pair, then count how many distinct roots (or unvisited starting points) remain."
+  ],
+  "constraints": [
+    { "param": "properties", "kind": "int[][]", "len": [1, 100], "value": [1, 100] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single node graph is always one component", "input": [[[1, 2, 3]], 1] },
+    { "kind": "trap", "description": "duplicate values inside one array must count once toward intersection size", "input": [[[1, 1, 2], [2, 3]], 1] },
+    { "kind": "trap", "description": "k equal to the maximum possible intersection so only identical sets connect", "input": [[[1, 2], [1, 2], [3, 4]], 2] },
+    { "kind": "edge", "description": "no pair ever reaches the threshold, every node isolated", "input": [[[1], [2], [3]], 1] },
+    { "kind": "edge", "description": "all nodes fully connected through shared values", "input": [[[1, 2], [2, 3], [3, 1]], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random small property lists over a narrow value range to force many intersections",
+      "seed": 13,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    m = rng.randint(1, 20)\n    properties = [[rng.randint(1, 15) for _ in range(m)] for _ in range(n)]\n    k = rng.randint(1, m)\n    return [properties, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfComponents(self, properties, k):\n        n = len(properties)\n        sets = [set(p) for p in properties]\n        adj = [[] for _ in range(n)]\n        for i in range(n):\n            for j in range(i + 1, n):\n                if len(sets[i] & sets[j]) >= k:\n                    adj[i].append(j)\n                    adj[j].append(i)\n        visited = [False] * n\n        components = 0\n        for start in range(n):\n            if visited[start]:\n                continue\n            components += 1\n            stack = [start]\n            visited[start] = True\n            while stack:\n                u = stack.pop()\n                for v in adj[u]:\n                    if not visited[v]:\n                        visited[v] = True\n                        stack.append(v)\n        return components\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfComponents(self, properties, k):\n        n = len(properties)\n        sets = [set(p) for p in properties]\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for i in range(n):\n            for j in range(i + 1, n):\n                if len(sets[i] & sets[j]) >= k:\n                    union(i, j)\n        return len({find(x) for x in range(n)})\n",
+    "javascript": "var numberOfComponents = function(properties, k) {\n    const n = properties.length;\n    const sets = properties.map(p => new Set(p));\n    const parent = Array.from({length: n}, (_, i) => i);\n    function find(x) {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    }\n    function union(a, b) {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent[ra] = rb;\n    }\n    for (let i = 0; i < n; i++) {\n        for (let j = i + 1; j < n; j++) {\n            let common = 0;\n            for (const v of sets[i]) {\n                if (sets[j].has(v)) common++;\n            }\n            if (common >= k) union(i, j);\n        }\n    }\n    const roots = new Set();\n    for (let i = 0; i < n; i++) roots.add(find(i));\n    return roots.size;\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * m)", "space": "O(n * m)" }
+}
