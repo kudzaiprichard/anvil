@@ -1,0 +1,40 @@
+{
+  "slug": "process-restricted-friend-requests",
+  "judge": "exact",
+  "pattern": "A forbidden pair is really a statement about which two groups must never merge, so tracking group membership and testing every restriction against the two groups a request would combine turns a graph-connectivity rule into a handful of lookups per request.",
+  "hints": [
+    "Keep track of which connected group each person currently belongs to, and let that grouping grow only when a request is actually accepted.",
+    "If the two people in a request already belong to the same group, the request trivially succeeds and nothing needs to change.",
+    "Otherwise, before merging their groups, check every restricted pair: if one restricted person's current group is exactly one of the two groups about to merge and the other restricted person's group is the other one, the merge must be refused and left completely undone."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 1000] },
+    { "param": "restrictions", "kind": "int[][]", "len": [0, 1000], "value": [0, 999] },
+    { "param": "requests", "kind": "int[][]", "len": [1, 1000], "value": [0, 999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a request would transitively bridge a restricted pair through a shared third person", "input": [3, [[0, 1]], [[0, 2], [2, 1]]] },
+    { "kind": "edge", "description": "the same bridge attempted in the opposite request order", "input": [3, [[0, 1]], [[1, 2], [0, 2]]] },
+    { "kind": "edge", "description": "a longer chain of accepted requests eventually tries to bridge two restricted people", "input": [5, [[0, 1], [1, 2], [2, 3]], [[0, 4], [1, 2], [3, 1], [3, 4]]] },
+    { "kind": "boundary", "description": "no restrictions at all, so every request must succeed", "input": [4, [], [[0, 1], [1, 2], [2, 3], [0, 3]]] },
+    { "kind": "trap", "description": "a restriction whose two people are never mentioned by any request", "input": [4, [[2, 3]], [[0, 1]]] },
+    { "kind": "trap", "description": "a request between two people already joined through an accepted chain must still succeed as a no-op", "input": [4, [[0, 3]], [[0, 1], [1, 2], [0, 2]]] },
+    { "kind": "trap", "description": "a growing accepted group finally reaches the one person a restriction forbids joining", "input": [5, [[0, 4]], [[0, 1], [1, 2], [2, 3], [3, 4]]] },
+    { "kind": "trap", "description": "an earlier request is rejected, so it must not have merged anyone for later requests to see", "input": [4, [[0, 1], [2, 3]], [[0, 2], [1, 3], [0, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random people, restrictions, and requests scaled toward the caps, with request endpoints reused often enough to build up real groups",
+      "seed": 41,
+      "size": 250,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(300, size))\n    max_pairs = n * (n - 1) // 2\n    num_restrictions = rng.randint(0, min(n, max_pairs))\n    seen_pairs = set()\n    restrictions = []\n    tries = 0\n    while len(restrictions) < num_restrictions and tries < num_restrictions * 20 + 100:\n        tries += 1\n        x = rng.randint(0, n - 1)\n        y = rng.randint(0, n - 1)\n        if x == y:\n            continue\n        key = (min(x, y), max(x, y))\n        if key in seen_pairs:\n            continue\n        seen_pairs.add(key)\n        restrictions.append([x, y])\n    num_requests = rng.randint(1, n)\n    requests = []\n    for _ in range(num_requests):\n        u = rng.randint(0, n - 1)\n        v = rng.randint(0, n - 1)\n        while v == u:\n            v = rng.randint(0, n - 1)\n        requests.append([u, v])\n    return [n, restrictions, requests]\n",
+      "note": "requests reuse the same small pool of ids often enough that groups actually grow and collide with restrictions"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def friendRequests(self, n, restrictions, requests):\n        adj = [set() for _ in range(n)]\n        def component(start):\n            seen = {start}\n            stack = [start]\n            while stack:\n                cur = stack.pop()\n                for nxt in adj[cur]:\n                    if nxt not in seen:\n                        seen.add(nxt)\n                        stack.append(nxt)\n            return seen\n        result = []\n        for u, v in requests:\n            comp_u = component(u)\n            if v in comp_u:\n                result.append(True)\n                continue\n            comp_v = component(v)\n            blocked = False\n            for x, y in restrictions:\n                if (x in comp_u and y in comp_v) or (x in comp_v and y in comp_u):\n                    blocked = True\n                    break\n            if blocked:\n                result.append(False)\n            else:\n                adj[u].add(v)\n                adj[v].add(u)\n                result.append(True)\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def friendRequests(self, n, restrictions, requests):\n        parent = list(range(n))\n        rank = [0] * n\n        def find(x):\n            root = x\n            while parent[root] != root:\n                root = parent[root]\n            while parent[x] != root:\n                parent[x], x = root, parent[x]\n            return root\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra == rb:\n                return\n            if rank[ra] < rank[rb]:\n                ra, rb = rb, ra\n            parent[rb] = ra\n            if rank[ra] == rank[rb]:\n                rank[ra] += 1\n        result = []\n        for u, v in requests:\n            ru, rv = find(u), find(v)\n            if ru == rv:\n                result.append(True)\n                continue\n            blocked = False\n            for x, y in restrictions:\n                rx, ry = find(x), find(y)\n                if (rx == ru and ry == rv) or (rx == rv and ry == ru):\n                    blocked = True\n                    break\n            if blocked:\n                result.append(False)\n            else:\n                union(u, v)\n                result.append(True)\n        return result\n",
+    "javascript": "var friendRequests = function(n, restrictions, requests) {\n    const parent = new Array(n);\n    const rank = new Array(n).fill(0);\n    for (let i = 0; i < n; i++) parent[i] = i;\n    function find(x) {\n        let root = x;\n        while (parent[root] !== root) root = parent[root];\n        while (parent[x] !== root) {\n            const next = parent[x];\n            parent[x] = root;\n            x = next;\n        }\n        return root;\n    }\n    function union(a, b) {\n        let ra = find(a), rb = find(b);\n        if (ra === rb) return;\n        if (rank[ra] < rank[rb]) { const t = ra; ra = rb; rb = t; }\n        parent[rb] = ra;\n        if (rank[ra] === rank[rb]) rank[ra]++;\n    }\n    const result = [];\n    for (const [u, v] of requests) {\n        const ru = find(u), rv = find(v);\n        if (ru === rv) {\n            result.push(true);\n            continue;\n        }\n        let blocked = false;\n        for (const [x, y] of restrictions) {\n            const rx = find(x), ry = find(y);\n            if ((rx === ru && ry === rv) || (rx === rv && ry === ru)) {\n                blocked = true;\n                break;\n            }\n        }\n        if (blocked) {\n            result.push(false);\n        } else {\n            union(u, v);\n            result.push(true);\n        }\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O((restrictions.length) * requests.length * alpha(n))", "space": "O(n)" }
+}

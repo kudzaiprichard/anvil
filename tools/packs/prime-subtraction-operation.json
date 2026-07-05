@@ -1,0 +1,129 @@
+{
+  "slug": "prime-subtraction-operation",
+  "judge": "exact",
+  "pattern": "At each position, subtracting the largest usable prime that still keeps the array strictly increasing leaves the most room for every position after it.",
+  "hints": [
+    "You may subtract at most one prime, strictly less than the current value, from each position -- or leave it untouched.",
+    "Sieve the primes up to 1000 once, then at every position figure out the smallest legal result you can leave behind that still beats the previous element.",
+    "To keep the array as 'low' as possible for future positions, greedily pick the largest valid prime to subtract; if even the largest usable prime cannot beat the previous element, the array can never be fixed."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several elements each needing a different prime subtracted",
+      "input": [
+        [
+          4,
+          9,
+          6,
+          10
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "already strictly increasing without needing any operation",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element, always trivially valid",
+      "input": [
+        [
+          1000
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two elements at the minimum value",
+      "input": [
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the last element is too small to ever beat the one before it",
+      "input": [
+        [
+          5,
+          8,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "repeated equal values must still be separated by a prime subtraction",
+      "input": [
+        [
+          10,
+          10,
+          10
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "value of 2 can never be reduced since no prime is smaller than it except itself is excluded",
+      "input": [
+        [
+          2,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "descending values that cannot be rescued by any subtraction",
+      "input": [
+        [
+          100,
+          50,
+          25
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long random arrays within the shared small value range",
+      "seed": 15,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    nums = [rng.randint(1, 1000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def primeSubOperation(self, nums):\n        LIMIT = 1000\n        sieve = [True] * (LIMIT + 1)\n        sieve[0] = sieve[1] = False\n        for i in range(2, int(LIMIT ** 0.5) + 1):\n            if sieve[i]:\n                for j in range(i * i, LIMIT + 1, i):\n                    sieve[j] = False\n        reachable = {0}\n        for x in nums:\n            nxt = set()\n            for prev in reachable:\n                if x > prev:\n                    nxt.add(x)\n                for p in range(2, x):\n                    if sieve[p] and (x - p) > prev:\n                        nxt.add(x - p)\n            if not nxt:\n                return False\n            reachable = nxt\n        return True\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def primeSubOperation(self, nums):\n        LIMIT = 1000\n        sieve = [True] * (LIMIT + 1)\n        sieve[0] = sieve[1] = False\n        for i in range(2, int(LIMIT ** 0.5) + 1):\n            if sieve[i]:\n                for j in range(i * i, LIMIT + 1, i):\n                    sieve[j] = False\n        primes = [i for i in range(2, LIMIT + 1) if sieve[i]]\n        prev = 0\n        for x in nums:\n            bound = min(x - 1, x - prev - 1)\n            chosen_p = 0\n            if bound >= 2:\n                idx = bisect.bisect_right(primes, bound) - 1\n                if idx >= 0:\n                    chosen_p = primes[idx]\n            new_val = x - chosen_p\n            if new_val > prev:\n                prev = new_val\n            else:\n                return False\n        return True\n",
+    "javascript": "var primeSubOperation = function(nums) {\n    const LIMIT = 1000;\n    const sieve = new Array(LIMIT + 1).fill(true);\n    sieve[0] = sieve[1] = false;\n    for (let i = 2; i * i <= LIMIT; i++) {\n        if (sieve[i]) {\n            for (let j = i * i; j <= LIMIT; j += i) sieve[j] = false;\n        }\n    }\n    const primes = [];\n    for (let i = 2; i <= LIMIT; i++) if (sieve[i]) primes.push(i);\n    let prev = 0;\n    for (const x of nums) {\n        const bound = Math.min(x - 1, x - prev - 1);\n        let chosenP = 0;\n        if (bound >= 2) {\n            let lo = 0, hi = primes.length;\n            while (lo < hi) {\n                const mid = (lo + hi) >> 1;\n                if (primes[mid] <= bound) lo = mid + 1; else hi = mid;\n            }\n            if (lo - 1 >= 0) chosenP = primes[lo - 1];\n        }\n        const newVal = x - chosenP;\n        if (newVal > prev) {\n            prev = newVal;\n        } else {\n            return false;\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log(primes) + sieve)",
+    "space": "O(1000)"
+  }
+}
