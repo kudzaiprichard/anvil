@@ -1,0 +1,207 @@
+{
+  "slug": "path-with-minimum-effort",
+  "judge": "exact",
+  "pattern": "The effort of a route is its worst single step, so the minimum achievable effort is a shortest-path problem where an edge's weight is the height difference and the path cost is a max, not a sum.",
+  "hints": [
+    "Think of each cell as a graph node and each move to a neighbor as an edge whose weight is the absolute height difference, not a fixed cost of 1.",
+    "The cost of a route is the maximum edge weight along it, not the sum, so a shortest-path search needs to relax using max(current effort, edge weight) instead of addition.",
+    "Run a Dijkstra-style search from the top-left cell where the 'distance' to a cell is the smallest possible maximum step to reach it, and stop once the bottom-right cell is settled."
+  ],
+  "constraints": [
+    {
+      "param": "heights",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "route through the middle beats the top edge route",
+      "input": [
+        [
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            3,
+            8,
+            2
+          ],
+          [
+            5,
+            3,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a smoother diagonal-ish route needs only effort 1",
+      "input": [
+        [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            3,
+            8,
+            4
+          ],
+          [
+            5,
+            3,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a zero-effort route exists all the way through",
+      "input": [
+        [
+          [
+            1,
+            2,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            2,
+            1,
+            2,
+            1
+          ],
+          [
+            1,
+            2,
+            1,
+            2,
+            1
+          ],
+          [
+            1,
+            2,
+            1,
+            2,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            2,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single cell, start equals destination",
+      "input": [
+        [
+          [
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single row, forced straight line",
+      "input": [
+        [
+          [
+            1,
+            100,
+            1,
+            100,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single column, forced straight line",
+      "input": [
+        [
+          [
+            1
+          ],
+          [
+            100
+          ],
+          [
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "uniform grid, every step costs nothing",
+      "input": [
+        [
+          [
+            7,
+            7
+          ],
+          [
+            7,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "both possible 2x2 routes are forced through the same worst gap",
+      "input": [
+        [
+          [
+            1,
+            10
+          ],
+          [
+            10,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random square grid up to a large side length",
+      "seed": 5,
+      "size": 90,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 90))\n    heights = [[rng.randint(1, 1000000) for _ in range(n)] for _ in range(n)]\n    return [heights]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def minimumEffortPath(self, heights):\n        rows, cols = len(heights), len(heights[0])\n        def feasible(limit):\n            visited = [[False] * cols for _ in range(rows)]\n            visited[0][0] = True\n            q = deque([(0, 0)])\n            while q:\n                r, c = q.popleft()\n                if r == rows - 1 and c == cols - 1:\n                    return True\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < rows and 0 <= nc < cols and not visited[nr][nc]:\n                        if abs(heights[nr][nc] - heights[r][c]) <= limit:\n                            visited[nr][nc] = True\n                            q.append((nr, nc))\n            return visited[rows - 1][cols - 1]\n        lo, hi = 0, 1000000\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def minimumEffortPath(self, heights):\n        rows, cols = len(heights), len(heights[0])\n        dist = [[float('inf')] * cols for _ in range(rows)]\n        dist[0][0] = 0\n        pq = [(0, 0, 0)]\n        while pq:\n            d, r, c = heapq.heappop(pq)\n            if d > dist[r][c]:\n                continue\n            if r == rows - 1 and c == cols - 1:\n                return d\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < rows and 0 <= nc < cols:\n                    nd = max(d, abs(heights[nr][nc] - heights[r][c]))\n                    if nd < dist[nr][nc]:\n                        dist[nr][nc] = nd\n                        heapq.heappush(pq, (nd, nr, nc))\n        return 0\n",
+    "javascript": "var minimumEffortPath = function(heights) {\n    const rows = heights.length, cols = heights[0].length;\n    const dist = Array.from({ length: rows }, () => new Array(cols).fill(Infinity));\n    dist[0][0] = 0;\n    // binary min-heap keyed by effort, storing [effort, row, col]\n    const heap = [[0, 0, 0]];\n    function push(item) {\n        heap.push(item);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p][0] <= heap[i][0]) break;\n            [heap[p], heap[i]] = [heap[i], heap[p]];\n            i = p;\n        }\n    }\n    function pop() {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                const l = 2 * i + 1, r = 2 * i + 2;\n                let smallest = i;\n                if (l < heap.length && heap[l][0] < heap[smallest][0]) smallest = l;\n                if (r < heap.length && heap[r][0] < heap[smallest][0]) smallest = r;\n                if (smallest === i) break;\n                [heap[smallest], heap[i]] = [heap[i], heap[smallest]];\n                i = smallest;\n            }\n        }\n        return top;\n    }\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    while (heap.length) {\n        const [d, r, c] = pop();\n        if (d > dist[r][c]) continue;\n        if (r === rows - 1 && c === cols - 1) return d;\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {\n                const nd = Math.max(d, Math.abs(heights[nr][nc] - heights[r][c]));\n                if (nd < dist[nr][nc]) {\n                    dist[nr][nc] = nd;\n                    push([nd, nr, nc]);\n                }\n            }\n        }\n    }\n    return 0;\n};\n"
+  },
+  "complexity": {
+    "time": "O(rows*cols*log(rows*cols))",
+    "space": "O(rows*cols)"
+  }
+}

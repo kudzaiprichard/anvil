@@ -1,0 +1,151 @@
+{
+  "slug": "plates-between-candles",
+  "judge": "exact",
+  "pattern": "Shrinking each query range inward to its nearest enclosing candles and answering with a prefix count of plates turns every range query into O(1) work after one linear pass.",
+  "hints": [
+    "Only the candles that bound a query matter: any plate outside the span between the leftmost and rightmost candle in range can't count.",
+    "Precompute, for every index, the closest candle at or after it and the closest candle at or before it, plus a running total of plates seen so far.",
+    "For a query, shrink to the nearest candle >= left and the nearest candle <= right; if that left candle is before that right candle, the answer is the prefix plate count between them, otherwise it's 0."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        3,
+        100000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "only one candle in range, no room for plates between two candles",
+      "input": [
+        "*|*",
+        [
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimal string length with a plate flanked by candles at both ends",
+      "input": [
+        "|*|",
+        [
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two adjacent candles with zero plates between them",
+      "input": [
+        "||*",
+        [
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "plates scattered between two candles with plates outside the span too",
+      "input": [
+        "*|**|*",
+        [
+          [
+            0,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no candles anywhere in the string",
+      "input": [
+        "***",
+        [
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "combination of queries including one whose shrunk span is empty",
+      "input": [
+        "|**|*|",
+        [
+          [
+            0,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "query span collapses onto a single candle position",
+      "input": [
+        "*|*|*",
+        [
+          [
+            2,
+            2
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random plate/candle string with many range queries",
+      "seed": 11,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 100000))\n    s = ''.join(rng.choice('*|') for _ in range(n))\n    q = max(1, min(200, n))\n    queries = []\n    for _ in range(q):\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        queries.append([l, r])\n    return [s, queries]\n",
+      "note": "query count capped so the brute-force oracle (O(n) per query) stays well under the time budget"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def platesBetweenCandles(self, s, queries):\n        n = len(s)\n        res = []\n        for l, r in queries:\n            L = -1\n            for i in range(l, r + 1):\n                if s[i] == '|':\n                    L = i\n                    break\n            if L == -1:\n                res.append(0)\n                continue\n            R = -1\n            for i in range(r, l - 1, -1):\n                if s[i] == '|':\n                    R = i\n                    break\n            if L >= R:\n                res.append(0)\n                continue\n            count = 0\n            for i in range(L + 1, R):\n                if s[i] == '*':\n                    count += 1\n            res.append(count)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def platesBetweenCandles(self, s, queries):\n        n = len(s)\n        prefix = [0] * (n + 1)\n        for i, ch in enumerate(s):\n            prefix[i + 1] = prefix[i] + (1 if ch == '*' else 0)\n        next_candle = [-1] * n\n        last = -1\n        for i in range(n - 1, -1, -1):\n            if s[i] == '|':\n                last = i\n            next_candle[i] = last\n        prev_candle = [-1] * n\n        last = -1\n        for i in range(n):\n            if s[i] == '|':\n                last = i\n            prev_candle[i] = last\n        res = []\n        for l, r in queries:\n            L = next_candle[l]\n            R = prev_candle[r]\n            if L == -1 or R == -1 or L >= R:\n                res.append(0)\n            else:\n                res.append(prefix[R + 1] - prefix[L])\n        return res\n",
+    "javascript": "var platesBetweenCandles = function(s, queries) {\n    const n = s.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        prefix[i + 1] = prefix[i] + (s[i] === '*' ? 1 : 0);\n    }\n    const nextCandle = new Array(n).fill(-1);\n    let last = -1;\n    for (let i = n - 1; i >= 0; i--) {\n        if (s[i] === '|') last = i;\n        nextCandle[i] = last;\n    }\n    const prevCandle = new Array(n).fill(-1);\n    last = -1;\n    for (let i = 0; i < n; i++) {\n        if (s[i] === '|') last = i;\n        prevCandle[i] = last;\n    }\n    const res = [];\n    for (const [l, r] of queries) {\n        const L = nextCandle[l];\n        const R = prevCandle[r];\n        if (L === -1 || R === -1 || L >= R) {\n            res.push(0);\n        } else {\n            res.push(prefix[R + 1] - prefix[L]);\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + q)",
+    "space": "O(n)"
+  }
+}
