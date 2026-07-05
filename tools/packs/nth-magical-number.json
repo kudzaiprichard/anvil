@@ -1,39 +1,133 @@
 {
   "slug": "nth-magical-number",
   "judge": "exact",
-  "pattern": "Binary search the smallest value whose count of multiples of either divisor reaches n, counting via inclusion-exclusion with the least common multiple, then reduce the located value modulo the fixed prime.",
+  "pattern": "Because the count of magical numbers up to any candidate value grows monotonically with that value, and inclusion-exclusion gives that count directly from division and the least common multiple, binary searching on the candidate value pins down the exact nth one.",
   "hints": [
-    "The count of numbers up to x divisible by either divisor is monotonic in x, which invites a search over the answer's value rather than enumeration.",
-    "How many integers in [1, x] are divisible by a or b? Add the two floor counts and subtract those divisible by both, i.e. by their least common multiple.",
-    "Binary search x for the least value whose inclusion-exclusion count equals n; take the modulus only at the very end so the search arithmetic stays exact."
+    "For any candidate value x, the count of magical numbers at most x is how many multiples of a it has, plus how many multiples of b, minus how many multiples of their least common multiple (to avoid double-counting numbers divisible by both).",
+    "That count only ever grows as the candidate value grows, so binary search for the smallest candidate whose count reaches n.",
+    "The candidate value itself can be found exactly with ordinary integer arithmetic; only the very final answer needs to be reduced modulo one billion and seven."
   ],
   "constraints": [
-    { "param": "n", "kind": "int", "value": [1, 1000000000] },
-    { "param": "a", "kind": "int", "value": [2, 40000] },
-    { "param": "b", "kind": "int", "value": [2, 40000] }
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "a",
+      "kind": "int",
+      "value": [
+        2,
+        40000
+      ]
+    },
+    {
+      "param": "b",
+      "kind": "int",
+      "value": [
+        2,
+        40000
+      ]
+    }
   ],
   "edge_inputs": [
-    { "kind": "edge", "description": "first magical number is the smaller divisor", "input": [1, 2, 3] },
-    { "kind": "edge", "description": "fourth magical with overlap at six", "input": [4, 2, 3] },
-    { "kind": "trap", "description": "equal divisors collapse inclusion-exclusion to one term", "input": [5, 5, 5] },
-    { "kind": "trap", "description": "one divisor is a multiple of the other", "input": [7, 2, 4] },
-    { "kind": "boundary", "description": "single count returns the minimum divisor", "input": [1, 9999, 10000] },
-    { "kind": "edge", "description": "large n exercises the modulo reduction", "input": [1000000000, 13, 17] },
-    { "kind": "edge", "description": "coprime small divisors", "input": [12, 3, 7] }
+    {
+      "kind": "edge",
+      "description": "the very first magical number",
+      "input": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "the fourth magical number",
+      "input": [
+        4,
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the two divisors are equal",
+      "input": [
+        5,
+        7,
+        7
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a large n with small divisors",
+      "input": [
+        1000000000,
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "both divisors at the maximum bound",
+      "input": [
+        10,
+        40000,
+        39999
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one divisor is a multiple of the other, so their least common multiple equals the larger one",
+      "input": [
+        7,
+        4,
+        8
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the divisors share a large common factor",
+      "input": [
+        5,
+        100,
+        200
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible n with the smallest possible divisors",
+      "input": [
+        1,
+        2,
+        2
+      ]
+    }
   ],
   "stress": [
     {
-      "description": "small n so the brute counter stays fast while divisors vary",
-      "seed": 23,
-      "size": 1,
-      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 4000)\n    a = rng.randint(2, 60)\n    b = rng.randint(2, 60)\n    return [n, a, b]\n",
-      "note": "n kept small to bound the linear oracle; the optimal solution is unaffected"
+      "description": "random small-to-moderate n with random divisor pairs",
+      "seed": 41,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    a = rng.randint(2, 40000)\n    b = rng.randint(2, 40000)\n    n = rng.randint(1, max(1, min(size, 1000000000)))\n    return [n, a, b]\n"
+    },
+    {
+      "description": "random n reaching close to the maximum constraint",
+      "seed": 42,
+      "size": 1000000000,
+      "generator_python": "def gen(rng, size):\n    a = rng.randint(2, 40000)\n    b = rng.randint(2, 40000)\n    n = rng.randint(1, max(1, min(size, 1000000000)))\n    return [n, a, b]\n"
     }
   ],
-  "oracle_python": "class Solution:\n    def nthMagicalNumber(self, n, a, b):\n        MOD = 10 ** 9 + 7\n        import math\n        l = a * b // math.gcd(a, b)\n        count = 0\n        x = 0\n        while count < n:\n            x += 1\n            if x % a == 0 or x % b == 0:\n                count += 1\n        return x % MOD\n",
+  "oracle_python": "class Solution:\n    def nthMagicalNumber(self, n, a, b):\n        MOD = 10 ** 9 + 7\n        def gcd(x, y):\n            while y:\n                x, y = y, x % y\n            return x\n        g = gcd(a, b)\n        lcm = b // g * a\n        def count(x):\n            return x // a + x // b - x // lcm\n        hi = max(a, b)\n        while count(hi) < n:\n            hi *= 2\n        lo = 1\n        while lo < hi:\n            mid = lo + (hi - lo) // 2\n            if count(mid) < n:\n                lo = mid + 1\n            else:\n                hi = mid\n        return lo % MOD\n",
   "solutions": {
-    "python": "class Solution:\n    def nthMagicalNumber(self, n, a, b):\n        import math\n        MOD = 10 ** 9 + 7\n        l = a * b // math.gcd(a, b)\n        lo, hi = 1, n * min(a, b)\n        while lo < hi:\n            mid = (lo + hi) // 2\n            cnt = mid // a + mid // b - mid // l\n            if cnt >= n:\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo % MOD\n",
-    "javascript": "var nthMagicalNumber = function(n, a, b) {\n    const MOD = 1000000007n;\n    const gcd = (x, y) => { while (y) { [x, y] = [y, x % y]; } return x; };\n    const A = BigInt(a), B = BigInt(b), N = BigInt(n);\n    const L = A * B / gcd(A, B);\n    let lo = 1n, hi = N * (A < B ? A : B);\n    while (lo < hi) {\n        const mid = (lo + hi) / 2n;\n        const cnt = mid / A + mid / B - mid / L;\n        if (cnt >= N) hi = mid; else lo = mid + 1n;\n    }\n    return Number(lo % MOD);\n};\n"
+    "python": "import math\nclass Solution:\n    def nthMagicalNumber(self, n, a, b):\n        MOD = 10 ** 9 + 7\n        g = math.gcd(a, b)\n        l = a // g * b\n        lo, hi = 1, n * min(a, b)\n        while lo < hi:\n            mid = (lo + hi) // 2\n            cnt = mid // a + mid // b - mid // l\n            if cnt < n:\n                lo = mid + 1\n            else:\n                hi = mid\n        return lo % MOD\n",
+    "javascript": "var nthMagicalNumber = function(n, a, b) {\n    function gcd(x, y) {\n        while (y) {\n            const t = y;\n            y = x % y;\n            x = t;\n        }\n        return x;\n    }\n    const MOD = 1000000007;\n    const g = gcd(a, b);\n    const l = (a / g) * b;\n    let lo = 1, hi = n * Math.min(a, b);\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        const cnt = Math.floor(mid / a) + Math.floor(mid / b) - Math.floor(mid / l);\n        if (cnt < n) lo = mid + 1;\n        else hi = mid;\n    }\n    return lo % MOD;\n};\n"
   },
-  "complexity": { "time": "O(log(n * min(a, b)))", "space": "O(1)" }
+  "complexity": {
+    "time": "O(log(n * min(a,b)))",
+    "space": "O(1)"
+  }
 }
