@@ -1,0 +1,45 @@
+{
+  "slug": "sequentially-ordinal-rank-tracker",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Because each successive query asks for exactly the next rank down (the i-th call always wants the i-th best of everything added so far), split what's been added into 'the current best-i group' and 'everything else', and only ever move the single weakest member of the best group or the single best member of the rest across that boundary.",
+  "hints": [
+    "A query never revisits an earlier rank; call number i always wants the i-th best. That means the set of 'currently known top group' only ever needs to grow by exactly one member each time a query happens.",
+    "Keep two heaps: one holding the current top group (sized to the number of queries made so far) that gives you fast access to its WEAKEST member, and one holding everything else that gives you fast access to its BEST member. 'Better' means higher score, and lexicographically smaller name breaks ties.",
+    "On add: if the new location beats the top group's current weakest member, insert it into the top group and demote that weakest member into the 'everything else' pile (keeping the top group's size unchanged); otherwise it goes straight into 'everything else'. On get: increase the target size by one, promote the best of 'everything else' into the top group, and the answer is the top group's weakest member (which is now exactly the newly required rank)."
+  ],
+  "constraints": [
+    { "param": "name", "kind": "string", "len": [1, 10] },
+    { "param": "score", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: five adds interleaved with six get calls, including a same-score tiebreak by name",
+      "input": [["SORTracker", "add", "add", "get", "add", "get", "add", "get", "add", "get", "add", "get", "get"], [[], ["bradford", 2], ["branford", 3], [], ["alps", 2], [], ["orland", 2], [], ["orlando", 3], [], ["alpine", 2], [], []]] },
+    { "kind": "boundary", "description": "a single location added, then queried for the 1st (only) rank",
+      "input": [["SORTracker", "add", "get"], [[], ["a", 1], []]] },
+    { "kind": "trap", "description": "many locations tied on score must rank purely by lexicographically smaller name",
+      "input": [["SORTracker", "add", "add", "add", "add", "get", "get", "get", "get"], [[], ["delta", 5], ["alpha", 5], ["charlie", 5], ["bravo", 5], [], [], [], []]] },
+    { "kind": "trap", "description": "a name that is a lexicographic prefix of another with the same score ranks first",
+      "input": [["SORTracker", "add", "add", "get", "get"], [[], ["al", 9], ["alp", 9], [], []]] },
+    { "kind": "boundary", "description": "maximum-length (10 character) names and boundary scores", "input": [["SORTracker", "add", "add", "get", "get"], [[], ["aaaaaaaaaa", 100000], ["zzzzzzzzzz", 1], [], []]] },
+    { "kind": "trap", "description": "a later add with a strictly higher score than everything already ranked must be promoted ahead of the previously-reported best",
+      "input": [["SORTracker", "add", "add", "get", "add", "get"], [[], ["low", 1], ["mid", 5], [], ["high", 9], []]] },
+    { "kind": "trap", "description": "adding a location worse than everything currently in the top group must not disturb any already-reported rank",
+      "input": [["SORTracker", "add", "add", "get", "add", "get"], [[], ["best", 100], ["second", 50], [], ["worst", 1], []]] }
+  ],
+  "stress": [
+    {
+      "description": "many unique short names added with clustered scores (to force frequent name tiebreaks) interleaved with gets, respecting that queries never outnumber adds",
+      "seed": 41,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    import string\n    ops = ['SORTracker']\n    args = [[]]\n    used = set()\n    added = 0\n    queried = 0\n    letters = string.ascii_lowercase\n    for _ in range(max(1, size)):\n        can_query = queried < added\n        do_query = can_query and rng.random() < 0.45\n        if do_query:\n            ops.append('get'); args.append([])\n            queried += 1\n        else:\n            while True:\n                length = rng.randint(1, 10)\n                name = ''.join(rng.choice(letters) for _ in range(length))\n                if name not in used:\n                    used.add(name)\n                    break\n            score = rng.randint(1, 20)\n            ops.append('add'); args.append([name, score])\n            added += 1\n    while queried < added:\n        ops.append('get'); args.append([])\n        queried += 1\n    return [ops, args]\n",
+      "note": "a narrow score range (1..20) with unique random names forces many same-score name tiebreaks; a trailing flush of get calls keeps the invariant (queries <= adds) satisfied"
+    }
+  ],
+  "oracle_python": "class SORTracker:\n    def __init__(self):\n        self.locations = []\n        self.count = 0\n\n    def add(self, name, score):\n        self.locations.append((name, score))\n\n    def get(self):\n        self.count += 1\n        ordered = sorted(self.locations, key=lambda ns: (-ns[1], ns[0]))\n        return ordered[self.count - 1][0]\n",
+  "solutions": {
+    "python": "import heapq\n\nclass _Worst:\n    __slots__ = ('key', 'name')\n\n    def __init__(self, key, name):\n        self.key = key\n        self.name = name\n\n    def __lt__(self, other):\n        return self.key > other.key\n\n    def __eq__(self, other):\n        return self.key == other.key\n\nclass SORTracker:\n    def __init__(self):\n        self.top = []\n        self.rest = []\n        self.k = 0\n\n    def add(self, name, score):\n        key = (-score, name)\n        if self.top and key < self.top[0].key:\n            heapq.heappush(self.top, _Worst(key, name))\n            worst = heapq.heappop(self.top)\n            heapq.heappush(self.rest, (worst.key, worst.name))\n        else:\n            heapq.heappush(self.rest, (key, name))\n\n    def get(self):\n        self.k += 1\n        while len(self.top) < self.k and self.rest:\n            key, name = heapq.heappop(self.rest)\n            heapq.heappush(self.top, _Worst(key, name))\n        return self.top[0].name\n",
+    "javascript": "class Heap {\n    constructor(cmp) {\n        this.data = [];\n        this.cmp = cmp;\n    }\n    get size() { return this.data.length; }\n    peek() { return this.data[0]; }\n    push(item) {\n        this.data.push(item);\n        let i = this.data.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (this.cmp(this.data[p], this.data[i]) <= 0) break;\n            [this.data[p], this.data[i]] = [this.data[i], this.data[p]];\n            i = p;\n        }\n    }\n    pop() {\n        const top = this.data[0];\n        const last = this.data.pop();\n        if (this.data.length > 0) {\n            this.data[0] = last;\n            let i = 0;\n            const n = this.data.length;\n            while (true) {\n                let l = i * 2 + 1, r = i * 2 + 2, best = i;\n                if (l < n && this.cmp(this.data[l], this.data[best]) < 0) best = l;\n                if (r < n && this.cmp(this.data[r], this.data[best]) < 0) best = r;\n                if (best === i) break;\n                [this.data[i], this.data[best]] = [this.data[best], this.data[i]];\n                i = best;\n            }\n        }\n        return top;\n    }\n}\n\nfunction cmpKey(a, b) {\n    if (a[0] !== b[0]) return b[0] - a[0];\n    if (a[1] < b[1]) return -1;\n    if (a[1] > b[1]) return 1;\n    return 0;\n}\n\nclass SORTracker {\n    constructor() {\n        this.top = new Heap((a, b) => -cmpKey(a, b));\n        this.rest = new Heap(cmpKey);\n        this.k = 0;\n    }\n\n    add(name, score) {\n        const item = [score, name];\n        if (this.top.size > 0 && cmpKey(item, this.top.peek()) < 0) {\n            this.top.push(item);\n            const worst = this.top.pop();\n            this.rest.push(worst);\n        } else {\n            this.rest.push(item);\n        }\n    }\n\n    get() {\n        this.k += 1;\n        while (this.top.size < this.k && this.rest.size > 0) {\n            this.top.push(this.rest.pop());\n        }\n        return this.top.peek()[1];\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) amortized per op", "space": "O(n)" }
+}
