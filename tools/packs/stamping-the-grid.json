@@ -1,0 +1,48 @@
+{
+  "slug": "stamping-the-grid",
+  "judge": "exact",
+  "pattern": "A cell can be covered by some fixed-size stamp exactly when the rectangle of that size anchored at every position overlapping it is itself free of occupied cells, so prefix sums plus a 2D difference array answer every cell in one pass.",
+  "hints": [
+    "For a fixed stamp size, whether a given rectangle can host a stamp depends only on whether that rectangle contains any occupied cell -- a 2D prefix sum answers that check in constant time per candidate position.",
+    "Instead of asking cell-by-cell 'is this cell covered', flip the question: for every position where a stamp legally fits without touching an occupied cell, mark that its whole footprint becomes coverable, using a 2D difference array so each placement is an O(1) update.",
+    "Turn the difference array back into an actual per-cell coverage count with another 2D prefix sum, then the answer is simply: every originally empty cell must end up with a coverage count greater than zero."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 100000], "value": [0, 1] },
+    { "param": "stampHeight", "kind": "int", "value": [1, 100000] },
+    { "param": "stampWidth", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "vertical occupied strip, two overlapping stamps cover the rest", "input": [[[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]], 4, 3] },
+    { "kind": "edge", "description": "diagonal occupied cells block every possible placement from reaching a corner", "input": [[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], 2, 2] },
+    { "kind": "boundary", "description": "single empty cell, minimum grid and minimum stamp both 1x1", "input": [[[0]], 1, 1] },
+    { "kind": "boundary", "description": "single occupied cell, no empty cells so the answer is vacuously true", "input": [[[1]], 1, 1] },
+    { "kind": "trap", "description": "grid entirely occupied, still vacuously true since there is nothing left to cover", "input": [[[1, 1, 1], [1, 1, 1], [1, 1, 1]], 1, 1] },
+    { "kind": "trap", "description": "a single occupied cell dead center blocks every candidate rectangle, leaving corner cells uncoverable", "input": [[[0, 0, 0], [0, 1, 0], [0, 0, 0]], 2, 2] },
+    { "kind": "boundary", "description": "1x1 stamp can always cover any lone empty cell regardless of layout", "input": [[[0, 1, 0], [1, 0, 1], [0, 1, 0]], 1, 1] },
+    { "kind": "boundary", "description": "single row, stamp width equal to the full row length", "input": [[[0, 0, 0, 0, 0]], 1, 5] },
+    { "kind": "trap", "description": "stamp height covers only part of the grid so a lower row's empty corner cells are missed", "input": [[[0, 0, 0], [0, 0, 0], [1, 0, 0]], 2, 3] }
+  ],
+  "stress": [
+    {
+      "description": "small sparse random grids so the brute-force oracle can verify every candidate placement directly",
+      "seed": 21,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 15)\n    n = rng.randint(1, 15)\n    density = rng.uniform(0.0, 0.15)\n    grid = [[1 if rng.random() < density else 0 for _ in range(n)] for _ in range(m)]\n    stamp_h = rng.randint(1, m)\n    stamp_w = rng.randint(1, n)\n    return [grid, stamp_h, stamp_w]\n",
+      "note": "low occupied density and small dimensions keep this near the usually-true regime while staying brute-force-checkable"
+    },
+    {
+      "description": "small denser random grids to stress the usually-false regime",
+      "seed": 22,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 15)\n    n = rng.randint(1, 15)\n    density = rng.uniform(0.15, 0.45)\n    grid = [[1 if rng.random() < density else 0 for _ in range(n)] for _ in range(m)]\n    stamp_h = rng.randint(1, m)\n    stamp_w = rng.randint(1, n)\n    return [grid, stamp_h, stamp_w]\n",
+      "note": "higher occupied density makes stamp placements scarce, exercising the false path; grid stays small so the brute-force oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def possibleToStamp(self, grid, stampHeight, stampWidth) -> bool:\n        m = len(grid)\n        n = len(grid[0]) if m else 0\n        covered = [[False] * n for _ in range(m)]\n        for i in range(m - stampHeight + 1):\n            for j in range(n - stampWidth + 1):\n                fits = True\n                for r in range(i, i + stampHeight):\n                    if not fits:\n                        break\n                    for c in range(j, j + stampWidth):\n                        if grid[r][c] == 1:\n                            fits = False\n                            break\n                if fits:\n                    for r in range(i, i + stampHeight):\n                        for c in range(j, j + stampWidth):\n                            covered[r][c] = True\n        for i in range(m):\n            for j in range(n):\n                if grid[i][j] == 0 and not covered[i][j]:\n                    return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def possibleToStamp(self, grid: List[List[int]], stampHeight: int, stampWidth: int) -> bool:\n        m = len(grid)\n        n = len(grid[0]) if m else 0\n        prefix = [[0] * (n + 1) for _ in range(m + 1)]\n        for i in range(m):\n            for j in range(n):\n                prefix[i + 1][j + 1] = grid[i][j] + prefix[i][j + 1] + prefix[i + 1][j] - prefix[i][j]\n\n        def region_sum(r1, c1, r2, c2):\n            return prefix[r2][c2] - prefix[r1][c2] - prefix[r2][c1] + prefix[r1][c1]\n\n        diff = [[0] * (n + 1) for _ in range(m + 1)]\n        for i in range(m - stampHeight + 1):\n            for j in range(n - stampWidth + 1):\n                if region_sum(i, j, i + stampHeight, j + stampWidth) == 0:\n                    diff[i][j] += 1\n                    diff[i + stampHeight][j] -= 1\n                    diff[i][j + stampWidth] -= 1\n                    diff[i + stampHeight][j + stampWidth] += 1\n\n        cover = [[0] * (n + 1) for _ in range(m + 1)]\n        for i in range(m):\n            for j in range(n):\n                cover[i + 1][j + 1] = diff[i][j] + cover[i][j + 1] + cover[i + 1][j] - cover[i][j]\n                if grid[i][j] == 0 and cover[i + 1][j + 1] <= 0:\n                    return False\n        return True\n",
+    "javascript": "var possibleToStamp = function(grid, stampHeight, stampWidth) {\n    const m = grid.length;\n    const n = m ? grid[0].length : 0;\n    const prefix = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            prefix[i + 1][j + 1] = grid[i][j] + prefix[i][j + 1] + prefix[i + 1][j] - prefix[i][j];\n        }\n    }\n    const regionSum = (r1, c1, r2, c2) => prefix[r2][c2] - prefix[r1][c2] - prefix[r2][c1] + prefix[r1][c1];\n    const diff = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));\n    for (let i = 0; i + stampHeight <= m; i++) {\n        for (let j = 0; j + stampWidth <= n; j++) {\n            if (regionSum(i, j, i + stampHeight, j + stampWidth) === 0) {\n                diff[i][j] += 1;\n                diff[i + stampHeight][j] -= 1;\n                diff[i][j + stampWidth] -= 1;\n                diff[i + stampHeight][j + stampWidth] += 1;\n            }\n        }\n    }\n    const cover = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            cover[i + 1][j + 1] = diff[i][j] + cover[i][j + 1] + cover[i + 1][j] - cover[i][j];\n            if (grid[i][j] === 0 && cover[i + 1][j + 1] <= 0) {\n                return false;\n            }\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

@@ -1,0 +1,41 @@
+{
+  "slug": "step-by-step-directions-from-a-binary-tree-node-to-another",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json", "json"], "returns": "json" },
+  "pattern": "The shortest path between any two nodes in a tree always goes up to their lowest common ancestor and back down, so recording the root-to-node path for each target and trimming their shared prefix gives the answer directly, no explicit LCA search needed.",
+  "hints": [
+    "There are no shortcuts between siblings or cousins in a tree -- any path from one node to another must climb up to their common ancestor first, then descend.",
+    "Find the root-to-node path (as a sequence of L/R moves) for the start value and, separately, for the destination value.",
+    "Strip off the longest common prefix shared by both paths -- that prefix is the climb to the lowest common ancestor, so it doesn't appear in the answer. What's left of the start's path becomes 'U' moves (climbing up), and what's left of the destination's path is used as-is (descending down)."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [2, 100000], "value": [1, 100000] },
+    { "param": "startValue", "kind": "int", "value": [1, 100000] },
+    { "param": "destValue", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, path climbs up twice then descends right then left", "input": [[5, 1, 2, 3, null, 6, 4], 3, 6] },
+    { "kind": "edge", "description": "statement example, destination is the immediate parent", "input": [[2, 1], 2, 1] },
+    { "kind": "boundary", "description": "destination is the root itself, path is all upward moves", "input": [[3, 1, 4, null, 2], 2, 3] },
+    { "kind": "boundary", "description": "start is the root, path is all downward moves", "input": [[3, 1, 4, null, 2], 3, 2] },
+    { "kind": "trap", "description": "start and destination are siblings, one up then one down", "input": [[1, 2, 3], 2, 3] },
+    { "kind": "trap", "description": "start is an ancestor of destination several levels down", "input": [[1, 2, 3, 4, 5, null, null, 6], 2, 6] },
+    { "kind": "trap", "description": "destination is an ancestor of start several levels up", "input": [[1, 2, 3, 4, 5, null, null, 6], 6, 2] },
+    { "kind": "edge", "description": "deep left-skewed chain, longest possible pure ascent to the root", "input": [[1, 2, null, 3, null, 4, null, 5], 5, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random complete-ish binary trees with a random distinct start and destination value",
+      "seed": 19,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    from collections import deque\n    n = max(2, min(size, 5000))\n    values = list(range(1, n + 1))\n    rng.shuffle(values)\n    root_val = values[0]\n    nodes = {root_val: [None, None]}\n    open_slots = [(root_val, 0), (root_val, 1)]\n    for v in values[1:]:\n        idx = rng.randrange(len(open_slots))\n        parent, side = open_slots.pop(idx)\n        nodes[parent][side] = v\n        nodes[v] = [None, None]\n        open_slots.append((v, 0))\n        open_slots.append((v, 1))\n    out = []\n    q = deque([root_val])\n    while q:\n        cur = q.popleft()\n        if cur is None:\n            out.append(None)\n            continue\n        out.append(cur)\n        l, r = nodes[cur]\n        q.append(l)\n        q.append(r)\n    while out and out[-1] is None:\n        out.pop()\n    start, dest = rng.sample(values, 2)\n    return [out, start, dest]\n",
+      "note": "random binary tree built by attaching each value to a random open child slot, serialized BFS level-order with trailing nulls trimmed; start/dest are distinct existing values"
+    }
+  ],
+  "oracle_python": "from collections import deque\n\nclass Solution:\n    def getDirections(self, root, startValue, destValue):\n        parent = {}\n        stack = [root]\n        while stack:\n            node = stack.pop()\n            if node.left:\n                parent[node.left.val] = (node.val, 'L')\n                stack.append(node.left)\n            if node.right:\n                parent[node.right.val] = (node.val, 'R')\n                stack.append(node.right)\n\n        adj = {}\n        for child_val, (par_val, label) in parent.items():\n            adj.setdefault(par_val, []).append((child_val, label))\n            adj.setdefault(child_val, []).append((par_val, 'U'))\n\n        visited = {startValue}\n        q = deque([(startValue, '')])\n        while q:\n            val, path = q.popleft()\n            if val == destValue:\n                return path\n            for nxt, label in adj.get(val, []):\n                if nxt not in visited:\n                    visited.add(nxt)\n                    q.append((nxt, path + label))\n        return ''\n",
+  "solutions": {
+    "python": "class Solution:\n    def getDirections(self, root, startValue, destValue):\n        def find_path(node, target, path):\n            if node is None:\n                return False\n            if node.val == target:\n                return True\n            path.append('L')\n            if find_path(node.left, target, path):\n                return True\n            path.pop()\n            path.append('R')\n            if find_path(node.right, target, path):\n                return True\n            path.pop()\n            return False\n\n        path_s = []\n        find_path(root, startValue, path_s)\n        path_d = []\n        find_path(root, destValue, path_d)\n\n        i = 0\n        while i < len(path_s) and i < len(path_d) and path_s[i] == path_d[i]:\n            i += 1\n\n        return 'U' * (len(path_s) - i) + ''.join(path_d[i:])\n",
+    "javascript": "var getDirections = function(root, startValue, destValue) {\n    function findPath(node, target, path) {\n        if (node === null) return false;\n        if (node.val === target) return true;\n        path.push('L');\n        if (findPath(node.left, target, path)) return true;\n        path.pop();\n        path.push('R');\n        if (findPath(node.right, target, path)) return true;\n        path.pop();\n        return false;\n    }\n    const pathS = [];\n    findPath(root, startValue, pathS);\n    const pathD = [];\n    findPath(root, destValue, pathD);\n    let i = 0;\n    while (i < pathS.length && i < pathD.length && pathS[i] === pathD[i]) i++;\n    return 'U'.repeat(pathS.length - i) + pathD.slice(i).join('');\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
