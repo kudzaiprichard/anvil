@@ -1,0 +1,37 @@
+{
+  "slug": "replace-non-coprime-numbers-in-array",
+  "judge": "exact",
+  "pattern": "Merging is confluent, so a single left-to-right pass with a stack (fusing the top two whenever they share a factor, and re-checking after each fuse) reaches the same fixed point as repeatedly scanning the whole array.",
+  "hints": [
+    "The order you merge adjacent non-coprime pairs in doesn't change the final array, so you never need to rescan from the start after a merge.",
+    "Keep a stack of the results so far; when the next number shares a common factor greater than one with the stack's top, pop it, merge via LCM, and keep checking the new top against the merged value.",
+    "gcd(a, b) > 1 is the merge trigger and lcm(a, b) = a * b // gcd(a, b) is the replacement; push and repeat the check until the stack top is coprime with the current value, then push it."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "chain of merges that keeps cascading backward", "input": [[6, 4, 3, 2, 7, 6, 2]] },
+    { "kind": "edge", "description": "repeated small values merge pairwise down to a coprime run", "input": [[2, 2, 1, 1, 3, 3, 3]] },
+    { "kind": "boundary", "description": "single element, nothing to merge", "input": [[5]] },
+    { "kind": "edge", "description": "already fully coprime, array is unchanged", "input": [[2, 3, 5, 7, 11]] },
+    { "kind": "trap", "description": "a merge produces a value that is still non-coprime with what is now two positions back", "input": [[4, 6, 9, 5]] },
+    { "kind": "trap", "description": "all identical values collapse to a single number via repeated self-LCM", "input": [[4, 4, 4, 4]] },
+    { "kind": "boundary", "description": "large values whose LCM approaches the stated output bound", "input": [[99991, 99991]] }
+  ],
+  "stress": [
+    {
+      "description": "long run of small factors of 2 and 3 forcing many cascading merges, capped so the merged product stays under 1e8",
+      "seed": 5,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 3000))\n    nums = []\n    for _ in range(n):\n        nums.append(rng.choice([2, 3, 4, 6, 8, 9, 12]))\n    return [nums]\n",
+      "note": "small factor pool guarantees heavy adjacent-merging while keeping every intermediate LCM well under the 1e8 output guarantee"
+    }
+  ],
+  "oracle_python": "import math\n\nclass Solution:\n    def replaceNonCoprimes(self, nums):\n        arr = list(nums)\n        changed = True\n        while changed:\n            changed = False\n            i = 0\n            merged = []\n            while i < len(arr):\n                if i + 1 < len(arr) and math.gcd(arr[i], arr[i + 1]) > 1:\n                    merged.append(arr[i] * arr[i + 1] // math.gcd(arr[i], arr[i + 1]))\n                    i += 2\n                    changed = True\n                else:\n                    merged.append(arr[i])\n                    i += 1\n            arr = merged\n        return arr\n",
+  "solutions": {
+    "python": "import math\n\nclass Solution:\n    def replaceNonCoprimes(self, nums):\n        stack = []\n        for x in nums:\n            cur = x\n            while stack:\n                g = math.gcd(stack[-1], cur)\n                if g > 1:\n                    cur = stack.pop() * cur // g\n                else:\n                    break\n            stack.append(cur)\n        return stack\n",
+    "javascript": "function gcd(a, b) {\n    while (b) { [a, b] = [b, a % b]; }\n    return a;\n}\n\nvar replaceNonCoprimes = function(nums) {\n    const stack = [];\n    for (const x of nums) {\n        let cur = x;\n        while (stack.length) {\n            const g = gcd(stack[stack.length - 1], cur);\n            if (g > 1) {\n                cur = stack.pop() * cur / g;\n            } else {\n                break;\n            }\n        }\n        stack.push(cur);\n    }\n    return stack;\n};\n"
+  },
+  "complexity": { "time": "O(n log v)", "space": "O(n)" }
+}
