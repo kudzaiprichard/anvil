@@ -1,0 +1,191 @@
+{
+  "slug": "sorted-gcd-pair-queries",
+  "judge": "exact",
+  "pattern": "Counting, for every candidate divisor from largest to smallest, how many elements are multiples of it lets inclusion-exclusion peel off the exact count of pairs whose gcd is precisely that divisor, so a running prefix over divisors answers any rank query with a binary search.",
+  "hints": [
+    "For a fixed value d, counting how many array elements are divisible by d tells you, via a combination count, how many pairs have a gcd that is a multiple of d -- not necessarily exactly d.",
+    "Process candidate gcd values from largest down to smallest: subtract off the already-known exact counts for every larger multiple of d, and what remains is the exact number of pairs whose gcd is exactly d.",
+    "Once you have, for every value from 1 up to the maximum array element, the exact count of pairs with that gcd, a running prefix sum over those counts turns each query into a binary search for the smallest divisor whose prefix sum exceeds the query's rank."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        1,
+        50000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        4999950000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, three small values",
+      "input": [
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          2,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, duplicate values present",
+      "input": [
+        [
+          4,
+          4,
+          2,
+          1
+        ],
+        [
+          5,
+          3,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible array, two equal elements, only one pair",
+      "input": [
+        [
+          2,
+          2
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two coprime elements",
+      "input": [
+        [
+          1,
+          50000
+        ],
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all identical elements, every pair gcd equals the element itself",
+      "input": [
+        [
+          7,
+          7,
+          7,
+          7
+        ],
+        [
+          0,
+          3,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "powers of two, many pairs share intermediate gcds",
+      "input": [
+        [
+          2,
+          4,
+          8,
+          16
+        ],
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one value is 1, so every pair touching it has gcd 1",
+      "input": [
+        [
+          1,
+          6,
+          10,
+          15
+        ],
+        [
+          0,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum value repeated at the value bound",
+      "input": [
+        [
+          50000,
+          50000,
+          1
+        ],
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random moderate-size array with random values, queries spanning the full pair rank range",
+      "seed": 1,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 2000))\n    nums = [rng.randint(1, 50000) for _ in range(n)]\n    total_pairs = n * (n - 1) // 2\n    q = min(500, total_pairs)\n    queries = [rng.randint(0, total_pairs - 1) for _ in range(q)]\n    return [nums, queries]\n"
+    },
+    {
+      "description": "array with heavy duplication (few distinct values) to stress the divisor counting",
+      "seed": 2,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 3000))\n    pool = [rng.randint(1, 50) for _ in range(8)]\n    nums = [rng.choice(pool) for _ in range(n)]\n    total_pairs = n * (n - 1) // 2\n    queries = [rng.randint(0, total_pairs - 1) for _ in range(200)]\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "from math import gcd\nclass Solution:\n    def gcdValues(self, nums, queries):\n        n = len(nums)\n        pairs = []\n        for i in range(n):\n            for j in range(i + 1, n):\n                pairs.append(gcd(nums[i], nums[j]))\n        pairs.sort()\n        return [pairs[q] for q in queries]\n",
+  "solutions": {
+    "python": "class Solution:\n    def gcdValues(self, nums, queries):\n        maxV = max(nums)\n        cnt = [0] * (maxV + 1)\n        for v in nums:\n            cnt[v] += 1\n        divCount = [0] * (maxV + 1)\n        for d in range(1, maxV + 1):\n            s = 0\n            for m in range(d, maxV + 1, d):\n                s += cnt[m]\n            divCount[d] = s\n        exact = [0] * (maxV + 2)\n        for d in range(maxV, 0, -1):\n            c = divCount[d]\n            pairs = c * (c - 1) // 2\n            m2 = 2 * d\n            while m2 <= maxV:\n                pairs -= exact[m2]\n                m2 += d\n            exact[d] = pairs\n        prefix = [0] * (maxV + 1)\n        run = 0\n        for d in range(1, maxV + 1):\n            run += exact[d]\n            prefix[d] = run\n        ans = []\n        for q in queries:\n            lo, hi = 1, maxV\n            while lo < hi:\n                mid = (lo + hi) // 2\n                if prefix[mid] > q:\n                    hi = mid\n                else:\n                    lo = mid + 1\n            ans.append(lo)\n        return ans\n",
+    "javascript": "var gcdValues = function(nums, queries) {\n    const maxV = Math.max(...nums);\n    const cnt = new Array(maxV + 1).fill(0);\n    for (const v of nums) cnt[v]++;\n    const divCount = new Array(maxV + 1).fill(0);\n    for (let d = 1; d <= maxV; d++) {\n        let s = 0;\n        for (let m = d; m <= maxV; m += d) s += cnt[m];\n        divCount[d] = s;\n    }\n    const exact = new Array(maxV + 2).fill(0);\n    for (let d = maxV; d >= 1; d--) {\n        const c = divCount[d];\n        let pairs = c * (c - 1) / 2;\n        for (let m2 = 2 * d; m2 <= maxV; m2 += d) pairs -= exact[m2];\n        exact[d] = pairs;\n    }\n    const prefix = new Array(maxV + 1).fill(0);\n    let run = 0;\n    for (let d = 1; d <= maxV; d++) {\n        run += exact[d];\n        prefix[d] = run;\n    }\n    const ans = [];\n    for (const q of queries) {\n        let lo = 1, hi = maxV;\n        while (lo < hi) {\n            const mid = Math.floor((lo + hi) / 2);\n            if (prefix[mid] > q) hi = mid; else lo = mid + 1;\n        }\n        ans.push(lo);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O((maxVal) log(maxVal) + queries * log(maxVal))",
+    "space": "O(maxVal)"
+  }
+}
