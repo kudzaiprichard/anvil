@@ -1,0 +1,38 @@
+{
+  "slug": "shortest-string-that-contains-three-strings",
+  "judge": "exact",
+  "pattern": "With only three strings, trying every order to merge them collapses the problem to six brute-force merges: merge a pair by overlapping the longest matching suffix/prefix (or dropping one string entirely if it is already contained in the other), then merge the third string in the same way, and keep the shortest, lexicographically-smallest result across all six orders.",
+  "hints": [
+    "With just three strings, it is cheap to simply try every order of combining them -- there are only six permutations.",
+    "Merging two strings optimally means checking containment first (drop the smaller one if it is already a substring of the other), and otherwise overlapping the longest suffix of the first that matches a prefix of the second.",
+    "For each of the six permutations, merge the first two, then merge that result with the third the same way; among all six final strings, keep the shortest one, breaking ties by choosing the lexicographically smallest."
+  ],
+  "constraints": [
+    { "param": "a", "kind": "string", "len": [1, 100] },
+    { "param": "b", "kind": "string", "len": [1, 100] },
+    { "param": "c", "kind": "string", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one string already contains another while the third is disjoint", "input": ["abcd", "bc", "xy"] },
+    { "kind": "edge", "description": "all three strings are identical", "input": ["abc", "abc", "abc"] },
+    { "kind": "boundary", "description": "three minimum-length, mutually disjoint single characters", "input": ["a", "b", "c"] },
+    { "kind": "trap", "description": "a chain of suffix-prefix overlaps across all three strings", "input": ["abcd", "cdef", "efgh"] },
+    { "kind": "trap", "description": "both other strings are fully contained inside the first", "input": ["abcde", "abc", "cde"] },
+    { "kind": "trap", "description": "repeated characters make several overlap lengths look plausible", "input": ["aaaa", "aaab", "baaa"] },
+    { "kind": "trap", "description": "a three-way cyclic overlap where the merge order changes the result", "input": ["xy", "yz", "zx"] }
+  ],
+  "stress": [
+    {
+      "description": "random strings over a tiny alphabet to force frequent overlaps and containments",
+      "seed": 47,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    alphabet = 'abc'\n    length_cap = max(1, min(size, 100))\n    def rand_str():\n        length = rng.randint(1, length_cap)\n        return ''.join(rng.choice(alphabet) for _ in range(length))\n    return [rand_str(), rand_str(), rand_str()]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumString(self, a, b, c):\n        import itertools\n\n        def kmp_overlap(x, y):\n            combined = y + '#' + x\n            n = len(combined)\n            fail = [0] * n\n            for i in range(1, n):\n                j = fail[i - 1]\n                while j > 0 and combined[i] != combined[j]:\n                    j = fail[j - 1]\n                if combined[i] == combined[j]:\n                    j += 1\n                fail[i] = j\n            return fail[-1]\n\n        def merge2(x, y):\n            if y in x:\n                return x\n            if x in y:\n                return y\n            ov = kmp_overlap(x, y)\n            return x + y[ov:]\n\n        best = None\n        for perm in itertools.permutations([a, b, c]):\n            merged = merge2(merge2(perm[0], perm[1]), perm[2])\n            if best is None or len(merged) < len(best) or (len(merged) == len(best) and merged < best):\n                best = merged\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumString(self, a, b, c):\n        import itertools\n\n        def merge2(x, y):\n            if y in x:\n                return x\n            if x in y:\n                return y\n            max_ov = 0\n            for k in range(min(len(x), len(y)), 0, -1):\n                if x[-k:] == y[:k]:\n                    max_ov = k\n                    break\n            return x + y[max_ov:]\n\n        best = None\n        for perm in itertools.permutations([a, b, c]):\n            merged = merge2(merge2(perm[0], perm[1]), perm[2])\n            if best is None or len(merged) < len(best) or (len(merged) == len(best) and merged < best):\n                best = merged\n        return best\n",
+    "javascript": "var minimumString = function(a, b, c) {\n    function merge2(x, y) {\n        if (x.includes(y)) return x;\n        if (y.includes(x)) return y;\n        let maxOv = 0;\n        for (let k = Math.min(x.length, y.length); k > 0; k--) {\n            if (x.slice(-k) === y.slice(0, k)) {\n                maxOv = k;\n                break;\n            }\n        }\n        return x + y.slice(maxOv);\n    }\n\n    function permutations(arr) {\n        if (arr.length <= 1) return [arr];\n        const result = [];\n        for (let i = 0; i < arr.length; i++) {\n            const rest = arr.slice(0, i).concat(arr.slice(i + 1));\n            for (const p of permutations(rest)) {\n                result.push([arr[i], ...p]);\n            }\n        }\n        return result;\n    }\n\n    let best = null;\n    for (const perm of permutations([a, b, c])) {\n        const merged = merge2(merge2(perm[0], perm[1]), perm[2]);\n        if (best === null || merged.length < best.length || (merged.length === best.length && merged < best)) {\n            best = merged;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(1) permutations of O(n^2) merges", "space": "O(n)" }
+}
