@@ -1,0 +1,171 @@
+{
+  "slug": "smallest-stable-index-ii",
+  "judge": "exact",
+  "pattern": "With the array a hundred thousand elements long, the same prefix-maximum / suffix-minimum decomposition still answers the instability score at every index in one linear sweep, so no per-index recomputation is needed even at this scale.",
+  "hints": [
+    "Recomputing the max of everything before i and the min of everything from i onward separately for every i is quadratic and will not scale to a hundred thousand elements; both quantities can be carried forward instead.",
+    "Build a prefix-maximum array left to right and a suffix-minimum array right to left, each in one pass, then the score at index i is prefix_max[i] - suffix_min[i].",
+    "The first index (scanning from 0) whose precomputed score is at most k is the answer; if the scan finishes with none qualifying, return -1."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        1000000000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, first stable index is at position 3",
+      "input": [
+        [
+          5,
+          0,
+          1,
+          4
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, no index is ever stable",
+      "input": [
+        [
+          3,
+          2,
+          1
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element array, k equals zero",
+      "input": [
+        [
+          0
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element array, k as large as possible",
+      "input": [
+        [
+          1000000000
+        ],
+        1000000000
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "strictly increasing array, index 0 is always stable regardless of k",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly decreasing array: the running suffix minimum is the same final element at every index, so the score is flat and the answer hinges entirely on k",
+      "input": [
+        [
+          5,
+          4,
+          3,
+          2,
+          1
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all values equal, so every index is stable and the first one wins",
+      "input": [
+        [
+          7,
+          7,
+          7,
+          7
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k exactly meets the minimum achievable instability score, off-by-one on the boundary",
+      "input": [
+        [
+          10,
+          1,
+          2,
+          9
+        ],
+        7
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the global minimum sits in the middle, so the suffix minimum drops early and only later indices can recover a small enough score",
+      "input": [
+        [
+          50,
+          50,
+          50,
+          1,
+          50,
+          50
+        ],
+        48
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random arrays up to the full hundred-thousand-element constraint with random k",
+      "seed": 21,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(0, 1000000000) for _ in range(n)]\n    k = rng.randint(0, 1000000000)\n    return [nums, k]\n"
+    },
+    {
+      "description": "strictly decreasing long arrays, the hardest case for the prefix/suffix scan",
+      "seed": 22,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    start = rng.randint(500000000, 1000000000)\n    nums = [max(0, start - i) for i in range(n)]\n    k = rng.randint(0, 1000000000)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import accumulate\n\nclass Solution:\n    def firstStableIndex(self, nums, k):\n        n = len(nums)\n        prefix_max = list(accumulate(nums, max))\n        suffix_min = list(accumulate(nums[::-1], min))[::-1]\n        for i in range(n):\n            if prefix_max[i] - suffix_min[i] <= k:\n                return i\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def firstStableIndex(self, nums, k):\n        n = len(nums)\n        prefix_max = [0] * n\n        suffix_min = [0] * n\n        prefix_max[0] = nums[0]\n        for i in range(1, n):\n            prefix_max[i] = max(prefix_max[i - 1], nums[i])\n        suffix_min[n - 1] = nums[n - 1]\n        for i in range(n - 2, -1, -1):\n            suffix_min[i] = min(suffix_min[i + 1], nums[i])\n        for i in range(n):\n            if prefix_max[i] - suffix_min[i] <= k:\n                return i\n        return -1\n",
+    "javascript": "var firstStableIndex = function(nums, k) {\n    const n = nums.length;\n    const prefixMax = new Array(n);\n    const suffixMin = new Array(n);\n    prefixMax[0] = nums[0];\n    for (let i = 1; i < n; i++) {\n        prefixMax[i] = Math.max(prefixMax[i - 1], nums[i]);\n    }\n    suffixMin[n - 1] = nums[n - 1];\n    for (let i = n - 2; i >= 0; i--) {\n        suffixMin[i] = Math.min(suffixMin[i + 1], nums[i]);\n    }\n    for (let i = 0; i < n; i++) {\n        if (prefixMax[i] - suffixMin[i] <= k) {\n            return i;\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}
