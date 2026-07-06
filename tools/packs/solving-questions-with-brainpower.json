@@ -1,0 +1,199 @@
+{
+  "slug": "solving-questions-with-brainpower",
+  "judge": "exact",
+  "pattern": "Solving a question only ever affects which future questions stay reachable, so scoring the exam from the last question backward turns every decision into a simple choice between two already-known numbers.",
+  "hints": [
+    "Think of this as one decision per question, taken in order, where solving a question changes which future questions are even reachable.",
+    "Work from the last question toward the first: once you know the best score obtainable starting at question i+1, question i's best score is just a choice between skipping it or banking its points and jumping past its cooldown.",
+    "Store one best-score value per starting index, built back-to-front; the final answer is that array's value at index 0, and jumping past a cooldown should never reach past the end of the exam."
+  ],
+  "constraints": [
+    {
+      "param": "questions",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "solving a smaller early question can still beat jumping straight to a bigger later one",
+      "input": [
+        [
+          [
+            8,
+            1
+          ],
+          [
+            9,
+            1
+          ],
+          [
+            2,
+            100
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "every cooldown is long enough that only a single question can ever be solved",
+      "input": [
+        [
+          [
+            3,
+            50
+          ],
+          [
+            10,
+            50
+          ],
+          [
+            4,
+            50
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "only one question on the exam",
+      "input": [
+        [
+          [
+            42,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "identical maximum-length cooldowns that all tie on points",
+      "input": [
+        [
+          [
+            5,
+            100000
+          ],
+          [
+            5,
+            100000
+          ],
+          [
+            5,
+            100000
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the last question's cooldown reaches past the end of the exam and must be clamped",
+      "input": [
+        [
+          [
+            3,
+            2
+          ],
+          [
+            10,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            7,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the single richest question is a trap -- skipping it unlocks a higher-scoring combination later",
+      "input": [
+        [
+          [
+            10,
+            4
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a one-question cooldown still lets you take almost every other question by alternating",
+      "input": [
+        [
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random points/cooldown pairs across the full constraint range",
+      "seed": 23,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    questions = [[rng.randint(1, 100000), rng.randint(1, 100000)] for _ in range(n)]\n    return [questions]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mostPoints(self, questions):\n        # Independent forward formulation: dp[i] is the best score\n        # obtainable by a strategy that is free to decide again exactly at\n        # index i. Each question pushes its consequences forward (skip ->\n        # i+1, solve -> past its cooldown) instead of pulling from the\n        # future the way a backward scan does.\n        n = len(questions)\n        dp = [0] * (n + 1)\n        for i in range(n):\n            points, cooldown = questions[i]\n            if dp[i] > dp[i + 1]:\n                dp[i + 1] = dp[i]\n            j = min(n, i + cooldown + 1)\n            candidate = dp[i] + points\n            if candidate > dp[j]:\n                dp[j] = candidate\n        return max(dp)\n",
+  "solutions": {
+    "python": "class Solution:\n    def mostPoints(self, questions):\n        n = len(questions)\n        dp = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            points, cooldown = questions[i]\n            skip = dp[i + 1]\n            solve = points + dp[min(n, i + cooldown + 1)]\n            dp[i] = max(skip, solve)\n        return dp[0]\n",
+    "javascript": "var mostPoints = function(questions) {\n    const n = questions.length;\n    const dp = new Array(n + 1).fill(0);\n    for (let i = n - 1; i >= 0; i--) {\n        const points = questions[i][0];\n        const cooldown = questions[i][1];\n        const skip = dp[i + 1];\n        const nextIdx = Math.min(n, i + cooldown + 1);\n        const solve = points + dp[nextIdx];\n        dp[i] = Math.max(skip, solve);\n    }\n    return dp[0];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

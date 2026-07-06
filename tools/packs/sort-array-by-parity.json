@@ -2,41 +2,128 @@
   "slug": "sort-array-by-parity",
   "judge": {
     "type": "any_valid",
-    "validator_python": "def validate(args, output):\n    nums = args[0]\n    if not isinstance(output, list) or len(output) != len(nums):\n        return False\n    from collections import Counter\n    if Counter(output) != Counter(nums):\n        return False\n    seen_odd = False\n    for v in output:\n        if v % 2 == 0:\n            if seen_odd:\n                return False\n        else:\n            seen_odd = True\n    return True\n",
-    "validator_javascript": "function validate(args, output) {\n    const nums = args[0];\n    if (!Array.isArray(output) || output.length !== nums.length) return false;\n    const c = new Map();\n    for (const v of nums) c.set(v, (c.get(v) || 0) + 1);\n    for (const v of output) {\n        if (!c.has(v)) return false;\n        c.set(v, c.get(v) - 1);\n        if (c.get(v) === 0) c.delete(v);\n    }\n    if (c.size !== 0) return false;\n    let seenOdd = false;\n    for (const v of output) {\n        if (((v % 2) + 2) % 2 === 0) {\n            if (seenOdd) return false;\n        } else {\n            seenOdd = true;\n        }\n    }\n    return true;\n}\n"
+    "validator_python": "def validate(args, output):\n    nums = args[0]\n    if sorted(output) != sorted(nums):\n        return False\n    seen_odd = False\n    for x in output:\n        if x % 2 == 1:\n            seen_odd = True\n        elif seen_odd:\n            return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const nums = args[0];\n    const a = nums.slice().sort((x, y) => x - y);\n    const b = output.slice().sort((x, y) => x - y);\n    if (a.length !== b.length || !a.every((v, i) => v === b[i])) return false;\n    let seenOdd = false;\n    for (const x of output) {\n        if (Math.abs(x % 2) === 1) {\n            seenOdd = true;\n        } else if (seenOdd) {\n            return false;\n        }\n    }\n    return true;\n}\n"
   },
-  "pattern": "A two-pointer partition swaps an out-of-place odd at the front with an out-of-place even at the back, grouping evens before odds in a single linear pass without extra storage.",
+  "pattern": "Any array with all the evens (in any order) before all the odds (in any order) is accepted, so a single stable pass that buckets each number by parity -- no comparisons, no swaps -- is enough.",
   "hints": [
-    "You only need every even value to sit somewhere before every odd value; the relative order within each group is free.",
-    "Scan from both ends: a front pointer looking for a misplaced odd and a back pointer looking for a misplaced even.",
-    "When the front finds an odd and the back finds an even, swap them and step both inward; stop when the pointers meet."
+    "You don't need to sort or swap elements in place -- just walk the array once and separate numbers into two buckets by parity.",
+    "Build the answer by taking every even number first (in whatever order you met them), then every odd number.",
+    "Because any valid grouping is accepted, there's no need to worry about which particular even or odd comes first within its own group."
   ],
   "constraints": [
-    { "param": "nums", "kind": "int[]", "len": [1, 5000], "value": [0, 5000] }
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        5000
+      ],
+      "value": [
+        0,
+        5000
+      ]
+    }
   ],
   "edge_inputs": [
-    { "kind": "edge", "description": "small mix of evens and odds", "input": [[3, 1, 2, 4]] },
-    { "kind": "boundary", "description": "single element", "input": [[0]] },
-    { "kind": "trap", "description": "all odd values, nothing moves to the front", "input": [[5, 3, 1, 7]] },
-    { "kind": "trap", "description": "all even values stay in front", "input": [[2, 8, 4, 6]] },
-    { "kind": "edge", "description": "already grouped evens then odds", "input": [[2, 4, 1, 3]] },
-    { "kind": "trap", "description": "reverse grouped odds then evens", "input": [[1, 3, 2, 4]] },
-    { "kind": "edge", "description": "zeros count as even", "input": [[1, 0, 1, 0]] },
-    { "kind": "boundary", "description": "two elements needing a swap", "input": [[1, 2]] }
+    {
+      "kind": "edge",
+      "description": "mixed evens and odds",
+      "input": [
+        [
+          3,
+          1,
+          2,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element",
+      "input": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "already all evens, nothing to move",
+      "input": [
+        [
+          2,
+          4,
+          6,
+          8
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "already all odds, nothing to move",
+      "input": [
+        [
+          1,
+          3,
+          5,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "odds already appear before evens in the input, needs a full rearrange",
+      "input": [
+        [
+          1,
+          3,
+          2,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible value repeated, zero counts as even",
+      "input": [
+        [
+          0,
+          0,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single odd among many evens",
+      "input": [
+        [
+          2,
+          4,
+          6,
+          3,
+          8
+        ]
+      ]
+    }
   ],
   "stress": [
     {
-      "description": "random arrays mixing evens and odds across many lengths",
-      "seed": 19,
-      "size": 1000,
-      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    return [[rng.randint(0, 5000) for _ in range(n)]]\n",
-      "note": "validator checks multiset equality plus the evens-before-odds invariant"
+      "description": "random small integers with a healthy mix of parities",
+      "seed": 61,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 5000))\n    nums = [rng.randint(0, 5000) for _ in range(n)]\n    return [nums]\n"
     }
   ],
-  "oracle_python": "class Solution:\n    def sortArrayByParity(self, nums):\n        evens = [x for x in nums if x % 2 == 0]\n        odds = [x for x in nums if x % 2 == 1]\n        return sorted(evens) + sorted(odds)\n",
+  "oracle_python": "class Solution:\n    def sortArrayByParity(self, nums):\n        out = []\n        for x in nums:\n            if x % 2 == 0:\n                out.append(x)\n        for x in nums:\n            if x % 2 == 1:\n                out.append(x)\n        return out\n",
   "solutions": {
-    "python": "class Solution:\n    def sortArrayByParity(self, nums):\n        evens = [x for x in nums if x % 2 == 0]\n        odds = [x for x in nums if x % 2 == 1]\n        return sorted(evens) + sorted(odds)\n",
-    "javascript": "var sortArrayByParity = function(nums) {\n    const evens = nums.filter(x => x % 2 === 0).sort((a, b) => a - b);\n    const odds = nums.filter(x => x % 2 === 1).sort((a, b) => a - b);\n    return evens.concat(odds);\n};\n"
+    "python": "class Solution:\n    def sortArrayByParity(self, nums):\n        evens = [x for x in nums if x % 2 == 0]\n        odds = [x for x in nums if x % 2 == 1]\n        return evens + odds\n",
+    "javascript": "var sortArrayByParity = function(nums) {\n    const evens = nums.filter(x => x % 2 === 0);\n    const odds = nums.filter(x => x % 2 !== 0);\n    return evens.concat(odds);\n};\n"
   },
-  "complexity": { "time": "O(n)", "space": "O(n)" }
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
 }
