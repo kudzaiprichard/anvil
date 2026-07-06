@@ -1,0 +1,109 @@
+{
+  "slug": "smallest-substring-with-identical-characters-ii",
+  "judge": "exact",
+  "pattern": "Since the feasibility of keeping every run at or under some length only gets easier as that length grows, binary searching on the answer and, for each candidate length, computing the cheapest way to break the string into alternating blocks no longer than it turns an operations budget into a length.",
+  "hints": [
+    "If a maximum run length is achievable with some number of flips, then any larger maximum run length is achievable with no more flips -- so binary search for the smallest length whose flip cost fits the budget.",
+    "For a fixed candidate maximum length L, the string must be split into consecutive blocks, each of size at most L, where each block is forced to a single bit and adjacent blocks must use opposite bits -- flipping every character in a block that disagrees with its assigned bit.",
+    "Track, for each possible ending bit, the cheapest way to reach that point using only blocks of length at most L; a sliding-window minimum over the last L starting points turns this into a linear scan instead of trying every possible block boundary."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "numOps",
+      "kind": "int",
+      "value": [
+        0,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, one flip splits a long run in two",
+      "input": [
+        "000001",
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, two flips alternate the whole string",
+      "input": [
+        "0000",
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, already alternating with zero budget",
+      "input": [
+        "0101",
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character, no operations needed",
+      "input": [
+        "0",
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all identical characters with zero budget, run length stays the full string",
+      "input": [
+        "1111111",
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a large budget that can fully alternate a long uniform string",
+      "input": [
+        "0000000000",
+        10
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "already perfectly alternating, more budget than needed",
+      "input": [
+        "01010101",
+        5
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings with a random operations budget up to the length",
+      "seed": 51,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    numOps = rng.randint(0, n)\n    return [s, numOps]\n"
+    },
+    {
+      "description": "long runs of the same character punctuated by rare flips, with a modest budget",
+      "seed": 52,
+      "size": 6000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 6000))\n    s = []\n    cur = rng.choice('01')\n    while len(s) < n:\n        run = rng.randint(5, 40)\n        s.extend([cur] * run)\n        cur = '1' if cur == '0' else '0'\n    s = ''.join(s[:n])\n    numOps = rng.randint(0, n // 10)\n    return [s, numOps]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def minLength(self, s, numOps):\n        n = len(s)\n        def max_run(t):\n            best = 1\n            cur = 1\n            for i in range(1, len(t)):\n                if t[i] == t[i - 1]:\n                    cur += 1\n                    best = max(best, cur)\n                else:\n                    cur = 1\n            return best\n        best = max_run(s)\n        for k in range(1, numOps + 1):\n            for combo in combinations(range(n), k):\n                t = list(s)\n                for idx in combo:\n                    t[idx] = '1' if t[idx] == '0' else '0'\n                best = min(best, max_run(t))\n        return best\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def minLength(self, s, numOps):\n        n = len(s)\n        ones = [0] * (n + 1)\n        for i, ch in enumerate(s):\n            ones[i + 1] = ones[i] + (1 if ch == '1' else 0)\n        def feasible(L):\n            dp0 = [0] * (n + 1)\n            dp1 = [0] * (n + 1)\n            dq0 = deque([(0, dp1[0] - ones[0])])\n            dq1 = deque([(0, dp0[0] - (0 - ones[0]))])\n            def push(dq, j, val):\n                while dq and dq[-1][1] >= val:\n                    dq.pop()\n                dq.append((j, val))\n            def popold(dq, lo):\n                while dq and dq[0][0] < lo:\n                    dq.popleft()\n            for i in range(1, n + 1):\n                lo = i - L\n                popold(dq0, lo)\n                popold(dq1, lo)\n                dp0[i] = ones[i] + dq0[0][1]\n                dp1[i] = (i - ones[i]) + dq1[0][1]\n                push(dq0, i, dp1[i] - ones[i])\n                push(dq1, i, dp0[i] - (i - ones[i]))\n            return min(dp0[n], dp1[n])\n        lo, hi = 1, n\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if feasible(mid) <= numOps:\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var minLength = function(s, numOps) {\n    const n = s.length;\n    const ones = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) ones[i + 1] = ones[i] + (s[i] === '1' ? 1 : 0);\n    function feasible(L) {\n        const dp0 = new Array(n + 1).fill(0);\n        const dp1 = new Array(n + 1).fill(0);\n        const idx0 = new Array(n + 2), val0 = new Array(n + 2);\n        const idx1 = new Array(n + 2), val1 = new Array(n + 2);\n        let h0 = 0, t0 = 0, h1 = 0, t1 = 0;\n        idx0[0] = 0; val0[0] = dp1[0] - ones[0]; t0 = 1;\n        idx1[0] = 0; val1[0] = dp0[0] - (0 - ones[0]); t1 = 1;\n        for (let i = 1; i <= n; i++) {\n            const lo = i - L;\n            while (h0 < t0 && idx0[h0] < lo) h0++;\n            while (h1 < t1 && idx1[h1] < lo) h1++;\n            dp0[i] = ones[i] + val0[h0];\n            dp1[i] = (i - ones[i]) + val1[h1];\n            const v0 = dp1[i] - ones[i];\n            while (t0 > h0 && val0[t0 - 1] >= v0) t0--;\n            idx0[t0] = i; val0[t0] = v0; t0++;\n            const v1 = dp0[i] - (i - ones[i]);\n            while (t1 > h1 && val1[t1 - 1] >= v1) t1--;\n            idx1[t1] = i; val1[t1] = v1; t1++;\n        }\n        return Math.min(dp0[n], dp1[n]);\n    }\n    let lo = 1, hi = n;\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (feasible(mid) <= numOps) hi = mid; else lo = mid + 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}
