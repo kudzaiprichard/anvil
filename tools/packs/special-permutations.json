@@ -1,0 +1,43 @@
+{
+  "slug": "special-permutations",
+  "judge": "exact",
+  "pattern": "Counting arrangements under an adjacency rule is a Hamiltonian-path count, which collapses to a bitmask DP over (visited set, last element) instead of enumerating permutations.",
+  "hints": [
+    "Think of each number as a node and draw an edge between two numbers when one divides the other; a special permutation is exactly an ordering that walks every node using only those edges.",
+    "Count those orderings with a bitmask DP: dp[mask][last] = number of ways to have placed exactly the elements in mask, ending on index last, built by extending dp[mask without last][prev] whenever prev and last are connected.",
+    "Initialize dp[1<<i][i] = 1 for every i, transition by trying every unvisited next index whose value shares a divisibility relation with the current last, and sum dp[full_mask][*] modulo 1e9+7 for the answer."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 14], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two elements where one divides the other, both orderings are special", "input": [[2, 4]] },
+    { "kind": "edge", "description": "two coprime elements, no ordering is special", "input": [[2, 3]] },
+    { "kind": "edge", "description": "four pairwise-coprime primes, no adjacency edges exist at all", "input": [[5, 7, 11, 13]] },
+    { "kind": "trap", "description": "a value of 1 divides everything, but that alone can't bridge more than two other pairwise-unrelated numbers into one path", "input": [[1, 2, 3, 5, 7]] },
+    { "kind": "boundary", "description": "max-length chain of powers of two, every pair is divisibility-related so every permutation is special", "input": [[1, 2, 4, 8, 16, 32, 64, 128]] },
+    { "kind": "boundary", "description": "values near the upper bound, a divisor chain of three large numbers", "input": [[1000000000, 500000000, 250000000]] },
+    { "kind": "trap", "description": "two disjoint divisibility-related pairs with no edge between the pairs, so no full ordering exists", "input": [[2, 4, 9, 3]] },
+    { "kind": "edge", "description": "a chain of powers of three, fully divisibility-connected", "input": [[1, 3, 9, 27, 81]] }
+  ],
+  "stress": [
+    {
+      "description": "14 distinct large random values, typically a sparse divisibility graph",
+      "seed": 1,
+      "size": 14,
+      "generator_python": "def gen(rng, size):\n    n = 14\n    nums = rng.sample(range(1, 1000000000), n)\n    return [nums]\n"
+    },
+    {
+      "description": "14 values forming a total-order chain (random base times increasing powers of two), a fully-connected divisibility graph",
+      "seed": 2,
+      "size": 14,
+      "generator_python": "def gen(rng, size):\n    n = 14\n    base = rng.randint(1, 1000)\n    nums = [base * (2 ** i) for i in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def specialPerm(self, nums):\n        import itertools\n        MOD = 10 ** 9 + 7\n        count = 0\n        for perm in itertools.permutations(nums):\n            ok = True\n            for i in range(len(perm) - 1):\n                if perm[i] % perm[i + 1] != 0 and perm[i + 1] % perm[i] != 0:\n                    ok = False\n                    break\n            if ok:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def specialPerm(self, nums):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        dp = [[0] * n for _ in range(1 << n)]\n        for i in range(n):\n            dp[1 << i][i] = 1\n        for mask in range(1 << n):\n            row = dp[mask]\n            for last in range(n):\n                cur = row[last]\n                if not cur:\n                    continue\n                for nxt in range(n):\n                    if mask & (1 << nxt):\n                        continue\n                    if nums[last] % nums[nxt] == 0 or nums[nxt] % nums[last] == 0:\n                        nmask = mask | (1 << nxt)\n                        dp[nmask][nxt] = (dp[nmask][nxt] + cur) % MOD\n        full = (1 << n) - 1\n        return sum(dp[full]) % MOD\n",
+    "javascript": "var specialPerm = function(nums) {\n    const MOD = 1000000007n;\n    const n = nums.length;\n    const size = 1 << n;\n    const dp = Array.from({ length: size }, () => new Array(n).fill(0n));\n    for (let i = 0; i < n; i++) dp[1 << i][i] = 1n;\n    for (let mask = 0; mask < size; mask++) {\n        for (let last = 0; last < n; last++) {\n            const cur = dp[mask][last];\n            if (cur === 0n) continue;\n            for (let nxt = 0; nxt < n; nxt++) {\n                if (mask & (1 << nxt)) continue;\n                if (nums[last] % nums[nxt] === 0 || nums[nxt] % nums[last] === 0) {\n                    const nmask = mask | (1 << nxt);\n                    dp[nmask][nxt] = (dp[nmask][nxt] + cur) % MOD;\n                }\n            }\n        }\n    }\n    const full = size - 1;\n    let total = 0n;\n    for (let last = 0; last < n; last++) total = (total + dp[full][last]) % MOD;\n    return Number(total);\n};\n"
+  },
+  "complexity": { "time": "O(2^n * n^2)", "space": "O(2^n * n)" }
+}
