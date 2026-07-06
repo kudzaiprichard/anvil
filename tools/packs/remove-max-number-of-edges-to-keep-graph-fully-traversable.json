@@ -1,0 +1,38 @@
+{
+  "slug": "remove-max-number-of-edges-to-keep-graph-fully-traversable",
+  "judge": "exact",
+  "pattern": "Grow two disjoint-set forests (one per traveler) greedily, spending shared edges first since a shared edge can satisfy both forests for the price of one.",
+  "hints": [
+    "An edge is only worth keeping if it merges two components that weren't already connected for whichever traveler(s) can use it.",
+    "Process the both-travelers edges before either traveler's private edges — a shared edge that merges components is strictly more valuable than two private edges doing the same job.",
+    "Keep one union-find per traveler; a shared edge counts as used if it merges components in either structure, then finish each traveler's spanning forest with their own private edges; both forests must end as a single component or the answer is -1."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a redundant cycle built entirely from shared edges", "input": [4, [[3,1,2],[3,2,3],[3,3,4],[3,1,4]]] },
+    { "kind": "trap", "description": "a shared backbone plus needed private edges plus one truly redundant private edge", "input": [4, [[3,1,2],[1,2,3],[1,3,4],[1,1,4],[2,2,3],[2,3,4]]] },
+    { "kind": "trap", "description": "Alice's edges leave a node unreachable, so the graph can never be fully traversable for her", "input": [4, [[1,1,2],[1,2,3],[2,1,2],[2,2,3],[2,1,3]]] },
+    { "kind": "boundary", "description": "minimal two-node graph with a single shared edge that cannot be removed", "input": [2, [[3,1,2]]] },
+    { "kind": "trap", "description": "an exact duplicate shared edge contributes nothing beyond the first copy", "input": [3, [[3,1,2],[3,1,2],[3,2,3]]] },
+    { "kind": "edge", "description": "only private edges, both travelers need every one of their own edges", "input": [3, [[1,1,2],[1,2,3],[2,1,2],[2,2,3]]] },
+    { "kind": "boundary", "description": "one traveler's private edges alone already connect everything while the other relies on shared edges", "input": [5, [[3,1,2],[3,2,3],[1,3,4],[1,4,5],[2,1,3],[2,1,4],[2,1,5]]] }
+  ],
+  "stress": [
+    {
+      "description": "a random shared-edge spanning backbone (so the graph is always feasible) plus a pile of random extra edges of mixed types",
+      "seed": 7,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 200))\n    order = list(range(1, n + 1))\n    rng.shuffle(order)\n    edges = []\n    for i in range(1, n):\n        u = order[i]\n        v = order[rng.randint(0, i - 1)]\n        edges.append([3, u, v])\n    extra = min(300, max(1, size // 10))\n    for _ in range(extra):\n        u = rng.randint(1, n)\n        v = rng.randint(1, n)\n        if u == v:\n            continue\n        edges.append([rng.randint(1, 3), u, v])\n    return [n, edges]\n",
+      "note": "a random spanning tree of type-3 edges guarantees the answer is never -1, so the stress focuses on counting used edges correctly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxNumEdgesToRemove(self, n, edges):\n        adjA = {i: set() for i in range(1, n + 1)}\n        adjB = {i: set() for i in range(1, n + 1)}\n\n        def reachable(adj, u, v):\n            if u == v:\n                return True\n            seen = {u}\n            stack = [u]\n            while stack:\n                cur = stack.pop()\n                for nxt in adj[cur]:\n                    if nxt == v:\n                        return True\n                    if nxt not in seen:\n                        seen.add(nxt)\n                        stack.append(nxt)\n            return False\n\n        def add(adj, u, v):\n            adj[u].add(v)\n            adj[v].add(u)\n\n        used = 0\n        for t, u, v in edges:\n            if t == 3:\n                needed = False\n                if not reachable(adjA, u, v):\n                    add(adjA, u, v)\n                    needed = True\n                if not reachable(adjB, u, v):\n                    add(adjB, u, v)\n                    needed = True\n                if needed:\n                    used += 1\n        for t, u, v in edges:\n            if t == 1 and not reachable(adjA, u, v):\n                add(adjA, u, v)\n                used += 1\n        for t, u, v in edges:\n            if t == 2 and not reachable(adjB, u, v):\n                add(adjB, u, v)\n                used += 1\n\n        def all_connected(adj):\n            seen = {1}\n            stack = [1]\n            while stack:\n                cur = stack.pop()\n                for nxt in adj[cur]:\n                    if nxt not in seen:\n                        seen.add(nxt)\n                        stack.append(nxt)\n            return len(seen) == n\n\n        if not all_connected(adjA) or not all_connected(adjB):\n            return -1\n        return len(edges) - used\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxNumEdgesToRemove(self, n: int, edges):\n        parent_a = list(range(n + 1))\n        parent_b = list(range(n + 1))\n\n        def find(parent, x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n\n        def union(parent, a, b):\n            ra, rb = find(parent, a), find(parent, b)\n            if ra == rb:\n                return False\n            parent[ra] = rb\n            return True\n\n        used = 0\n        for t, u, v in edges:\n            if t == 3:\n                ua = union(parent_a, u, v)\n                ub = union(parent_b, u, v)\n                if ua or ub:\n                    used += 1\n        for t, u, v in edges:\n            if t == 1 and union(parent_a, u, v):\n                used += 1\n        for t, u, v in edges:\n            if t == 2 and union(parent_b, u, v):\n                used += 1\n\n        def connected(parent):\n            root = find(parent, 1)\n            return all(find(parent, i) == root for i in range(1, n + 1))\n\n        if not connected(parent_a) or not connected(parent_b):\n            return -1\n        return len(edges) - used\n",
+    "javascript": "var maxNumEdgesToRemove = function(n, edges) {\n    const parentA = Array.from({ length: n + 1 }, (_, i) => i);\n    const parentB = Array.from({ length: n + 1 }, (_, i) => i);\n\n    function find(parent, x) {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    }\n\n    function union(parent, a, b) {\n        const ra = find(parent, a), rb = find(parent, b);\n        if (ra === rb) return false;\n        parent[ra] = rb;\n        return true;\n    }\n\n    let used = 0;\n    for (const [t, u, v] of edges) {\n        if (t === 3) {\n            const ua = union(parentA, u, v);\n            const ub = union(parentB, u, v);\n            if (ua || ub) used++;\n        }\n    }\n    for (const [t, u, v] of edges) {\n        if (t === 1 && union(parentA, u, v)) used++;\n    }\n    for (const [t, u, v] of edges) {\n        if (t === 2 && union(parentB, u, v)) used++;\n    }\n\n    function connected(parent) {\n        const root = find(parent, 1);\n        for (let i = 1; i <= n; i++) {\n            if (find(parent, i) !== root) return false;\n        }\n        return true;\n    }\n\n    if (!connected(parentA) || !connected(parentB)) return -1;\n    return edges.length - used;\n};\n"
+  },
+  "complexity": { "time": "O((n + edges) * alpha(n))", "space": "O(n)" }
+}

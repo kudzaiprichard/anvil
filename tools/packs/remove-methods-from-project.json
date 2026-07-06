@@ -1,0 +1,40 @@
+{
+  "slug": "remove-methods-from-project",
+  "judge": "unordered",
+  "pattern": "The suspicious set is a reachability closure from one node along directed calls; removal is only safe when no edge crosses in from outside that closure.",
+  "hints": [
+    "First find every method the buggy one can reach, directly or indirectly, by following invocation edges forward - that whole reachable set is \"suspicious\".",
+    "Removal fails if ANY method outside the suspicious set has an edge INTO the suspicious set - it doesn't matter whether suspicious methods call outward.",
+    "BFS/DFS forward from k to build the suspicious set. Then scan every invocation [a, b]: if a is outside the set and b is inside it, nothing can be removed - return every method 0..n-1. Otherwise return the methods not in the set."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [0, 99999] },
+    { "param": "invocations", "kind": "int[][]", "len": [0, 200000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "no invocations at all - only the buggy method itself is suspicious and removable", "input": [3, 0, []] },
+    { "kind": "edge", "description": "a self-contained chain rooted at k with nothing calling in from outside", "input": [4, 1, [[1, 2], [2, 3]]] },
+    { "kind": "trap", "description": "an outside method calls directly into the suspicious chain, blocking any removal", "input": [4, 1, [[1, 2], [0, 2]]] },
+    { "kind": "trap", "description": "the blocking call targets a method reached only indirectly (two hops from k), not k itself", "input": [5, 0, [[0, 1], [1, 2], [4, 2]]] },
+    { "kind": "trap", "description": "a cycle entirely within the suspicious set is fine; only outside-in edges matter", "input": [3, 0, [[0, 1], [1, 2], [2, 0]]] },
+    { "kind": "boundary", "description": "minimum size, a single method with no invocations", "input": [1, 0, []] },
+    { "kind": "trap", "description": "the suspicious method calls out to a safe method, which is allowed and does not block removal", "input": [4, 0, [[0, 3], [1, 2]]] },
+    { "kind": "boundary", "description": "k is the last valid index", "input": [3, 2, [[0, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "a random DAG of invocations over the max-ish node count with a mid-range k",
+      "seed": 13,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 2000))\n    k = rng.randint(0, n - 1)\n    m = min(4 * n, 100000)\n    seen = set()\n    invocations = []\n    attempts = 0\n    while len(invocations) < m and attempts < m * 3:\n        attempts += 1\n        a = rng.randint(0, n - 1)\n        b = rng.randint(0, n - 1)\n        if a == b or (a, b) in seen:\n            continue\n        seen.add((a, b))\n        invocations.append([a, b])\n    return [n, k, invocations]\n",
+      "note": "edges may point either direction, exercising both self-contained and blocked scenarios"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def remainingMethods(self, n, k, invocations):\n        adj = {}\n        for a, b in invocations:\n            adj.setdefault(a, []).append(b)\n        visited = [False] * n\n        visited[k] = True\n        stack = [k]\n        while stack:\n            u = stack.pop()\n            for v in adj.get(u, []):\n                if not visited[v]:\n                    visited[v] = True\n                    stack.append(v)\n        blocked = any((not visited[a]) and visited[b] for a, b in invocations)\n        if blocked:\n            return list(range(n))\n        return [i for i in range(n) if not visited[i]]\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def remainingMethods(self, n, k, invocations):\n        graph = [[] for _ in range(n)]\n        for a, b in invocations:\n            graph[a].append(b)\n        suspicious = {k}\n        q = deque([k])\n        while q:\n            u = q.popleft()\n            for v in graph[u]:\n                if v not in suspicious:\n                    suspicious.add(v)\n                    q.append(v)\n        for a, b in invocations:\n            if a not in suspicious and b in suspicious:\n                return list(range(n))\n        return [i for i in range(n) if i not in suspicious]\n",
+    "javascript": "var remainingMethods = function(n, k, invocations) {\n    const graph = Array.from({ length: n }, () => []);\n    for (const [a, b] of invocations) graph[a].push(b);\n    const suspicious = new Set([k]);\n    const q = [k];\n    let head = 0;\n    while (head < q.length) {\n        const u = q[head++];\n        for (const v of graph[u]) {\n            if (!suspicious.has(v)) {\n                suspicious.add(v);\n                q.push(v);\n            }\n        }\n    }\n    for (const [a, b] of invocations) {\n        if (!suspicious.has(a) && suspicious.has(b)) {\n            return Array.from({ length: n }, (_, i) => i);\n        }\n    }\n    const result = [];\n    for (let i = 0; i < n; i++) if (!suspicious.has(i)) result.push(i);\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n + e)", "space": "O(n + e)" }
+}
