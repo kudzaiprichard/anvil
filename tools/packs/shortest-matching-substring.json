@@ -1,0 +1,81 @@
+{
+  "slug": "shortest-matching-substring",
+  "judge": "exact",
+  "pattern": "Splitting the wildcard pattern into its three literal pieces reduces matching to finding, for every occurrence of the first piece, the earliest-following occurrence of the second piece and then of the third -- a two-pointer walk over sorted occurrence lists.",
+  "hints": [
+    "Split the pattern at its two '*' characters into three literal pieces; a matching window must start with the first piece, end with the third piece, and contain the second piece somewhere strictly between them.",
+    "Find every starting index where each of the three pieces occurs in the text (an empty piece occurs at every index, including one past the end); sort each list.",
+    "For each occurrence of the first piece, binary-search for the earliest occurrence of the second piece that starts at or after the first piece ends, then the earliest occurrence of the third piece that starts at or after the second piece ends -- that greedy choice always minimizes the window for this starting point."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [1, 100000]
+    },
+    {
+      "param": "p",
+      "kind": "string",
+      "len": [2, 100000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, shortest match found later in the string",
+      "input": ["abaacbaecebce", "ba*c*ce"]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, no valid match",
+      "input": ["baccbaadbc", "cc*baa*adb"]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, both wildcards empty",
+      "input": ["a", "**"]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, wildcards at both ends",
+      "input": ["madlogic", "*adlogi*"]
+    },
+    {
+      "kind": "boundary",
+      "description": "pattern is just the two stars, matches the empty substring anywhere",
+      "input": ["xyz", "**"]
+    },
+    {
+      "kind": "trap",
+      "description": "middle piece appears earlier than needed, greedy must still find a valid later one before failing",
+      "input": ["aabbaabb", "aa*bb*aa"]
+    },
+    {
+      "kind": "trap",
+      "description": "the only occurrence of the last piece overlaps the required order and must be rejected",
+      "input": ["abcabc", "abc*xyz*abc"]
+    },
+    {
+      "kind": "boundary",
+      "description": "first and last literal pieces are empty, only the middle piece matters",
+      "input": ["xxyzzzyzx", "*yz*"]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random text with a pattern built from three random substrings of it",
+      "seed": 19,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(6, min(400, size))\n    s = ''.join(rng.choice('ab') for _ in range(n))\n    def rand_piece():\n        if rng.random() < 0.3:\n            return ''\n        start = rng.randint(0, n - 1)\n        end = rng.randint(start, min(n, start + 5))\n        return s[start:end]\n    p = rand_piece() + '*' + rand_piece() + '*' + rand_piece()\n    return [s, p]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shortestMatchingSubstring(self, s, p):\n        star1 = p.index('*')\n        star2 = p.index('*', star1 + 1)\n        p1, p2, p3 = p[:star1], p[star1 + 1:star2], p[star2 + 1:]\n        n = len(s)\n        best = -1\n        for i in range(n + 1):\n            for j in range(i, n + 1):\n                t = s[i:j]\n                if len(t) < len(p1) + len(p3):\n                    continue\n                if not t.startswith(p1):\n                    continue\n                if not t.endswith(p3):\n                    continue\n                region = t[len(p1):len(t) - len(p3)]\n                if p2 in region:\n                    if best == -1 or (j - i) < best:\n                        best = j - i\n        return best\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def shortestMatchingSubstring(self, s, p):\n        star1 = p.index('*')\n        star2 = p.index('*', star1 + 1)\n        p1, p2, p3 = p[:star1], p[star1 + 1:star2], p[star2 + 1:]\n\n        def find_all(text, pat):\n            if pat == '':\n                return list(range(len(text) + 1))\n            res = []\n            start = 0\n            while True:\n                idx = text.find(pat, start)\n                if idx == -1:\n                    break\n                res.append(idx)\n                start = idx + 1\n            return res\n\n        pos1 = find_all(s, p1)\n        pos2 = find_all(s, p2)\n        pos3 = find_all(s, p3)\n\n        best = -1\n        for i1 in pos1:\n            j = i1 + len(p1)\n            k = bisect.bisect_left(pos2, j)\n            if k == len(pos2):\n                continue\n            i2 = pos2[k]\n            j2 = i2 + len(p2)\n            m = bisect.bisect_left(pos3, j2)\n            if m == len(pos3):\n                continue\n            i3 = pos3[m]\n            length = i3 + len(p3) - i1\n            if best == -1 or length < best:\n                best = length\n        return best\n",
+    "javascript": "var shortestMatchingSubstring = function(s, p) {\n    const star1 = p.indexOf('*');\n    const star2 = p.indexOf('*', star1 + 1);\n    const p1 = p.slice(0, star1), p2 = p.slice(star1 + 1, star2), p3 = p.slice(star2 + 1);\n\n    function findAll(text, pat) {\n        if (pat === '') {\n            const res = [];\n            for (let i = 0; i <= text.length; i++) res.push(i);\n            return res;\n        }\n        const res = [];\n        let start = 0;\n        while (true) {\n            const idx = text.indexOf(pat, start);\n            if (idx === -1) break;\n            res.push(idx);\n            start = idx + 1;\n        }\n        return res;\n    }\n\n    function lowerBound(arr, target) {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] < target) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n\n    const pos1 = findAll(s, p1);\n    const pos2 = findAll(s, p2);\n    const pos3 = findAll(s, p3);\n\n    let best = -1;\n    for (const i1 of pos1) {\n        const j = i1 + p1.length;\n        const k = lowerBound(pos2, j);\n        if (k === pos2.length) continue;\n        const i2 = pos2[k];\n        const j2 = i2 + p2.length;\n        const m = lowerBound(pos3, j2);\n        if (m === pos3.length) continue;\n        const i3 = pos3[m];\n        const length = i3 + p3.length - i1;\n        if (best === -1 || length < best) best = length;\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}
