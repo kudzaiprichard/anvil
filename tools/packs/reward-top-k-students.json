@@ -1,0 +1,234 @@
+{
+  "slug": "reward-top-k-students",
+  "judge": "exact",
+  "pattern": "Score each report by +3 per positive word and -1 per negative word encountered, then rank students by score descending with ties broken by the smaller student id.",
+  "hints": [
+    "Turn the positive and negative word lists into two sets for O(1) membership checks, then tally each report word by word.",
+    "A word counts every time it appears in a sentence, so a repeated positive or negative word affects the score more than once.",
+    "Sort students by (-score, id) so higher scores come first and, among equal scores, the smaller id wins -- then take the first k ids."
+  ],
+  "constraints": [
+    {
+      "param": "positive_feedback",
+      "kind": "string[]",
+      "len": [
+        1,
+        10000
+      ]
+    },
+    {
+      "param": "negative_feedback",
+      "kind": "string[]",
+      "len": [
+        1,
+        10000
+      ]
+    },
+    {
+      "param": "report",
+      "kind": "string[]",
+      "len": [
+        1,
+        10000
+      ]
+    },
+    {
+      "param": "student_id",
+      "kind": "int[]",
+      "len": [
+        1,
+        10000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "matches the statement example where a tie is broken by the smaller id",
+      "input": [
+        [
+          "smart",
+          "brilliant",
+          "studious"
+        ],
+        [
+          "not"
+        ],
+        [
+          "this student is studious",
+          "the student is smart"
+        ],
+        [
+          1,
+          2
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "matches the statement example where a negative word lowers one student's score",
+      "input": [
+        [
+          "smart",
+          "brilliant",
+          "studious"
+        ],
+        [
+          "not"
+        ],
+        [
+          "this student is not studious",
+          "the student is smart"
+        ],
+        [
+          1,
+          2
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a positive word repeated twice in one sentence counts twice",
+      "input": [
+        [
+          "awesome",
+          "great"
+        ],
+        [
+          "bad",
+          "terrible"
+        ],
+        [
+          "team was awesome and great and great",
+          "the project was terrible",
+          "quiet class with no comment words",
+          "bad but somewhat awesome"
+        ],
+        [
+          50,
+          3,
+          10,
+          7
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a tie in score must break by the smaller student id, not by input order",
+      "input": [
+        [
+          "nice"
+        ],
+        [
+          "mean"
+        ],
+        [
+          "nice",
+          "nice"
+        ],
+        [
+          100,
+          5
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equal to the number of students returns everyone ranked",
+      "input": [
+        [
+          "good"
+        ],
+        [
+          "bad"
+        ],
+        [
+          "good",
+          "bad",
+          "plain"
+        ],
+        [
+          1,
+          2,
+          3
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k = 1 returns only the single top scorer",
+      "input": [
+        [
+          "good"
+        ],
+        [
+          "bad"
+        ],
+        [
+          "good good",
+          "bad bad",
+          "plain plain"
+        ],
+        [
+          9,
+          8,
+          7
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a single student with a single neutral word",
+      "input": [
+        [
+          "ok"
+        ],
+        [
+          "no"
+        ],
+        [
+          "ok"
+        ],
+        [
+          42
+        ],
+        1
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random reports built from a fixed positive/negative/neutral vocabulary with shuffled unique ids",
+      "seed": 5,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    positive_feedback = ['good', 'great', 'super', 'excellent', 'awesome']\n    negative_feedback = ['bad', 'terrible', 'awful', 'poor', 'weak']\n    neutral = ['the', 'student', 'is', 'was', 'very', 'quite', 'team', 'project', 'class', 'effort']\n    vocab = positive_feedback + negative_feedback + neutral\n    report = []\n    for _ in range(n):\n        length = rng.randint(3, 8)\n        words = [rng.choice(vocab) for _ in range(length)]\n        report.append(' '.join(words))\n    ids = list(range(1, n + 1))\n    rng.shuffle(ids)\n    k = rng.randint(1, n)\n    return [positive_feedback, negative_feedback, report, ids, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def topStudents(self, positive_feedback, negative_feedback, report, student_id, k):\n        word_type = {}\n        for w in positive_feedback:\n            word_type[w] = 1\n        for w in negative_feedback:\n            word_type[w] = -1\n        scores = {}\n        for sid, sentence in zip(student_id, report):\n            s = 0\n            for w in sentence.split():\n                t = word_type.get(w, 0)\n                if t == 1:\n                    s += 3\n                elif t == -1:\n                    s -= 1\n            scores[sid] = s\n        remaining = list(scores.items())\n        result = []\n        for _ in range(k):\n            best = None\n            for sid, sc in remaining:\n                if best is None or sc > best[1] or (sc == best[1] and sid < best[0]):\n                    best = (sid, sc)\n            result.append(best[0])\n            remaining.remove(best)\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def topStudents(self, positive_feedback, negative_feedback, report, student_id, k):\n        pos = set(positive_feedback)\n        neg = set(negative_feedback)\n        scored = []\n        for sid, sentence in zip(student_id, report):\n            score = 0\n            for w in sentence.split():\n                if w in pos:\n                    score += 3\n                elif w in neg:\n                    score -= 1\n            scored.append((-score, sid))\n        scored.sort()\n        return [sid for _, sid in scored[:k]]\n",
+    "javascript": "var topStudents = function(positive_feedback, negative_feedback, report, student_id, k) {\n    const pos = new Set(positive_feedback);\n    const neg = new Set(negative_feedback);\n    const scored = [];\n    for (let i = 0; i < report.length; i++) {\n        const words = report[i].split(' ');\n        let score = 0;\n        for (const w of words) {\n            if (pos.has(w)) score += 3;\n            else if (neg.has(w)) score -= 1;\n        }\n        scored.push([-score, student_id[i]]);\n    }\n    scored.sort((a, b) => a[0] - b[0] || a[1] - b[1]);\n    return scored.slice(0, k).map(x => x[1]);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n + total words)",
+    "space": "O(n)"
+  }
+}
