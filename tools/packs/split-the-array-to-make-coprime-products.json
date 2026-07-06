@@ -1,0 +1,37 @@
+{
+  "slug": "split-the-array-to-make-coprime-products",
+  "judge": "exact",
+  "pattern": "A prime only breaks coprimality at a split point if it appears on both sides of that point, so tracking the first and last position each prime factor shows up in pins down exactly which split points are ruled out.",
+  "hints": [
+    "Two products share a common factor only through a shared prime, so factor every number into primes instead of ever multiplying the (potentially enormous) products directly.",
+    "For each prime, find the earliest index and the latest index at which it divides some element; any split point strictly between those two indices puts that prime on both sides and is invalid.",
+    "Mark each prime's invalid range on a difference array over the index positions, take a running sum, and the first index whose running total is zero is the answer (or -1 if none exists)."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10000], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all ones, coprime everywhere, split right after the first element", "input": [[1, 1, 1]] },
+    { "kind": "trap", "description": "every element shares the same prime factor, so no split is ever valid", "input": [[2, 4, 8, 16]] },
+    { "kind": "trap", "description": "pairwise distinct primes, so the very first split already works", "input": [[3, 5, 7]] },
+    { "kind": "boundary", "description": "a single element, no split index exists at all", "input": [[5]] },
+    { "kind": "boundary", "description": "repeated maximum-value composite number, never coprime", "input": [[1000000, 1000000, 1000000]] },
+    { "kind": "edge", "description": "shared primes chain across the whole array, delaying the earliest valid split", "input": [[6, 10, 15]] },
+    { "kind": "trap", "description": "a value of one sitting between two numbers that do share a prime factor", "input": [[1, 2, 3, 1, 5]] },
+    { "kind": "edge", "description": "two elements only, coprime to each other", "input": [[9, 25]] }
+  ],
+  "stress": [
+    {
+      "description": "large random arrays of values up to the maximum, exercising the prime-range bookkeeping at scale",
+      "seed": 13,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = min(10000, max(1, size))\n    nums = [rng.randint(1, 1000000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findValidSplit(self, nums):\n        import math\n        n = len(nums)\n        total = 1\n        for v in nums:\n            total *= v\n        prefix = 1\n        for i in range(n - 1):\n            prefix *= nums[i]\n            suffix = total // prefix\n            if math.gcd(prefix, suffix) == 1:\n                return i\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def findValidSplit(self, nums):\n        n = len(nums)\n        MAXV = 10 ** 6 + 1\n        spf = list(range(MAXV))\n        i = 2\n        while i * i < MAXV:\n            if spf[i] == i:\n                for j in range(i * i, MAXV, i):\n                    if spf[j] == j:\n                        spf[j] = i\n            i += 1\n        first = {}\n        last = {}\n        for idx, v in enumerate(nums):\n            x = v\n            while x > 1:\n                p = spf[x]\n                if p not in first:\n                    first[p] = idx\n                last[p] = idx\n                while x % p == 0:\n                    x //= p\n        diff = [0] * (n + 1)\n        for p in first:\n            lo, hi = first[p], last[p]\n            if lo < hi:\n                diff[lo] += 1\n                diff[hi] -= 1\n        cover = 0\n        for i in range(n - 1):\n            cover += diff[i]\n            if cover == 0:\n                return i\n        return -1\n",
+    "javascript": "var findValidSplit = function(nums) {\n    const n = nums.length;\n    const MAXV = 1000001;\n    const spf = new Int32Array(MAXV);\n    for (let i = 0; i < MAXV; i++) spf[i] = i;\n    for (let i = 2; i * i < MAXV; i++) {\n        if (spf[i] === i) {\n            for (let j = i * i; j < MAXV; j += i) {\n                if (spf[j] === j) spf[j] = i;\n            }\n        }\n    }\n    const first = new Map();\n    const last = new Map();\n    for (let idx = 0; idx < n; idx++) {\n        let x = nums[idx];\n        while (x > 1) {\n            const p = spf[x];\n            if (!first.has(p)) first.set(p, idx);\n            last.set(p, idx);\n            while (x % p === 0) x = Math.floor(x / p);\n        }\n    }\n    const diff = new Array(n + 1).fill(0);\n    for (const [p, lo] of first) {\n        const hi = last.get(p);\n        if (lo < hi) {\n            diff[lo] += 1;\n            diff[hi] -= 1;\n        }\n    }\n    let cover = 0;\n    for (let i = 0; i < n - 1; i++) {\n        cover += diff[i];\n        if (cover === 0) return i;\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O((n + V) log log V)", "space": "O(n + V)" }
+}
