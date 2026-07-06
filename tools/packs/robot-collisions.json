@@ -1,0 +1,39 @@
+{
+  "slug": "robot-collisions",
+  "judge": "exact",
+  "pattern": "Only a right-moving robot waiting somewhere to the left can ever collide with a left-moving robot, so a stack of pending right-movers, processed in left-to-right position order, resolves every collision in a single pass.",
+  "hints": [
+    "Collisions only ever happen between a robot moving right and a robot moving left that starts somewhere to its right in space -- so process robots in left-to-right position order and keep the right-movers seen so far on a stack.",
+    "When you reach a left-moving robot, it must fight the most recently pushed right-mover still alive on the stack first, then the next one down, and so on -- exactly like matching brackets.",
+    "Each fight removes the lower-health robot and knocks one point of health off the survivor; if both have equal health, both vanish -- keep resolving against the stack until the left-mover dies, wins outright, or the stack empties, then move on to the next robot in position order."
+  ],
+  "constraints": [
+    { "param": "positions", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000], "note": "all values in positions are distinct" },
+    { "param": "healths", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "directions", "kind": "string", "len": [1, 100000], "note": "each character is 'L' or 'R'" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all moving the same direction, no collisions", "input": [[5, 4, 3, 2, 1], [2, 17, 9, 15, 10], "RRRRR"] },
+    { "kind": "edge", "description": "two collision pairs, one mutual-destruction and one survivor", "input": [[3, 5, 2, 6], [10, 10, 15, 12], "RLRL"] },
+    { "kind": "edge", "description": "all pairs mutually destroy, no survivors", "input": [[1, 2, 5, 6], [10, 10, 11, 11], "RLRL"] },
+    { "kind": "edge", "description": "single robot, no possible collision", "input": [[100], [7], "L"] },
+    { "kind": "boundary", "description": "two robots at minimum/maximum position gap, immediate collision", "input": [[1, 1000000000], [1, 2], "RL"] },
+    { "kind": "trap", "description": "a right-mover survives multiple fights in a row, losing health each time", "input": [[1, 2, 3, 4, 5], [10, 1, 1, 1, 10], "RLLLR"] },
+    { "kind": "trap", "description": "positions given out of spatial order in the input arrays", "input": [[10, 1, 5], [3, 20, 3], "LRL"] },
+    { "kind": "trap", "description": "left-moving robot with nothing to its left ever collides with, survives untouched", "input": [[1, 2, 3], [4, 4, 4], "LLL"] }
+  ],
+  "stress": [
+    {
+      "description": "20000 robots at random distinct positions with random directions/healths",
+      "seed": 13,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    positions = rng.sample(range(1, 10 * n + 1), n)\n    healths = [rng.randint(1, 1000000000) for _ in range(n)]\n    directions = ''.join(rng.choice('LR') for _ in range(n))\n    return [positions, healths, directions]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def survivedRobotsHealths(self, positions, healths, directions):\n        n = len(positions)\n        robots = list(range(n))\n        hp = healths[:]\n        alive = [True] * n\n\n        def spatial_order():\n            return sorted([i for i in robots if alive[i]], key=lambda i: positions[i])\n\n        changed = True\n        while changed:\n            changed = False\n            order = spatial_order()\n            for a, b in zip(order, order[1:]):\n                if directions[a] == 'R' and directions[b] == 'L':\n                    if hp[a] < hp[b]:\n                        alive[a] = False\n                        hp[b] -= 1\n                    elif hp[a] > hp[b]:\n                        alive[b] = False\n                        hp[a] -= 1\n                    else:\n                        alive[a] = False\n                        alive[b] = False\n                    changed = True\n                    break\n        return [hp[i] for i in range(n) if alive[i]]\n",
+  "solutions": {
+    "python": "class Solution:\n    def survivedRobotsHealths(self, positions, healths, directions):\n        n = len(positions)\n        order = sorted(range(n), key=lambda i: positions[i])\n        hp = healths[:]\n        alive = [True] * n\n        stack = []\n        for idx in order:\n            if directions[idx] == 'R':\n                stack.append(idx)\n                continue\n            while stack:\n                top = stack[-1]\n                if hp[top] < hp[idx]:\n                    alive[top] = False\n                    stack.pop()\n                    hp[idx] -= 1\n                elif hp[top] > hp[idx]:\n                    hp[top] -= 1\n                    alive[idx] = False\n                    break\n                else:\n                    alive[top] = False\n                    alive[idx] = False\n                    stack.pop()\n                    break\n        return [hp[i] for i in range(n) if alive[i]]\n",
+    "javascript": "var survivedRobotsHealths = function(positions, healths, directions) {\n    const n = positions.length;\n    const order = Array.from({length: n}, (_, i) => i).sort((a, b) => positions[a] - positions[b]);\n    const hp = healths.slice();\n    const alive = new Array(n).fill(true);\n    const stack = [];\n    for (const idx of order) {\n        if (directions[idx] === 'R') {\n            stack.push(idx);\n            continue;\n        }\n        while (stack.length > 0) {\n            const top = stack[stack.length - 1];\n            if (hp[top] < hp[idx]) {\n                alive[top] = false;\n                stack.pop();\n                hp[idx] -= 1;\n            } else if (hp[top] > hp[idx]) {\n                hp[top] -= 1;\n                alive[idx] = false;\n                break;\n            } else {\n                alive[top] = false;\n                alive[idx] = false;\n                stack.pop();\n                break;\n            }\n        }\n    }\n    const res = [];\n    for (let i = 0; i < n; i++) if (alive[i]) res.push(hp[i]);\n    return res;\n};"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}
