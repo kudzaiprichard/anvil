@@ -1,0 +1,37 @@
+{
+  "slug": "shortest-distance-after-road-addition-queries-i",
+  "judge": "exact",
+  "pattern": "Every road only ever points to a larger city index, so the graph stays a DAG in index order and one forward relaxation pass after each new road recomputes the shortest distance to the last city.",
+  "hints": [
+    "Every road goes from a smaller city index to a larger one, so processing cities in index order 0..n-1 is always a valid topological order — there is never a cycle to worry about.",
+    "After adding a query's road, redo a single forward pass: keep a running best-distance array, and whenever you reach a city, relax every road leaving it (the default road to the next city, plus any added roads) into the destination's best distance.",
+    "n and the number of queries are both small here, so simply recomputing the whole forward pass from scratch after each query is fast enough — no incremental bookkeeping is required."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [3, 500] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 500], "value": [0, 499] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single query shortcut spans most of the path", "input": [6, [[1, 4]]] },
+    { "kind": "edge", "description": "two disjoint shortcuts stack their savings", "input": [8, [[1, 3], [4, 6]]] },
+    { "kind": "boundary", "description": "minimum city count with the only legal query", "input": [3, [[0, 2]]] },
+    { "kind": "boundary", "description": "a single query covering the whole path", "input": [5, [[0, 4]]] },
+    { "kind": "trap", "description": "overlapping queries must combine correctly, not just take the smaller span", "input": [7, [[1, 5], [2, 6]]] },
+    { "kind": "trap", "description": "a later query re-shortcuts the whole path", "input": [6, [[2, 4], [0, 5]]] },
+    { "kind": "edge", "description": "a chain of small shortcuts laid end to end", "input": [10, [[0, 2], [2, 4], [4, 6], [6, 9]]] }
+  ],
+  "stress": [
+    {
+      "description": "random distinct legal queries over a moderate number of cities",
+      "seed": 101,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 500))\n    q_count = max(1, min(size, 500))\n    seen = set()\n    queries = []\n    attempts = 0\n    while len(queries) < q_count and attempts < q_count * 20:\n        attempts += 1\n        u = rng.randint(0, n - 3)\n        v = rng.randint(u + 2, n - 1)\n        if (u, v) in seen:\n            continue\n        seen.add((u, v))\n        queries.append([u, v])\n    if not queries:\n        queries = [[0, n - 1]]\n    return [n, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shortestDistanceAfterQueries(self, n, queries):\n        from collections import deque, defaultdict\n        adj = defaultdict(list)\n        for i in range(n - 1):\n            adj[i].append(i + 1)\n        ans = []\n        for u, v in queries:\n            adj[u].append(v)\n            dist = [-1] * n\n            dist[0] = 0\n            q = deque([0])\n            while q:\n                node = q.popleft()\n                if node == n - 1:\n                    break\n                for nxt in adj[node]:\n                    if dist[nxt] == -1:\n                        dist[nxt] = dist[node] + 1\n                        q.append(nxt)\n            ans.append(dist[n - 1])\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def shortestDistanceAfterQueries(self, n, queries):\n        from collections import defaultdict\n        edges_from = defaultdict(list)\n        for i in range(n - 1):\n            edges_from[i].append(i + 1)\n        ans = []\n        for u, v in queries:\n            edges_from[u].append(v)\n            dist = [float('inf')] * n\n            dist[0] = 0\n            for node in range(n):\n                if dist[node] == float('inf'):\n                    continue\n                for nxt in edges_from[node]:\n                    if dist[node] + 1 < dist[nxt]:\n                        dist[nxt] = dist[node] + 1\n            ans.append(dist[n - 1])\n        return ans\n",
+    "javascript": "var shortestDistanceAfterQueries = function(n, queries) {\n    const edgesFrom = Array.from({ length: n }, () => []);\n    for (let i = 0; i < n - 1; i++) edgesFrom[i].push(i + 1);\n    const ans = [];\n    for (const [u, v] of queries) {\n        edgesFrom[u].push(v);\n        const dist = new Array(n).fill(Infinity);\n        dist[0] = 0;\n        for (let node = 0; node < n; node++) {\n            if (dist[node] === Infinity) continue;\n            for (const nxt of edgesFrom[node]) {\n                if (dist[node] + 1 < dist[nxt]) dist[nxt] = dist[node] + 1;\n            }\n        }\n        ans.push(dist[n - 1]);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n * q)", "space": "O(n + q)" }
+}
