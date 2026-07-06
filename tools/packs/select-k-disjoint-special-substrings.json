@@ -1,0 +1,81 @@
+{
+  "slug": "select-k-disjoint-special-substrings",
+  "judge": "exact",
+  "pattern": "Every character forces a unique minimal self-contained window around all of its occurrences, and these forced windows always nest or stay disjoint, so the maximum number of usable pieces is just the count of the innermost ones.",
+  "hints": [
+    "If a substring uses a character at all, it must contain every occurrence of that character (otherwise that character 'appears outside it') -- so start from a single character's first/last occurrence and keep growing the window to also fully swallow any other character caught inside it, until nothing new gets pulled in.",
+    "That final grown window is the smallest valid special substring built around that character; if it ends up spanning the entire string, that character can never be part of any valid selection at all.",
+    "These per-character windows always end up either identical, one fully inside another, or completely separate from each other (never partially overlapping) -- so counting the innermost, non-nested windows among the valid ones gives the largest possible number of disjoint special substrings you could ever pick; k is achievable exactly when it does not exceed that count."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [2, 50000]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [0, 26]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two disjoint special substrings",
+      "input": ["abcdbaefab", 2]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, only two are actually achievable",
+      "input": ["cdefdc", 3]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, k=0 is always achievable",
+      "input": ["abeabe", 0]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length string, both characters entangled with each other",
+      "input": ["ab", 1]
+    },
+    {
+      "kind": "trap",
+      "description": "a character whose closure is nested strictly inside another usable character's closure",
+      "input": ["xaybxcz", 3]
+    },
+    {
+      "kind": "trap",
+      "description": "every character chains into the whole string, nothing at all is usable",
+      "input": ["abcabc", 1]
+    },
+    {
+      "kind": "edge",
+      "description": "many independent single-occurrence characters, each its own special substring",
+      "input": ["axbxcxdxexf", 4]
+    },
+    {
+      "kind": "boundary",
+      "description": "k at its maximum of 26 on a string that cannot possibly supply that many",
+      "input": ["aabb", 26]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase string over a small alphabet, random k",
+      "seed": 27,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(200, size))\n    s = ''.join(rng.choice('abcdef') for _ in range(n))\n    k = rng.randint(0, 6)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSubstringLength(self, s, k):\n        if k == 0:\n            return True\n        n = len(s)\n        first = {}\n        last = {}\n        for i, ch in enumerate(s):\n            if ch not in first:\n                first[ch] = i\n            last[ch] = i\n        valid_intervals = []\n        for l in range(n):\n            for r in range(l, n):\n                if l == 0 and r == n - 1:\n                    continue\n                chars_here = set(s[l:r + 1])\n                ok = True\n                for ch in chars_here:\n                    if first[ch] < l or last[ch] > r:\n                        ok = False\n                        break\n                if ok:\n                    valid_intervals.append((r, l))\n        valid_intervals.sort()\n        count = 0\n        last_end = -1\n        for end, start in valid_intervals:\n            if start > last_end:\n                count += 1\n                last_end = end\n        return k <= count\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSubstringLength(self, s, k):\n        n = len(s)\n        if k == 0:\n            return True\n        first = {}\n        last = {}\n        for i, ch in enumerate(s):\n            if ch not in first:\n                first[ch] = i\n            last[ch] = i\n\n        closures = []\n        for c in first:\n            l, r = first[c], last[c]\n            while True:\n                if l == 0 and r == n - 1:\n                    break\n                changed = False\n                for ch2 in set(s[l:r + 1]):\n                    fl, la = first[ch2], last[ch2]\n                    if fl < l or la > r:\n                        l = min(l, fl)\n                        r = max(r, la)\n                        changed = True\n                if not changed:\n                    break\n            closures.append((l, r))\n\n        valid = set()\n        for l, r in closures:\n            if not (l == 0 and r == n - 1):\n                valid.add((l, r))\n        valid_list = list(valid)\n\n        leaves = 0\n        for i, (l1, r1) in enumerate(valid_list):\n            is_leaf = True\n            for j, (l2, r2) in enumerate(valid_list):\n                if i == j:\n                    continue\n                if l1 <= l2 and r2 <= r1 and (l2 > l1 or r2 < r1):\n                    is_leaf = False\n                    break\n            if is_leaf:\n                leaves += 1\n        return k <= leaves\n",
+    "javascript": "var maxSubstringLength = function(s, k) {\n    const n = s.length;\n    if (k === 0) return true;\n    const first = new Map();\n    const last = new Map();\n    for (let i = 0; i < n; i++) {\n        const ch = s[i];\n        if (!first.has(ch)) first.set(ch, i);\n        last.set(ch, i);\n    }\n\n    const closureList = [];\n    for (const c of first.keys()) {\n        let l = first.get(c), r = last.get(c);\n        while (true) {\n            if (l === 0 && r === n - 1) break;\n            let changed = false;\n            const seen = new Set();\n            for (let i = l; i <= r; i++) seen.add(s[i]);\n            for (const ch2 of seen) {\n                const fl = first.get(ch2), la = last.get(ch2);\n                if (fl < l || la > r) {\n                    l = Math.min(l, fl);\n                    r = Math.max(r, la);\n                    changed = true;\n                }\n            }\n            if (!changed) break;\n        }\n        closureList.push([l, r]);\n    }\n\n    const validSet = [];\n    const seenKeys = new Set();\n    for (const [l, r] of closureList) {\n        if (l === 0 && r === n - 1) continue;\n        const key = l + ',' + r;\n        if (!seenKeys.has(key)) {\n            seenKeys.add(key);\n            validSet.push([l, r]);\n        }\n    }\n\n    let leaves = 0;\n    for (let i = 0; i < validSet.length; i++) {\n        const [l1, r1] = validSet[i];\n        let isLeaf = true;\n        for (let j = 0; j < validSet.length; j++) {\n            if (i === j) continue;\n            const [l2, r2] = validSet[j];\n            if (l1 <= l2 && r2 <= r1 && (l2 > l1 || r2 < r1)) {\n                isLeaf = false;\n                break;\n            }\n        }\n        if (isLeaf) leaves++;\n    }\n    return k <= leaves;\n};\n"
+  },
+  "complexity": {
+    "time": "O(26*n)",
+    "space": "O(n)"
+  }
+}
