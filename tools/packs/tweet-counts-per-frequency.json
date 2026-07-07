@@ -1,0 +1,52 @@
+{
+  "slug": "tweet-counts-per-frequency",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Once every recorded time is bucketed by dividing by a chunk size, counting tweets per chunk in a window is just a histogram over the (few) buckets that window spans.",
+  "hints": [
+    "Store every recorded time for a given name in a simple list; recordTweet just appends to that name's list.",
+    "A frequency name picks a chunk width in seconds (minute=60, hour=3600, day=86400); the number of chunks covering [startTime, endTime] is ((endTime - startTime) // width) + 1, and any recorded time t falls in chunk (t - startTime) // width.",
+    "getTweetCountsPerFrequency builds a zero-filled array of that many chunks, then walks the name's recorded times, adding 1 to the right chunk for every time that falls within [startTime, endTime]."
+  ],
+  "constraints": [
+    { "param": "tweetName", "kind": "string", "len": [1, 20] },
+    { "param": "time", "kind": "int", "value": [0, 1000000000] },
+    { "param": "freq", "kind": "string" },
+    { "param": "startTime", "kind": "int", "value": [0, 1000000000] },
+    { "param": "endTime", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a handful of tweets split across minute chunks, then re-queried by the hour",
+      "input": [["TweetCounts", "recordTweet", "recordTweet", "recordTweet", "getTweetCountsPerFrequency", "getTweetCountsPerFrequency", "recordTweet", "getTweetCountsPerFrequency"],
+                [[], ["alice", 0], ["alice", 60], ["alice", 10], ["minute", "alice", 0, 59], ["minute", "alice", 0, 60], ["alice", 120], ["hour", "alice", 0, 210]]] },
+    { "kind": "edge", "description": "two different names never interfere with each other's counts",
+      "input": [["TweetCounts", "recordTweet", "recordTweet", "getTweetCountsPerFrequency", "getTweetCountsPerFrequency"],
+                [[], ["alice", 5], ["bob", 5], ["minute", "alice", 0, 59], ["minute", "bob", 0, 59]]] },
+    { "kind": "boundary", "description": "a window of exactly one second still yields exactly one chunk",
+      "input": [["TweetCounts", "recordTweet", "getTweetCountsPerFrequency"], [[], ["cara", 5], ["day", "cara", 5, 5]]] },
+    { "kind": "boundary", "description": "day-frequency window spans multiple days and the last (partial) day chunk must still be counted",
+      "input": [["TweetCounts", "recordTweet", "recordTweet", "getTweetCountsPerFrequency"],
+                [[], ["dana", 0], ["dana", 100000], ["day", "dana", 0, 100000]]] },
+    { "kind": "trap", "description": "a tweet time exactly on a chunk boundary belongs to the chunk that starts at it, not the one before it",
+      "input": [["TweetCounts", "recordTweet", "recordTweet", "getTweetCountsPerFrequency"],
+                [[], ["eve", 59], ["eve", 60], ["minute", "eve", 0, 119]]] },
+    { "kind": "trap", "description": "querying a window that starts after some recorded tweets must exclude those earlier tweets entirely, not shift the chunk index by them",
+      "input": [["TweetCounts", "recordTweet", "recordTweet", "recordTweet", "getTweetCountsPerFrequency"],
+                [[], ["fox", 5], ["fox", 65], ["fox", 130], ["minute", "fox", 60, 190]]] }
+  ],
+  "stress": [
+    {
+      "description": "random recordTweet/getTweetCountsPerFrequency calls over a small name alphabet and bounded time range",
+      "seed": 33,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    names = ['a', 'b', 'c']\n    ops = ['TweetCounts']\n    args = [[]]\n    for _ in range(max(1, size)):\n        name = rng.choice(names)\n        if rng.random() < 0.7:\n            ops.append('recordTweet')\n            args.append([name, rng.randint(0, 5000)])\n        else:\n            freq = rng.choice(['minute', 'hour', 'day'])\n            start = rng.randint(0, 2000)\n            end = start + rng.randint(0, 3000)\n            ops.append('getTweetCountsPerFrequency')\n            args.append([freq, name, start, end])\n    return [ops, args]\n",
+      "note": "a bounded time range keeps chunk counts small for every frequency while still exercising all three chunk widths"
+    }
+  ],
+  "oracle_python": "class TweetCounts:\n    def __init__(self):\n        self.times = {}\n\n    def recordTweet(self, tweetName, time):\n        self.times.setdefault(tweetName, []).append(time)\n\n    def getTweetCountsPerFrequency(self, freq, tweetName, startTime, endTime):\n        width = {'minute': 60, 'hour': 3600, 'day': 86400}[freq]\n        n_chunks = (endTime - startTime) // width + 1\n        counts = [0] * n_chunks\n        for t in self.times.get(tweetName, []):\n            if startTime <= t <= endTime:\n                for i in range(n_chunks):\n                    lo = startTime + i * width\n                    hi = min(endTime, lo + width - 1)\n                    if lo <= t <= hi:\n                        counts[i] += 1\n                        break\n        return counts\n",
+  "solutions": {
+    "python": "class TweetCounts:\n    def __init__(self):\n        self.records = {}\n\n    def recordTweet(self, tweetName, time):\n        self.records.setdefault(tweetName, []).append(time)\n\n    def getTweetCountsPerFrequency(self, freq, tweetName, startTime, endTime):\n        width = 60 if freq == 'minute' else 3600 if freq == 'hour' else 86400\n        n_chunks = (endTime - startTime) // width + 1\n        counts = [0] * n_chunks\n        for t in self.records.get(tweetName, []):\n            if startTime <= t <= endTime:\n                counts[(t - startTime) // width] += 1\n        return counts\n",
+    "javascript": "class TweetCounts {\n    constructor() {\n        this.records = new Map();\n    }\n    recordTweet(tweetName, time) {\n        if (!this.records.has(tweetName)) this.records.set(tweetName, []);\n        this.records.get(tweetName).push(time);\n    }\n    getTweetCountsPerFrequency(freq, tweetName, startTime, endTime) {\n        const width = freq === 'minute' ? 60 : freq === 'hour' ? 3600 : 86400;\n        const nChunks = Math.floor((endTime - startTime) / width) + 1;\n        const counts = new Array(nChunks).fill(0);\n        const times = this.records.get(tweetName) || [];\n        for (const t of times) {\n            if (t >= startTime && t <= endTime) {\n                counts[Math.floor((t - startTime) / width)] += 1;\n            }\n        }\n        return counts;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(k) per query, k = recorded tweets for that name", "space": "O(total recorded tweets)" }
+}
