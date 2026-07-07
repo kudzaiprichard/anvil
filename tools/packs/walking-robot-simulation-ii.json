@@ -1,0 +1,47 @@
+{
+  "slug": "walking-robot-simulation-ii",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "The robot only ever walks the outer rectangle boundary, so its state after any total number of steps is a pure function of that running total modulo the boundary's perimeter, with one special case: landing exactly on a whole multiple of the perimeter means it just arrived back at the origin heading in the final segment's direction, not the starting one.",
+  "hints": [
+    "Simulating one grid cell at a time per step() call works but a single call can request up to 1e5 steps; notice the robot's path only ever traces the four edges of the rectangle in a fixed repeating cycle, so you don't need to move cell by cell.",
+    "Keep a single running total of all steps ever requested. The rectangle's perimeter has length 2*(width - 1 + height - 1); the robot's position and facing after the running total's steps depend only on that total modulo the perimeter.",
+    "Split the perimeter into four segments (east along the bottom, north along the right edge, west along the top, south along the left edge) with known lengths (width-1, height-1, width-1, height-1) and figure out which segment the reduced step count falls in to get position and direction directly. One subtlety: if the running total is a positive exact multiple of the perimeter, treat it as landing at the END of the south segment (position (0,0), facing South), not the start of the east segment — the robot has just arrived there via the last segment and has not yet attempted (and been blocked into turning for) its next move."
+  ],
+  "constraints": [
+    { "param": "width", "kind": "int", "value": [2, 100] },
+    { "param": "height", "kind": "int", "value": [2, 100] },
+    { "param": "num", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: a run that stays on the bottom edge, then one that wraps corners twice",
+      "input": [["Robot", "step", "step", "getPos", "getDir", "step", "step", "step", "getPos", "getDir"], [[6, 3], [2], [2], [], [], [2], [1], [4], [], []]] },
+    { "kind": "boundary", "description": "smallest possible grid (2x2); a full lap returns to the origin facing South",
+      "input": [["Robot", "step", "getPos", "getDir"], [[2, 2], [4], [], []]] },
+    { "kind": "boundary", "description": "smallest grid, exactly two full laps (an exact multiple greater than one perimeter) still lands facing South at the origin",
+      "input": [["Robot", "step", "getPos", "getDir"], [[2, 2], [8], [], []]] },
+    { "kind": "trap", "description": "one step short of a full lap faces West just before the final corner, and completing the lap exactly lands back at the origin facing South, not East",
+      "input": [["Robot", "step", "getDir", "step", "getDir"], [[2, 2], [3], [], [1], []]] },
+    { "kind": "trap", "description": "a very wide, short grid: many steps consumed entirely along the bottom and top edges before any north/south movement",
+      "input": [["Robot", "step", "getPos", "getDir"], [[100, 2], [99], [], []]] },
+    { "kind": "trap", "description": "many step() calls accumulate into a total larger than any single call's own max, and the running total (not any single call) determines the final state",
+      "input": [["Robot", "step", "step", "step", "step", "getPos", "getDir"], [[10, 10], [8], [8], [8], [8], [], []]] },
+    { "kind": "boundary", "description": "num at the constraint's upper bound on a small grid forces many full laps",
+      "input": [["Robot", "step", "getPos", "getDir"], [[3, 3], [100000], [], []]] }
+  ],
+  "stress": [
+    {
+      "description": "random small grids with many step calls of modest size, querying position/direction after almost every call",
+      "seed": 37,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    width = rng.randint(2, 12)\n    height = rng.randint(2, 12)\n    ops = ['Robot']\n    args = [[width, height]]\n    for _ in range(max(1, size)):\n        ops.append('step'); args.append([rng.randint(1, 250)])\n        if rng.random() < 0.7:\n            ops.append('getPos'); args.append([])\n        if rng.random() < 0.7:\n            ops.append('getDir'); args.append([])\n    return [ops, args]\n",
+      "note": "small grids with modest step sizes keep the brute-force oracle's unit-by-unit simulation fast while still wrapping many laps"
+    }
+  ],
+  "oracle_python": "class Robot:\n    DIRS = ['East', 'North', 'West', 'South']\n    DX = {'East': 1, 'North': 0, 'West': -1, 'South': 0}\n    DY = {'East': 0, 'North': 1, 'West': 0, 'South': -1}\n\n    def __init__(self, width, height):\n        self.w = width\n        self.h = height\n        self.x = 0\n        self.y = 0\n        self.dir_idx = 0\n\n    def step(self, num):\n        for _ in range(num):\n            d = self.DIRS[self.dir_idx]\n            nx, ny = self.x + self.DX[d], self.y + self.DY[d]\n            if not (0 <= nx < self.w and 0 <= ny < self.h):\n                self.dir_idx = (self.dir_idx + 1) % 4\n                d = self.DIRS[self.dir_idx]\n                nx, ny = self.x + self.DX[d], self.y + self.DY[d]\n            self.x, self.y = nx, ny\n\n    def getPos(self):\n        return [self.x, self.y]\n\n    def getDir(self):\n        return self.DIRS[self.dir_idx]\n",
+  "solutions": {
+    "python": "class Robot:\n    def __init__(self, width, height):\n        self.w = width\n        self.h = height\n        self.perimeter = 2 * (width + height - 2)\n        self.total = 0\n\n    def step(self, num):\n        self.total += num\n\n    def _state(self):\n        w, h = self.w, self.h\n        perim = self.perimeter\n        eff = self.total % perim\n        s = perim if (eff == 0 and self.total > 0) else eff\n        seg1 = w - 1\n        seg2 = seg1 + (h - 1)\n        seg3 = seg2 + (w - 1)\n        if s <= seg1:\n            return (s, 0, 'East')\n        if s <= seg2:\n            return (w - 1, s - seg1, 'North')\n        if s <= seg3:\n            return (w - 1 - (s - seg2), h - 1, 'West')\n        return (0, h - 1 - (s - seg3), 'South')\n\n    def getPos(self):\n        x, y, _ = self._state()\n        return [x, y]\n\n    def getDir(self):\n        return self._state()[2]\n",
+    "javascript": "class Robot {\n    constructor(width, height) {\n        this.w = width;\n        this.h = height;\n        this.perimeter = 2 * (width + height - 2);\n        this.total = 0;\n    }\n\n    step(num) {\n        this.total += num;\n    }\n\n    _state() {\n        const w = this.w, h = this.h, perim = this.perimeter;\n        const eff = this.total % perim;\n        const s = (eff === 0 && this.total > 0) ? perim : eff;\n        const seg1 = w - 1;\n        const seg2 = seg1 + (h - 1);\n        const seg3 = seg2 + (w - 1);\n        if (s <= seg1) return [s, 0, 'East'];\n        if (s <= seg2) return [w - 1, s - seg1, 'North'];\n        if (s <= seg3) return [w - 1 - (s - seg2), h - 1, 'West'];\n        return [0, h - 1 - (s - seg3), 'South'];\n    }\n\n    getPos() {\n        const [x, y] = this._state();\n        return [x, y];\n    }\n\n    getDir() {\n        return this._state()[2];\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(1)" }
+}
