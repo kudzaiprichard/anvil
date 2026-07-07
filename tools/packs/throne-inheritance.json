@@ -1,0 +1,46 @@
+{
+  "slug": "throne-inheritance",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "The order of succession is exactly a pre-order walk of the family tree (each person visited before their children, oldest child before younger ones), so a family tree plus a dead-or-alive flag is all the state the whole class needs.",
+  "hints": [
+    "Model the family as a tree: every person has a list of children in birth order, and the king is the root.",
+    "birth(parent, child) just appends child to parent's children list; death(name) never removes anyone from the tree, it only flips a 'dead' flag so future orders can skip them.",
+    "getInheritanceOrder() is a pre-order depth-first traversal from the king, visiting a person before all of their children in birth order, and filtering out anyone currently marked dead as the list is built."
+  ],
+  "constraints": [
+    { "param": "kingName", "kind": "string", "len": [1, 15] },
+    { "param": "parentName", "kind": "string", "len": [1, 15] },
+    { "param": "childName", "kind": "string", "len": [1, 15] },
+    { "param": "name", "kind": "string", "len": [1, 15] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one child and one grandchild, then a death removes only that one person from the order",
+      "input": [["ThroneInheritance", "birth", "birth", "getInheritanceOrder", "death", "getInheritanceOrder"], [["kate"], ["kate", "leo"], ["leo", "mia"], [], ["leo"], []]] },
+    { "kind": "edge", "description": "getInheritanceOrder before any births returns just the king",
+      "input": [["ThroneInheritance", "getInheritanceOrder"], [["sam"], []]] },
+    { "kind": "boundary", "description": "king alone, then dies: order becomes empty",
+      "input": [["ThroneInheritance", "death", "getInheritanceOrder"], [["ann"], ["ann"], []]] },
+    { "kind": "boundary", "description": "a wide single generation (many direct children, no grandchildren) preserves strict birth order",
+      "input": [["ThroneInheritance", "birth", "birth", "birth", "birth", "getInheritanceOrder"], [["rex"], ["rex", "amy"], ["rex", "ben"], ["rex", "cid"], ["rex", "dee"], []]] },
+    { "kind": "trap", "description": "the death of an ancestor whose descendants are still alive must skip only that ancestor, not their entire subtree",
+      "input": [["ThroneInheritance", "birth", "birth", "birth", "death", "getInheritanceOrder"], [["king"], ["king", "andy"], ["andy", "jack"], ["jack", "mo"], ["andy"], []]] },
+    { "kind": "trap", "description": "a death recorded before a query must still surface that person's already-alive children in the order, and a second later death must also take effect",
+      "input": [["ThroneInheritance", "birth", "death", "birth", "birth", "getInheritanceOrder", "death", "getInheritanceOrder"], [["king"], ["king", "bob"], ["bob"], ["king", "cara"], ["bob", "eli"], [], ["cara"], []]] }
+  ],
+  "stress": [
+    {
+      "description": "build a random family tree via births, sprinkle in deaths, and repeatedly read the inheritance order",
+      "seed": 12,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    king = 'p0'\n    ops = ['ThroneInheritance']\n    args = [[king]]\n    people = [king]\n    dead = set()\n    next_id = 1\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.55 and people:\n            parent = rng.choice(people)\n            child = 'p%d' % next_id\n            next_id += 1\n            ops.append('birth')\n            args.append([parent, child])\n            people.append(child)\n        elif r < 0.75 and people:\n            victim = rng.choice(people)\n            dead.add(victim)\n            ops.append('death')\n            args.append([victim])\n        else:\n            ops.append('getInheritanceOrder')\n            args.append([])\n    return [ops, args]\n",
+      "note": "person names are generated in creation order (p0, p1, ...) so every birth's parent is guaranteed to already exist"
+    }
+  ],
+  "oracle_python": "class ThroneInheritance:\n    def __init__(self, kingName):\n        self.king = kingName\n        self.children = {kingName: []}\n        self.dead = set()\n\n    def birth(self, parentName, childName):\n        self.children.setdefault(parentName, []).append(childName)\n        self.children.setdefault(childName, [])\n\n    def death(self, name):\n        self.dead.add(name)\n\n    def getInheritanceOrder(self):\n        order = []\n\n        def visit(person):\n            if person not in self.dead:\n                order.append(person)\n            for kid in self.children.get(person, []):\n                visit(kid)\n\n        visit(self.king)\n        return order\n",
+  "solutions": {
+    "python": "class ThroneInheritance:\n    def __init__(self, kingName):\n        self.king = kingName\n        self.kids = {}\n        self.dead = set()\n\n    def birth(self, parentName, childName):\n        self.kids.setdefault(parentName, []).append(childName)\n\n    def death(self, name):\n        self.dead.add(name)\n\n    def getInheritanceOrder(self):\n        result = []\n        stack = [self.king]\n        while stack:\n            person = stack.pop()\n            if person not in self.dead:\n                result.append(person)\n            stack.extend(reversed(self.kids.get(person, [])))\n        return result\n",
+    "javascript": "class ThroneInheritance {\n    constructor(kingName) {\n        this.king = kingName;\n        this.kids = new Map();\n        this.dead = new Set();\n    }\n    birth(parentName, childName) {\n        if (!this.kids.has(parentName)) this.kids.set(parentName, []);\n        this.kids.get(parentName).push(childName);\n    }\n    death(name) {\n        this.dead.add(name);\n    }\n    getInheritanceOrder() {\n        const result = [];\n        const stack = [this.king];\n        while (stack.length) {\n            const person = stack.pop();\n            if (!this.dead.has(person)) result.push(person);\n            const children = this.kids.get(person) || [];\n            for (let i = children.length - 1; i >= 0; i--) {\n                stack.push(children[i]);\n            }\n        }\n        return result;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) per getInheritanceOrder, O(1) amortized birth/death", "space": "O(n)" }
+}
