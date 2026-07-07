@@ -1,0 +1,37 @@
+{
+  "slug": "ways-to-split-array-into-three-subarrays",
+  "judge": "exact",
+  "pattern": "Fixing where the left part ends turns both split constraints into prefix-sum thresholds on where the mid part can end, and because every value is non-negative the prefix sums are non-decreasing, so the valid range of mid-endings only ever slides forward as the left-ending slides forward -- a two-pointer sweep counts every good split in one pass.",
+  "hints": [
+    "Work with prefix sums. If the left part ends at index i (1-indexed length i) and the mid part ends at index j, then leftSum = prefix[i], midSum = prefix[j]-prefix[i], rightSum = prefix[n]-prefix[j]; you need leftSum <= midSum and midSum <= rightSum.",
+    "leftSum <= midSum rearranges to prefix[j] >= 2*prefix[i]; midSum <= rightSum rearranges to 2*prefix[j] <= prefix[n]+prefix[i]. For a fixed i these are just two thresholds on prefix[j], so for each i find the smallest valid j and the largest valid j and count the range.",
+    "Since prefix sums are non-decreasing (values are non-negative), as i increases both threshold boundaries only move forward -- so sweep i from small to large while advancing two pointers (lowJ, highJ) forward, never resetting them, add max(0, highJ-lowJ+1) to the running total each time, and take the total modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [3, 100000], "value": [0, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one, three equal elements", "input": [[1,1,1]] },
+    { "kind": "edge", "description": "statement example two, several good splits", "input": [[1,2,2,2,5,0]] },
+    { "kind": "edge", "description": "statement example three, no good split exists", "input": [[3,2,1]] },
+    { "kind": "boundary", "description": "minimum length of three, all zeros", "input": [[0,0,0]] },
+    { "kind": "trap", "description": "trailing zeros can extend the right part for free without changing its sum", "input": [[1,1,1,0,0,0]] },
+    { "kind": "trap", "description": "one huge element dominates, forcing it to be the right part only", "input": [[1,1,1,1,100]] },
+    { "kind": "trap", "description": "strictly increasing values make an early split impossible", "input": [[1,2,3,4,5,6]] },
+    { "kind": "edge", "description": "all zeros throughout, every split is a good split", "input": [[0,0,0,0,0,0]] }
+  ],
+  "stress": [
+    {
+      "description": "random non-negative values up to the max length and value cap",
+      "seed": 13,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 100000))\n    return [[rng.randint(0, 10000) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def waysToSplit(self, nums):\n        MOD = 10**9 + 7\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        total = prefix[n]\n        count = 0\n        for i in range(1, n - 1):\n            left = prefix[i]\n            for j in range(i + 1, n):\n                mid = prefix[j] - prefix[i]\n                right = total - prefix[j]\n                if left <= mid <= right:\n                    count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def waysToSplit(self, nums):\n        MOD = 10**9 + 7\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        total = prefix[n]\n        count = 0\n        low = 2\n        high = 2\n        for i in range(1, n - 1):\n            left = prefix[i]\n            if low < i + 1:\n                low = i + 1\n            while low < n and prefix[low] < 2 * left:\n                low += 1\n            if high < low:\n                high = low\n            while high < n and 2 * prefix[high] <= total + left:\n                high += 1\n            # high is now the first index that fails; valid js are [low, high-1]\n            if high - 1 >= low:\n                count += (high - 1 - low + 1)\n        return count % MOD\n",
+    "javascript": "var waysToSplit = function(nums) {\n    const MOD = 1000000007;\n    const n = nums.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i];\n    const total = prefix[n];\n    let count = 0;\n    let low = 2;\n    let high = 2;\n    for (let i = 1; i < n - 1; i++) {\n        const left = prefix[i];\n        if (low < i + 1) low = i + 1;\n        while (low < n && prefix[low] < 2 * left) low++;\n        if (high < low) high = low;\n        while (high < n && 2 * prefix[high] <= total + left) high++;\n        if (high - 1 >= low) {\n            count += (high - 1 - low + 1);\n        }\n    }\n    return count % MOD;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
