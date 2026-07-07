@@ -1,0 +1,42 @@
+{
+  "slug": "valid-arrangement-of-pairs",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    pairs = args[0]\n    if not isinstance(output, list) or len(output) != len(pairs):\n        return False\n    from collections import Counter\n    given = Counter(tuple(p) for p in pairs)\n    used = Counter()\n    for p in output:\n        if not isinstance(p, list) or len(p) != 2:\n            return False\n        used[(p[0], p[1])] += 1\n    if used != given:\n        return False\n    for i in range(1, len(output)):\n        if output[i - 1][1] != output[i][0]:\n            return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const pairs = args[0];\n    if (!Array.isArray(output) || output.length !== pairs.length) return false;\n    const key = (a, b) => a + ',' + b;\n    const given = new Map();\n    for (const [a, b] of pairs) {\n        const k = key(a, b);\n        given.set(k, (given.get(k) || 0) + 1);\n    }\n    const used = new Map();\n    for (const p of output) {\n        if (!Array.isArray(p) || p.length !== 2) return false;\n        const k = key(p[0], p[1]);\n        used.set(k, (used.get(k) || 0) + 1);\n    }\n    if (given.size !== used.size) return false;\n    for (const [k, v] of given) {\n        if (used.get(k) !== v) return false;\n    }\n    for (let i = 1; i < output.length; i++) {\n        if (output[i - 1][1] !== output[i][0]) return false;\n    }\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "A valid arrangement is exactly an Eulerian path through the directed multigraph the pairs describe, so building the graph and walking it with Hierholzer's algorithm -- starting from the one node with one more outgoing edge than incoming, or anywhere if it's a closed circuit -- produces the chain directly.",
+  "hints": [
+    "Think of each pair as a directed edge start -> end. A valid arrangement is just a walk that uses every edge exactly once -- that's an Eulerian path, not something you need to search for combinatorially.",
+    "Almost every node will have equal in-degree and out-degree; at most one node has exactly one more outgoing edge than incoming, and that node must be where the walk starts. If every node balances out, the walk is a closed circuit and can start anywhere an edge exists.",
+    "Use Hierholzer's algorithm: from the start node, greedily follow unused outgoing edges keeping a stack, and whenever you hit a node with no unused edges left, pop it onto the result path. Reversing that popped sequence at the end gives a valid Eulerian walk; consecutive nodes in it are exactly the pairs of your answer."
+  ],
+  "constraints": [
+    { "param": "pairs", "kind": "int[][]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, a single unique valid chain", "input": [[[5, 1], [4, 5], [11, 9], [9, 4]]] },
+    { "kind": "edge", "description": "statement example, a closed circuit with multiple valid starting points", "input": [[[1, 3], [3, 2], [2, 1]]] },
+    { "kind": "edge", "description": "statement example, branching graph with more than one valid arrangement", "input": [[[1, 2], [1, 3], [2, 1]]] },
+    { "kind": "boundary", "description": "single pair, trivially valid on its own", "input": [[[7, 3]]] },
+    { "kind": "trap", "description": "same start node used by two different pairs, both branches must still be walkable in sequence", "input": [[[1, 2], [2, 3], [1, 4], [4, 2], [2, 1]]] },
+    { "kind": "trap", "description": "duplicate edges between the same two nodes (a multigraph), each occurrence must be used exactly once", "input": [[[1, 2], [1, 2], [2, 1]]] },
+    { "kind": "trap", "description": "large end value near the constraint ceiling mixed with a small start value", "input": [[[1000000000, 1], [1, 1000000000]]] },
+    { "kind": "edge", "description": "a longer simple chain with no branching at all", "input": [[[10, 20], [20, 30], [30, 40], [40, 50]]] }
+  ],
+  "stress": [
+    {
+      "description": "random Eulerian-path-guaranteed chains built by walking a random sequence of distinct node values then shuffling the pair order",
+      "seed": 23,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 3000))\n    values = [rng.randint(0, 1000000000)]\n    for _ in range(n):\n        nxt = rng.randint(0, 1000000000)\n        while nxt == values[-1]:\n            nxt = rng.randint(0, 1000000000)\n        values.append(nxt)\n    pairs = [[values[i], values[i + 1]] for i in range(n)]\n    rng.shuffle(pairs)\n    return [pairs]\n",
+      "note": "the chain-of-random-values construction guarantees at least one valid Eulerian arrangement exists"
+    }
+  ],
+  "solutions": {
+    "python": "class Solution:\n    def validArrangement(self, pairs):\n        from collections import defaultdict\n        graph = defaultdict(list)\n        outdeg = defaultdict(int)\n        indeg = defaultdict(int)\n        for u, v in pairs:\n            graph[u].append(v)\n            outdeg[u] += 1\n            indeg[v] += 1\n\n        start = pairs[0][0]\n        for u in outdeg:\n            if outdeg[u] - indeg.get(u, 0) == 1:\n                start = u\n                break\n\n        ptr = defaultdict(int)\n        stack = [start]\n        path = []\n        while stack:\n            node = stack[-1]\n            adj = graph[node]\n            if ptr[node] < len(adj):\n                nxt = adj[ptr[node]]\n                ptr[node] += 1\n                stack.append(nxt)\n            else:\n                path.append(stack.pop())\n        path.reverse()\n        return [[path[i], path[i + 1]] for i in range(len(path) - 1)]\n",
+    "javascript": "var validArrangement = function(pairs) {\n    const graph = new Map();\n    const outdeg = new Map();\n    const indeg = new Map();\n    for (const [u, v] of pairs) {\n        if (!graph.has(u)) graph.set(u, []);\n        graph.get(u).push(v);\n        outdeg.set(u, (outdeg.get(u) || 0) + 1);\n        indeg.set(v, (indeg.get(v) || 0) + 1);\n    }\n\n    let start = pairs[0][0];\n    for (const u of outdeg.keys()) {\n        const od = outdeg.get(u) || 0;\n        const id = indeg.get(u) || 0;\n        if (od - id === 1) {\n            start = u;\n            break;\n        }\n    }\n\n    const ptr = new Map();\n    const stack = [start];\n    const path = [];\n    while (stack.length) {\n        const node = stack[stack.length - 1];\n        const adj = graph.get(node) || [];\n        const p = ptr.get(node) || 0;\n        if (p < adj.length) {\n            ptr.set(node, p + 1);\n            stack.push(adj[p]);\n        } else {\n            path.push(stack.pop());\n        }\n    }\n    path.reverse();\n    const res = [];\n    for (let i = 0; i < path.length - 1; i++) res.push([path[i], path[i + 1]]);\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
