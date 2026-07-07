@@ -1,0 +1,36 @@
+{
+  "slug": "sum-of-good-subsequences",
+  "judge": "exact",
+  "pattern": "Since a good subsequence only ever needs its next element to be exactly one away from its last element, tracking how many good subsequences currently end in each value -- and the total sum of their elements -- lets every new number extend the ones ending in its neighboring values in a single pass.",
+  "hints": [
+    "Keep a running count, for every value that has appeared so far, of how many good subsequences end in that exact value, plus the sum of all elements across those subsequences.",
+    "When you see a new number x, every good subsequence currently ending in x-1 or x+1 can be extended by appending x, and x also forms a brand-new good subsequence all by itself.",
+    "Add up the sums of all these newly formed subsequences (the lone x, plus every extended one) into the running answer, then fold those new subsequences into the counts and sums tracked for value x -- previous entries for x from earlier positions stay valid and separate."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element, only itself", "input": [[9]] },
+    { "kind": "edge", "description": "a short run with a repeated value", "input": [[1, 2, 1]] },
+    { "kind": "edge", "description": "three consecutive values with no repeats", "input": [[3, 4, 5]] },
+    { "kind": "boundary", "description": "all elements at the minimum bound", "input": [[0, 0, 0]] },
+    { "kind": "trap", "description": "values with gaps larger than one never chain together", "input": [[1, 5, 10]] },
+    { "kind": "trap", "description": "a long alternating run that chains back and forth between two values", "input": [[2, 3, 2, 3, 2]] },
+    { "kind": "trap", "description": "descending consecutive values still chain, since the difference is exactly one in absolute value", "input": [[5, 4, 3, 2, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays clustered around a small range of values to encourage lots of chaining",
+      "seed": 71,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 5000)))\n    nums = [rng.randint(0, 40) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sumOfGoodSubsequences(self, nums):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        total = 0\n        for mask in range(1, 1 << n):\n            indices = [i for i in range(n) if mask & (1 << i)]\n            good = True\n            for a, b in zip(indices, indices[1:]):\n                if abs(nums[a] - nums[b]) != 1:\n                    good = False\n                    break\n            if good:\n                total += sum(nums[i] for i in indices)\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def sumOfGoodSubsequences(self, nums):\n        MOD = 10 ** 9 + 7\n        cnt = {}\n        sm = {}\n        ans = 0\n        for x in nums:\n            new_count = 1 + cnt.get(x - 1, 0) + cnt.get(x + 1, 0)\n            new_sum = x + (sm.get(x - 1, 0) + cnt.get(x - 1, 0) * x) + (sm.get(x + 1, 0) + cnt.get(x + 1, 0) * x)\n            new_count %= MOD\n            new_sum %= MOD\n            cnt[x] = (cnt.get(x, 0) + new_count) % MOD\n            sm[x] = (sm.get(x, 0) + new_sum) % MOD\n            ans = (ans + new_sum) % MOD\n        return ans\n",
+    "javascript": "var sumOfGoodSubsequences = function(nums) {\n    const MOD = 1000000007n;\n    const cnt = new Map();\n    const sm = new Map();\n    let ans = 0n;\n    for (const xRaw of nums) {\n        const x = BigInt(xRaw);\n        const cntPrev = cnt.get(xRaw - 1) || 0n;\n        const cntNext = cnt.get(xRaw + 1) || 0n;\n        const smPrev = sm.get(xRaw - 1) || 0n;\n        const smNext = sm.get(xRaw + 1) || 0n;\n        let newCount = (1n + cntPrev + cntNext) % MOD;\n        let newSum = (x + (smPrev + cntPrev * x) + (smNext + cntNext * x)) % MOD;\n        cnt.set(xRaw, ((cnt.get(xRaw) || 0n) + newCount) % MOD);\n        sm.set(xRaw, ((sm.get(xRaw) || 0n) + newSum) % MOD);\n        ans = (ans + newSum) % MOD;\n    }\n    return Number(ans);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(distinct values)" }
+}
