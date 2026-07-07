@@ -1,0 +1,142 @@
+{
+  "slug": "sum-of-subarray-ranges",
+  "judge": "exact",
+  "pattern": "The range of a subarray is its max minus its min, so the total splits cleanly into (sum of subarray maximums) minus (sum of subarray minimums) -- each solvable independently with a monotonic stack that counts, for every element, how many subarrays it is the extreme of.",
+  "hints": [
+    "Range(subarray) = max(subarray) - min(subarray), so the whole sum splits into two independent sums: total max minus total min over all subarrays.",
+    "For a fixed element, count how many subarrays it is the maximum (or minimum) of, using how far the same value or a bigger/smaller one is on each side.",
+    "A monotonic stack gives, for each index, the distance to the previous strictly-greater and next greater-or-equal element (mirror it for minimums) in one linear pass each."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        -1000000000,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "single element, range of every subarray is 0",
+      "input": [
+        [
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two elements",
+      "input": [
+        [
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "strictly increasing array",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "strictly decreasing array",
+      "input": [
+        [
+          4,
+          3,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all equal values, every range is 0",
+      "input": [
+        [
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate maxima and minima on both sides of a valley",
+      "input": [
+        [
+          3,
+          1,
+          3,
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "negative numbers mixed with positive",
+      "input": [
+        [
+          -2,
+          -5,
+          4,
+          -3,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme constraint values at both ends",
+      "input": [
+        [
+          -1000000000,
+          1000000000,
+          0
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random values across the full constraint range at max length",
+      "seed": 21,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    nums = [rng.randint(-1000000000, 1000000000) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "many duplicate values, stresses the tie-breaking in the monotonic stacks",
+      "seed": 22,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    pool = [rng.randint(-5, 5) for _ in range(20)]\n    nums = [rng.choice(pool) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def subArrayRanges(self, nums):\n        n = len(nums)\n        total = 0\n        for i in range(n):\n            mn = mx = nums[i]\n            for j in range(i, n):\n                if nums[j] < mn:\n                    mn = nums[j]\n                if nums[j] > mx:\n                    mx = nums[j]\n                total += mx - mn\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def subArrayRanges(self, nums):\n        n = len(nums)\n\n        def sum_of_extrema(is_max):\n            left = [0] * n\n            right = [0] * n\n            stack = []\n            for i in range(n):\n                while stack and (nums[stack[-1]] < nums[i] if is_max else nums[stack[-1]] > nums[i]):\n                    stack.pop()\n                left[i] = i - stack[-1] if stack else i + 1\n                stack.append(i)\n            stack = []\n            for i in range(n - 1, -1, -1):\n                while stack and (nums[stack[-1]] <= nums[i] if is_max else nums[stack[-1]] >= nums[i]):\n                    stack.pop()\n                right[i] = stack[-1] - i if stack else n - i\n                stack.append(i)\n            total = 0\n            for i in range(n):\n                total += nums[i] * left[i] * right[i]\n            return total\n\n        return sum_of_extrema(True) - sum_of_extrema(False)\n",
+    "javascript": "var subArrayRanges = function(nums) {\n    const n = nums.length;\n\n    function sumOfExtrema(isMax) {\n        const left = new Array(n).fill(0);\n        const right = new Array(n).fill(0);\n        let stack = [];\n        for (let i = 0; i < n; i++) {\n            while (stack.length && (isMax ? nums[stack[stack.length - 1]] < nums[i] : nums[stack[stack.length - 1]] > nums[i])) {\n                stack.pop();\n            }\n            left[i] = stack.length ? i - stack[stack.length - 1] : i + 1;\n            stack.push(i);\n        }\n        stack = [];\n        for (let i = n - 1; i >= 0; i--) {\n            while (stack.length && (isMax ? nums[stack[stack.length - 1]] <= nums[i] : nums[stack[stack.length - 1]] >= nums[i])) {\n                stack.pop();\n            }\n            right[i] = stack.length ? stack[stack.length - 1] - i : n - i;\n            stack.push(i);\n        }\n        let total = 0;\n        for (let i = 0; i < n; i++) total += nums[i] * left[i] * right[i];\n        return total;\n    }\n\n    return sumOfExtrema(true) - sumOfExtrema(false);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}
