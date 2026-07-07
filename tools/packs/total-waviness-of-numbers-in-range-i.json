@@ -1,0 +1,81 @@
+{
+  "slug": "total-waviness-of-numbers-in-range-i",
+  "judge": "exact",
+  "pattern": "Waviness only ever looks at three neighboring digits at a time, so summing it across an entire range is just a matter of walking each number's digits once and adding up every interior zig-zag it finds.",
+  "hints": [
+    "A digit only counts toward waviness if it is strictly bigger than both neighbors, or strictly smaller than both -- nothing else about the number matters for that check.",
+    "So for one number, you can compute its own waviness in a single left-to-right scan of its digit string, checking each interior position against the digit before and after it.",
+    "Since the range is small enough to enumerate directly, add up every number's own waviness from num1 to num2 one at a time."
+  ],
+  "constraints": [
+    {
+      "param": "num1",
+      "kind": "int",
+      "value": [1, 100000]
+    },
+    {
+      "param": "num2",
+      "kind": "int",
+      "value": [1, 100000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a single number with no peaks or valleys, too short",
+      "input": [5, 9]
+    },
+    {
+      "kind": "edge",
+      "description": "a single three-digit number that is itself a peak",
+      "input": [484, 484]
+    },
+    {
+      "kind": "edge",
+      "description": "a single three-digit number that is itself a valley",
+      "input": [212, 212]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible range, num1 equals num2 at the minimum bound",
+      "input": [1, 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "the entire allowed range from smallest to largest",
+      "input": [1, 100000]
+    },
+    {
+      "kind": "trap",
+      "description": "a number with multiple interior peaks and valleys back to back",
+      "input": [193764, 193764]
+    },
+    {
+      "kind": "trap",
+      "description": "a range crossing a round-number boundary where digit lengths change",
+      "input": [98, 102]
+    },
+    {
+      "kind": "trap",
+      "description": "monotonic digits produce zero waviness despite being multi-digit",
+      "input": [12345, 12345]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random sub-ranges across the full constraint span",
+      "seed": 91,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    hi = max(1, min(size, 100000))\n    a = rng.randint(1, hi)\n    b = rng.randint(a, hi)\n    return [a, b]\n"
+    }
+  ],
+  "oracle_python": "from functools import lru_cache\n\nclass Solution:\n    def totalWaviness(self, num1, num2):\n        def cum_waviness_dp(N):\n            if N <= 0:\n                return 0\n            s = str(N)\n            L = len(s)\n            digits = [int(c) for c in s]\n            total = 0\n\n            def free_dp(length):\n                @lru_cache(maxsize=None)\n                def rec(idx, p2, p1):\n                    if idx == length:\n                        return (1, 0)\n                    cnt_total = 0\n                    sum_total = 0\n                    lo = 1 if idx == 0 else 0\n                    for d in range(lo, 10):\n                        contrib = 0\n                        if idx >= 2 and ((p2 < p1 > d) or (p2 > p1 < d)):\n                            contrib = 1\n                        subcnt, subsum = rec(idx + 1, p1, d)\n                        cnt_total += subcnt\n                        sum_total += subsum + contrib * subcnt\n                    return (cnt_total, sum_total)\n                _, sm = rec(0, -1, -1)\n                rec.cache_clear()\n                return sm\n\n            for length in range(1, L):\n                total += free_dp(length)\n\n            @lru_cache(maxsize=None)\n            def rec_tight(idx, p2, p1, tight):\n                if idx == L:\n                    return (1, 0)\n                cnt_total = 0\n                sum_total = 0\n                hi = digits[idx] if tight else 9\n                lo = 1 if idx == 0 else 0\n                for d in range(lo, hi + 1):\n                    contrib = 0\n                    if idx >= 2 and ((p2 < p1 > d) or (p2 > p1 < d)):\n                        contrib = 1\n                    ntight = tight and (d == hi)\n                    subcnt, subsum = rec_tight(idx + 1, p1, d, ntight)\n                    cnt_total += subcnt\n                    sum_total += subsum + contrib * subcnt\n                return (cnt_total, sum_total)\n\n            _, sm = rec_tight(0, -1, -1, True)\n            rec_tight.cache_clear()\n            total += sm\n            return total\n        return cum_waviness_dp(num2) - cum_waviness_dp(num1 - 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def totalWaviness(self, num1, num2):\n        def waviness(x):\n            s = str(x)\n            L = len(s)\n            if L < 3:\n                return 0\n            c = 0\n            for i in range(1, L - 1):\n                a, b, cc = int(s[i - 1]), int(s[i]), int(s[i + 1])\n                if (a < b > cc) or (a > b < cc):\n                    c += 1\n            return c\n        total = 0\n        for x in range(num1, num2 + 1):\n            total += waviness(x)\n        return total\n",
+    "javascript": "var totalWaviness = function(num1, num2) {\n    function waviness(x) {\n        const s = String(x);\n        const L = s.length;\n        if (L < 3) return 0;\n        let c = 0;\n        for (let i = 1; i < L - 1; i++) {\n            const a = Number(s[i - 1]), b = Number(s[i]), cc = Number(s[i + 1]);\n            if ((a < b && b > cc) || (a > b && b < cc)) c++;\n        }\n        return c;\n    }\n    let total = 0;\n    for (let x = num1; x <= num2; x++) total += waviness(x);\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O((num2 - num1) * log(num2))",
+    "space": "O(1)"
+  }
+}
