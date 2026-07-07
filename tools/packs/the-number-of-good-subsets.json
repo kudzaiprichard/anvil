@@ -1,0 +1,38 @@
+{
+  "slug": "the-number-of-good-subsets",
+  "judge": "exact",
+  "pattern": "A subset's product is good exactly when every prime shows up at most once across its elements, so any value with a repeated prime factor in itself can never participate, and everything else can be tracked purely by which of the ten primes under thirty it contributes.",
+  "hints": [
+    "Any number from 1 to 30 that already has a squared prime factor (like 4, 8, 9, 12, 18, 20, 24, 25, 27, 28) can never appear in a good subset, since its own product already repeats a prime.",
+    "Ones never change a product, so count good subsets built only from the other numbers first, then multiply the total by two raised to the count of ones, since each one can independently be tucked into or left out of any good subset.",
+    "There are only ten primes below thirty. Represent each usable number by the bitmask of primes it contributes, then run a subset-sum-style sweep over all 2^10 prime combinations, adding a number's frequency only when its mask does not collide with primes already chosen."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 30] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "four small distinct values", "input": [[1, 2, 3, 4]] },
+    { "kind": "edge", "description": "values sharing overlapping prime factors", "input": [[4, 2, 3, 15]] },
+    { "kind": "trap", "description": "only ones, never forms a good product", "input": [[1, 1, 1]] },
+    { "kind": "trap", "description": "single non-squarefree value on its own", "input": [[4]] },
+    { "kind": "trap", "description": "one value blocks pairing because of a shared prime", "input": [[2, 4, 6]] },
+    { "kind": "edge", "description": "ones alongside two squarefree values", "input": [[1, 1, 2, 3]] },
+    { "kind": "trap", "description": "duplicate copies of the same squarefree value", "input": [[2, 2, 3]] },
+    { "kind": "boundary", "description": "single squarefree value alone", "input": [[29]] },
+    { "kind": "boundary", "description": "single value that is not squarefree", "input": [[30]] }
+  ],
+  "stress": [
+    {
+      "description": "large random arrays over the full value range",
+      "seed": 9,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randint(1, 30) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfGoodSubsets(self, nums):\n        from collections import Counter\n        MOD = 10 ** 9 + 7\n        PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]\n        cnt = Counter(nums)\n        n = len(set(nums) - {1})\n        values = sorted(v for v in cnt if v != 1)\n        total = 0\n        m = len(values)\n        for mask in range(1, 1 << m):\n            prod = 1\n            ways = 1\n            for i in range(m):\n                if mask & (1 << i):\n                    prod *= values[i]\n                    ways *= cnt[values[i]]\n            x = prod\n            ok = True\n            seen = set()\n            for p in PRIMES:\n                while x % p == 0:\n                    if p in seen:\n                        ok = False\n                        break\n                    seen.add(p)\n                    x //= p\n                if not ok:\n                    break\n            if ok and x == 1:\n                total = (total + ways) % MOD\n        return total * pow(2, cnt.get(1, 0), MOD) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfGoodSubsets(self, nums):\n        from collections import Counter\n        MOD = 10 ** 9 + 7\n        PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]\n        cnt = Counter(nums)\n        ones = cnt.get(1, 0)\n        masks = []\n        for v in range(2, 31):\n            f = cnt.get(v, 0)\n            if f == 0:\n                continue\n            x = v\n            m = 0\n            ok = True\n            for i, p in enumerate(PRIMES):\n                if x % p == 0:\n                    x //= p\n                    if x % p == 0:\n                        ok = False\n                        break\n                    m |= (1 << i)\n            if ok and x == 1:\n                masks.append((m, f))\n        size = 1 << len(PRIMES)\n        dp = [0] * size\n        dp[0] = 1\n        for m, f in masks:\n            ndp = dp[:]\n            for mask in range(size):\n                if dp[mask] and (mask & m) == 0:\n                    ndp[mask | m] = (ndp[mask | m] + dp[mask] * f) % MOD\n            dp = ndp\n        total = sum(dp[1:]) % MOD\n        return total * pow(2, ones, MOD) % MOD\n",
+    "javascript": "var numberOfGoodSubsets = function(nums) {\n    const MOD = 1000000007n;\n    const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];\n    const cnt = new Array(31).fill(0);\n    for (const v of nums) cnt[v]++;\n    const masks = [];\n    for (let v = 2; v <= 30; v++) {\n        if (cnt[v] === 0) continue;\n        let x = v, m = 0, ok = true;\n        for (let i = 0; i < PRIMES.length; i++) {\n            const p = PRIMES[i];\n            if (x % p === 0) {\n                x = Math.floor(x / p);\n                if (x % p === 0) { ok = false; break; }\n                m |= (1 << i);\n            }\n        }\n        if (ok && x === 1) masks.push([m, cnt[v]]);\n    }\n    const size = 1 << PRIMES.length;\n    let dp = new Array(size).fill(0n);\n    dp[0] = 1n;\n    for (const [m, f] of masks) {\n        const ndp = dp.slice();\n        const bf = BigInt(f);\n        for (let mask = 0; mask < size; mask++) {\n            if (dp[mask] !== 0n && (mask & m) === 0) {\n                ndp[mask | m] = (ndp[mask | m] + dp[mask] * bf) % MOD;\n            }\n        }\n        dp = ndp;\n    }\n    let total = 0n;\n    for (let mask = 1; mask < size; mask++) total = (total + dp[mask]) % MOD;\n    let pow2 = 1n;\n    for (let i = 0; i < cnt[1]; i++) pow2 = (pow2 * 2n) % MOD;\n    return Number((total * pow2) % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n + 2^10 * 10)", "space": "O(2^10)" }
+}
