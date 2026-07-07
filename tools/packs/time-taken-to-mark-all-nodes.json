@@ -1,0 +1,205 @@
+{
+  "slug": "time-taken-to-mark-all-nodes",
+  "judge": "exact",
+  "pattern": "Marking cost depends only on the parity of the node being reached, so the whole tree's per-root answer reduces to a directed 'node-weighted' longest path, solvable for every root at once with a two-pass re-rooting technique instead of a separate traversal per root.",
+  "hints": [
+    "Reaching a node always costs 1 extra tick if that node's own index is odd, or 2 extra ticks if it is even - so give every node a fixed 'arrival cost' based only on its own parity, independent of which neighbor marks it.",
+    "Root the tree anywhere and compute, for every node, the farthest total arrival-cost achievable going only downward into its own subtree - this alone answers the question for that fixed root.",
+    "Re-root with a second pass from the top down: for each node, combine the best distance available by going back up through its parent (using the parent's own best answer, but excluding the branch you came from) with weight(parent) added; the true answer for a node as root is the larger of its downward and upward best distances. Track each node's best AND second-best child branch so re-rooting can exclude the right one."
+  ],
+  "constraints": [
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        1,
+        99999
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a small tree with one node having two children",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "the smallest possible tree, two nodes and one edge",
+      "input": [
+        [
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a slightly larger branching tree",
+      "input": [
+        [
+          [
+            2,
+            4
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a star graph, one hub with several leaves",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a straight chain exercises re-rooting all the way along a line",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a node with three children tests correct top-1/top-2 branch selection during re-rooting",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            3,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "edge endpoints given in reverse order should not matter",
+      "input": [
+        [
+          [
+            1,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small random trees that exercise the independent per-root brute-force oracle",
+      "seed": 61,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 400))\n    edges = []\n    for i in range(1, n):\n        j = rng.randint(0, i - 1)\n        edges.append([i, j])\n    return [edges]\n"
+    },
+    {
+      "description": "large random trees near the maximum node count",
+      "seed": 62,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = []\n    for i in range(1, n):\n        j = rng.randint(0, i - 1)\n        edges.append([i, j])\n    return [edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def timeTaken(self, edges):\n        from collections import deque\n        n = len(edges) + 1\n        graph = [[] for _ in range(n)]\n        for a, b in edges:\n            graph[a].append(b)\n            graph[b].append(a)\n\n        def weight(v):\n            return 2 if v % 2 == 0 else 1\n\n        if n <= 2000:\n            ans = [0] * n\n            for root in range(n):\n                dist = [-1] * n\n                dist[root] = 0\n                dq = deque([root])\n                while dq:\n                    u = dq.popleft()\n                    for v in graph[u]:\n                        if dist[v] == -1:\n                            dist[v] = dist[u] + weight(v)\n                            dq.append(v)\n                ans[root] = max(dist)\n            return ans\n\n        parent = [-1] * n\n        order = [0]\n        visited = [False] * n\n        visited[0] = True\n        dq = deque([0])\n        while dq:\n            u = dq.popleft()\n            for v in graph[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    parent[v] = u\n                    order.append(v)\n                    dq.append(v)\n        top1_val = [0] * n\n        top1_child = [-1] * n\n        top2_val = [0] * n\n        for u in reversed(order):\n            val = weight(u) + top1_val[u]\n            p = parent[u]\n            if p == -1:\n                continue\n            if val > top1_val[p]:\n                top2_val[p] = top1_val[p]\n                top1_val[p] = val\n                top1_child[p] = u\n            elif val > top2_val[p]:\n                top2_val[p] = val\n        down = top1_val\n        up = [0] * n\n        for u in order:\n            p = parent[u]\n            if p == -1:\n                continue\n            best_sibling = top2_val[p] if top1_child[p] == u else top1_val[p]\n            best_excl = max(up[p], best_sibling)\n            up[u] = weight(p) + best_excl\n        return [max(down[v], up[v]) for v in range(n)]\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def timeTaken(self, edges):\n        n = len(edges) + 1\n        graph = [[] for _ in range(n)]\n        for a, b in edges:\n            graph[a].append(b)\n            graph[b].append(a)\n\n        def weight(v):\n            return 2 if v % 2 == 0 else 1\n\n        parent = [-1] * n\n        order = [0]\n        visited = [False] * n\n        visited[0] = True\n        dq = deque([0])\n        while dq:\n            u = dq.popleft()\n            for v in graph[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    parent[v] = u\n                    order.append(v)\n                    dq.append(v)\n\n        top1_val = [0] * n\n        top1_child = [-1] * n\n        top2_val = [0] * n\n\n        for u in reversed(order):\n            val = weight(u) + top1_val[u]\n            p = parent[u]\n            if p == -1:\n                continue\n            if val > top1_val[p]:\n                top2_val[p] = top1_val[p]\n                top1_val[p] = val\n                top1_child[p] = u\n            elif val > top2_val[p]:\n                top2_val[p] = val\n\n        down = top1_val\n        up = [0] * n\n        for u in order:\n            p = parent[u]\n            if p == -1:\n                continue\n            best_sibling = top2_val[p] if top1_child[p] == u else top1_val[p]\n            best_excl = max(up[p], best_sibling)\n            up[u] = weight(p) + best_excl\n\n        return [max(down[v], up[v]) for v in range(n)]\n",
+    "javascript": "var timeTaken = function(edges) {\n    const n = edges.length + 1;\n    const graph = Array.from({ length: n }, () => []);\n    for (const [a, b] of edges) {\n        graph[a].push(b);\n        graph[b].push(a);\n    }\n    const weight = (v) => (v % 2 === 0 ? 2 : 1);\n\n    const parent = new Array(n).fill(-1);\n    const order = [0];\n    const visited = new Array(n).fill(false);\n    visited[0] = true;\n    let qi = 0;\n    const queue = [0];\n    while (qi < queue.length) {\n        const u = queue[qi++];\n        for (const v of graph[u]) {\n            if (!visited[v]) {\n                visited[v] = true;\n                parent[v] = u;\n                order.push(v);\n                queue.push(v);\n            }\n        }\n    }\n\n    const top1Val = new Array(n).fill(0);\n    const top1Child = new Array(n).fill(-1);\n    const top2Val = new Array(n).fill(0);\n\n    for (let i = order.length - 1; i >= 0; i--) {\n        const u = order[i];\n        const val = weight(u) + top1Val[u];\n        const p = parent[u];\n        if (p === -1) continue;\n        if (val > top1Val[p]) {\n            top2Val[p] = top1Val[p];\n            top1Val[p] = val;\n            top1Child[p] = u;\n        } else if (val > top2Val[p]) {\n            top2Val[p] = val;\n        }\n    }\n\n    const down = top1Val;\n    const up = new Array(n).fill(0);\n    for (const u of order) {\n        const p = parent[u];\n        if (p === -1) continue;\n        const bestSibling = top1Child[p] === u ? top2Val[p] : top1Val[p];\n        const bestExcl = Math.max(up[p], bestSibling);\n        up[u] = weight(p) + bestExcl;\n    }\n\n    return Array.from({ length: n }, (_, v) => Math.max(down[v], up[v]));\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}
