@@ -1,0 +1,87 @@
+{
+  "slug": "sum-of-k-mirror-numbers",
+  "judge": "exact",
+  "pattern": "Because a number that reads the same forwards and backwards in one base is a palindrome purely by construction, it is far cheaper to build palindromic candidates digit-by-digit in increasing order and test the other base than to sweep every integer and test both bases.",
+  "hints": [
+    "Scanning every integer and checking both bases is too slow once the target values get large; instead generate base-10 palindromes directly, in increasing numeric order, by choosing only their first half of digits and mirroring it (dropping the middle digit for an odd total length).",
+    "For each base-10 palindrome candidate, convert it to base k with repeated division and modulo, most significant digit last, then reverse the digits, and check whether that base-k digit sequence is itself a palindrome.",
+    "Walk candidates length by length (1-digit palindromes, then 2-digit, then 3-digit, ...); every palindrome of a shorter length is smaller than every palindrome of a longer length, so this order is already the increasing order you need -- keep a running sum and stop the moment you have collected n qualifying values."
+  ],
+  "constraints": [
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [2, 9]
+    },
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [1, 30]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "smallest possible n, trivially just the number 1",
+      "input": [2, 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest base in range with a small n",
+      "input": [2, 5]
+    },
+    {
+      "kind": "boundary",
+      "description": "largest base in range with the smallest n",
+      "input": [9, 1]
+    },
+    {
+      "kind": "edge",
+      "description": "a mid-size base with a mid-size n",
+      "input": [5, 10]
+    },
+    {
+      "kind": "trap",
+      "description": "a base where several small values are trivial single-digit k-mirror numbers in both bases before larger multi-digit ones appear",
+      "input": [3, 7]
+    },
+    {
+      "kind": "boundary",
+      "description": "largest base in range with the largest n",
+      "input": [9, 30]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest base in range with the largest n",
+      "input": [2, 30]
+    },
+    {
+      "kind": "trap",
+      "description": "a base and n combination requiring several increasing digit-lengths before enough qualifying values are found",
+      "input": [7, 17]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random valid (k, n) pairs sampled across the whole small, finite domain",
+      "seed": 7,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(2, 9)\n    n = rng.randint(1, 30)\n    return [k, n]\n"
+    },
+    {
+      "description": "a second batch of random valid (k, n) pairs, biased toward larger n to add confidence at the more expensive end of the domain",
+      "seed": 8,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(2, 9)\n    n = rng.randint(15, 30)\n    return [k, n]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def kMirror(self, k, n):\n        def is_pal_str(s):\n            return s == s[::-1]\n\n        candidates = []\n        length = 1\n        while len(candidates) < n:\n            half_len = (length + 1) // 2\n            lo = k ** (half_len - 1) if half_len > 1 else 1\n            hi = k ** half_len\n            for half_val in range(lo, hi):\n                hd = []\n                tmp = half_val\n                for _ in range(half_len):\n                    hd.append(tmp % k)\n                    tmp //= k\n                hd.reverse()\n                if length % 2 == 0:\n                    full_digits = hd + hd[::-1]\n                else:\n                    full_digits = hd + hd[-2::-1]\n                dec = 0\n                for d in full_digits:\n                    dec = dec * k + d\n                if is_pal_str(str(dec)):\n                    candidates.append(dec)\n            length += 1\n        candidates.sort()\n        return sum(candidates[:n])\n",
+  "solutions": {
+    "python": "class Solution:\n    def kMirror(self, k, n):\n        def to_base_k(x, base):\n            digits = []\n            while x > 0:\n                digits.append(x % base)\n                x //= base\n            digits.reverse()\n            return digits\n\n        def is_pal_list(lst):\n            return lst == lst[::-1]\n\n        count = 0\n        total = 0\n        length = 1\n        while count < n:\n            half_len = (length + 1) // 2\n            start = 10 ** (half_len - 1) if half_len > 1 else 1\n            end = 10 ** half_len\n            for half in range(start, end):\n                s = str(half)\n                if length % 2 == 0:\n                    full = s + s[::-1]\n                else:\n                    full = s + s[-2::-1]\n                num = int(full)\n                digits = to_base_k(num, k)\n                if is_pal_list(digits):\n                    count += 1\n                    total += num\n                    if count == n:\n                        return total\n            length += 1\n        return total\n",
+    "javascript": "var kMirror = function(k, n) {\n    function toBaseK(x, base) {\n        const digits = [];\n        while (x > 0) {\n            digits.push(x % base);\n            x = Math.floor(x / base);\n        }\n        digits.reverse();\n        return digits;\n    }\n    function isPalArr(arr) {\n        for (let i = 0, j = arr.length - 1; i < j; i++, j--) {\n            if (arr[i] !== arr[j]) return false;\n        }\n        return true;\n    }\n    let count = 0;\n    let total = 0;\n    let length = 1;\n    while (count < n) {\n        const halfLen = Math.floor((length + 1) / 2);\n        const start = halfLen > 1 ? Math.pow(10, halfLen - 1) : 1;\n        const end = Math.pow(10, halfLen);\n        for (let half = start; half < end; half++) {\n            const s = String(half);\n            let full;\n            if (length % 2 === 0) {\n                full = s + s.split('').reverse().join('');\n            } else {\n                full = s + s.slice(0, -1).split('').reverse().join('');\n            }\n            const num = parseInt(full, 10);\n            const digits = toBaseK(num, k);\n            if (isPalArr(digits)) {\n                count++;\n                total += num;\n                if (count === n) return total;\n            }\n        }\n        length++;\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(P * L) where P is the number of base-10 palindromes examined and L is the digit length of each",
+    "space": "O(L)"
+  }
+}
