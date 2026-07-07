@@ -1,0 +1,167 @@
+{
+  "slug": "the-number-of-beautiful-subsets",
+  "judge": "exact",
+  "pattern": "Grouping values by remainder mod k turns the forbidden-difference rule into independent chains that can each be counted with a small Fibonacci-style pick/skip recurrence, then multiplied together.",
+  "hints": [
+    "Two values can only ever conflict if they differ by exactly k, so group values that share the same remainder mod k -- values in different groups never interact.",
+    "Sort each group; if you line its distinct values up, only neighbors that are exactly k apart are actually in conflict, forming a chain much like the classic house-robber setup.",
+    "For each chain, count subset choices with a pick/skip recurrence that also multiplies in 2^(count-1) ways per repeated value, then multiply the totals across all chains and subtract 1 for the empty subset."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        18
+      ],
+      "value": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "one chain of evenly spaced values",
+      "input": [
+        [
+          2,
+          4,
+          6
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single element, always beautiful alone",
+      "input": [
+        [
+          1
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length",
+      "input": [
+        [
+          500
+        ],
+        1000
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum length, all identical values so no two distinct values ever conflict",
+      "input": [
+        [
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500,
+          500
+        ],
+        1000
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicates within a chain multiply the count rather than just extending it",
+      "input": [
+        [
+          1,
+          1,
+          3
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k larger than every pairwise difference, so nothing ever conflicts",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        1000
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two separate chains that must be counted independently then multiplied",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a long single chain exercising the pick/skip recurrence repeatedly",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        1
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near max-length arrays with a small k so many collisions are possible",
+      "seed": 12,
+      "size": 18,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 18))\n    k = rng.randint(1, 5)\n    nums = [rng.randint(1, 10) for _ in range(n)]\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def beautifulSubsets(self, nums, k):\n        n = len(nums)\n        count = 0\n        for mask in range(1, 1 << n):\n            chosen = []\n            for i in range(n):\n                if mask & (1 << i):\n                    chosen.append(nums[i])\n            seen = set()\n            ok = True\n            for v in chosen:\n                if (v - k) in seen or (v + k) in seen:\n                    ok = False\n                    break\n                seen.add(v)\n            if ok:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "from collections import defaultdict, Counter\nclass Solution:\n    def beautifulSubsets(self, nums, k):\n        cnt = Counter(nums)\n        groups = defaultdict(list)\n        for v in cnt:\n            groups[v % k].append(v)\n        total = 1\n        for values in groups.values():\n            values.sort()\n            m = len(values)\n            dp = [0] * (m + 1)\n            dp[0] = 1\n            for i in range(1, m + 1):\n                v = values[i - 1]\n                ways_pick = (1 << cnt[v]) - 1\n                if i >= 2 and v - values[i - 2] == k:\n                    dp[i] = dp[i - 1] + ways_pick * dp[i - 2]\n                else:\n                    dp[i] = dp[i - 1] + ways_pick * dp[i - 1]\n            total *= dp[m]\n        return total - 1\n",
+    "javascript": "var beautifulSubsets = function(nums, k) {\n    const cnt = new Map();\n    for (const v of nums) cnt.set(v, (cnt.get(v) || 0) + 1);\n    const groups = new Map();\n    for (const v of cnt.keys()) {\n        const r = ((v % k) + k) % k;\n        if (!groups.has(r)) groups.set(r, []);\n        groups.get(r).push(v);\n    }\n    let total = 1;\n    for (const values of groups.values()) {\n        values.sort((a, b) => a - b);\n        const m = values.length;\n        const dp = new Array(m + 1).fill(0);\n        dp[0] = 1;\n        for (let i = 1; i <= m; i++) {\n            const v = values[i - 1];\n            const waysPick = (1 << cnt.get(v)) - 1;\n            if (i >= 2 && v - values[i - 2] === k) {\n                dp[i] = dp[i - 1] + waysPick * dp[i - 2];\n            } else {\n                dp[i] = dp[i - 1] + waysPick * dp[i - 1];\n            }\n        }\n        total *= dp[m];\n    }\n    return total - 1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}
