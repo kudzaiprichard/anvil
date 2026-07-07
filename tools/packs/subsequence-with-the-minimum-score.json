@@ -1,0 +1,78 @@
+{
+  "slug": "subsequence-with-the-minimum-score",
+  "judge": "exact",
+  "pattern": "Removing one contiguous block from the middle of t is optimal, and the shortest such block is found by matching how much of t's prefix a growing piece of s can absorb against how much of t's suffix the rest of s can absorb, swept together with two pointers.",
+  "hints": [
+    "If t is already a subsequence of s, nothing needs to be removed and the answer is 0 -- check that first.",
+    "Otherwise the characters removed from t always form one contiguous middle block: precompute, for every prefix length of t, the shortest prefix of s that can match it, and separately, for every suffix length of t, the shortest suffix of s that can match it.",
+    "For each amount of t's front you keep, find the smallest amount of t's back you can also keep such that the two matched pieces of s together still fit within s's total length -- track the minimum removed span as you sweep both pointers forward together."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [1, 100000],
+      "note": "lowercase English letters"
+    },
+    {
+      "param": "t",
+      "kind": "string",
+      "len": [1, 100000],
+      "note": "lowercase English letters"
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "t is already a subsequence of s, nothing removed",
+      "input": ["abcabc", "abc"]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-character strings that already match",
+      "input": ["a", "a"]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-character strings that never match, the only option is removing all of t",
+      "input": ["a", "b"]
+    },
+    {
+      "kind": "trap",
+      "description": "the character to remove sits at the very front of t",
+      "input": ["bcabc", "zbca"]
+    },
+    {
+      "kind": "trap",
+      "description": "the character to remove sits at the very end of t",
+      "input": ["abcxy", "abcz"]
+    },
+    {
+      "kind": "trap",
+      "description": "removing from the middle beats removing from either end",
+      "input": ["axbxxxxc", "abzzzzc"]
+    },
+    {
+      "kind": "edge",
+      "description": "repeated characters create several candidate matches, requiring the true minimum to be found",
+      "input": ["aaaaa", "aaaaaa"]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random strings drawn from a tiny alphabet to maximize overlapping subsequence matches",
+      "seed": 113,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 50000))\n    m = max(1, min(size, 50000))\n    alphabet = 'ab'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    t = ''.join(rng.choice(alphabet) for _ in range(m))\n    return [s, t]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumScore(self, s, t):\n        m = len(t)\n        def is_subsequence(a, b):\n            it = iter(b)\n            return all(c in it for c in a)\n        best = m\n        for left in range(m + 1):\n            for right in range(left, m + 1):\n                candidate = t[:left] + t[right:]\n                if is_subsequence(candidate, s):\n                    best = min(best, right - left)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumScore(self, s, t):\n        n, m = len(s), len(t)\n        INF = float('inf')\n        pre = [INF] * (m + 1)\n        pre[0] = 0\n        j = 0\n        cnt = 0\n        for ch in s:\n            cnt += 1\n            if j < m and ch == t[j]:\n                j += 1\n                pre[j] = cnt\n            if j == m:\n                break\n        reach_front = j\n        if reach_front == m:\n            return 0\n        suf = [INF] * (m + 1)\n        suf[m] = 0\n        k = m\n        cnt2 = 0\n        for ch in reversed(s):\n            cnt2 += 1\n            if k > 0 and ch == t[k - 1]:\n                k -= 1\n                suf[k] = cnt2\n            if k == 0:\n                break\n        best = m\n        jptr = 0\n        for i in range(reach_front + 1):\n            if jptr < i:\n                jptr = i\n            while jptr <= m and pre[i] + suf[jptr] > n:\n                jptr += 1\n            if jptr <= m:\n                best = min(best, jptr - i)\n        return best\n",
+    "javascript": "var minimumScore = function(s, t) {\n    const n = s.length, m = t.length;\n    const INF = Infinity;\n    const pre = new Array(m + 1).fill(INF);\n    pre[0] = 0;\n    let j = 0;\n    let cnt = 0;\n    for (let idx = 0; idx < n; idx++) {\n        cnt++;\n        if (j < m && s[idx] === t[j]) {\n            j++;\n            pre[j] = cnt;\n        }\n        if (j === m) break;\n    }\n    const reachFront = j;\n    if (reachFront === m) return 0;\n    const suf = new Array(m + 1).fill(INF);\n    suf[m] = 0;\n    let k = m;\n    let cnt2 = 0;\n    for (let idx = n - 1; idx >= 0; idx--) {\n        cnt2++;\n        if (k > 0 && s[idx] === t[k - 1]) {\n            k--;\n            suf[k] = cnt2;\n        }\n        if (k === 0) break;\n    }\n    let best = m;\n    let jptr = 0;\n    for (let i = 0; i <= reachFront; i++) {\n        if (jptr < i) jptr = i;\n        while (jptr <= m && pre[i] + suf[jptr] > n) jptr++;\n        if (jptr <= m) best = Math.min(best, jptr - i);\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + m)",
+    "space": "O(m)"
+  }
+}
