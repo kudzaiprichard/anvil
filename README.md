@@ -2,9 +2,9 @@
 
 <img src="./.github/assets/banner.png" alt="Anvil — offline-first DSA practice" width="820" />
 
-### Offline-first desktop app for coding-interview & DSA practice
+### The free, offline, honest way to master DSA
 
-Read a problem, write code in the app, and run it against real test cases — **locally, no account, no internet.**
+A guided course of **original** problems: learn each pattern with animated diagrams, check yourself with a quick quiz, then solve it and run against real test cases — **fully offline, no account, no AI crutch.**
 
 [![CI](https://github.com/kudzaiprichard/anvil/actions/workflows/ci.yml/badge.svg)](https://github.com/kudzaiprichard/anvil/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -21,22 +21,29 @@ Read a problem, write code in the app, and run it against real test cases — **
 
 ## What is Anvil?
 
-**Anvil** is a desktop app for practicing data-structures & algorithms the way you'd want to for a real
-interview: pattern-first, hands-on, and completely offline. You read a problem statement, write your
-solution in an in-app editor, and hit run — your code executes in a **sandboxed local runtime** and is
-judged against real test cases on your own machine. No sign-up, no network, no telemetry.
+**Anvil** is building the practice tool you'd actually want for a real interview: not a wall of random
+problems, but a **guided course**. For each pattern you get a short lesson with an **animated diagram**,
+a quick **concept quiz**, and *then* a curated set of problems to master it — written in your solution in
+an in-app editor and judged against real test cases in a **sandboxed local runtime** on your own machine.
+No sign-up, no network, no telemetry.
 
-Where most practice sites lock you into their servers and their content, Anvil is **local-first and
-content-agnostic**. The judging system ships as **100% original, oracle-verified test packs**, and you
-bring (or author) the problem statements. The long-term goal is a full library of original,
-pattern-organized problems so nothing external is ever needed.
+Two things make it different from the usual prep sites and the offline clones:
+
+- **It's honest practice.** Fully offline, with **no AI assistant to lean on** — you build the pattern
+  recognition that survives an in-person, whiteboard, or AI-restricted interview. (In 2026 companies are
+  increasingly bringing interviews back in-person specifically to counter AI-assisted cheating.)
+- **Its judging is provably correct, not answer-keyed.** Every problem is judged by executing reference
+  solutions against an **independent brute-force oracle**, cross-checked across languages — so a wrong
+  solution can never be marked right, and the entire library is **100% original and MIT-licensed**.
 
 > ### 🚧 Project status — active development (`0.1.0`, no release yet)
 >
-> **Working today:** the desktop shell, the sandboxed code runner (Python & JavaScript), and the
-> offline test-pack judging engine (**2,900+ verified packs**). **In progress:** the full workspace UI,
-> progress tracking, and practice modes (see the [roadmap](#roadmap)). The problem library ships
-> **empty by design** — you supply a catalog of statements locally ([why](#problem-content--legal)).
+> **Working today:** the desktop shell, the sandboxed code runner (Python & JavaScript), and the offline
+> test-pack judging engine (**2,900+ verified packs**). **Being built now (the north star):** the guided
+> course itself — original, pattern-organized lessons with animated diagrams and quizzes, plus progress
+> tracking and practice modes (see the [roadmap](#roadmap)). Until the original library lands, the app
+> ships with an **empty problem library by design** — you can supply your own catalog of statements
+> locally ([why](#problem-content--legal)).
 
 ## Demo
 
@@ -62,21 +69,24 @@ pattern-organized problems so nothing external is ever needed.
 
 ## Why Anvil
 
-Interview prep tools tend to force a trade-off. Online judges are convenient but require an account, a
-network connection, and lock you to their catalog and their rules. Local setups give you control but no
-structure, no instant judging, and no way to know your solution is actually correct.
+Interview prep tools force a trade-off. Online judges are convenient but need an account and a network,
+lock you to their catalog, and — increasingly — assume you'll have an AI copilot. The existing *offline*
+tools fix the privacy problem but hand you a bare judge and a flat list of problems: no teaching, no
+path, no reason to reach for one technique over another.
 
-Anvil aims for the best of both:
+Anvil aims to be the best of both — a real course you own:
 
-- **Truly offline.** Everything — editing, running, judging — happens on your machine. Take it on a
-  plane; it just works.
-- **Trustworthy judging without answer keys.** Every problem is judged by executing *reference
-  solutions* against an *independent brute-force oracle*, cross-checked across languages. A wrong
-  solution can't be shipped as "correct."
-- **Yours to own.** MIT-licensed, no accounts, no tracking, and a content model that keeps you (and the
-  project) on the right side of copyright.
-- **Pattern-first learning.** Built to organize practice around the techniques that actually transfer —
-  the NeetCode-style approach — rather than a random pile of problems.
+- **Taught, not just tested.** Each pattern comes with a lesson, an **animated diagram**, and a quiz
+  *before* the practice set — so you learn *when* to reach for a technique, not just grind problems.
+- **A real learning path.** Concepts stack in a mastery ladder (arrays → two pointers → sliding window →
+  trees → graphs → DP): earlier skills are reused later, and nothing unlocks until you've earned it.
+- **Honest by design.** Fully offline, **no AI crutch** — you build the pattern recognition that holds up
+  in an in-person or AI-restricted interview.
+- **Trustworthy judging without answer keys.** Problems are judged by executing reference solutions
+  against an *independent brute-force oracle*, cross-checked across languages — a wrong solution can't be
+  marked correct.
+- **Yours to own.** MIT-licensed, 100% original content, no accounts, no tracking. Take it on a plane; it
+  just works.
 
 ## Features
 
@@ -236,6 +246,7 @@ for the originality rule.
 | ✅ | Test-pack judging — 2,900+ verified packs frozen into the app (oracle-checked, no answer keys) |
 | ✅ | Name-agnostic catalog loader — bring-your-own statements, mapped to packs by slug |
 | ⬜ | Problem library — original, pattern-organized problem *statements* (replacing bring-your-own) |
+| ⬜ | **Guided course** — lessons with animated diagrams, concept quizzes, and a mastery ladder |
 | ⬜ | Progress tracking — solved/attempted, streaks (local SQLite, no account) |
 | ⬜ | Practice modes — Study / Interview / Review |
 | ⬜ | User-authored problems — create, validate, import/export |
