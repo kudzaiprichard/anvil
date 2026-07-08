@@ -36,6 +36,18 @@ npm run build
    (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, …).
 4. Ensure `npm run lint` and `npm run build` pass.
 
+### Branch protection & merge rules
+
+`main` is protected — **all** changes land through a pull request, including the maintainer's own. Before
+a PR can merge it must:
+
+- pass CI (lint + build on web, and Rust fmt/clippy/test on Linux & Windows), and
+- have **1 approving review from the maintainer** (`@kudzaiprichard`, our code owner — see
+  [`.github/CODEOWNERS`](./.github/CODEOWNERS)).
+
+Approvals are dismissed when new commits are pushed, so re-request review after changes. Force-pushes and
+deletion of `main` are blocked. In short: fork → branch → PR → green CI → maintainer approval → merge.
+
 ## Contributing problems — the one non-negotiable rule
 
 > **You may copy the IDEA. You may NOT copy the EXPRESSION.**

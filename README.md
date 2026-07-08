@@ -170,10 +170,10 @@ project's goal is a library of 100% original problems so no external content is 
 
 ## Contributing
 
-Contributions are welcome — code, original problems, docs, and more. See
-[CONTRIBUTING.md](./CONTRIBUTING.md) and our [Code of Conduct](./CODE_OF_CONDUCT.md). For security
-issues, see [SECURITY.md](./SECURITY.md). Notable changes are tracked in
-[CHANGELOG.md](./CHANGELOG.md).
+Contributions are welcome — code, original problems, docs, and more. All changes land via pull request
+with CI + maintainer review; see [CONTRIBUTING.md](./CONTRIBUTING.md) for the branch-protection rules and
+our [Code of Conduct](./CODE_OF_CONDUCT.md). For security issues, see [SECURITY.md](./SECURITY.md).
+Notable changes are tracked in [CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 
