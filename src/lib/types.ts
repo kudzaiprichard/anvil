@@ -330,6 +330,20 @@ export interface Lesson {
   follow_up: string[];
 }
 
+/** Where a lesson sits for this user (§6.4). `not-started` is the absence of
+ *  a stored row; the backend only ever records the other two. */
+export type LessonStatus = "not-started" | "in-progress" | "complete";
+
+/** One lesson's stored progress (`recordLessonProgress` / `getLessonProgress`). */
+export interface LessonProgress {
+  lessonId: string;
+  unitId: string;
+  status: LessonStatus;
+  /** Local ISO timestamps; absent until the transition that sets them. */
+  startedAt?: string;
+  completedAt?: string;
+}
+
 /* ---------- progress & status (app types) ---------- */
 
 export type ProblemStatus = "todo" | "in-progress" | "solved" | "needs-review";

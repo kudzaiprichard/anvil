@@ -7,6 +7,7 @@
 pub mod attempts;
 pub mod drafts;
 pub mod imported_problems;
+pub mod lesson_progress;
 pub mod problem_state;
 pub mod user_problems;
 

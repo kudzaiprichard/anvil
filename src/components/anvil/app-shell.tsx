@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Hammer, LayoutDashboard, Library, Settings } from "lucide-react";
+import {
+  GraduationCap,
+  Hammer,
+  LayoutDashboard,
+  Library,
+  Settings,
+} from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useTheme } from "next-themes";
@@ -30,6 +36,7 @@ import { useAppShortcuts } from "./use-app-shortcuts";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, match: ["/"] },
+  { href: "/learn", label: "Course", icon: GraduationCap, match: ["/learn"] },
   {
     href: "/problems",
     label: "Library",

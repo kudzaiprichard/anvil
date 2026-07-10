@@ -12,6 +12,8 @@ import type {
   DashboardData,
   DraftSummary,
   Lesson,
+  LessonProgress,
+  LessonStatus,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -50,6 +52,19 @@ export async function getUnit(id: string): Promise<Unit | null> {
 
 export async function getLesson(id: string): Promise<Lesson | null> {
   return isTauri() ? backend.getLesson(id) : mock.getLesson(id);
+}
+
+export async function recordLessonProgress(
+  lessonId: string,
+  status: LessonStatus
+): Promise<void> {
+  return isTauri()
+    ? backend.recordLessonProgress(lessonId, status)
+    : mock.recordLessonProgress(lessonId, status);
+}
+
+export async function getLessonProgress(): Promise<LessonProgress[]> {
+  return isTauri() ? backend.getLessonProgress() : mock.getLessonProgress();
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

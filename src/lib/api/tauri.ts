@@ -12,6 +12,8 @@ import type {
   DashboardData,
   DraftSummary,
   Lesson,
+  LessonProgress,
+  LessonStatus,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -86,6 +88,17 @@ export async function getUnit(id: string): Promise<Unit | null> {
 
 export async function getLesson(id: string): Promise<Lesson | null> {
   return (await call<Lesson | null>("get_lesson", { id })) ?? null;
+}
+
+export async function recordLessonProgress(
+  lessonId: string,
+  status: LessonStatus
+): Promise<void> {
+  return call<void>("record_lesson_progress", { lessonId, status });
+}
+
+export async function getLessonProgress(): Promise<LessonProgress[]> {
+  return call<LessonProgress[]>("get_lesson_progress");
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

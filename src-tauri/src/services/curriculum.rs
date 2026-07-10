@@ -292,6 +292,19 @@ mod tests {
         assert!(store.get_unit("two-pointers").is_some());
         assert!(store.get_unit("sliding-window").is_some());
         assert!(store.get_unit("no-such-unit").is_none());
+
+        // The Phase-2 lesson loads and resolves its companion diagram/quiz.
+        let lesson = store
+            .get_lesson("01-hashmap-lookup")
+            .expect("authored lesson loads");
+        assert_eq!(lesson.worked_example, "two-sum");
+        assert_eq!(lesson.diagram.for_problem, "two-sum");
+        assert!(!lesson.quiz.items.is_empty());
+        assert!(store
+            .get_unit("arrays-hashing")
+            .unwrap()
+            .lessons
+            .contains(&"01-hashmap-lookup".to_string()));
     }
 
     #[test]

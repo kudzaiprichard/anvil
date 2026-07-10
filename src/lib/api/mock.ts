@@ -16,6 +16,8 @@ import type {
   DashboardData,
   DraftSummary,
   Lesson,
+  LessonProgress,
+  LessonStatus,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -32,7 +34,11 @@ import type {
 } from "@/src/lib/types";
 import { PATTERNS } from "@/src/lib/types";
 import { applyProblemFilter } from "@/src/lib/api/filters";
-import { MOCK_CURRICULUM, MOCK_UNITS } from "@/src/lib/mock/curriculum";
+import {
+  MOCK_CURRICULUM,
+  MOCK_LESSONS,
+  MOCK_UNITS,
+} from "@/src/lib/mock/curriculum";
 import { MOCK_PROBLEMS } from "@/src/lib/mock/problems";
 import {
   MOCK_PROGRESS,
@@ -178,9 +184,42 @@ export async function getUnit(id: string): Promise<Unit | null> {
 }
 
 export async function getLesson(id: string): Promise<Lesson | null> {
-  void id;
   await delay(80);
-  return null; // no lesson content until Phase 2
+  return MOCK_LESSONS[id] ?? null;
+}
+
+/** Session-local lesson progress so browser dev badges lessons like the real
+ *  app. Keyed by lesson id; resets on reload (SQLite-backed in Tauri). */
+const mockLessonProgress = new Map<string, LessonProgress>();
+
+export async function recordLessonProgress(
+  lessonId: string,
+  status: LessonStatus
+): Promise<void> {
+  await delay(80);
+  const lesson = MOCK_LESSONS[lessonId];
+  if (!lesson) throw new Error(`Lesson not found: ${lessonId}`);
+  const now = new Date().toISOString();
+  const prev = mockLessonProgress.get(lessonId);
+  // Monotonic, mirroring the Rust upsert: in-progress never downgrades a
+  // complete lesson; started_at is stamped once and kept.
+  const nextStatus: LessonStatus =
+    status === "in-progress" && prev?.status === "complete"
+      ? "complete"
+      : status;
+  mockLessonProgress.set(lessonId, {
+    lessonId,
+    unitId: lesson.unit,
+    status: nextStatus,
+    startedAt: prev?.startedAt ?? now,
+    completedAt:
+      nextStatus === "complete" ? prev?.completedAt ?? now : prev?.completedAt,
+  });
+}
+
+export async function getLessonProgress(): Promise<LessonProgress[]> {
+  await delay(80);
+  return [...mockLessonProgress.values()];
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {
