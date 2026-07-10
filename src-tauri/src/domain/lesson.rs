@@ -144,6 +144,7 @@ follow_up: ["What if the array is sorted?"]
             steps: vec![DiagramStep {
                 state: json!({}),
                 caption_md: "s0".into(),
+                predict: None,
             }],
             predict_at: vec![0],
         }

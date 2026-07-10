@@ -5,10 +5,11 @@
 
 use tauri::State;
 
+use crate::domain::complexity::{self, ComplexityReport, ComplexityVerdict};
 use crate::domain::run::{Language, RunRequest, RunResult, RunStatus};
 use crate::error::{AppError, AppResult};
 use crate::services::db::{self, attempts};
-use crate::services::runner;
+use crate::services::runner::{self, ProbeOutcome};
 use crate::state::AppState;
 
 async fn run(
@@ -71,4 +72,128 @@ pub async fn run_code(state: State<'_, AppState>, req: RunRequest) -> AppResult<
 pub async fn submit_code(state: State<'_, AppState>, req: RunRequest) -> AppResult<RunResult> {
     log::debug!("submit_code: {} ({:?})", req.id, req.language);
     run(state, req, true).await
+}
+
+/// A 4-point size ladder for the complexity probe, ending near the pack's
+/// stress size but capped so an O(n²) solution still profiles in time.
+fn complexity_ladder(stress_size: u64) -> Vec<u64> {
+    let top = stress_size.clamp(200, 800);
+    let mut sizes: Vec<u64> = [top / 8, top / 4, top / 2, top]
+        .into_iter()
+        .map(|n| n.max(25))
+        .collect();
+    sizes.dedup();
+    sizes
+}
+
+fn compose_note(measured: &str, optimal: Option<&str>, verdict: ComplexityVerdict) -> String {
+    match (optimal, verdict) {
+        (Some(opt), ComplexityVerdict::Slower) => format!(
+            "You wrote ~{measured}. The optimal here is {opt} — there's a faster \
+             approach; look for repeated work you can trade memory to avoid."
+        ),
+        (Some(opt), ComplexityVerdict::Optimal) => {
+            format!("Measured ~{measured}, matching the optimal {opt}. Nicely done.")
+        }
+        (Some(opt), ComplexityVerdict::Faster) => format!(
+            "Measured ~{measured}, which reads faster than the stated optimal {opt} \
+             — likely because the heavy lifting sits in built-ins the op-counter \
+             doesn't see."
+        ),
+        _ => format!("Measured ~{measured} (Python operations executed as the input grows)."),
+    }
+}
+
+fn build_report(outcome: ProbeOutcome, optimal: Option<String>) -> ComplexityReport {
+    match outcome {
+        ProbeOutcome::TooSlow => {
+            let mut r = ComplexityReport::unavailable(
+                "Your solution ran past the profiler's time limit on larger inputs — a \
+                 strong sign it's slower than optimal here. Look for nested work you can cut.",
+            );
+            r.optimal = optimal;
+            r
+        }
+        ProbeOutcome::Failed(err) => {
+            ComplexityReport::unavailable(format!("Couldn't profile this run: {err}"))
+        }
+        ProbeOutcome::Samples(samples) => match complexity::classify(&samples) {
+            None => {
+                let mut r = ComplexityReport::unavailable(
+                    "Not enough signal to classify the growth — the inputs may be too small \
+                     or the work too flat to measure.",
+                );
+                r.optimal = optimal;
+                r.samples = samples;
+                r
+            }
+            Some(measured) => {
+                let verdict = complexity::verdict(measured, optimal.as_deref());
+                let note = compose_note(measured, optimal.as_deref(), verdict);
+                ComplexityReport {
+                    available: true,
+                    measured: Some(measured.to_string()),
+                    optimal,
+                    verdict,
+                    note,
+                    samples,
+                }
+            }
+        },
+    }
+}
+
+/// Deterministic complexity feedback (COURSE_BLUEPRINT.md §7, Phase 5).
+/// Profiles the learner's *own* Python solution on growing inputs (op-count via
+/// the runner, no AI) and compares the measured growth class to the pack's
+/// declared optimal. Never records anything — it's pure feedback, and it reuses
+/// the pack's verified stress generator so it works fully offline.
+#[tauri::command]
+pub async fn analyze_complexity(
+    state: State<'_, AppState>,
+    req: RunRequest,
+) -> AppResult<ComplexityReport> {
+    log::debug!("analyze_complexity: {} ({:?})", req.id, req.language);
+    if req.language != Language::Python {
+        return Ok(ComplexityReport::unavailable(
+            "Complexity analysis runs on your Python solution — switch to Python to measure it.",
+        ));
+    }
+    let Some(pack) = state.packs.get(&req.id) else {
+        return Ok(ComplexityReport::unavailable(
+            "No verified pack for this problem, so its growth can't be profiled here.",
+        ));
+    };
+    // Pick the largest stress generator as the input synthesizer.
+    let Some(spec) = pack.stress.iter().max_by_key(|s| s.size) else {
+        return Ok(ComplexityReport::unavailable(
+            "This problem has no input generator to profile against.",
+        ));
+    };
+    let optimal = pack.solutions.complexity.as_ref().map(|c| c.time.clone());
+    let sizes = complexity_ladder(spec.size);
+    let entry = pack.entry_point.python.clone();
+    let io_types = pack.entry_point.io_types.clone();
+    let generator = spec.generator_python.clone();
+    let seed = spec.seed;
+
+    let program = state.runtime_path(Language::Python).ok_or_else(|| {
+        AppError::Runner("Python 3.10+ not found — see Settings → Runtime".into())
+    })?;
+    let code = req.code.clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        runner::count_ops(
+            &code,
+            &entry,
+            io_types.as_ref(),
+            &generator,
+            seed,
+            &sizes,
+            &program,
+        )
+    })
+    .await
+    .map_err(|e| AppError::Runner(format!("probe task panicked: {e}")))??;
+
+    Ok(build_report(outcome, optimal))
 }

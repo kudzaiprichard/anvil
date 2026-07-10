@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/src/components/shadcn/dropdown-menu";
 import {
+  analyzeComplexity,
   evaluateGate,
   getProblem,
   getProblemUserState,
@@ -427,6 +428,13 @@ function Workspace() {
     }
   }, [problem, runState, language, code, gateUnit, scoreGate]);
 
+  // Profiles the current editor code deterministically (Phase 5). Bound to the
+  // live language/code so "Analyze" measures exactly what the learner ran.
+  const analyzeCurrentComplexity = useCallback(() => {
+    if (!problem) return Promise.reject(new Error("No problem loaded"));
+    return analyzeComplexity({ id: problem.id, language, code });
+  }, [problem, language, code]);
+
   useWorkspaceShortcuts({
     onRun: execute,
     onPrev: () => goTo(summaries[index - 1] ?? summaries[summaries.length - 1]),
@@ -645,6 +653,8 @@ function Workspace() {
             selectedCase={selectedCase}
             onSelectCase={setSelectedCase}
             onMarkMastered={handleMarkMastered}
+            complexityEnabled={!gateUnit}
+            onAnalyzeComplexity={analyzeCurrentComplexity}
           />
         }
       />

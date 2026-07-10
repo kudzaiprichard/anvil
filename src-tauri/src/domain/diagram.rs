@@ -13,13 +13,52 @@ pub enum DiagramMode {
     Perform,
 }
 
+/// One graded choice offered at a prediction pause.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagramChoice {
+    pub id: String,
+    pub label_md: String,
+}
+
+/// The graded "what happens next?" turn attached to a prediction-pause step
+/// (§13.4). The renderer reveals `explanation_md` after the learner commits.
+/// Optional: a pause step without a `predict` block degrades to a
+/// think-then-reveal prompt (the caption carries the question). When present
+/// in `perform` mode it is the learner's step graded against ground truth
+/// (COURSE_BLUEPRINT.md §7, "perform the algorithm yourself").
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagramPredict {
+    pub prompt_md: String,
+    pub choices: Vec<DiagramChoice>,
+    /// The `id` of the correct choice — engine ground truth for the step.
+    pub answer: String,
+    pub explanation_md: String,
+}
+
+impl DiagramPredict {
+    fn validate(&self, where_: &str) -> Result<(), String> {
+        if self.choices.len() < 2 {
+            return Err(format!("{where_}: a prediction needs at least two choices"));
+        }
+        if !self.choices.iter().any(|c| c.id == self.answer) {
+            return Err(format!(
+                "{where_}: prediction answer '{}' is not one of its choices",
+                self.answer
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// One frame of the trace: an opaque algorithm-state snapshot (pointer
 /// positions, window bounds, hash-map contents, …) plus the caption shown
-/// alongside it.
+/// alongside it. A frame listed in `predict_at` may carry a graded `predict`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DiagramStep {
     pub state: Value,
     pub caption_md: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub predict: Option<DiagramPredict>,
 }
 
 /// One lesson's diagram spec (§7.5 example):
@@ -59,6 +98,13 @@ impl DiagramSpec {
                 ));
             }
         }
+        // A graded prediction, wherever it appears, must be internally
+        // consistent (answer ∈ choices, ≥2 choices).
+        for (i, step) in self.steps.iter().enumerate() {
+            if let Some(predict) = &step.predict {
+                predict.validate(&format!("diagram '{}' step {i}", self.id))?;
+            }
+        }
         Ok(())
     }
 }
@@ -96,10 +142,12 @@ mod tests {
                 DiagramStep {
                     state: json!({}),
                     caption_md: "s0".into(),
+                    predict: None,
                 },
                 DiagramStep {
                     state: json!({}),
                     caption_md: "s1".into(),
+                    predict: None,
                 },
             ],
             predict_at: vec![1],
@@ -131,5 +179,64 @@ mod tests {
         d.steps = vec![];
         d.predict_at = vec![0];
         assert!(d.validate().unwrap_err().contains("no steps"));
+    }
+
+    #[test]
+    fn graded_prediction_round_trips_and_is_optional() {
+        // Absent by default: a step without `predict` serializes without the key.
+        let v = serde_json::to_value(DiagramStep {
+            state: json!({}),
+            caption_md: "c".into(),
+            predict: None,
+        })
+        .unwrap();
+        assert!(v.get("predict").is_none());
+
+        // Present: full round-trip through the graded-choice shape.
+        round_trip::<DiagramStep>(json!({
+            "state": { "i": 1 },
+            "caption_md": "What happens next?",
+            "predict": {
+                "prompt_md": "Pick the next move.",
+                "choices": [
+                    { "id": "a", "label_md": "Look up the complement." },
+                    { "id": "b", "label_md": "Scan every earlier value." }
+                ],
+                "answer": "a",
+                "explanation_md": "The map already holds it — one O(1) lookup."
+            }
+        }));
+    }
+
+    #[test]
+    fn validate_rejects_inconsistent_prediction() {
+        let mut d = sample();
+        d.steps[1].predict = Some(DiagramPredict {
+            prompt_md: "p".into(),
+            choices: vec![DiagramChoice {
+                id: "a".into(),
+                label_md: "only one".into(),
+            }],
+            answer: "a".into(),
+            explanation_md: "e".into(),
+        });
+        assert!(d.validate().unwrap_err().contains("at least two choices"));
+
+        d.steps[1].predict = Some(DiagramPredict {
+            prompt_md: "p".into(),
+            choices: vec![
+                DiagramChoice {
+                    id: "a".into(),
+                    label_md: "x".into(),
+                },
+                DiagramChoice {
+                    id: "b".into(),
+                    label_md: "y".into(),
+                },
+            ],
+            answer: "z".into(),
+            explanation_md: "e".into(),
+        });
+        assert!(d.validate().unwrap_err().contains("not one of its choices"));
     }
 }

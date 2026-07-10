@@ -11,6 +11,7 @@ import {
   Check,
   CircleDot,
   Dumbbell,
+  Film,
   GraduationCap,
   Lightbulb,
   ListChecks,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/anvil/app-shell";
+import { DiagramPlayer } from "@/src/components/anvil/diagram-player";
 import { Markdown } from "@/src/components/anvil/markdown";
 import { QuizRunner } from "@/src/components/anvil/quiz-runner";
 import { Spinner } from "@/src/components/anvil/spinner";
@@ -905,6 +907,22 @@ function LessonView({ lessonId }: { lessonId: string }) {
           style={{ "--rise-i": 3 } as React.CSSProperties}
         >
           <Markdown>{lesson.explainer_md}</Markdown>
+        </section>
+
+        {/* Prediction diagram — the pattern in motion, with a "what happens
+            next?" pause. Taught during the lesson, not tacked on the end. */}
+        <section
+          className="rise mt-7"
+          style={{ "--rise-i": 4 } as React.CSSProperties}
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <Film className="size-[15px] text-primary" />
+            <span className="microlabel text-foreground">See it run</span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              predict, then reveal
+            </span>
+          </div>
+          <DiagramPlayer diagram={lesson.diagram} />
         </section>
 
         {/* Worked example — solve it in the real workspace/runner. */}

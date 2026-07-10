@@ -166,6 +166,26 @@ def split_frontmatter(raw: str) -> tuple[str, str]:
     return frontmatter, body
 
 
+def validate_predict(predict: dict, where: str) -> None:
+    """A step's graded prediction (§13.4): >=2 choices, answer among them."""
+    _require(isinstance(predict, dict), f"{where}: `predict` must be an object")
+    _require(isinstance(predict.get("prompt_md"), str) and predict["prompt_md"].strip(),
+             f"{where}: predict `prompt_md` is required")
+    _require(isinstance(predict.get("explanation_md"), str) and predict["explanation_md"].strip(),
+             f"{where}: predict `explanation_md` is required")
+    choices = predict.get("choices")
+    _require(isinstance(choices, list) and len(choices) >= 2, f"{where}: predict needs at least two choices")
+    ids = set()
+    for c in choices:
+        cid = c.get("id") if isinstance(c, dict) else None
+        _require(isinstance(cid, str) and cid.strip(), f"{where}: a predict choice has an empty id")
+        _require(cid not in ids, f"{where}: duplicate predict choice id '{cid}'")
+        ids.add(cid)
+        _require(isinstance(c.get("label_md"), str) and c["label_md"].strip(),
+                 f"{where}: predict choice '{cid}' has an empty label_md")
+    _require(predict.get("answer") in ids, f"{where}: predict answer is not one of its choices")
+
+
 def validate_diagram(diagram: dict, where: str) -> None:
     steps = diagram.get("steps")
     _require(isinstance(steps, list) and steps, f"{where}: diagram has no steps")
@@ -175,6 +195,10 @@ def validate_diagram(diagram: dict, where: str) -> None:
         _require(isinstance(idx, int) and 0 <= idx < len(steps), f"{where}: diagram predict_at index {idx} out of range")
     _require(diagram.get("mode") in DIAGRAM_MODES, f"{where}: diagram mode must be one of {sorted(DIAGRAM_MODES)}")
     _require(isinstance(diagram.get("for_problem"), str) and diagram["for_problem"].strip(), f"{where}: diagram `for_problem` is required")
+    # A step may carry a graded prediction (validated wherever it appears).
+    for i, step in enumerate(steps):
+        if isinstance(step, dict) and step.get("predict") is not None:
+            validate_predict(step["predict"], f"{where} step {i}")
 
 
 def validate_quiz(quiz: dict, where: str) -> None:

@@ -12,6 +12,7 @@
 
 import type {
   CaseResult,
+  ComplexityReport,
   Curriculum,
   DashboardData,
   DraftSummary,
@@ -418,6 +419,41 @@ export async function submitCode(req: RunRequest): Promise<RunResult> {
   const p = allProblems().find((x) => x.id === req.id);
   if (!p) throw new Error(`Unknown problem: ${req.id}`);
   return executeMock(p, req.code, true);
+}
+
+/** Browser-dev stand-in for the Rust op-count probe: a crude nested-loop
+ *  heuristic so both the "slower" and "optimal" panels are reachable without
+ *  a sandbox. The desktop app measures for real (`analyze_complexity`). */
+export async function analyzeComplexity(
+  req: RunRequest
+): Promise<ComplexityReport> {
+  await delay(900);
+  if (req.language !== "python") {
+    return {
+      available: false,
+      verdict: "unknown",
+      note: "Complexity analysis runs on your Python solution — switch to Python to measure it.",
+      samples: [],
+    };
+  }
+  const loops = (req.code.match(/\b(for|while)\b/g) ?? []).length;
+  const usesMap = /\b(set|dict|Counter|defaultdict)\b|\{\}/.test(req.code);
+  const quad = loops >= 2 && !usesMap;
+  const samples = [100, 200, 400, 800].map((n) => ({
+    n,
+    ops: quad ? Math.round((n * n) / 2) : n * 3,
+  }));
+  const measured = quad ? "O(n^2)" : "O(n)";
+  return {
+    available: true,
+    measured,
+    optimal: "O(n)",
+    verdict: quad ? "slower" : "optimal",
+    note: quad
+      ? "You wrote ~O(n^2). The optimal here is O(n) — there's a faster approach; look for repeated work you can trade memory to avoid."
+      : "Measured ~O(n), matching the optimal O(n). Nicely done.",
+    samples,
+  };
 }
 
 /** Session-local UI-state echoes so browser dev behaves like the real app. */

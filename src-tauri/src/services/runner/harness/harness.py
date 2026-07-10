@@ -443,4 +443,9 @@ def _run_with_big_stack():
         fail(0, clean_traceback(captured["tb"]))
 
 
-_run_with_big_stack()
+# Only auto-run when invoked directly (`python harness.py`). The complexity
+# probe (probe.py, Phase 5) imports this module to reuse
+# load_solution_with_prelude / resolve_entry / deserialize without triggering a
+# run.
+if __name__ == "__main__":
+    _run_with_big_stack()

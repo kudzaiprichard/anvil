@@ -8,6 +8,7 @@
 
 import { isTauri } from "@tauri-apps/api/core";
 import type {
+  ComplexityReport,
   Curriculum,
   DashboardData,
   DraftSummary,
@@ -109,6 +110,14 @@ export async function runCode(req: RunRequest): Promise<RunResult> {
 
 export async function submitCode(req: RunRequest): Promise<RunResult> {
   return isTauri() ? backend.submitCode(req) : mock.submitCode(req);
+}
+
+export async function analyzeComplexity(
+  req: RunRequest
+): Promise<ComplexityReport> {
+  return isTauri()
+    ? backend.analyzeComplexity(req)
+    : mock.analyzeComplexity(req);
 }
 
 export async function detectRuntimes(): Promise<RuntimeInfo[]> {

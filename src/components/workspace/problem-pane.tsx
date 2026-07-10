@@ -192,6 +192,17 @@ function DescriptionTab({
   );
 }
 
+/** Graduated hint-ladder rung names (COURSE_BLUEPRINT.md §7): a Socratic climb
+ *  from a nudge toward — but never reaching — the answer. The first rung is
+ *  always a nudge, the last the fullest approach we give; middle rungs escalate
+ *  through approach → data structure. */
+function rungLabel(i: number, total: number): string {
+  if (i === 0) return "Nudge";
+  if (i === total - 1) return "Full approach";
+  if (total >= 4 && i === 2) return "Data structure";
+  return "Approach";
+}
+
 function HintsTab({ problem }: { problem: Problem }) {
   const [revealed, setRevealed] = useState(0);
   const hints = problem.hints;
@@ -206,13 +217,14 @@ function HintsTab({ problem }: { problem: Problem }) {
   return (
     <div className="flex flex-col gap-2.5">
       <p className="text-[13px] leading-relaxed text-muted-foreground">
-        Hints reveal one at a time — stop as soon as something clicks. The last
-        one outlines the full approach.
+        A graduated ladder — each rung says a little more, from a{" "}
+        <span className="font-medium text-foreground">nudge</span> toward the
+        full approach. Climb one at a time and stop the moment it clicks; the
+        ladder never hands you the finished solution.
       </p>
       {hints.slice(0, revealed + 1).map((hint, i) => {
         const isRevealed = i < revealed;
-        const isLast = i === hints.length - 1;
-        const label = isLast ? "Full approach" : `Hint ${i + 1}`;
+        const label = rungLabel(i, hints.length);
         return isRevealed ? (
           <div key={i} className="rounded-[10px] border bg-surface-2 px-3.5 py-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
@@ -231,7 +243,7 @@ function HintsTab({ problem }: { problem: Problem }) {
             <ChevronRight className="size-3.5 text-muted-foreground" />
             {label}
             <span className="ml-auto text-xs font-normal text-muted-foreground">
-              click to reveal
+              rung {i + 1} of {hints.length}
             </span>
           </button>
         );
@@ -240,7 +252,70 @@ function HintsTab({ problem }: { problem: Problem }) {
   );
 }
 
-function SolutionTab({ problem }: { problem: Problem }) {
+/** Self-explanation gate (COURSE_BLUEPRINT.md §7): before the reference
+ *  solution unlocks on a practice problem, the learner explains the approach in
+ *  their own words. Self-explanation has a >2× post-test effect and is free to
+ *  author — we just make room for it. Stays on-device; nothing is submitted. */
+function SelfExplanationGate({ onReveal }: { onReveal: () => void }) {
+  const [text, setText] = useState("");
+  const MIN = 40;
+  const ready = text.trim().length >= MIN;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start gap-2.5">
+        <div className="flex size-[36px] shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <Eye className="size-[18px] stroke-[1.8]" />
+        </div>
+        <div>
+          <div className="text-[14px] font-semibold">
+            Explain it before you peek
+          </div>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+            In your own words: what&apos;s the key idea, and why is it the
+            time/space complexity it is? Putting it into words first is where the
+            learning sticks — this stays on your machine.
+          </p>
+        </div>
+      </div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={4}
+        placeholder="The core idea is… It's O(…) because…"
+        className="w-full resize-y rounded-[10px] border bg-editor px-3 py-2.5 text-[13px] leading-relaxed outline-none transition-colors focus:border-primary/60"
+      />
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onReveal}
+          disabled={!ready}
+          className={cn(
+            "rounded-[9px] px-3.5 py-2 text-[13px] font-semibold transition-[filter,opacity]",
+            ready
+              ? "bg-primary text-primary-foreground hover:brightness-110"
+              : "cursor-not-allowed bg-muted text-muted-foreground"
+          )}
+        >
+          Reveal solution
+        </button>
+        {!ready && (
+          <span className="text-[11.5px] text-muted-foreground">
+            {Math.max(0, MIN - text.trim().length)} more character
+            {MIN - text.trim().length === 1 ? "" : "s"} to unlock
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SolutionTab({
+  problem,
+  requireSelfExplanation = false,
+}: {
+  problem: Problem;
+  requireSelfExplanation?: boolean;
+}) {
   const [revealed, setRevealed] = useState(false);
   const solution = problem.reference_solution;
   const languages = (["python", "javascript"] as const).filter(
@@ -257,6 +332,11 @@ function SolutionTab({ problem }: { problem: Problem }) {
   }
 
   if (!revealed) {
+    // Practice: gate the reveal behind a self-explanation. Elsewhere (e.g. the
+    // gate-help path, where the cost was already paid) keep a plain confirm.
+    if (requireSelfExplanation) {
+      return <SelfExplanationGate onReveal={() => setRevealed(true)} />;
+    }
     return (
       <div className="flex min-h-[260px] flex-col items-center justify-center gap-3.5 text-center">
         <div className="flex size-[52px] items-center justify-center rounded-2xl bg-muted text-muted-foreground">
@@ -433,7 +513,11 @@ export function ProblemPane({
           (solutionGuarded ? (
             <GateSolutionGuard onReveal={reveal} />
           ) : (
-            <SolutionTab key={problem.id} problem={problem} />
+            <SolutionTab
+              key={problem.id}
+              problem={problem}
+              requireSelfExplanation={!gateMode}
+            />
           ))}
       </div>
     </div>
