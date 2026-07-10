@@ -8,6 +8,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  ComplexityReport,
   Curriculum,
   DashboardData,
   DraftSummary,
@@ -141,6 +142,14 @@ export async function runCode(req: RunRequest): Promise<RunResult> {
 
 export async function submitCode(req: RunRequest): Promise<RunResult> {
   return call<RunResult>("submit_code", { req });
+}
+
+/** Deterministic complexity feedback: profiles the learner's Python solution on
+ *  growing inputs and compares to the pack's optimal (Phase 5, no AI). */
+export async function analyzeComplexity(
+  req: RunRequest
+): Promise<ComplexityReport> {
+  return call<ComplexityReport>("analyze_complexity", { req });
 }
 
 export async function detectRuntimes(): Promise<RuntimeInfo[]> {

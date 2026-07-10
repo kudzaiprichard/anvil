@@ -113,6 +113,7 @@ pub fn run() {
             commands::course::evaluate_gate,
             commands::runner::run_code,
             commands::runner::submit_code,
+            commands::runner::analyze_complexity,
             commands::runtimes::detect_runtimes,
             commands::progress::get_progress,
             commands::progress::get_dashboard,

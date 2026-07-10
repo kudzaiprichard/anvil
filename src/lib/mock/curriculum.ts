@@ -149,6 +149,30 @@ export const MOCK_LESSONS: Record<string, Lesson> = {
           state: { i: 1, num: 7, need: 2, seen: { "2": 0 }, answer: null },
           caption_md:
             "Index 1 holds **7**, whose partner is `9 - 7 = 2`. What is the one lookup that decides this whole problem?",
+          predict: {
+            prompt_md:
+              "At index 1 we hold **7** and need **2**. What happens next?",
+            choices: [
+              {
+                id: "lookup",
+                label_md:
+                  "Check the map for `2` — it's there at index 0 — and return `[0, 1]`.",
+              },
+              {
+                id: "store",
+                label_md:
+                  "Store `7 → 1` in the map, then keep scanning to index 2.",
+              },
+              {
+                id: "scan",
+                label_md:
+                  "Compare `7` against every earlier value one by one to find its partner.",
+              },
+            ],
+            answer: "lookup",
+            explanation_md:
+              "Before storing, we ask the map for the complement. `2` is already there at index 0, so a single **O(1)** lookup ends it — no nested scan.",
+          },
         },
         {
           state: { i: 1, num: 7, need: 2, seen: { "2": 0 }, answer: [0, 1] },

@@ -324,10 +324,29 @@ export const PATTERN_POOL_SOURCE = "pattern-pool";
 
 export type DiagramMode = "view" | "perform";
 
+/** One graded choice at a prediction pause. */
+export interface DiagramChoice {
+  id: string;
+  label_md: string;
+}
+
+/** The graded "what happens next?" turn on a prediction-pause step (§13.4).
+ *  Optional — a pause step without it degrades to think-then-reveal. In
+ *  `perform` mode it is the learner's step, graded against ground truth. */
+export interface DiagramPredict {
+  prompt_md: string;
+  choices: DiagramChoice[];
+  /** The `id` of the correct choice — engine ground truth. */
+  answer: string;
+  explanation_md: string;
+}
+
 export interface DiagramStep {
   /** Opaque algorithm-state snapshot for this frame. */
   state: unknown;
   caption_md: string;
+  /** Present on prediction-pause frames that carry a graded question. */
+  predict?: DiagramPredict;
 }
 
 /** A prediction-diagram spec (§3.5, §7.5): the renderer/animator is engine
@@ -514,6 +533,31 @@ export interface RunResult {
   memoryMb?: number;
   /** stderr / traceback when status is "error" or "timeout". */
   error?: string;
+}
+
+/* ---------- deterministic complexity feedback (Phase 5) ---------- */
+
+/** One measurement: `ops` Python-level operations executed at input size `n`. */
+export interface ComplexitySample {
+  n: number;
+  ops: number;
+}
+
+/** How the measured growth compares to the pack's declared optimal. */
+export type ComplexityVerdict = "optimal" | "slower" | "faster" | "unknown";
+
+/** Result of profiling the learner's solution on growing inputs (op-count via
+ *  the runner, no AI). `available: false` ⇒ `note` says why it couldn't run. */
+export interface ComplexityReport {
+  available: boolean;
+  /** Measured class, e.g. "O(n^2)". */
+  measured?: string;
+  /** Pack-declared optimal, e.g. "O(n)". */
+  optimal?: string;
+  verdict: ComplexityVerdict;
+  /** One-line learner-facing message. */
+  note: string;
+  samples: ComplexitySample[];
 }
 
 /* ---------- status mutations (workspace buttons) ---------- */
