@@ -536,7 +536,7 @@ function Workspace() {
           <ShieldCheck className="size-[15px] shrink-0 text-medium" />
           <span className="font-semibold text-medium">Mastery gate</span>
           <span className="text-muted-foreground">
-            {prettifyUnit(gateUnit)} · solve it cold — hints &amp; solution are off, timer is a soft target.
+            {prettifyUnit(gateUnit)} · solve it cold — no hints, revealing the solution voids it, timer is a soft target.
           </span>
           <span className="flex-1" />
           <Link

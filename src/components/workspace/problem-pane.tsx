@@ -322,17 +322,11 @@ function SolutionTab({ problem }: { problem: Problem }) {
   );
 }
 
-/** In a mastery gate, hints and the solution are off (COURSE_BLUEPRINT.md §6):
- *  revealing either voids the problem for the gate. This interstitial makes that
- *  cost explicit before anything is shown, and reports the choice upward so the
- *  gate attempt is marked as help-used. */
-function GateHelpGuard({
-  kind,
-  onReveal,
-}: {
-  kind: "hints" | "solution";
-  onReveal: () => void;
-}) {
+/** In a mastery gate the reference solution stays hidden (COURSE_BLUEPRINT.md
+ *  §6): the learner may reveal it, but doing so voids the problem for the gate.
+ *  This interstitial makes that cost explicit and reports the choice upward so
+ *  the attempt is marked help-used. (Hints aren't offered at all during a gate.) */
+function GateSolutionGuard({ onReveal }: { onReveal: () => void }) {
   return (
     <div className="flex min-h-[240px] flex-col items-center justify-center gap-3.5 text-center">
       <div className="flex size-[52px] items-center justify-center rounded-2xl bg-medium/15 text-medium">
@@ -340,13 +334,13 @@ function GateHelpGuard({
       </div>
       <div>
         <div className="text-[15px] font-semibold">
-          {kind === "hints" ? "Hints are off during a gate" : "Solution is hidden during a gate"}
+          Solution is hidden during a gate
         </div>
         <p className="mx-auto mt-1.5 max-w-[340px] text-[13px] leading-relaxed text-muted-foreground">
-          Gate problems must be solved cold. You can reveal{" "}
-          {kind === "hints" ? "the hints" : "the reference solution"} anyway, but
-          this problem then <strong className="text-foreground">won&apos;t count</strong>{" "}
-          toward mastering the unit.
+          Gate problems must be solved cold. You can reveal the reference
+          solution anyway, but this problem then{" "}
+          <strong className="text-foreground">won&apos;t count</strong> toward
+          mastering the unit.
         </p>
       </div>
       <button
@@ -361,8 +355,9 @@ function GateHelpGuard({
 }
 
 /** Left pane of the workspace: Description / Hints / Solution.
- *  In `gateMode`, revealing hints/solution is guarded and reported via
- *  `onGateHelpUsed` so the gate attempt can be marked help-used. */
+ *  In `gateMode` hints are off entirely (no Hints tab) and the solution stays
+ *  hidden behind a reveal-voids-the-gate guard; revealing it reports via
+ *  `onGateHelpUsed` so the attempt is marked help-used. */
 export function ProblemPane({
   problem,
   bookmarked = false,
@@ -379,17 +374,23 @@ export function ProblemPane({
   const [tab, setTab] = useState<Tab>("description");
   // Whether the learner accepted the "reveal voids the gate" cost this session.
   const [helpUnlocked, setHelpUnlocked] = useState(false);
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "description", label: "Description" },
-    { id: "hints", label: "Hints" },
-    { id: "solution", label: "Solution" },
-  ];
+  // Hints are OFF on a gate (§6): the tab isn't even offered.
+  const tabs: { id: Tab; label: string }[] = gateMode
+    ? [
+        { id: "description", label: "Description" },
+        { id: "solution", label: "Solution" },
+      ]
+    : [
+        { id: "description", label: "Description" },
+        { id: "hints", label: "Hints" },
+        { id: "solution", label: "Solution" },
+      ];
 
   const reveal = () => {
     setHelpUnlocked(true);
     onGateHelpUsed?.();
   };
-  const guarded = gateMode && !helpUnlocked;
+  const solutionGuarded = gateMode && !helpUnlocked;
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -407,7 +408,7 @@ export function ProblemPane({
             )}
           >
             {label}
-            {guarded && id !== "description" && (
+            {solutionGuarded && id === "solution" && (
               <ShieldAlert className="size-[13px] text-medium" />
             )}
             {tab === id && (
@@ -424,15 +425,13 @@ export function ProblemPane({
             onToggleBookmark={onToggleBookmark}
           />
         )}
-        {tab === "hints" &&
-          (guarded ? (
-            <GateHelpGuard kind="hints" onReveal={reveal} />
-          ) : (
-            <HintsTab key={problem.id} problem={problem} />
-          ))}
+        {/* Hints tab only exists outside a gate. */}
+        {tab === "hints" && !gateMode && (
+          <HintsTab key={problem.id} problem={problem} />
+        )}
         {tab === "solution" &&
-          (guarded ? (
-            <GateHelpGuard kind="solution" onReveal={reveal} />
+          (solutionGuarded ? (
+            <GateSolutionGuard onReveal={reveal} />
           ) : (
             <SolutionTab key={problem.id} problem={problem} />
           ))}
