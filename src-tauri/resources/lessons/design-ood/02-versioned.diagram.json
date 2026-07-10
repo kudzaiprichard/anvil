@@ -1,0 +1,35 @@
+{
+  "id": "timemap-versioned",
+  "algorithm": "time-map-bisect",
+  "for_problem": "time-based-key-value-store",
+  "mode": "view",
+  "steps": [
+    {
+      "state": { "op": "set('foo', 'bar1', 1)", "store": { "foo": [[1, "bar1"]] } },
+      "caption_md": "`set(\"foo\", \"bar1\", 1)` appends to foo's history. Since timestamps only ever increase per key, the list stays sorted for free."
+    },
+    {
+      "state": { "op": "set('foo', 'bar2', 4)", "store": { "foo": [[1, "bar1"], [4, "bar2"]] } },
+      "caption_md": "`set(\"foo\", \"bar2\", 4)` — foo now has two versions. Next we call `get(\"foo\", 2)` — what happens?",
+      "predict": {
+        "prompt_md": "`get(\"foo\", 2)` is called on history `[(1, \"bar1\"), (4, \"bar2\")]`. What does it return, and how?",
+        "choices": [
+          { "id": "bisect", "label_md": "Binary-search for the rightmost timestamp `<= 2` — index 0 — and return \"bar1\", in O(log m)." },
+          { "id": "scan", "label_md": "Scan from the start until a timestamp exceeds 2, returning the last one seen, in O(m)." },
+          { "id": "latest", "label_md": "Return \"bar2\", because it's the most recently set value overall." }
+        ],
+        "answer": "bisect",
+        "explanation_md": "bisect finds the rightmost entry with timestamp <= 2 in O(log m) by exploiting the list's sortedness — a scan would land on the same answer but throws away the O(log m) speedup that sortedness buys you."
+      }
+    },
+    {
+      "state": { "op": "get('foo', 2)", "store": { "foo": [[1, "bar1"], [4, "bar2"]] }, "result": "bar1" },
+      "caption_md": "`get(\"foo\", 2)` binary-searches to timestamp 1 (the latest version at-or-before 2) and returns `\"bar1\"` — O(log m), no scan."
+    },
+    {
+      "state": { "op": "get('foo', 5)", "store": { "foo": [[1, "bar1"], [4, "bar2"]] }, "result": "bar2" },
+      "caption_md": "`get(\"foo\", 5)` lands past both entries; the rightmost timestamp `<= 5` is 4, so it returns `\"bar2\"`."
+    }
+  ],
+  "predict_at": [1]
+}

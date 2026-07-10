@@ -1,0 +1,35 @@
+{
+  "id": "lru-composite",
+  "algorithm": "lru-cache-dict-dll",
+  "for_problem": "lru-cache",
+  "mode": "view",
+  "steps": [
+    {
+      "state": { "op": "put(1, 'A')", "capacity": 2, "dict": { "1": "A" }, "order_mru_to_lru": ["1"] },
+      "caption_md": "Capacity 2. `put(1, 'A')` inserts key 1. The dict maps `1 -> node`; the order list (MRU on the left) has just one entry."
+    },
+    {
+      "state": { "op": "put(2, 'B')", "capacity": 2, "dict": { "1": "A", "2": "B" }, "order_mru_to_lru": ["2", "1"] },
+      "caption_md": "`put(2, 'B')` — still room. New keys go at the MRU end: order is now `[2, 1]`. Next we call `get(1)` — which end moves, and how fast?",
+      "predict": {
+        "prompt_md": "Order is `[2, 1]` (MRU → LRU). We call `get(1)`. What happens?",
+        "choices": [
+          { "id": "lookup-relink", "label_md": "Look up 1 in the dict (O(1)), then unlink its node and relink it at the MRU end — order becomes `[1, 2]`." },
+          { "id": "scan", "label_md": "Scan the order list for 1, since we don't otherwise know its position, then move it — O(n)." },
+          { "id": "unchanged", "label_md": "Leave the order list unchanged, since `get()` only reads a value and doesn't affect recency." }
+        ],
+        "answer": "lookup-relink",
+        "explanation_md": "The dict gives O(1) access to key 1's node; the doubly linked list lets that node unlink and relink to the front in O(1) — no scanning, no shifting anything else."
+      }
+    },
+    {
+      "state": { "op": "get(1)", "dict": { "1": "A", "2": "B" }, "order_mru_to_lru": ["1", "2"], "result": "A" },
+      "caption_md": "`get(1)` returns `'A'` and promotes key 1 to MRU. Order becomes `[1, 2]` via one O(1) unlink + relink."
+    },
+    {
+      "state": { "op": "put(3, 'C')", "dict": { "1": "A", "3": "C" }, "order_mru_to_lru": ["3", "1"], "evicted": "2" },
+      "caption_md": "Cache is full (2/2). `put(3, 'C')` evicts the LRU end — key 2 — which the list's tail pointer hands us directly in O(1); no scan needed to find 'the oldest'."
+    }
+  ],
+  "predict_at": [1]
+}
