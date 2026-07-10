@@ -8,8 +8,10 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  Curriculum,
   DashboardData,
   DraftSummary,
+  Lesson,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -19,6 +21,7 @@ import type {
   RunResult,
   RuntimeInfo,
   StatusAction,
+  Unit,
   UserProblemDraft,
   ValidationResult,
 } from "@/src/lib/types";
@@ -70,6 +73,19 @@ export async function listProblems(
 
 export async function getProblem(id: string): Promise<Problem | null> {
   return (await call<Problem | null>("get_problem", { id })) ?? null;
+}
+
+/** Phase 1 IPC stubs (LESSON_COURSE_DESIGN.md §6.4) — no UI reads these yet. */
+export async function getCurriculum(): Promise<Curriculum> {
+  return call<Curriculum>("get_curriculum");
+}
+
+export async function getUnit(id: string): Promise<Unit | null> {
+  return (await call<Unit | null>("get_unit", { id })) ?? null;
+}
+
+export async function getLesson(id: string): Promise<Lesson | null> {
+  return (await call<Lesson | null>("get_lesson", { id })) ?? null;
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

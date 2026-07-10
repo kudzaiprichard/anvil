@@ -4,6 +4,7 @@
 //! here and only here; the WebView never touches any of it directly.
 
 pub mod catalog;
+pub mod curriculum;
 pub mod db;
 pub mod example_parse;
 pub mod import_export;

@@ -223,6 +223,113 @@ export interface TestPack {
   generated_at: string;
 }
 
+/* ---------- curriculum / course content (LESSON_COURSE_DESIGN.md §3, §7) ----------
+ * Phase 1 ships schemas + a fail-closed loader only; no UI reads these yet.
+ * Field names are snake_case, same convention as Problem/TestPack/Preset. */
+
+export interface GateConfig {
+  pass_count: number;
+  require_novel: boolean;
+  timer_target_min: number;
+  threshold_pct: number;
+}
+
+export type ProblemRole = "worked" | "guided" | "gate";
+export type ProblemTier = "intro" | "core" | "stretch";
+
+export interface UnitProblem {
+  slug: string;
+  role: ProblemRole;
+  tier: ProblemTier;
+  novel: boolean;
+}
+
+/** A unit manifest (§3.2): one concept, the mastery-gate boundary. */
+export interface Unit {
+  id: string;
+  stage: string;
+  title: string;
+  prereqs: string[];
+  /** Lesson ids in order; empty until Phase 2 authors lesson content. */
+  lessons: string[];
+  problems: UnitProblem[];
+  gate: GateConfig;
+  /** Unit ids whose pattern this unit's practice must resurface. */
+  spiral: string[];
+}
+
+export interface CurriculumStage {
+  id: string;
+  title: string;
+  units: string[];
+}
+
+/** The one implicit course (§3.1): stages, the prereq DAG, gate defaults. */
+export interface Curriculum {
+  id: string;
+  stages: CurriculumStage[];
+  /** `unitId -> [prereq unitId]`, the DAG driving unlocking. */
+  prereqs: Record<string, string[]>;
+  gate_defaults: GateConfig;
+}
+
+export type QuizItemType = "concept-check" | "pattern-picker" | "complexity";
+
+export interface QuizItem {
+  id: string;
+  type: QuizItemType;
+  prompt_md: string;
+  options: string[];
+  answer: string;
+  /** The unit/pattern id a `pattern-picker` item is testing recognition of. */
+  correct_pattern?: string;
+  explanation_md: string;
+}
+
+/** One lesson's quiz file (§3.4, §7.4). */
+export interface Quiz {
+  items: QuizItem[];
+}
+
+export type DiagramMode = "view" | "perform";
+
+export interface DiagramStep {
+  /** Opaque algorithm-state snapshot for this frame. */
+  state: unknown;
+  caption_md: string;
+}
+
+/** A prediction-diagram spec (§3.5, §7.5): the renderer/animator is engine
+ *  (Phase 5); the steps/trace are precomputed data. */
+export interface DiagramSpec {
+  id: string;
+  algorithm: string;
+  /** The worked-example problem slug this diagram is keyed to. */
+  for_problem: string;
+  mode: DiagramMode;
+  steps: DiagramStep[];
+  /** Step indices where playback pauses to ask "what happens next?" */
+  predict_at: number[];
+}
+
+/** A fully loaded lesson (§3.3): one sub-pattern, the atom of the course. */
+export interface Lesson {
+  id: string;
+  unit: string;
+  subpattern: string;
+  explainer_md: string;
+  trigger_signals: string[];
+  /** The worked-example problem slug. */
+  worked_example: string;
+  diagram: DiagramSpec;
+  quiz: Quiz;
+  /** Ordered practice slugs, faded -> independent. */
+  practice: string[];
+  /** Earlier lesson ids this lesson's recap retrieval pulls from. */
+  recap: string[];
+  follow_up: string[];
+}
+
 /* ---------- progress & status (app types) ---------- */
 
 export type ProblemStatus = "todo" | "in-progress" | "solved" | "needs-review";

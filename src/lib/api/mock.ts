@@ -12,8 +12,10 @@
 
 import type {
   CaseResult,
+  Curriculum,
   DashboardData,
   DraftSummary,
+  Lesson,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -23,12 +25,14 @@ import type {
   RunResult,
   RuntimeInfo,
   StatusAction,
+  Unit,
   UserProblemDraft,
   ValidationIssue,
   ValidationResult,
 } from "@/src/lib/types";
 import { PATTERNS } from "@/src/lib/types";
 import { applyProblemFilter } from "@/src/lib/api/filters";
+import { MOCK_CURRICULUM, MOCK_UNITS } from "@/src/lib/mock/curriculum";
 import { MOCK_PROBLEMS } from "@/src/lib/mock/problems";
 import {
   MOCK_PROGRESS,
@@ -160,6 +164,23 @@ function wrongAnswer(expected: unknown): string {
   if (typeof expected === "number") return fmtValue(expected + 1);
   if (typeof expected === "boolean") return fmtValue(!expected);
   return "null";
+}
+
+/** Phase 1 IPC stubs — mirrors the shipped Stage-1 curriculum; no lessons yet. */
+export async function getCurriculum(): Promise<Curriculum> {
+  await delay(80);
+  return MOCK_CURRICULUM;
+}
+
+export async function getUnit(id: string): Promise<Unit | null> {
+  await delay(80);
+  return MOCK_UNITS.find((u) => u.id === id) ?? null;
+}
+
+export async function getLesson(id: string): Promise<Lesson | null> {
+  void id;
+  await delay(80);
+  return null; // no lesson content until Phase 2
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

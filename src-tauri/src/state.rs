@@ -5,6 +5,7 @@
 use std::sync::Mutex;
 
 use crate::domain::run::Language;
+use crate::services::curriculum::CurriculumStore;
 use crate::services::db::Db;
 use crate::services::pack_store::PackStore;
 use crate::services::preset_store::PresetStore;
@@ -18,6 +19,9 @@ pub struct AppState {
     /// importer for coverage + full-tier matching.
     pub packs: PackStore,
     pub db: Db,
+    /// Validated curriculum/unit/lesson content, loaded fail-closed at
+    /// startup (`services::curriculum`).
+    pub curriculum: CurriculumStore,
     /// Detection cache: filled at startup, refreshed by `detect_runtimes`
     /// (the Settings pane is the refresh trigger); the runner reads it.
     runtimes: Mutex<Vec<RuntimeInfo>>,
@@ -29,6 +33,7 @@ impl AppState {
         presets: PresetStore,
         packs: PackStore,
         db: Db,
+        curriculum: CurriculumStore,
         runtimes: Vec<RuntimeInfo>,
     ) -> Self {
         Self {
@@ -36,6 +41,7 @@ impl AppState {
             presets,
             packs,
             db,
+            curriculum,
             runtimes: Mutex::new(runtimes),
         }
     }

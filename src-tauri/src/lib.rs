@@ -74,8 +74,14 @@ pub fn run() {
             }
             let db = services::db::Db::open(&app.path().app_data_dir()?)?;
             store.set_user_problems(services::db::user_problems::list(&db)?);
+            // Course content (LESSON_COURSE_DESIGN.md §6.4): validated
+            // fail-closed, like presets — a malformed curriculum/unit/lesson
+            // file aborts startup rather than loading partial content.
+            let curriculum = services::curriculum::CurriculumStore::load(&resources_dir, &packs)?;
             let runtimes = services::runtime_detect::detect();
-            app.manage(state::AppState::new(store, presets, packs, db, runtimes));
+            app.manage(state::AppState::new(
+                store, presets, packs, db, curriculum, runtimes,
+            ));
             // Safety net: the front end shows the hidden window after first
             // paint; if it ever fails to boot, reveal the window anyway so
             // the app can't become an invisible zombie process.
@@ -91,6 +97,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::problems::list_problems,
             commands::problems::get_problem,
+            commands::course::get_curriculum,
+            commands::course::get_unit,
+            commands::course::get_lesson,
             commands::runner::run_code,
             commands::runner::submit_code,
             commands::runtimes::detect_runtimes,

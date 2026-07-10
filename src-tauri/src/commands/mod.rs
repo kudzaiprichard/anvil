@@ -4,6 +4,7 @@
 //! (problems, runner, progress, authoring, runtimes) and documents its caller.
 
 pub mod authoring;
+pub mod course;
 pub mod problems;
 pub mod progress;
 pub mod runner;

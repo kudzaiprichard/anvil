@@ -8,8 +8,10 @@
 
 import { isTauri } from "@tauri-apps/api/core";
 import type {
+  Curriculum,
   DashboardData,
   DraftSummary,
+  Lesson,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -19,6 +21,7 @@ import type {
   RunResult,
   RuntimeInfo,
   StatusAction,
+  Unit,
   UserProblemDraft,
   ValidationResult,
 } from "@/src/lib/types";
@@ -35,6 +38,18 @@ export async function listProblems(
 
 export async function getProblem(id: string): Promise<Problem | null> {
   return isTauri() ? backend.getProblem(id) : mock.getProblem(id);
+}
+
+export async function getCurriculum(): Promise<Curriculum> {
+  return isTauri() ? backend.getCurriculum() : mock.getCurriculum();
+}
+
+export async function getUnit(id: string): Promise<Unit | null> {
+  return isTauri() ? backend.getUnit(id) : mock.getUnit(id);
+}
+
+export async function getLesson(id: string): Promise<Lesson | null> {
+  return isTauri() ? backend.getLesson(id) : mock.getLesson(id);
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {
