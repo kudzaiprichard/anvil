@@ -7,11 +7,13 @@
 //! best-fit against a fixed set of candidate curves, and compares it to the
 //! pack's known-optimal time complexity — no AI, fully offline.
 //!
-//! Honesty note (COURSE_BLUEPRINT.md §8): the counter sees *Python-level*
-//! operations, so work hidden in C built-ins (`sorted`, `set`, `Counter`)
-//! is under-counted. That's the right lens for the thing this teaches —
-//! spotting an O(n²) nested scan you could have made O(n) — and the UI says
-//! so plainly.
+//! The counter sees Python-level line events *plus* a size-weighted charge for
+//! sequence-consuming built-ins (`sorted`, `sum`, `min`, `max`, `any`, `all`),
+//! so an O(n log n) sort or an O(n) reduction shows up in the growth instead of
+//! reading flat. Honesty note (COURSE_BLUEPRINT.md §8): a few method-style ops
+//! still run in C uncharged (`.sort()`, `x in list`, container construction,
+//! `str.join`) — the UI says so. It's the right lens for what this teaches:
+//! spotting work whose growth you can cut.
 
 use serde::{Deserialize, Serialize};
 

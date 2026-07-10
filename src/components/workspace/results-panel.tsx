@@ -347,8 +347,9 @@ function ComplexityCard({
       {report.samples.length > 0 && <GrowthBars report={report} />}
 
       <p className="mt-2.5 text-[10.5px] leading-snug text-muted-foreground">
-        Counts Python operations your code executes as input grows; work inside
-        C built-ins (sorted, set, Counter) runs faster than it looks here.
+        Counts operations as input grows — your Python plus the size-weighted
+        cost of built-ins like sorted / sum / min / max. A few container ops
+        (.sort(), <code>x in list</code>) still read a little light.
       </p>
     </div>
   );

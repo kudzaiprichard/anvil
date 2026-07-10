@@ -15,8 +15,10 @@
 # Reuses harness.py's prelude loader / entry resolver / node (de)serializer by
 # importing it — harness.py only auto-runs under `__main__`, so importing it is
 # side-effect free.
+import builtins
 import copy
 import json
+import math
 import random
 import sys
 import threading
@@ -25,6 +27,50 @@ import traceback
 import harness as H
 
 SENTINEL = "@@ANVIL@@"
+
+# Sequence-consuming built-ins whose real cost is O(k)/O(k log k) in the size k
+# of their first argument but which run in C, so sys.settrace never sees them —
+# left uncharged, an `sorted()` (O(n log n)) or `sum()` over the input would read
+# as flat. We wrap them to charge that work into the op count. Only *functions*
+# are wrapped, never type constructors (list/dict/set/tuple/Counter): shadowing a
+# type would break `isinstance(x, list)` and annotations in the learner's code.
+# Residual, still uncharged: list methods (.sort()), membership in a list
+# (x in [...]), container construction, and str.join — the card notes these.
+_LINEAR_BUILTINS = ("sum", "min", "max", "any", "all")
+
+
+def _instrument_builtins(ns, counter):
+    """Shadow the wrapped built-ins inside the solution's own globals so the
+    learner's code resolves to the charging versions; each call adds the size
+    of its first argument (times log for `sorted`) to the op counter."""
+
+    def size_of(x):
+        try:
+            return len(x)
+        except TypeError:
+            return 0
+
+    def linear(fn):
+        def wrapped(*args, **kwargs):
+            if args:
+                counter[0] += size_of(args[0])
+            return fn(*args, **kwargs)
+
+        return wrapped
+
+    def sortlike(fn):
+        def wrapped(*args, **kwargs):
+            if args:
+                n = size_of(args[0])
+                if n > 1:
+                    counter[0] += n * max(1, math.ceil(math.log2(n)))
+            return fn(*args, **kwargs)
+
+        return wrapped
+
+    for name in _LINEAR_BUILTINS:
+        ns[name] = linear(getattr(builtins, name))
+    ns["sorted"] = sortlike(builtins.sorted)
 
 
 def emit(obj):
@@ -76,6 +122,9 @@ def run():
         return
 
     counter = [0]
+    # Charge C-level built-in work (sorted/sum/…) into the same counter so it
+    # scales with the input, not just the Python lines the learner wrote.
+    _instrument_builtins(solution.__dict__, counter)
     tracer = make_tracer(counter)
 
     for size in sizes:

@@ -50,6 +50,23 @@ fn nested_loop_measures_as_quadratic() {
 }
 
 #[test]
+fn builtin_sort_cost_is_charged_not_read_as_flat() {
+    require_runtime!("python");
+    // `sorted` runs in C, so a pure line-count would read this as ~O(1). The
+    // probe charges its n·log n work, so it correctly measures as super-linear.
+    let samples = probe("def solve(nums):\n    s = sorted(nums)\n    return s[-1]\n");
+    assert_eq!(samples.len(), SIZES.len());
+    let measured = classify(&samples).expect("classified");
+    assert!(
+        measured == "O(n log n)" || measured == "O(n)",
+        "sort-based solution should measure as at least linear, got {measured}"
+    );
+    assert_ne!(measured, "O(1)", "C built-in cost must not read as flat");
+    // super-linear: doubling n more than doubles the ops.
+    assert!(samples[3].ops > 2 * samples[1].ops);
+}
+
+#[test]
 fn a_solution_that_errors_is_reported_not_panicked() {
     require_runtime!("python");
     match count_ops(
