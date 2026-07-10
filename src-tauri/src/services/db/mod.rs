@@ -5,6 +5,7 @@
 //! outside `services/db/`).
 
 pub mod attempts;
+pub mod capstone;
 pub mod drafts;
 pub mod imported_problems;
 pub mod lesson_progress;
@@ -59,6 +60,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (3, include_str!("migrations/0003_curriculum.sql")),
     (4, include_str!("migrations/0004_gate_solve.sql")),
     (5, include_str!("migrations/0005_quiz_result.sql")),
+    (6, include_str!("migrations/0006_advancement.sql")),
 ];
 
 fn migrate(conn: &Connection) -> AppResult<()> {

@@ -17,6 +17,33 @@ pub struct CurriculumStage {
     pub units: Vec<String>,
 }
 
+/// One problem in the Stage-7 mixed capstone. `unit` is the pattern it
+/// *actually* belongs to — kept server-side for scoring/spiral bookkeeping and
+/// **never sent to the workspace**: the capstone's whole point (BLUEPRINT.md §4)
+/// is that the learner sees the problem *unlabeled* and must recognize the
+/// pattern themselves.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CapstoneProblem {
+    pub slug: String,
+    pub unit: String,
+}
+
+/// The Stage-7 Mixed Capstone (BLUEPRINT.md §4, §13.5): a pool of problems drawn
+/// from across every unit, shown without their pattern label. Clearing it is the
+/// operational definition of "can solve unfamiliar problems alone." Not a unit
+/// (it has no lessons and sits outside the prereq DAG), so it's carried on the
+/// curriculum rather than in `units/`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Capstone {
+    pub id: String,
+    pub stage: String,
+    pub title: String,
+    /// Distinct problems to clear hint-free to pass the capstone.
+    pub pass_count: u32,
+    pub timer_target_min: u32,
+    pub problems: Vec<CapstoneProblem>,
+}
+
 /// The whole track (§7.1 example). Loaded from
 /// `resources/curriculum/curriculum.json`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -29,6 +56,9 @@ pub struct Curriculum {
     pub prereqs: HashMap<String, Vec<String>>,
     /// Fallback gate knobs a unit may override in its own manifest.
     pub gate_defaults: GateConfig,
+    /// The optional Stage-7 mixed capstone (present once Stage 7 ships).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capstone: Option<Capstone>,
 }
 
 impl Curriculum {
@@ -72,6 +102,30 @@ impl Curriculum {
             }
         }
         detect_cycle(&self.prereqs)?;
+        if let Some(cap) = &self.capstone {
+            if cap.id.trim().is_empty() || cap.title.trim().is_empty() {
+                return Err("capstone id/title is empty".into());
+            }
+            if cap.problems.is_empty() {
+                return Err("capstone has no problems".into());
+            }
+            if cap.pass_count == 0 || cap.pass_count as usize > cap.problems.len() {
+                return Err(format!(
+                    "capstone pass_count {} is not in 1..={}",
+                    cap.pass_count,
+                    cap.problems.len()
+                ));
+            }
+            let mut seen = std::collections::HashSet::new();
+            for p in &cap.problems {
+                if p.slug.trim().is_empty() {
+                    return Err("capstone: empty problem slug".into());
+                }
+                if !seen.insert(p.slug.as_str()) {
+                    return Err(format!("capstone: duplicate problem slug '{}'", p.slug));
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -163,6 +217,7 @@ mod tests {
                 timer_target_min: 25,
                 threshold_pct: 80,
             },
+            capstone: None,
         }
     }
 

@@ -64,6 +64,72 @@ pub fn enqueue(
     review::enqueue_new(db, problem_id, &now.to_rfc3339())
 }
 
+/// Partial-prereq-credit review (Phase 7, Math-Academy "repetition
+/// compression", BLUEPRINT.md §7). When a learner solves a problem in some unit,
+/// they've just *exercised* every pattern that unit builds on — so the
+/// prerequisite cards already due for a cold re-solve get a lighter,
+/// partial-credit review (a `Hard`-grade advancement) instead of demanding a
+/// full separate re-solve. This keeps spaced review from ballooning as the
+/// ladder grows: climbing the ladder pays down the review debt of its
+/// foundations. Only graduated (`review`/`relearning`) cards that are actually
+/// due are credited; new/learning cards and not-yet-due cards are untouched.
+/// Best-effort, like [`enqueue`] — returns how many cards were credited.
+pub fn partial_prereq_credit(
+    store: &CurriculumStore,
+    db: &Db,
+    problem_id: &str,
+    now: DateTime<Utc>,
+) -> AppResult<u32> {
+    let Some(unit) = store.unit_of_problem(problem_id) else {
+        return Ok(0);
+    };
+    let ancestors = store.ancestors_of(unit);
+    if ancestors.is_empty() {
+        return Ok(0);
+    }
+    let sched = scheduler();
+    let mut credited = 0u32;
+    for row in review::list_all(db)? {
+        if row.problem_id == problem_id {
+            continue;
+        }
+        let Some(card_unit) = store.unit_of_problem(&row.problem_id) else {
+            continue;
+        };
+        if !ancestors.contains(card_unit) {
+            continue;
+        }
+        let state = state_from_wire(&row.state);
+        if !(state == State::Review || state == State::Relearning) {
+            continue;
+        }
+        let is_due = row
+            .due_at
+            .as_deref()
+            .and_then(parse_dt)
+            .map(|d| d <= now)
+            .unwrap_or(false);
+        if !is_due {
+            continue;
+        }
+        let next = sched.next(card_from_row(&row, now), now, Rating::Hard).card;
+        review::upsert(
+            db,
+            &review::ReviewRow {
+                problem_id: row.problem_id.clone(),
+                state: state_to_wire(next.state).to_string(),
+                stability: Some(next.stability),
+                difficulty: Some(next.difficulty),
+                due_at: Some(next.due.to_rfc3339()),
+                last_reviewed_at: Some(now.to_rfc3339()),
+                lapses: next.lapses as i64,
+            },
+        )?;
+        credited += 1;
+    }
+    Ok(credited)
+}
+
 /// Records one cold re-solve and reschedules the card via FSRS. Rejects a
 /// problem that never entered the queue. An `again` grade is a demotion: FSRS
 /// collapses the interval and, once the card has graduated to `review`, bumps

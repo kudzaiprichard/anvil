@@ -131,6 +131,27 @@ def detect_cycle(prereqs: dict[str, list[str]]) -> list[str] | None:
     return None
 
 
+def _transitive_prereqs(prereqs: dict[str, list[str]], units: dict[str, dict]) -> dict[str, set[str]]:
+    """For each unit, its transitive prerequisite set (ancestors). The graph is
+    checked acyclic before this runs, so the recursion terminates."""
+    memo: dict[str, set[str]] = {}
+
+    def collect(node: str) -> set[str]:
+        if node in memo:
+            return memo[node]
+        memo[node] = set()  # guard against a cycle we haven't rejected yet
+        acc: set[str] = set()
+        for dep in prereqs.get(node, []):
+            acc.add(dep)
+            acc |= collect(dep)
+        memo[node] = acc
+        return acc
+
+    for uid in units:
+        collect(uid)
+    return memo
+
+
 def validate_unit(unit: dict) -> None:
     uid = unit.get("id", "<missing id>")
     _require(isinstance(unit.get("id"), str) and unit["id"].strip(), "unit: `id` is required")
@@ -320,6 +341,56 @@ def check() -> int:
                 f"curriculum.json prereqs {sorted(curriculum_level)}"
             )
 
+    # Spiral-reuse enforcement (LESSON_COURSE_DESIGN.md §3.2, mirrors the Rust
+    # loader): (a) every unit's spiral entry must be a transitive prerequisite
+    # (you only resurface an already-taught pattern), and (b) coverage — every
+    # unit that some unit depends on must be resurfaced by at least one spiral.
+    ancestors = _transitive_prereqs(prereqs, units)
+    spiralled: set[str] = set()
+    for uid, unit in units.items():
+        for s in unit.get("spiral", []):
+            if s not in units:
+                errors.append(f"unit '{uid}': spiral references unknown unit '{s}'")
+            elif s not in ancestors.get(uid, set()):
+                errors.append(
+                    f"unit '{uid}': spiral entry '{s}' is not a prerequisite "
+                    f"(can only resurface an already-taught pattern)"
+                )
+            spiralled.add(s)
+    depended_on = {dep for deps in prereqs.values() for dep in deps}
+    for dep in sorted(depended_on):
+        if dep not in spiralled:
+            errors.append(
+                f"spiral coverage: unit '{dep}' is a prerequisite of another unit "
+                f"but is never resurfaced by any unit's spiral"
+            )
+
+    # Stage-7 capstone (Phase 7): if present, validate shape + that every problem
+    # names a known unit (referential slug/pack check happens with the rest below).
+    capstone = curriculum.get("capstone")
+    if capstone is not None:
+        try:
+            _require(isinstance(capstone.get("id"), str) and capstone["id"].strip(),
+                     "capstone: `id` is required")
+            _require(isinstance(capstone.get("title"), str) and capstone["title"].strip(),
+                     "capstone: `title` is required")
+            cap_problems = capstone.get("problems")
+            _require(isinstance(cap_problems, list) and cap_problems,
+                     "capstone: `problems` must be non-empty")
+            _require(_is_int(capstone.get("pass_count")) and 1 <= capstone["pass_count"] <= len(cap_problems),
+                     "capstone: `pass_count` must be an int in 1..=len(problems)")
+            _require(_is_int(capstone.get("timer_target_min")), "capstone: `timer_target_min` must be an int")
+            cap_seen: set[str] = set()
+            for cp in cap_problems:
+                slug = cp.get("slug")
+                _require(isinstance(slug, str) and slug.strip(), "capstone: a problem has an empty slug")
+                _require(slug not in cap_seen, f"capstone: duplicate problem slug '{slug}'")
+                cap_seen.add(slug)
+                if cp.get("unit") not in units:
+                    errors.append(f"capstone: problem '{slug}' names unknown unit '{cp.get('unit')}'")
+        except CheckError as e:
+            errors.append(str(e))
+
     # unit -> lesson cross-check (lessons loaded below)
     lesson_files = sorted(LESSONS_DIR.rglob("*.md")) if LESSONS_DIR.is_dir() else []
     lessons: dict[str, dict] = {}
@@ -373,6 +444,10 @@ def check() -> int:
         referenced_slugs.add((lesson["worked_example"], f"lesson '{lid}' worked_example"))
         for slug in lesson["practice"]:
             referenced_slugs.add((slug, f"lesson '{lid}' practice"))
+    if isinstance(capstone, dict):
+        for cp in capstone.get("problems", []):
+            if isinstance(cp.get("slug"), str):
+                referenced_slugs.add((cp["slug"], "capstone"))
     for slug, where in sorted(referenced_slugs):
         if pack_slugs and slug not in pack_slugs:
             errors.append(f"{where}: problem slug '{slug}' has no frozen pack")

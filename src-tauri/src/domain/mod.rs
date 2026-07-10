@@ -3,6 +3,7 @@
 //! contract and must serialize byte-for-byte like `src/lib/types.ts`; every
 //! type gets a round-trip contract test.
 
+pub mod advancement;
 pub mod complexity;
 pub mod curriculum;
 pub mod diagram;
