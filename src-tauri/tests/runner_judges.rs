@@ -257,7 +257,10 @@ fn linked_list_python_stub_runs_unmodified_and_judges() {
             "Solution.reverseList",
             "reverseList",
             1,
-            IoTypes { params: vec![IoType::LinkedList], returns: IoType::LinkedList },
+            IoTypes {
+                params: vec![IoType::LinkedList],
+                returns: IoType::LinkedList,
+            },
         ),
         vec![case(json!([[1, 2, 3, 4, 5]]), json!([5, 4, 3, 2, 1]))],
     );
@@ -282,7 +285,10 @@ fn binary_tree_javascript_stub_runs_unmodified_and_judges() {
             "Solution.maxDepth",
             "maxDepth",
             1,
-            IoTypes { params: vec![IoType::Tree], returns: IoType::Json },
+            IoTypes {
+                params: vec![IoType::Tree],
+                returns: IoType::Json,
+            },
         ),
         vec![case(json!([[3, 9, 20, null, null, 15, 7]]), json!(3))],
     );

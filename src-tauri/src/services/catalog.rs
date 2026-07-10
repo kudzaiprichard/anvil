@@ -180,15 +180,22 @@ mod tests {
         std::fs::write(dir.join("notes.json"), b"{}").unwrap(); // wrong prefix → ignored
         let paths = resource_paths(&dir);
         assert_eq!(paths.len(), 2, "both catalog* files, never notes.json");
-        assert!(paths
-            .iter()
-            .all(|p| p.file_name().unwrap().to_string_lossy().starts_with("catalog")));
+        assert!(paths.iter().all(|p| p
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("catalog")));
 
         // For the same stem the gzipped form wins.
         std::fs::write(dir.join("catalog.json.gz"), b"gz").unwrap();
         let catalog = resource_paths(&dir)
             .into_iter()
-            .find(|p| p.file_name().unwrap().to_string_lossy().starts_with("catalog."))
+            .find(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("catalog.")
+            })
             .unwrap();
         assert!(catalog.to_string_lossy().ends_with("catalog.json.gz"));
 
@@ -238,7 +245,10 @@ mod tests {
         let problems = load_all(&real_packs(), &real_presets(), &dir).unwrap();
         let slugs: Vec<&str> = problems.iter().map(|p| p.id.as_str()).collect();
         assert_eq!(slugs, vec!["two-sum", "3sum"], "deduped; catalog.json wins");
-        assert_eq!(problems[0].number, 1, "renumbered contiguously across files");
+        assert_eq!(
+            problems[0].number, 1,
+            "renumbered contiguously across files"
+        );
         assert_eq!(problems[1].number, 2);
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -260,8 +270,15 @@ mod tests {
             problems.len(),
             verified
         );
-        assert!(problems.len() > 1000, "expected a full catalog, got {}", problems.len());
-        assert!(verified > 2000, "most problems should map to packs, got {verified}");
+        assert!(
+            problems.len() > 1000,
+            "expected a full catalog, got {}",
+            problems.len()
+        );
+        assert!(
+            verified > 2000,
+            "most problems should map to packs, got {verified}"
+        );
     }
 
     #[test]
