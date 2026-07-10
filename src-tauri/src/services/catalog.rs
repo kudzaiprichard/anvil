@@ -5,13 +5,19 @@
 //! judge). There is no app-data copy, no runtime import, and no fallback: the
 //! catalog is application content, not something the user supplies.
 //!
-//! Name-agnostic by design: a "catalog" is ANY file in `resources/` named
-//! `catalog*.json` or `catalog*.json.gz`. Drop in `catalog.json`,
+//! Name-agnostic by design: a "catalog" is ANY file in `resources/catalog/`
+//! named `catalog*.json` or `catalog*.json.gz`. Drop in `catalog.json`,
 //! `catalog_leetcode.json`, `catalog_ourown.json.gz`, … and it is discovered
 //! and loaded — no code change, no hardcoded filename. Multiple catalogs merge
 //! (de-duplicated by slug), so an original catalog can be added alongside or
 //! swapped in for another. This keeps authoring frictionless: to bring your own
 //! library you only add files, you never edit the loader.
+//!
+//! The catalog lives in its own `resources/catalog/` subdirectory (rather than
+//! the resources root) so the Tauri bundler can reference it as a plain
+//! directory path instead of a glob: a zero-match glob hard-fails the build,
+//! and the dev scrape below is gitignored — CI and any fresh checkout never
+//! have it. A tracked `.gitkeep` keeps the directory present either way.
 //!
 //! Legal: whatever is *committed/shipped* here MUST be original, shippable
 //! content — never a third party's problem text (`.docs/CONTENT_MAP.md`). The
@@ -25,7 +31,8 @@ use crate::domain::problem::Problem;
 use crate::error::AppResult;
 use crate::services::{lc_import, pack_store::PackStore, preset_store::PresetStore};
 
-/// Every catalog file bundled in `resources_dir`, in deterministic order.
+/// Every catalog file bundled in `catalog_dir` (`resources/catalog/`), in
+/// deterministic order.
 ///
 /// A catalog is any file whose name starts with `catalog` and ends in `.json`
 /// or `.json.gz` — the loader does not care what it is called, so a dev scrape
@@ -34,9 +41,9 @@ use crate::services::{lc_import, pack_store::PackStore, preset_store::PresetStor
 /// given stem the gzipped form wins over the plain one; results are sorted by
 /// name so the merged problem order is stable. Empty ⇒ no catalog is bundled
 /// (the library is empty until one is added).
-pub fn resource_paths(resources_dir: &Path) -> Vec<PathBuf> {
+pub fn resource_paths(catalog_dir: &Path) -> Vec<PathBuf> {
     let mut by_stem: BTreeMap<String, PathBuf> = BTreeMap::new();
-    let Ok(entries) = std::fs::read_dir(resources_dir) else {
+    let Ok(entries) = std::fs::read_dir(catalog_dir) else {
         return Vec::new();
     };
     for entry in entries.flatten() {
@@ -88,19 +95,20 @@ pub fn load(packs: &PackStore, presets: &PresetStore, path: &Path) -> AppResult<
     Ok(out)
 }
 
-/// Discovers every catalog in `resources_dir`, loads each, and merges them into
-/// one problem list. Questions are de-duplicated by slug (the first catalog to
-/// define a slug wins), and the survivors are renumbered `1..=N` in load order
-/// so display numbers stay contiguous no matter how many catalogs contributed.
-/// This is the entry point the app uses at startup.
+/// Discovers every catalog in `catalog_dir` (`resources/catalog/`), loads
+/// each, and merges them into one problem list. Questions are de-duplicated
+/// by slug (the first catalog to define a slug wins), and the survivors are
+/// renumbered `1..=N` in load order so display numbers stay contiguous no
+/// matter how many catalogs contributed. This is the entry point the app
+/// uses at startup.
 pub fn load_all(
     packs: &PackStore,
     presets: &PresetStore,
-    resources_dir: &Path,
+    catalog_dir: &Path,
 ) -> AppResult<Vec<Problem>> {
     let mut seen: HashSet<String> = HashSet::new();
     let mut out: Vec<Problem> = Vec::new();
-    for path in resource_paths(resources_dir) {
+    for path in resource_paths(catalog_dir) {
         for problem in load(packs, presets, &path)? {
             if seen.insert(problem.id.clone()) {
                 out.push(problem);
@@ -137,10 +145,15 @@ mod tests {
         dir
     }
 
-    /// The real bundled resources dir (packs + presets live here, and locally
-    /// so does the gitignored `catalog_leetcode.json`).
+    /// The real bundled resources dir (packs + presets live here).
     fn real_resources() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("resources")
+    }
+
+    /// The real catalog dir — locally holds the gitignored
+    /// `catalog_leetcode.json` dev scrape.
+    fn real_catalog_dir() -> PathBuf {
+        real_resources().join("catalog")
     }
 
     fn real_packs() -> PackStore {
@@ -258,12 +271,12 @@ mod tests {
     /// Skipped in environments without the dev scrape (e.g. CI).
     #[test]
     fn real_catalog_maps_to_frozen_packs() {
-        let res = real_resources();
-        if resource_paths(&res).is_empty() {
-            eprintln!("SKIPPED: no catalog*.json in resources/ (dev scrape absent)");
+        let dir = real_catalog_dir();
+        if resource_paths(&dir).is_empty() {
+            eprintln!("SKIPPED: no catalog*.json in resources/catalog/ (dev scrape absent)");
             return;
         }
-        let problems = load_all(&real_packs(), &real_presets(), &res).unwrap();
+        let problems = load_all(&real_packs(), &real_presets(), &dir).unwrap();
         let verified = problems.iter().filter(|p| p.judge.is_some()).count();
         eprintln!(
             "real catalog: {} problems, {} mapped to frozen packs",

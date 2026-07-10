@@ -176,7 +176,7 @@ src-tauri/              Tauri 2 desktop shell (Rust)
     commands/           thin IPC glue
     domain/             pure types — the serde shapes that ARE the IPC contract
     services/           runner, judging, SQLite, pack/catalog loading
-  resources/            frozen test-packs.json.gz + your local catalog*.json
+  resources/            frozen test-packs.json.gz + resources/catalog/ (your local catalog*.json)
   tauri.conf.json       app + window configuration
 tools/
   build_packs.py        offline pipeline: verify references against the oracle, freeze packs
@@ -215,15 +215,16 @@ oracles, generators, hints). It ships **no third-party problem statements** — 
 LeetCode content**. Out of the box the problem library is therefore **empty**.
 
 **Statements are supplied by you, locally.** The catalog loader is deliberately *name-agnostic*: drop
-any file named `catalog*.json` (or `catalog*.json.gz`) into `src-tauri/resources/`, and at startup Anvil
-discovers it, loads every entry, and maps each one to its frozen test pack **by slug** — that matched
-pack becomes the hidden judge. Multiple catalogs merge (de-duplicated by slug).
+any file named `catalog*.json` (or `catalog*.json.gz`) into `src-tauri/resources/catalog/`, and at
+startup Anvil discovers it, loads every entry, and maps each one to its frozen test pack **by slug** —
+that matched pack becomes the hidden judge. Multiple catalogs merge (de-duplicated by slug).
 
 ```
 src-tauri/resources/
-  catalog.json[.gz]         # an ORIGINAL catalog you author → committable & shippable
-  catalog_<anything>.json   # any additional catalog, picked up automatically
-  test-packs.json.gz        # the frozen, original judges (this repo ships these)
+  catalog/
+    catalog.json[.gz]         # an ORIGINAL catalog you author → committable & shippable
+    catalog_<anything>.json   # any additional catalog, picked up automatically
+  test-packs.json.gz          # the frozen, original judges (this repo ships these)
 ```
 
 - ✅ An **original** catalog you author yourself may be committed and shipped.

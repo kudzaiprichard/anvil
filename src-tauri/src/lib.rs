@@ -56,16 +56,20 @@ pub fn run() {
             // The question catalog is a first-class bundled resource, loaded at
             // startup like presets and test-packs. Built-ins and the interactive
             // importer were removed; this is the library's question source. See
-            // `services::catalog`.
+            // `services::catalog`. It lives in its own subdirectory (not the
+            // resources root) so the bundler can reference it as a plain
+            // directory path — a glob with zero matches hard-fails the Tauri
+            // build, and the dev scrape is gitignored (CI never has it).
+            let catalog_dir = resources_dir.join("catalog");
             let store = services::problem_store::ProblemStore::empty();
-            match services::catalog::load_all(&packs, &presets, &resources_dir) {
+            match services::catalog::load_all(&packs, &presets, &catalog_dir) {
                 Ok(problems) if !problems.is_empty() => {
                     let verified = problems.iter().filter(|p| p.judge.is_some()).count();
                     log::info!(
                         "catalog: {} problems ({} mapped to verified packs) from {}",
                         problems.len(),
                         verified,
-                        resources_dir.display()
+                        catalog_dir.display()
                     );
                     store.set_catalog_problems(problems);
                 }
