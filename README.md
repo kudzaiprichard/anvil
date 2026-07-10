@@ -36,14 +36,15 @@ Two things make it different from the usual prep sites and the offline clones:
   solutions against an **independent brute-force oracle**, cross-checked across languages — so a wrong
   solution can never be marked right, and the entire library is **100% original and MIT-licensed**.
 
-> ### 🚧 Project status — active development (`0.1.0`, no release yet)
+> ### Project status — `0.1.0`, first release
 >
-> **Working today:** the desktop shell, the sandboxed code runner (Python & JavaScript), and the offline
-> test-pack judging engine (**2,900+ verified packs**). **Being built now (the north star):** the guided
-> course itself — original, pattern-organized lessons with animated diagrams and quizzes, plus progress
-> tracking and practice modes (see the [roadmap](#roadmap)). Until the original library lands, the app
-> ships with an **empty problem library by design** — you can supply your own catalog of statements
-> locally ([why](#problem-content--legal)).
+> **Shipping now:** the desktop shell, the sandboxed code runner (Python & JavaScript), the offline
+> test-pack judging engine (**2,900+ verified packs**), **and the guided course** — a mastery-gated climb
+> of **8 stages / 19 units / 62 lessons** with prediction diagrams, unlabeled pattern-picker drills,
+> hint-free timed gates, a graduated hint ladder, deterministic complexity feedback, FSRS spaced review,
+> and a Stage-7 unlabeled capstone (see the [roadmap](#roadmap)). The lessons, diagrams, judges, and
+> curriculum ship in the app; you supply the LeetCode **statements** locally, and everything clicks into
+> place by slug — the app ships with an **empty problem library by design** ([why](#problem-content--legal)).
 
 ## Demo
 
@@ -92,13 +93,18 @@ Anvil aims to be the best of both — a real course you own:
 
 | | |
 |---|---|
+| 🎓 **Guided DSA course** | One mastery-gated climb — 8 stages / 19 units / 62 lessons. Each lesson teaches one sub-pattern with an explainer, explicit trigger signals, an interactive prediction diagram, a worked example, and faded → independent practice. Content is data; the engine is code. |
+| 🧩 **Pattern-recognition trainer** | Prompt-only, *unlabeled* pattern-picker drills (per lesson + a cross-unit interleaved pool) that train *which* technique an unfamiliar problem needs — the moat. |
+| 🛡️ **Mastery gates** | Fresh, unseen problems (≥1 novel) solved **hint-free, no-peek, under a soft timer** to unlock the next unit. A prerequisite DAG drives parallel unlocking, with diagnostic placement and spiral reuse. |
+| 🔁 **FSRS spaced review** | Solved problems return on an on-device (`fsrs-rs`) spaced, interleaved schedule and are re-solved *cold*. Honest habit layer — streaks with freezes, no XP, no leaderboards. |
+| 💡 **Richer feedback** | Graduated Socratic hint ladder (off on gates), deterministic complexity feedback from op-count traces, and a self-explanation gate before the solution unlocks. |
 | 🖥️ **Native desktop app** | Tauri 2 shell — small, fast, and cross-platform (Windows, macOS Apple Silicon + Intel, Linux). |
 | 🔒 **Sandboxed code runner** | Runs Python & JavaScript in an isolated subprocess with a per-run timeout, memory cap, and temp-dir isolation (Job Objects on Windows). User code **never** runs in the WebView. |
 | ✅ **Oracle-verified judging** | 2,900+ test packs with **no hand-typed answer keys** — expected outputs are computed by executing reference solutions and cross-checking Python vs JavaScript vs a brute-force oracle. |
 | 📝 **In-app code editor** | CodeMirror 6 with language modes for Python and JavaScript. |
 | 🔌 **Bring-your-own catalog** | A name-agnostic loader maps any local `catalog*.json` to the right hidden judge by slug — swap or merge catalogs with zero code changes. |
 | 🔎 **Zero-config runtimes** | Auto-detects a compatible Python (≥ 3.10) and Node (≥ 18) on your `PATH` and reports status in Settings. |
-| 🎨 **Considered design system** | Custom Slate + Indigo (OKLCH) theme on shadcn/ui, with first-class light & dark modes. |
+| 🎨 **Considered design system** | Custom "forged iron & ember" (OKLCH) theme, with first-class light & dark modes. |
 
 ## Tech stack
 
@@ -106,7 +112,7 @@ Anvil aims to be the best of both — a real course you own:
 |---|---|
 | **UI** | [Next.js 16](https://nextjs.org) (App Router, static export) · React 19 · TypeScript 5 |
 | **Editor** | [CodeMirror 6](https://codemirror.net) (Python / JavaScript modes) |
-| **Styling** | [Tailwind CSS v4](https://tailwindcss.com) · [shadcn/ui](https://ui.shadcn.com) (new-york) · custom OKLCH theme via `next-themes` |
+| **Styling** | [Tailwind CSS v4](https://tailwindcss.com) · custom "forged iron & ember" OKLCH theme via `next-themes` |
 | **Desktop shell** | [Tauri 2](https://tauri.app) (Rust) — small binaries, fast startup, cross-platform |
 | **Backend / runner** | Rust — sandboxed execution, judging, local SQLite (planned), pack/catalog loading |
 | **Tooling** | Python build pipeline (`tools/build_packs.py`) that verifies and freezes test packs |
@@ -176,10 +182,12 @@ src-tauri/              Tauri 2 desktop shell (Rust)
     commands/           thin IPC glue
     domain/             pure types — the serde shapes that ARE the IPC contract
     services/           runner, judging, SQLite, pack/catalog loading
-  resources/            frozen test-packs.json.gz + resources/catalog/ (your local catalog*.json)
+  resources/            frozen test-packs.json.gz + curriculum/ + lessons/ + catalog/ (your catalog*.json)
   tauri.conf.json       app + window configuration
 tools/
   build_packs.py        offline pipeline: verify references against the oracle, freeze packs
+  build_curriculum.py   fail-closed --check for the course content (DAG, lesson parts, slugs)
+  check_release_boundary.py  release gate: never bundle a *leetcode* catalog (see RELEASING.md)
   packs/                per-problem test packs (reference solutions, oracles, generators, hints)
 components.json          shadcn/ui configuration
 next.config.ts          Next config (static export for Tauri)
@@ -242,15 +250,15 @@ for the originality rule.
 | | Milestone |
 |---|---|
 | ✅ | Desktop shell (Tauri) over the Next.js static export |
-| ✅ | Design system — shadcn/ui + custom Slate + Indigo theme |
+| ✅ | Design system — custom "forged iron & ember" (OKLCH) theme, light & dark |
 | ✅ | Local code runner — run/test Python & JavaScript with timeouts and sandboxing (Rust) |
 | ✅ | Test-pack judging — 2,900+ verified packs frozen into the app (oracle-checked, no answer keys) |
 | ✅ | Name-agnostic catalog loader — bring-your-own statements, mapped to packs by slug |
+| ✅ | **Guided course** — 8 stages / 19 units / 62 lessons: diagrams, quizzes, pattern-picker, mastery ladder |
+| ✅ | Mastery gates + prerequisite-DAG unlocking, diagnostic placement, Stage-7 unlabeled capstone |
+| ✅ | FSRS spaced review + progress tracking (local SQLite, no account) |
+| ✅ | User-authored problems — create, validate, import/export |
 | ⬜ | Problem library — original, pattern-organized problem *statements* (replacing bring-your-own) |
-| ⬜ | **Guided course** — lessons with animated diagrams, concept quizzes, and a mastery ladder |
-| ⬜ | Progress tracking — solved/attempted, streaks (local SQLite, no account) |
-| ⬜ | Practice modes — Study / Interview / Review |
-| ⬜ | User-authored problems — create, validate, import/export |
 | ⬜ | More languages — TypeScript, then compiled languages |
 
 ## Contributing
