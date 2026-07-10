@@ -63,8 +63,15 @@ async fn run(
     // re-solved cold. Non-course library problems are ignored by `enqueue`.
     // A DB failure here must never eat the run result — log and move on.
     if include_hidden && result.status == RunStatus::Pass {
-        if let Err(e) = review::enqueue(&state.curriculum, &state.db, &req.id, chrono::Utc::now()) {
+        let now = chrono::Utc::now();
+        if let Err(e) = review::enqueue(&state.curriculum, &state.db, &req.id, now) {
             log::error!("failed to enqueue review for {}: {e}", req.id);
+        }
+        // Partial-prereq-credit (Phase 7): solving this problem exercises the
+        // patterns it builds on, so their due review cards get partial credit —
+        // repetition compression that keeps review from ballooning up the ladder.
+        if let Err(e) = review::partial_prereq_credit(&state.curriculum, &state.db, &req.id, now) {
+            log::error!("failed to apply partial prereq credit for {}: {e}", req.id);
         }
     }
 

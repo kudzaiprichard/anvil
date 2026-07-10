@@ -264,6 +264,23 @@ export interface CurriculumStage {
   units: string[];
 }
 
+/** One problem in the Stage-7 mixed capstone. `unit` is the pattern it actually
+ *  belongs to — carried in content only, never sent to the workspace. */
+export interface CapstoneProblem {
+  slug: string;
+  unit: string;
+}
+
+/** The Stage-7 Mixed Capstone (§4): an unlabeled cross-unit pool. */
+export interface Capstone {
+  id: string;
+  stage: string;
+  title: string;
+  pass_count: number;
+  timer_target_min: number;
+  problems: CapstoneProblem[];
+}
+
 /** The one implicit course (§3.1): stages, the prereq DAG, gate defaults. */
 export interface Curriculum {
   id: string;
@@ -271,6 +288,8 @@ export interface Curriculum {
   /** `unitId -> [prereq unitId]`, the DAG driving unlocking. */
   prereqs: Record<string, string[]>;
   gate_defaults: GateConfig;
+  /** The optional Stage-7 mixed capstone (present once Stage 7 ships). */
+  capstone?: Capstone;
 }
 
 export type QuizItemType = "concept-check" | "pattern-picker" | "complexity";
@@ -433,6 +452,65 @@ export interface GateOutcome {
   gate: UnitGateState;
   /** Unit ids that transitioned locked→unlocked because of this pass. */
   unlocked: string[];
+}
+
+// --- Phase 7: advanced progression -----------------------------------------
+
+/** One capstone problem as the workspace sees it — no pattern label (§4). */
+export interface CapstoneProblemView {
+  problemId: string;
+  solved: boolean;
+}
+
+/** The Stage-7 mixed capstone as the course page shows it (unlabeled pool). */
+export interface CapstoneView {
+  id: string;
+  title: string;
+  passCount: number;
+  timerTargetMin: number;
+  passedCount: number;
+  total: number;
+  met: boolean;
+  /** `true` once every unit is mastered — the capstone only counts toward
+   *  readiness then, though it can be attempted early for practice. */
+  unlocked: boolean;
+  problems: CapstoneProblemView[];
+}
+
+/** The result of one capstone attempt (`evaluateCapstone`). */
+export interface CapstoneOutcome {
+  counted: boolean;
+  passedCount: number;
+  total: number;
+  met: boolean;
+}
+
+/** The diagnostic placement probe: unlabeled pattern-picker items that place the
+ *  learner out of units they already recognize. */
+export interface PlacementProbe {
+  items: QuizItem[];
+  unitIds: string[];
+}
+
+/** The result of submitting the placement probe. */
+export interface PlacementOutcome {
+  /** Units the learner was placed out of (recognized, prereqs cleared). */
+  placed: string[];
+  /** Units now unlocked — the learner's new frontier. */
+  frontier: string[];
+}
+
+/** The honest course-readiness aggregate (§7). */
+export interface Readiness {
+  unitsTotal: number;
+  unitsMastered: number;
+  capstoneTotal: number;
+  capstoneSolved: number;
+  capstoneMet: boolean;
+  /** 0–100 overall completion (ladder mastery weighted with capstone clears). */
+  percent: number;
+  /** `true` only when every unit is mastered and the capstone is met. */
+  ready: boolean;
 }
 
 /** Where a lesson sits for this user (§6.4). `not-started` is the absence of

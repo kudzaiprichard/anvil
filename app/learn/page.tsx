@@ -29,11 +29,15 @@ import { Markdown } from "@/src/components/anvil/markdown";
 import { QuizRunner } from "@/src/components/anvil/quiz-runner";
 import { Spinner } from "@/src/components/anvil/spinner";
 import {
+  applyPlacement,
+  getCapstone,
   getCurriculum,
   getLesson,
   getLessonProgress,
   getPatternPool,
+  getPlacement,
   getProgression,
+  getReadiness,
   getUnit,
   listProblems,
   recordLessonProgress,
@@ -41,11 +45,15 @@ import {
 import { cn } from "@/src/lib/utils";
 import { PATTERN_POOL_SOURCE } from "@/src/lib/types";
 import type {
+  CapstoneView,
   Curriculum,
   Lesson,
   LessonStatus,
+  PlacementProbe,
   ProblemSummary,
   Quiz,
+  QuizAnswer,
+  Readiness,
   Unit,
   UnitProgress,
   UnitStatus,
@@ -140,15 +148,19 @@ function CourseView() {
   const [progress, setProgress] = useState<Map<string, UnitProgress>>(
     new Map()
   );
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [capstone, setCapstone] = useState<CapstoneView | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const c = await getCurriculum();
       const unitIds = c.stages.flatMap((s) => s.units);
-      const [unitList, prog] = await Promise.all([
+      const [unitList, prog, ready, cap] = await Promise.all([
         Promise.all(unitIds.map((id) => getUnitSafe(id))),
         getProgression(),
+        getReadiness(),
+        getCapstone(),
       ]);
       if (cancelled) return;
       const unitMap = new Map<string, Unit>();
@@ -156,6 +168,8 @@ function CourseView() {
       setCurriculum(c);
       setUnits(unitMap);
       setProgress(new Map(prog.map((p) => [p.unitId, p])));
+      setReadiness(ready);
+      setCapstone(cap);
     })();
     return () => {
       cancelled = true;
@@ -198,19 +212,33 @@ function CourseView() {
 
         {unitTotal > 0 && (
           <div
-            className="rise mt-4 flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-[12.5px]"
+            className="rise mt-4 flex flex-wrap items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-[12.5px]"
             style={{ "--rise-i": 1 } as React.CSSProperties}
           >
-            <span className="microlabel">Mastery</span>
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <span className="microlabel">Readiness</span>
+            <div className="h-1.5 min-w-[120px] flex-1 overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full rounded-full bg-pass transition-all"
-                style={{ width: `${(masteredCount / unitTotal) * 100}%` }}
+                style={{
+                  width: `${readiness ? readiness.percent : (masteredCount / unitTotal) * 100}%`,
+                }}
               />
             </div>
             <span className="font-mono text-xs text-muted-foreground">
               {masteredCount}/{unitTotal} units
+              {readiness ? ` · ${readiness.percent}%` : ""}
             </span>
+            {readiness?.ready && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-pass/15 px-2 py-0.5 text-[11px] font-medium text-pass">
+                <Trophy className="size-3" /> Interview-ready
+              </span>
+            )}
+            <Link
+              href="/learn?placement=1"
+              className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent"
+            >
+              <Target className="size-3" /> Placement test
+            </Link>
           </div>
         )}
 
@@ -242,6 +270,58 @@ function CourseView() {
               </div>
             </section>
           ))}
+
+          {capstone && (
+            <section
+              className="rise"
+              style={
+                {
+                  "--rise-i": curriculum.stages.length + 2,
+                } as React.CSSProperties
+              }
+            >
+              <div className="mb-3 flex items-center gap-2.5">
+                <span className="microlabel text-foreground">
+                  The final exam
+                </span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <Link
+                href="/learn?capstone=1"
+                className={cn(
+                  "group flex items-center gap-4 rounded-lg border bg-card px-4 py-3.5 transition-colors hover:bg-accent",
+                  !capstone.unlocked && "opacity-80"
+                )}
+              >
+                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-b from-amber-500 to-amber-600 text-white shadow-sm">
+                  <Trophy className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-[15px] font-semibold">
+                      {capstone.title}
+                    </h2>
+                    {capstone.met ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-pass/15 px-2 py-0.5 text-[11px] font-medium text-pass">
+                        <Check className="size-3" /> Cleared
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        {capstone.unlocked ? "Ready" : "Practice"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-muted-foreground">
+                    {capstone.total} unlabeled problems — no pattern shown; you
+                    decide which technique fits. Clear {capstone.passCount} to
+                    prove you can solve the unfamiliar. ({capstone.passedCount}/
+                    {capstone.passCount})
+                  </p>
+                </div>
+                <ArrowRight className="size-[15px] shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </section>
+          )}
         </div>
       </div>
     </main>
@@ -1133,10 +1213,276 @@ async function getUnitSafe(id: string): Promise<Unit | null> {
   }
 }
 
+/* --------------------------------------------------------------------- */
+/* Stage-7 mixed capstone (unlabeled pool)                               */
+/* --------------------------------------------------------------------- */
+
+function CapstonePane() {
+  const [capstone, setCapstone] = useState<CapstoneView | null | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    getCapstone().then((c) => {
+      if (!cancelled) setCapstone(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (capstone === undefined) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+  if (capstone === null) {
+    return (
+      <main className="min-h-0 flex-1 overflow-auto px-7 pb-10 pt-6">
+        <div className="mx-auto w-full max-w-[820px]">
+          <BackToCourse />
+          <p className="mt-6 text-[13px] text-muted-foreground">
+            This course has no capstone yet.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-0 flex-1 overflow-auto px-7 pb-10 pt-6">
+      <div className="mx-auto w-full max-w-[820px]">
+        <BackToCourse />
+        <div className="mt-4 flex items-start gap-3">
+          <div className="mt-0.5 flex size-9 items-center justify-center rounded-lg bg-gradient-to-b from-amber-500 to-amber-600 text-white shadow-sm">
+            <Trophy className="size-5" />
+          </div>
+          <div>
+            <h1 className="text-[21px] font-semibold tracking-tight">
+              {capstone.title}
+            </h1>
+            <p className="mt-0.5 max-w-[62ch] text-[13px] text-muted-foreground">
+              These problems carry <strong>no pattern label</strong>. That&apos;s
+              the whole test: read the problem cold and decide which of your
+              climbed patterns it needs — exactly like an unseen interview
+              question. Hints and solutions are off; a peeked solve doesn&apos;t
+              count. Clear <strong>{capstone.passCount}</strong> to pass.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-[12.5px]">
+          <span className="microlabel">Progress</span>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-pass transition-all"
+              style={{
+                width: `${Math.min(100, (capstone.passedCount / capstone.passCount) * 100)}%`,
+              }}
+            />
+          </div>
+          <span className="font-mono text-xs text-muted-foreground">
+            {capstone.passedCount}/{capstone.passCount} cleared
+          </span>
+          <span className="text-muted-foreground">
+            aim &lt; {capstone.timerTargetMin}m each
+          </span>
+        </div>
+
+        {capstone.met && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-pass/40 bg-pass/10 px-4 py-3 text-[13px] text-pass">
+            <Trophy className="size-4" />
+            You cleared the capstone — you can recognize and solve unfamiliar
+            problems on your own.
+          </div>
+        )}
+
+        <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {capstone.problems.map((p, i) => (
+            <Link
+              key={p.problemId}
+              href={`/problem?id=${p.problemId}&capstone=1&target=${capstone.timerTargetMin}`}
+              className={cn(
+                "group flex items-center gap-3 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent",
+                p.solved && "border-pass/40"
+              )}
+            >
+              <div
+                className={cn(
+                  "flex size-7 shrink-0 items-center justify-center rounded-md text-[12px] font-semibold",
+                  p.solved
+                    ? "bg-pass/15 text-pass"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {p.solved ? <Check className="size-4" /> : i + 1}
+              </div>
+              <span className="min-w-0 flex-1 text-[13.5px] font-medium">
+                Problem {i + 1}
+                <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                  unlabeled
+                </span>
+              </span>
+              <ArrowRight className="size-[15px] shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+/* --------------------------------------------------------------------- */
+/* Diagnostic placement                                                  */
+/* --------------------------------------------------------------------- */
+
+function PlacementView() {
+  const router = useRouter();
+  const [probe, setProbe] = useState<PlacementProbe | null>(null);
+  const [choices, setChoices] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPlacement().then((p) => {
+      if (!cancelled) setProbe(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const submit = useCallback(async () => {
+    if (!probe) return;
+    setSubmitting(true);
+    try {
+      const answers: QuizAnswer[] = probe.items.map((i) => ({
+        itemId: i.id,
+        selected: choices[i.id] ?? "",
+      }));
+      const out = await applyPlacement(answers);
+      if (out.placed.length === 0) {
+        toast("No units placed out — starting from the top. That's the honest floor.");
+      } else {
+        toast.success(
+          `Placed out of ${out.placed.length} unit${out.placed.length === 1 ? "" : "s"}. Your frontier is ready.`
+        );
+      }
+      router.push("/learn");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Placement failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [probe, choices, router]);
+
+  if (!probe) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-0 flex-1 overflow-auto px-7 pb-10 pt-6">
+      <div className="mx-auto w-full max-w-[720px]">
+        <BackToCourse />
+        <div className="mt-4 flex items-start gap-3">
+          <div className="mt-0.5 flex size-9 items-center justify-center rounded-lg bg-gradient-to-b from-primary to-primary/80 text-primary-foreground shadow-sm">
+            <Target className="size-5" />
+          </div>
+          <div>
+            <h1 className="text-[21px] font-semibold tracking-tight">
+              Placement test
+            </h1>
+            <p className="mt-0.5 max-w-[60ch] text-[13px] text-muted-foreground">
+              Already know some of this? Name the pattern each unlabeled prompt
+              needs. Get every prompt for a unit right (and its prerequisites)
+              and we&apos;ll place you past it — starting you at your frontier
+              instead of unit one. No penalty for guessing wrong; you just
+              start earlier there.
+            </p>
+          </div>
+        </div>
+
+        {probe.items.length === 0 ? (
+          <p className="mt-6 text-[13px] text-muted-foreground">
+            No placement prompts are available yet.
+          </p>
+        ) : (
+          <>
+            <div className="mt-6 flex flex-col gap-4">
+              {probe.items.map((item, qi) => (
+                <div key={item.id} className="rounded-lg border bg-card p-4">
+                  <div className="text-[13.5px]">
+                    <span className="mr-2 font-mono text-[11px] text-muted-foreground">
+                      {qi + 1}.
+                    </span>
+                    <Markdown>{item.prompt_md}</Markdown>
+                  </div>
+                  <div className="mt-3 flex flex-col gap-1.5">
+                    {item.options.map((opt) => (
+                      <label
+                        key={opt}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-[12.5px] transition-colors hover:bg-accent",
+                          choices[item.id] === opt &&
+                            "border-primary bg-primary/5"
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name={item.id}
+                          className="accent-primary"
+                          checked={choices[item.id] === opt}
+                          onChange={() =>
+                            setChoices((c) => ({ ...c, [item.id]: opt }))
+                          }
+                        />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={submitting}
+              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+            >
+              {submitting ? <Spinner className="size-4" /> : <Target className="size-4" />}
+              Place me
+            </button>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function BackToCourse() {
+  return (
+    <Link
+      href="/learn"
+      className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft className="size-3.5" /> The DSA Course
+    </Link>
+  );
+}
+
 function LearnRouter() {
   const searchParams = useSearchParams();
   const lessonId = searchParams.get("lesson");
   const unitId = searchParams.get("unit");
+  if (searchParams.get("capstone")) return <CapstonePane />;
+  if (searchParams.get("placement")) return <PlacementView />;
   if (lessonId) return <LessonView lessonId={lessonId} />;
   if (unitId) return <UnitView unitId={unitId} />;
   return <CourseView />;

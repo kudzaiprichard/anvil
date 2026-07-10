@@ -17,6 +17,7 @@ import {
   Minimize,
   RotateCcw,
   ShieldCheck,
+  Trophy,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ import {
 } from "@/src/components/shadcn/dropdown-menu";
 import {
   analyzeComplexity,
+  evaluateCapstone,
   evaluateGate,
   getProblem,
   getProblemUserState,
@@ -232,6 +234,13 @@ function Workspace() {
   const gateTarget = gateTargetRaw ? Number(gateTargetRaw) : undefined;
   const [gateHelpUsed, setGateHelpUsed] = useState(false);
 
+  // Mixed-capstone mode (Phase 7, §4): launched from the capstone with
+  // `?capstone=1&target=<min>`. Same closed-book rules as a gate — hints/solution
+  // guarded, soft timer, complexity off — but the problem is *unlabeled* and a
+  // pass is scored via `evaluateCapstone`.
+  const capstoneMode = searchParams.get("capstone") === "1";
+  const examMode = !!gateUnit || capstoneMode;
+
   // `problem` is derived: stale loads don't render while a new id is loading.
   const [loaded, setLoaded] = useState<{ id: string; problem: Problem } | null>(
     null
@@ -397,6 +406,36 @@ function Workspace() {
     [gateUnit, gateHelpUsed, router]
   );
 
+  // Scores a passing capstone submit (Phase 7). A help-used solve is recorded
+  // but doesn't count; clearing the capstone routes back to it so the learner
+  // sees the "interview-ready" verdict.
+  const scoreCapstone = useCallback(
+    async (problemId: string, solveTime: string | null) => {
+      try {
+        const outcome = await evaluateCapstone(problemId, gateHelpUsed);
+        if (!outcome.counted) {
+          toast.warning(
+            "Solved — but this capstone problem used help, so it doesn't count."
+          );
+          return;
+        }
+        if (outcome.met) {
+          toast.success("Capstone cleared — you can solve the unfamiliar. 🏆");
+          router.push("/learn?capstone=1");
+        } else {
+          toast.success(
+            `Capstone solve counted${solveTime ? ` (${solveTime})` : ""} — ${outcome.passedCount}/${outcome.total} solved.`
+          );
+        }
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Could not score the capstone"
+        );
+      }
+    },
+    [gateHelpUsed, router]
+  );
+
   // The one Run action: the app is fully offline, so there is no separate
   // Submit — every run executes the full suite (visible + hidden) and
   // records the attempt toward progress.
@@ -412,6 +451,8 @@ function Workspace() {
         const solveTime = timerRef.current?.solvedNow() ?? null;
         if (gateUnit) {
           await scoreGate(problem.id, solveTime);
+        } else if (capstoneMode) {
+          await scoreCapstone(problem.id, solveTime);
         } else {
           toast.success(
             solveTime
@@ -426,7 +467,7 @@ function Workspace() {
       setRunState("idle");
       toast.error(err instanceof Error ? err.message : "Run failed");
     }
-  }, [problem, runState, language, code, gateUnit, scoreGate]);
+  }, [problem, runState, language, code, gateUnit, capstoneMode, scoreGate, scoreCapstone]);
 
   // Profiles the current editor code deterministically (Phase 5). Bound to the
   // live language/code so "Analyze" measures exactly what the learner ran.
@@ -511,7 +552,7 @@ function Workspace() {
       status={
         <span>
           #{problem.number} · {LANGUAGE_LABELS[language].toLowerCase()} · sandbox
-          local{gateUnit ? " · mastery gate" : ""}
+          local{gateUnit ? " · mastery gate" : capstoneMode ? " · capstone" : ""}
         </span>
       }
     >
@@ -526,14 +567,14 @@ function Workspace() {
         }}
         onRun={execute}
         timer={
-          prefs.showTimer || gateUnit ? (
+          prefs.showTimer || examMode ? (
             <PracticeTimer
               key={problem.id}
               ref={timerRef}
               problemId={problem.id}
-              // A gate always runs the timer (soft target); practice honors the pref.
-              autoStart={gateUnit ? true : prefs.timerAutoStart}
-              targetMinutes={gateUnit ? gateTarget : undefined}
+              // Gate/capstone always run the timer (soft target); practice honors the pref.
+              autoStart={examMode ? true : prefs.timerAutoStart}
+              targetMinutes={examMode ? gateTarget : undefined}
             />
           ) : undefined
         }
@@ -557,6 +598,27 @@ function Workspace() {
         </div>
       )}
 
+      {capstoneMode && (
+        <div className="flex shrink-0 items-center gap-2.5 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-[12.5px]">
+          <Trophy className="size-[15px] shrink-0 text-amber-500" />
+          <span className="font-semibold text-amber-600 dark:text-amber-400">
+            Mixed capstone
+          </span>
+          <span className="text-muted-foreground">
+            Unlabeled — no pattern given. Recognize it and solve it cold: no
+            hints, revealing the solution voids it, timer is a soft target.
+          </span>
+          <span className="flex-1" />
+          <Link
+            href="/learn?capstone=1"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-amber-500/15 hover:text-foreground"
+          >
+            <X className="size-[13px]" />
+            Exit capstone
+          </Link>
+        </div>
+      )}
+
       <WorkspaceBody
         bodyRef={bodyRef}
         layout={prefs.workspaceLayout}
@@ -573,7 +635,7 @@ function Workspace() {
             problem={problem}
             bookmarked={bookmarked}
             onToggleBookmark={handleToggleBookmark}
-            gateMode={!!gateUnit}
+            gateMode={examMode}
             onGateHelpUsed={() => setGateHelpUsed(true)}
           />
         }
@@ -653,7 +715,7 @@ function Workspace() {
             selectedCase={selectedCase}
             onSelectCase={setSelectedCase}
             onMarkMastered={handleMarkMastered}
-            complexityEnabled={!gateUnit}
+            complexityEnabled={!examMode}
             onAnalyzeComplexity={analyzeCurrentComplexity}
           />
         }

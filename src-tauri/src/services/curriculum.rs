@@ -6,10 +6,10 @@
 //! frozen pack all abort startup with a precise, file-naming error rather
 //! than loading partial content.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::domain::curriculum::Curriculum;
+use crate::domain::curriculum::{Capstone, Curriculum};
 use crate::domain::diagram::DiagramSpec;
 use crate::domain::lesson::{Lesson, LessonFrontmatter};
 use crate::domain::quiz::{Quiz, QuizItemType};
@@ -74,6 +74,70 @@ impl CurriculumStore {
             }
         }
 
+        // Spiral-reuse enforcement (BLUEPRINT.md §13.2, LESSON_COURSE_DESIGN.md
+        // §3.2). Two rules, fail-closed:
+        //   (a) every unit's `spiral` entries name a real unit that is an
+        //       *ancestor* (transitive prereq) — you only resurface a pattern the
+        //       learner has already been taught; and
+        //   (b) *coverage*: every unit that some other unit depends on must be
+        //       resurfaced by at least one later unit's spiral, so no taught,
+        //       depended-on pattern silently drops out of rotation.
+        let ancestors = transitive_prereqs(&curriculum);
+        let mut spiralled: HashSet<&str> = HashSet::new();
+        for unit in units.values() {
+            let unit_ancestors = ancestors.get(unit.id.as_str());
+            for s in &unit.spiral {
+                if !units.contains_key(s) {
+                    return Err(AppError::Validation(format!(
+                        "unit '{}': spiral references unknown unit '{s}'",
+                        unit.id
+                    )));
+                }
+                if !unit_ancestors.is_some_and(|a| a.contains(s.as_str())) {
+                    return Err(AppError::Validation(format!(
+                        "unit '{}': spiral entry '{s}' is not a prerequisite (can only \
+                         resurface an already-taught pattern)",
+                        unit.id
+                    )));
+                }
+                spiralled.insert(s.as_str());
+            }
+        }
+        let mut depended_on: HashSet<&str> = HashSet::new();
+        for deps in curriculum.prereqs.values() {
+            for d in deps {
+                depended_on.insert(d.as_str());
+            }
+        }
+        for dep in &depended_on {
+            if !spiralled.contains(dep) {
+                return Err(AppError::Validation(format!(
+                    "spiral coverage: unit '{dep}' is a prerequisite of another unit but is \
+                     never resurfaced by any unit's spiral"
+                )));
+            }
+        }
+
+        // The Stage-7 capstone (Phase 7): every problem must have a frozen pack
+        // and name a real unit — the unit is used server-side for scoring and is
+        // never sent to the workspace (unlabeled exam, §4).
+        if let Some(cap) = &curriculum.capstone {
+            for p in &cap.problems {
+                if packs.get(&p.slug).is_none() {
+                    return Err(AppError::Validation(format!(
+                        "capstone: problem slug '{}' has no frozen pack",
+                        p.slug
+                    )));
+                }
+                if !units.contains_key(&p.unit) {
+                    return Err(AppError::Validation(format!(
+                        "capstone: problem '{}' names unknown unit '{}'",
+                        p.slug, p.unit
+                    )));
+                }
+            }
+        }
+
         // Every pattern-pool item's `correct_pattern` must name a real unit —
         // the pool trains recognition *of the units in this course*.
         for item in &pattern_pool.items {
@@ -124,6 +188,26 @@ impl CurriculumStore {
     /// The interleaved cross-unit pattern-picker pool (may be empty).
     pub fn pattern_pool(&self) -> &Quiz {
         &self.pattern_pool
+    }
+
+    /// The Stage-7 mixed capstone, if this curriculum ships one.
+    pub fn capstone(&self) -> Option<&Capstone> {
+        self.curriculum.capstone.as_ref()
+    }
+
+    /// All unit ids, in stage order (curriculum spine).
+    pub fn unit_ids(&self) -> Vec<&str> {
+        self.curriculum.unit_ids()
+    }
+
+    /// The transitive prerequisites (ancestors) of `unit_id` — every unit that
+    /// must be mastered, directly or indirectly, before it. Used by
+    /// partial-prereq-credit review (a solve in a unit credits its ancestors).
+    pub fn ancestors_of(&self, unit_id: &str) -> HashSet<String> {
+        transitive_prereqs(&self.curriculum)
+            .get(unit_id)
+            .map(|set| set.iter().map(|s| s.to_string()).collect())
+            .unwrap_or_default()
     }
 
     /// The unit whose problem pool references `slug`, if any. Used by the FSRS
@@ -303,6 +387,38 @@ fn split_frontmatter(raw: &str) -> Option<(&str, &str)> {
     Some((frontmatter, body))
 }
 
+/// For each unit, its transitive prerequisite set (ancestors) over the prereq
+/// DAG. Borrows unit-id strings from the curriculum. The graph is validated
+/// acyclic before this runs, so the recursion terminates.
+fn transitive_prereqs(curriculum: &Curriculum) -> HashMap<&str, HashSet<&str>> {
+    fn collect<'a>(
+        node: &'a str,
+        prereqs: &'a HashMap<String, Vec<String>>,
+        memo: &mut HashMap<&'a str, HashSet<&'a str>>,
+    ) -> HashSet<&'a str> {
+        if let Some(cached) = memo.get(node) {
+            return cached.clone();
+        }
+        let mut acc = HashSet::new();
+        if let Some(direct) = prereqs.get(node) {
+            for dep in direct {
+                acc.insert(dep.as_str());
+                for a in collect(dep.as_str(), prereqs, memo) {
+                    acc.insert(a);
+                }
+            }
+        }
+        memo.insert(node, acc.clone());
+        acc
+    }
+
+    let mut memo: HashMap<&str, HashSet<&str>> = HashMap::new();
+    for uid in curriculum.unit_ids() {
+        collect(uid, &curriculum.prereqs, &mut memo);
+    }
+    memo
+}
+
 fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> AppResult<T> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| AppError::Validation(format!("{}: {e}", path.display())))?;
@@ -362,11 +478,17 @@ mod tests {
     fn shipped_curriculum_loads_and_validates() {
         let store =
             CurriculumStore::load(&real_resources(), &real_packs()).expect("curriculum loads");
-        assert_eq!(store.curriculum().stages.len(), 1);
+        // The full ladder: 8 stages, 19 units, plus the Stage-7 capstone.
+        assert_eq!(store.curriculum().stages.len(), 8);
+        assert!(store.get_unit("big-o").is_some());
         assert!(store.get_unit("arrays-hashing").is_some());
         assert!(store.get_unit("two-pointers").is_some());
         assert!(store.get_unit("sliding-window").is_some());
+        assert!(store.get_unit("trees").is_some());
+        assert!(store.get_unit("dp-1d").is_some());
+        assert!(store.get_unit("design-ood").is_some());
         assert!(store.get_unit("no-such-unit").is_none());
+        assert!(store.capstone().is_some(), "Stage-7 capstone ships");
 
         // The Phase-2 lesson loads and resolves its companion diagram/quiz.
         let lesson = store

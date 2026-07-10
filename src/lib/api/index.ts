@@ -8,6 +8,8 @@
 
 import { isTauri } from "@tauri-apps/api/core";
 import type {
+  CapstoneOutcome,
+  CapstoneView,
   ComplexityReport,
   Curriculum,
   DashboardData,
@@ -16,6 +18,8 @@ import type {
   Lesson,
   LessonProgress,
   LessonStatus,
+  PlacementOutcome,
+  PlacementProbe,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -24,6 +28,7 @@ import type {
   Quiz,
   QuizAnswer,
   QuizGrade,
+  Readiness,
   ReviewOutcome,
   ReviewQueue,
   ReviewRating,
@@ -105,6 +110,33 @@ export async function evaluateGate(
   return isTauri()
     ? backend.evaluateGate(unitId, problemId, usedHelp)
     : mock.evaluateGate(unitId, problemId, usedHelp);
+}
+
+export async function getCapstone(): Promise<CapstoneView | null> {
+  return isTauri() ? backend.getCapstone() : mock.getCapstone();
+}
+
+export async function evaluateCapstone(
+  problemId: string,
+  usedHelp: boolean
+): Promise<CapstoneOutcome> {
+  return isTauri()
+    ? backend.evaluateCapstone(problemId, usedHelp)
+    : mock.evaluateCapstone(problemId, usedHelp);
+}
+
+export async function getPlacement(): Promise<PlacementProbe> {
+  return isTauri() ? backend.getPlacement() : mock.getPlacement();
+}
+
+export async function applyPlacement(
+  answers: QuizAnswer[]
+): Promise<PlacementOutcome> {
+  return isTauri() ? backend.applyPlacement(answers) : mock.applyPlacement(answers);
+}
+
+export async function getReadiness(): Promise<Readiness> {
+  return isTauri() ? backend.getReadiness() : mock.getReadiness();
 }
 
 export async function getReviewQueue(): Promise<ReviewQueue> {

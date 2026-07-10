@@ -11,6 +11,8 @@
  */
 
 import type {
+  CapstoneOutcome,
+  CapstoneView,
   CaseResult,
   ComplexityReport,
   Curriculum,
@@ -20,6 +22,8 @@ import type {
   Lesson,
   LessonProgress,
   LessonStatus,
+  PlacementOutcome,
+  PlacementProbe,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -31,6 +35,7 @@ import type {
   QuizItemResult,
   ReviewCardState,
   ReviewItem,
+  Readiness,
   ReviewOutcome,
   ReviewQueue,
   ReviewRating,
@@ -410,6 +415,155 @@ export async function evaluateGate(
   }
 
   return { counted: true, unitMastered, alreadyMastered, gate, unlocked };
+}
+
+/* ---------- Phase 7: advanced progression ----------
+ * Mirrors services::advancement so browser-dev exercises the capstone,
+ * placement, and readiness surfaces exactly like the real backend. */
+
+/** Units placed out of via the diagnostic (counted as mastered for unlocking). */
+const mockPlacedUnits = new Set<string>();
+/** Capstone problems cleared hint-free this session. */
+const mockCapstoneSolved = new Set<string>();
+
+function allMastered(): Set<string> {
+  const set = masteredUnitIds();
+  for (const u of mockPlacedUnits) set.add(u);
+  return set;
+}
+
+export async function getCapstone(): Promise<CapstoneView | null> {
+  await delay(80);
+  const cap = MOCK_CURRICULUM.capstone;
+  if (!cap) return null;
+  const passedCount = cap.problems.filter((p) =>
+    mockCapstoneSolved.has(p.slug)
+  ).length;
+  const mastered = allMastered();
+  return {
+    id: cap.id,
+    title: cap.title,
+    passCount: cap.pass_count,
+    timerTargetMin: cap.timer_target_min,
+    passedCount,
+    total: cap.problems.length,
+    met: passedCount >= cap.pass_count,
+    unlocked: MOCK_UNITS.every((u) => mastered.has(u.id)),
+    // Deliberately no pattern/unit label — the capstone is unlabeled.
+    problems: cap.problems.map((p) => ({
+      problemId: p.slug,
+      solved: mockCapstoneSolved.has(p.slug),
+    })),
+  };
+}
+
+export async function evaluateCapstone(
+  problemId: string,
+  usedHelp: boolean
+): Promise<CapstoneOutcome> {
+  await delay(120);
+  const cap = MOCK_CURRICULUM.capstone;
+  if (!cap) throw new Error("this course has no capstone");
+  if (!cap.problems.some((p) => p.slug === problemId))
+    throw new Error(`'${problemId}' is not a capstone problem`);
+  if (!usedHelp) mockCapstoneSolved.add(problemId);
+  const passedCount = cap.problems.filter((p) =>
+    mockCapstoneSolved.has(p.slug)
+  ).length;
+  return {
+    counted: !usedHelp,
+    passedCount,
+    total: cap.problems.length,
+    met: passedCount >= cap.pass_count,
+  };
+}
+
+export async function getPlacement(): Promise<PlacementProbe> {
+  await delay(80);
+  const items = MOCK_PATTERN_POOL.items.filter(
+    (i) => i.type === "pattern-picker"
+  );
+  const unitIds: string[] = [];
+  for (const i of items) {
+    if (i.correct_pattern && !unitIds.includes(i.correct_pattern))
+      unitIds.push(i.correct_pattern);
+  }
+  return { items, unitIds };
+}
+
+export async function applyPlacement(
+  answers: QuizAnswer[]
+): Promise<PlacementOutcome> {
+  await delay(120);
+  const { items } = await getPlacement();
+  // A unit is recognized iff it has ≥1 probe item and every one was correct.
+  const tally = new Map<string, { correct: number; total: number }>();
+  for (const item of items) {
+    const unit = item.correct_pattern;
+    if (!unit) continue;
+    const selected = answers.find((a) => a.itemId === item.id)?.selected;
+    const t = tally.get(unit) ?? { correct: 0, total: 0 };
+    t.total += 1;
+    if (selected === item.answer) t.correct += 1;
+    tally.set(unit, t);
+  }
+  const recognized = new Set(
+    [...tally.entries()]
+      .filter(([, t]) => t.total > 0 && t.correct === t.total)
+      .map(([u]) => u)
+  );
+  const already = allMastered();
+  const placed = new Set<string>();
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (const u of MOCK_UNITS) {
+      if (placed.has(u.id) || already.has(u.id) || !recognized.has(u.id))
+        continue;
+      if (u.prereqs.every((p) => already.has(p) || placed.has(p))) {
+        placed.add(u.id);
+        progressed = true;
+      }
+    }
+  }
+  for (const u of placed) mockPlacedUnits.add(u);
+  const masteredNow = new Set([...already, ...placed]);
+  const frontier = MOCK_UNITS.filter(
+    (u) => !masteredNow.has(u.id) && u.prereqs.every((p) => masteredNow.has(p))
+  ).map((u) => u.id);
+  return { placed: [...placed].sort(), frontier: frontier.sort() };
+}
+
+export async function getReadiness(): Promise<Readiness> {
+  await delay(80);
+  const mastered = allMastered();
+  const unitsTotal = MOCK_UNITS.length;
+  const unitsMastered = MOCK_UNITS.filter((u) => mastered.has(u.id)).length;
+  const cap = MOCK_CURRICULUM.capstone;
+  const capstoneTotal = cap?.problems.length ?? 0;
+  const capstoneSolved = cap
+    ? cap.problems.filter((p) => mockCapstoneSolved.has(p.slug)).length
+    : 0;
+  const capstonePass = cap?.pass_count ?? 0;
+  const capstoneMet = capstoneTotal > 0 && capstoneSolved >= capstonePass;
+  const ladderFrac = unitsTotal === 0 ? 0 : unitsMastered / unitsTotal;
+  const capFrac =
+    capstoneTotal === 0
+      ? 0
+      : Math.min(1, capstoneSolved / Math.max(1, capstonePass));
+  const percent = Math.min(
+    100,
+    Math.round((ladderFrac * 0.8 + capFrac * 0.2) * 100)
+  );
+  return {
+    unitsTotal,
+    unitsMastered,
+    capstoneTotal,
+    capstoneSolved,
+    capstoneMet,
+    percent,
+    ready: unitsTotal > 0 && unitsMastered === unitsTotal && capstoneMet,
+  };
 }
 
 /* ---------- Phase 6: FSRS spaced review (in-memory mock) ---------- */

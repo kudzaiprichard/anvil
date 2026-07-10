@@ -84,6 +84,24 @@ pub fn mark_mastered(
     Ok(())
 }
 
+/// Places a learner *out* of a unit via the diagnostic (Phase 7): marks it
+/// mastered with `placed = 1` so it counts for unlocking dependents, while
+/// staying honest that the mastery was tested-out-of, not gate-earned. No-ops if
+/// the unit is already mastered (a real gate pass is never downgraded to placed).
+pub fn place_out(db: &Db, unit_id: &str, now: &str) -> AppResult<()> {
+    let conn = db.lock()?;
+    conn.execute(
+        "INSERT INTO unit_mastery (unit_id, status, placed, mastered_at)
+         VALUES (?1, 'mastered', 1, ?2)
+         ON CONFLICT(unit_id) DO UPDATE SET
+           status = 'mastered',
+           placed = CASE WHEN unit_mastery.status = 'mastered' THEN unit_mastery.placed ELSE 1 END,
+           mastered_at = COALESCE(unit_mastery.mastered_at, excluded.mastered_at)",
+        params![unit_id, now],
+    )?;
+    Ok(())
+}
+
 /// The set of units whose gate has been passed — drives unlocking (a unit is
 /// unlocked once all its prereqs are in this set).
 pub fn mastered_units(db: &Db) -> AppResult<HashSet<String>> {

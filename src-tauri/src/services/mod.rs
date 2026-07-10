@@ -3,6 +3,7 @@
 //! All sensitive work (sandboxed code execution, SQLite, filesystem) lives
 //! here and only here; the WebView never touches any of it directly.
 
+pub mod advancement;
 pub mod catalog;
 pub mod curriculum;
 pub mod db;

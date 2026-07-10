@@ -6,6 +6,9 @@
 
 use tauri::State;
 
+use crate::domain::advancement::{
+    CapstoneOutcome, CapstoneView, PlacementOutcome, PlacementProbe, Readiness,
+};
 use crate::domain::curriculum::Curriculum;
 use crate::domain::lesson::Lesson;
 use crate::domain::mastery::{GateOutcome, UnitProgress};
@@ -15,7 +18,7 @@ use crate::domain::review::{ReviewOutcome, ReviewQueue, ReviewRating};
 use crate::domain::unit::Unit;
 use crate::error::{AppError, AppResult};
 use crate::services::db::{self, lesson_progress};
-use crate::services::{progression, quiz, review};
+use crate::services::{advancement, progression, quiz, review};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -138,6 +141,68 @@ pub fn evaluate_gate(
         used_help,
         &db::now_local_iso(),
     )
+}
+
+/// The Stage-7 mixed capstone as the course page shows it (Phase 7): the
+/// unlabeled cross-unit pool + how far through it the learner is. `None` when no
+/// capstone ships. The pattern each problem belongs to is deliberately absent —
+/// the capstone is the unlabeled recognition exam (BLUEPRINT.md §4).
+#[tauri::command]
+pub fn get_capstone(state: State<AppState>) -> AppResult<Option<CapstoneView>> {
+    log::debug!("get_capstone");
+    advancement::capstone_view(&state.curriculum, &state.db)
+}
+
+/// Scores one capstone attempt (Phase 7). Like a gate: a peeked/hinted attempt
+/// (`used_help`) never counts. Rejects a slug that isn't in the capstone pool.
+#[tauri::command]
+pub fn evaluate_capstone(
+    state: State<AppState>,
+    problem_id: String,
+    used_help: bool,
+) -> AppResult<CapstoneOutcome> {
+    log::debug!("evaluate_capstone: {problem_id} (used_help={used_help})");
+    advancement::evaluate_capstone(
+        &state.curriculum,
+        &state.db,
+        &problem_id,
+        used_help,
+        &db::now_local_iso(),
+    )
+}
+
+/// The diagnostic placement probe (Phase 7): unlabeled pattern-picker items the
+/// learner answers to be *placed out* of units they already recognize, starting
+/// them at their frontier.
+#[tauri::command]
+pub fn get_placement(state: State<AppState>) -> AppResult<PlacementProbe> {
+    log::debug!("get_placement");
+    Ok(advancement::placement_probe(&state.curriculum))
+}
+
+/// Applies a submitted placement probe (Phase 7): recognized units whose prereqs
+/// are also cleared are marked mastered-via-placement, unlocking the learner's
+/// frontier. Returns which units were placed and the newly-unlocked frontier.
+#[tauri::command]
+pub fn apply_placement(
+    state: State<AppState>,
+    answers: Vec<QuizAnswer>,
+) -> AppResult<PlacementOutcome> {
+    log::debug!("apply_placement: {} answer(s)", answers.len());
+    advancement::apply_placement(
+        &state.curriculum,
+        &state.db,
+        &answers,
+        &db::now_local_iso(),
+    )
+}
+
+/// The honest course-readiness signal (Phase 7, BLUEPRINT.md §7): how much of
+/// the ladder is mastered, folded with whether the unlabeled capstone is cleared.
+#[tauri::command]
+pub fn get_readiness(state: State<AppState>) -> AppResult<Readiness> {
+    log::debug!("get_readiness");
+    advancement::readiness(&state.curriculum, &state.db)
 }
 
 /// The spaced-review queue (Phase 6, COURSE_BLUEPRINT.md §7): the Stage-1
