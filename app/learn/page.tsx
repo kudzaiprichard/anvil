@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/src/components/anvil/app-shell";
 import { DiagramPlayer } from "@/src/components/anvil/diagram-player";
 import { Markdown } from "@/src/components/anvil/markdown";
-import { QuizRunner } from "@/src/components/anvil/quiz-runner";
+import { QuizPlayer } from "@/src/components/anvil/quiz-player";
 import { Spinner } from "@/src/components/anvil/spinner";
 import {
   applyPlacement,
@@ -806,6 +806,37 @@ function GateSection({
 /* Single lesson                                                         */
 /* --------------------------------------------------------------------- */
 
+/** Per-lesson player state persisted across the workspace round-trip (solve a
+ *  problem → come back) so the learner returns to the same step with their quiz
+ *  passes and unlocked progress intact. Session-scoped; sessionStorage can throw
+ *  (SSR / private mode) so every access is guarded. */
+type LessonSave = { step: number; unlocked: number; passed: string[] };
+
+function loadLessonSave(id: string): LessonSave {
+  try {
+    const raw = sessionStorage.getItem(`anvil:lesson:${id}`);
+    if (raw) {
+      const v = JSON.parse(raw) as Partial<LessonSave>;
+      return {
+        step: typeof v.step === "number" ? v.step : 0,
+        unlocked: typeof v.unlocked === "number" ? v.unlocked : 0,
+        passed: Array.isArray(v.passed) ? v.passed : [],
+      };
+    }
+  } catch {
+    /* no session storage — start fresh */
+  }
+  return { step: 0, unlocked: 0, passed: [] };
+}
+
+function saveLessonSave(id: string, v: LessonSave) {
+  try {
+    sessionStorage.setItem(`anvil:lesson:${id}`, JSON.stringify(v));
+  } catch {
+    /* ignore — persistence is best-effort */
+  }
+}
+
 function LessonView({ lessonId }: { lessonId: string }) {
   const router = useRouter();
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -815,6 +846,9 @@ function LessonView({ lessonId }: { lessonId: string }) {
   const [problems, setProblems] = useState<Map<string, ProblemSummary>>(
     new Map()
   );
+  // Solve-status isn't known until listProblems resolves; until then, keep
+  // problem gates closed rather than briefly reading "unknown" as satisfied.
+  const [problemsLoaded, setProblemsLoaded] = useState(false);
   const [pool, setPool] = useState<Quiz | null>(null);
   /** Unit id → title, for resolving a pattern-picker's revealed pattern. */
   const [unitTitles, setUnitTitles] = useState<Map<string, string>>(new Map());
@@ -823,6 +857,40 @@ function LessonView({ lessonId }: { lessonId: string }) {
   const [earlierUnitIds, setEarlierUnitIds] = useState<Set<string>>(new Set());
   const [notFound, setNotFound] = useState(false);
   const recordedFor = useRef<string | null>(null);
+  /** Which step of the lesson player is showing (segmented, one activity at a
+   *  time — the modern-LMS flow, not one long scroll). */
+  const [stepIndex, setStepIndex] = useState(() => loadLessonSave(lessonId).step);
+  // Highest step the learner has legitimately reached (gates satisfied) — bounds
+  // forward jumps on the progress bar so the gate can't be clicked past.
+  const [unlockedIndex, setUnlockedIndex] = useState(
+    () => loadLessonSave(lessonId).unlocked
+  );
+  // Quiz steps the learner has passed (a quiz remounts fresh, so its pass lives
+  // here, not in the player).
+  const [passedSteps, setPassedSteps] = useState<Set<string>>(
+    () => new Set(loadLessonSave(lessonId).passed)
+  );
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const markStepPassed = useCallback((id: string) => {
+    setPassedSteps((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
+
+  // Persist position + unlocked progress + quiz passes so the workspace
+  // round-trip (solve a problem, come back) resumes exactly where you left off.
+  useEffect(() => {
+    saveLessonSave(lessonId, {
+      step: stepIndex,
+      unlocked: unlockedIndex,
+      passed: [...passedSteps],
+    });
+  }, [lessonId, stepIndex, unlockedIndex, passedSteps]);
+
+  // Each step starts at the top of the pane, like turning a page. (Switching
+  // lessons remounts this view via its `key`, so state resets on its own.)
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [stepIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -842,6 +910,7 @@ function LessonView({ lessonId }: { lessonId: string }) {
       setLesson(l);
       setUnitId(l.unit);
       setProblems(new Map(summaries.map((s) => [s.id, s])));
+      setProblemsLoaded(true);
       setPool(patternPool);
       setStatus(prog.find((p) => p.lessonId === lessonId)?.status ?? "not-started");
 
@@ -912,6 +981,7 @@ function LessonView({ lessonId }: { lessonId: string }) {
     return p ? `${p.number}. ${p.title}` : prettifySlug(slug);
   };
   const patternLabel = (id: string) => unitTitles.get(id) ?? prettifySlug(id);
+  const unitHref = unitId ? `/learn?unit=${unitId}` : "/learn";
 
   // Split the lesson quiz for spaced placement (LESSON_COURSE_DESIGN.md §13.3):
   // concept-check/complexity land mid-lesson, pattern-picker at the end.
@@ -931,220 +1001,142 @@ function LessonView({ lessonId }: { lessonId: string }) {
     (it) => it.correct_pattern === lesson.unit
   );
 
-  return (
-    <main className="min-h-0 flex-1 overflow-auto px-7 pb-16 pt-6">
-      <div className="mx-auto w-full max-w-[760px]">
+  // A problem counts as satisfied when it's solved — or when it isn't in the
+  // catalog at all (no statement supplied ⇒ can't be solved offline ⇒ don't
+  // soft-lock the gate). Solve status is fresh on every mount (listProblems), so
+  // returning from the workspace re-evaluates the gate.
+  const isSolved = (slug: string) => {
+    if (!problemsLoaded) return false; // status unknown yet → keep the gate closed
+    const p = problems.get(slug);
+    return !p || p.status === "solved";
+  };
+  const workedSolved = isSolved(lesson.worked_example);
+  const practiceSolvedCount = lesson.practice.filter(isSolved).length;
+  const practiceSolved = practiceSolvedCount === lesson.practice.length;
+
+  // The lesson is a sequence of focused steps (one activity per screen), built
+  // in the pedagogically-ordered flow (LESSON_COURSE_DESIGN.md §13.1). A step is
+  // only present if it has content; a `blocked` step disables Continue until its
+  // gate is met (quiz passed / problem solved).
+  const steps: {
+    id: string;
+    label: string;
+    body: React.ReactNode;
+    blocked?: boolean;
+    blockedHint?: string;
+  }[] = [];
+  if (warmupItems.length > 0) {
+    steps.push({
+      id: "warmup",
+      label: "Warm-up",
+      blocked: !passedSteps.has("warmup"),
+      blockedHint: "Pass the warm-up to continue.",
+      body: (
+        <>
+          <StepHeading icon={Brain} title="Warm-up retrieval" hint="recall first" />
+          <p className="mb-5 text-[13px] leading-relaxed text-muted-foreground">
+            Before the new idea, retrieve a pattern you already know — spacing is
+            what makes it stick. No labels: read each prompt, name the technique,
+            then submit to continue.
+          </p>
+          <QuizPlayer
+            source={PATTERN_POOL_SOURCE}
+            items={warmupItems}
+            patternLabel={patternLabel}
+            onPass={() => markStepPassed("warmup")}
+          />
+        </>
+      ),
+    });
+  }
+  steps.push({
+    id: "concept",
+    label: "The idea",
+    body: (
+      <>
+        <StepHeading icon={BookOpen} title="The idea" hint="the mental model" />
+        <Markdown>{lesson.explainer_md}</Markdown>
+      </>
+    ),
+  });
+  steps.push({
+    id: "diagram",
+    label: "See it run",
+    body: (
+      <>
+        <StepHeading icon={Film} title="See it run" hint="predict, then reveal" />
+        <p className="mb-5 text-[13px] leading-relaxed text-muted-foreground">
+          Step through the pattern in motion. When it pauses, predict what
+          happens next before you reveal it — active beats passive.
+        </p>
+        <DiagramPlayer diagram={lesson.diagram} />
+      </>
+    ),
+  });
+  if (lesson.trigger_signals.length > 0) {
+    steps.push({
+      id: "triggers",
+      label: "When to use it",
+      body: (
+        <>
+          <StepHeading icon={Target} title="Trigger signals" hint="how to recognize it" />
+          <p className="mb-5 text-[13px] leading-relaxed text-muted-foreground">
+            The cues that should make you reach for this pattern on an unseen
+            problem — the recognition skill that actually transfers.
+          </p>
+          <ul className="flex flex-col gap-3 rounded-xl border bg-surface-2 p-5">
+            {lesson.trigger_signals.map((sig, i) => (
+              <li key={i} className="flex items-start gap-2.5 text-[13.5px]">
+                <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-medium" />
+                <Markdown className="[&_p]:!my-0">{sig}</Markdown>
+              </li>
+            ))}
+          </ul>
+        </>
+      ),
+    });
+  }
+  steps.push({
+    id: "worked",
+    label: "Worked example",
+    blocked: !workedSolved,
+    blockedHint: "Solve the worked example to continue.",
+    body: (
+      <>
+        <StepHeading icon={Lightbulb} title="Worked example" hint="see it applied" />
+        <p className="mb-4 text-[13px] leading-relaxed text-muted-foreground">
+          A real problem of this pattern. Open it in the workspace and solve it
+          against the frozen tests — then come back and continue.
+        </p>
         <Link
-          href={unitId ? `/learn?unit=${unitId}` : "/learn"}
-          className="rise inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-          style={{ "--rise-i": 0 } as React.CSSProperties}
+          href={`/problem?id=${lesson.worked_example}&from=${lessonId}`}
+          className={cn(
+            "flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 transition-colors hover:bg-accent",
+            workedSolved && "border-pass/40"
+          )}
         >
-          <ArrowLeft className="size-[14px]" />
-          {unitTitle || "Course"}
-        </Link>
-
-        <div
-          className="rise mt-3 flex items-start justify-between gap-4"
-          style={{ "--rise-i": 1 } as React.CSSProperties}
-        >
-          <h1 className="text-[24px] font-semibold leading-tight tracking-tight">
-            {lesson.subpattern}
-          </h1>
-          <div className="mt-1.5 shrink-0">
-            <StatusPill status={status} />
-          </div>
-        </div>
-
-        {/* Warm-up retrieval (start) — spaced recall of an earlier pattern this
-            lesson builds on. Empty for the course's very first lesson. */}
-        {warmupItems.length > 0 && (
-          <QuizSection
-            icon={Brain}
-            title="Warm-up retrieval"
-            hint="recall an earlier pattern first"
-            riseIndex={2}
-          >
-            <p className="mb-3 text-[12.5px] text-muted-foreground">
-              Before the new idea, retrieve a pattern you already know — spacing
-              is what makes it stick. No labels: read the prompt and name it.
-            </p>
-            <QuizRunner
-              source={PATTERN_POOL_SOURCE}
-              items={warmupItems}
-              patternLabel={patternLabel}
-            />
-          </QuizSection>
-        )}
-
-        {/* Trigger signals — the recognition cue, taught explicitly. */}
-        {lesson.trigger_signals.length > 0 && (
-          <section
-            className="rise mt-6 rounded-lg border bg-surface-2 p-4"
-            style={{ "--rise-i": 2 } as React.CSSProperties}
-          >
-            <div className="flex items-center gap-2">
-              <Target className="size-[15px] text-medium" />
-              <span className="microlabel text-foreground">Trigger signals</span>
-              <span className="font-mono text-[11px] text-muted-foreground">
-                when to reach for this
-              </span>
-            </div>
-            <ul className="mt-3 flex flex-col gap-2">
-              {lesson.trigger_signals.map((sig, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-[13.5px]">
-                  <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-medium" />
-                  <Markdown className="[&_p]:!my-0">{sig}</Markdown>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* Explainer prose. */}
-        <section
-          className="rise mt-6"
-          style={{ "--rise-i": 3 } as React.CSSProperties}
-        >
-          <Markdown>{lesson.explainer_md}</Markdown>
-        </section>
-
-        {/* Prediction diagram — the pattern in motion, with a "what happens
-            next?" pause. Taught during the lesson, not tacked on the end. */}
-        <section
-          className="rise mt-7"
-          style={{ "--rise-i": 4 } as React.CSSProperties}
-        >
-          <div className="mb-3 flex items-center gap-2">
-            <Film className="size-[15px] text-primary" />
-            <span className="microlabel text-foreground">See it run</span>
-            <span className="font-mono text-[11px] text-muted-foreground">
-              predict, then reveal
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-semibold">
+              {problemLabel(lesson.worked_example)}
             </span>
-          </div>
-          <DiagramPlayer diagram={lesson.diagram} />
-        </section>
-
-        {/* Worked example — solve it in the real workspace/runner. */}
-        <section
-          className="rise mt-7"
-          style={{ "--rise-i": 4 } as React.CSSProperties}
-        >
-          <div className="flex items-center gap-2">
-            <Lightbulb className="size-[15px] text-primary" />
-            <span className="microlabel text-foreground">Worked example</span>
-          </div>
-          <Link
-            href={`/problem?id=${lesson.worked_example}`}
-            className="mt-3 flex items-center gap-3 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-semibold">
-                {problemLabel(lesson.worked_example)}
-              </span>
-              <span className="text-[11.5px] text-muted-foreground">
-                Open in the workspace and solve it against the frozen tests.
-              </span>
+            <span className="text-[11.5px] text-muted-foreground">
+              Open in the workspace and solve it against the frozen tests.
             </span>
+          </span>
+          {workedSolved ? (
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-pass/15 px-3 py-1.5 text-[12.5px] font-semibold text-pass">
+              <Check className="size-[14px] stroke-[2.6]" />
+              Solved
+            </span>
+          ) : (
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[12.5px] font-semibold text-primary-foreground">
               Solve
               <ArrowRight className="size-[14px] stroke-[2.2]" />
             </span>
-          </Link>
-        </section>
-
-        {/* Concept check (mid-lesson) — low-stakes retrieval on the just-taught
-            idea. Never a gate. */}
-        {conceptItems.length > 0 && (
-          <QuizSection
-            icon={ListChecks}
-            title="Concept check"
-            hint="retrieval, not a gate"
-            riseIndex={5}
-          >
-            <QuizRunner
-              source={lessonId}
-              items={conceptItems}
-              patternLabel={patternLabel}
-            />
-          </QuizSection>
-        )}
-
-        {/* Practice — faded → independent. */}
-        {lesson.practice.length > 0 && (
-          <section
-            className="rise mt-7"
-            style={{ "--rise-i": 5 } as React.CSSProperties}
-          >
-            <div className="flex items-center gap-2">
-              <Dumbbell className="size-[15px] text-primary" />
-              <span className="microlabel text-foreground">Practice</span>
-              <span className="font-mono text-[11px] text-muted-foreground">
-                apply it yourself
-              </span>
-            </div>
-            <ul className="mt-3 flex flex-col gap-2">
-              {lesson.practice.map((slug) => (
-                <li key={slug}>
-                  <Link
-                    href={`/problem?id=${slug}`}
-                    className="flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 transition-colors hover:bg-accent"
-                  >
-                    <BookOpen className="size-[15px] shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
-                      {problemLabel(slug)}
-                    </span>
-                    <ArrowRight className="size-[14px] text-muted-foreground" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* Pattern-picker drills (end) — the moat: name the pattern from an
-            unlabeled prompt, then read the trigger. */}
-        {lessonPickers.length > 0 && (
-          <QuizSection
-            icon={Puzzle}
-            title="Pattern-picker"
-            hint="which pattern, and why?"
-            riseIndex={7}
-          >
-            <p className="mb-3 text-[12.5px] text-muted-foreground">
-              No pattern labels — decide which technique the prompt calls for.
-              This is the skill that transfers to unseen problems.
-            </p>
-            <QuizRunner
-              source={lessonId}
-              items={lessonPickers}
-              patternLabel={patternLabel}
-            />
-          </QuizSection>
-        )}
-
-        {/* Interleaved recognition — extra unlabeled drills for this pattern,
-            drawn from the cross-unit pool. */}
-        {interleavedItems.length > 0 && (
-          <QuizSection
-            icon={Sparkles}
-            title="Interleaved recognition"
-            hint="mixed prompts, no labels"
-            riseIndex={8}
-          >
-            <QuizRunner
-              source={PATTERN_POOL_SOURCE}
-              items={interleavedItems}
-              patternLabel={patternLabel}
-            />
-          </QuizSection>
-        )}
-
-        {/* Follow-up ladder — where interview difficulty lives. */}
+          )}
+        </Link>
         {lesson.follow_up.length > 0 && (
-          <section
-            className="rise mt-7 rounded-lg border border-dashed p-4"
-            style={{ "--rise-i": 6 } as React.CSSProperties}
-          >
+          <div className="mt-5 rounded-xl border border-dashed p-4">
             <span className="microlabel text-foreground">Push further</span>
             <ul className="mt-2.5 flex flex-col gap-2">
               {lesson.follow_up.map((f, i) => (
@@ -1154,33 +1146,297 @@ function LessonView({ lessonId }: { lessonId: string }) {
                 </li>
               ))}
             </ul>
-          </section>
+          </div>
         )}
-
-        {/* Complete. */}
-        <div
-          className="rise mt-8 flex items-center justify-between gap-4 rounded-lg border bg-card px-4 py-3.5"
-          style={{ "--rise-i": 7 } as React.CSSProperties}
-        >
-          <p className="text-[12.5px] text-muted-foreground">
-            {status === "complete"
-              ? "You've completed this lesson. Revisit it any time."
-              : "Solved the worked example and practice? Mark this lesson done."}
+      </>
+    ),
+  });
+  if (conceptItems.length > 0) {
+    steps.push({
+      id: "concept-check",
+      label: "Concept check",
+      blocked: !passedSteps.has("concept-check"),
+      blockedHint: "Pass the concept check to continue.",
+      body: (
+        <>
+          <StepHeading icon={ListChecks} title="Concept check" hint="retrieval" />
+          <p className="mb-5 text-[13px] leading-relaxed text-muted-foreground">
+            Quick retrieval on what you just learned. Submit and score at least
+            80% to continue — retry as many times as you like.
           </p>
+          <QuizPlayer
+            source={lessonId}
+            items={conceptItems}
+            patternLabel={patternLabel}
+            onPass={() => markStepPassed("concept-check")}
+          />
+        </>
+      ),
+    });
+  }
+  if (lesson.practice.length > 0) {
+    steps.push({
+      id: "practice",
+      label: "Practice",
+      blocked: !practiceSolved,
+      blockedHint: `Solve the practice problems to continue (${practiceSolvedCount}/${lesson.practice.length} done).`,
+      body: (
+        <>
+          <StepHeading
+            icon={Dumbbell}
+            title="Practice"
+            hint={`${practiceSolvedCount}/${lesson.practice.length} solved`}
+          />
+          <p className="mb-5 text-[13px] leading-relaxed text-muted-foreground">
+            Solve each in the workspace — hints, complexity feedback, and a
+            self-explanation prompt are available here. Solve them all to
+            continue.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {lesson.practice.map((slug) => {
+              const solved = isSolved(slug);
+              return (
+                <li key={slug}>
+                  <Link
+                    href={`/problem?id=${slug}&from=${lessonId}`}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 transition-colors hover:bg-accent",
+                      solved && "border-pass/40"
+                    )}
+                  >
+                    {solved ? (
+                      <Check className="size-[15px] shrink-0 stroke-[2.6] text-pass" />
+                    ) : (
+                      <BookOpen className="size-[15px] shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
+                      {problemLabel(slug)}
+                    </span>
+                    {solved ? (
+                      <span className="text-[11.5px] font-semibold text-pass">
+                        Solved
+                      </span>
+                    ) : (
+                      <ArrowRight className="size-[14px] text-muted-foreground" />
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ),
+    });
+  }
+  if (lessonPickers.length > 0 || interleavedItems.length > 0) {
+    steps.push({
+      id: "recognition",
+      label: "Recognition",
+      blocked: !passedSteps.has("recognition"),
+      blockedHint: "Pass the recognition quiz to continue.",
+      body: (
+        <>
+          <StepHeading icon={Puzzle} title="Pattern recognition" hint="which pattern, and why?" />
+          <p className="mb-5 text-[13px] leading-relaxed text-muted-foreground">
+            No labels — decide which technique each prompt calls for, then submit.
+            This is the moat: the skill that carries to unfamiliar problems.
+          </p>
+          {lessonPickers.length > 0 ? (
+            <QuizPlayer
+              source={lessonId}
+              items={lessonPickers}
+              patternLabel={patternLabel}
+              onPass={() => markStepPassed("recognition")}
+            />
+          ) : (
+            <QuizPlayer
+              source={PATTERN_POOL_SOURCE}
+              items={interleavedItems}
+              patternLabel={patternLabel}
+              onPass={() => markStepPassed("recognition")}
+            />
+          )}
+          {lessonPickers.length > 0 && interleavedItems.length > 0 && (
+            <div className="mt-6">
+              <div className="mb-3 flex items-center gap-2">
+                <Sparkles className="size-[14px] text-primary" />
+                <span className="microlabel text-foreground">Interleaved</span>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  optional · mixed prompts
+                </span>
+              </div>
+              <QuizPlayer
+                source={PATTERN_POOL_SOURCE}
+                items={interleavedItems}
+                patternLabel={patternLabel}
+              />
+            </div>
+          )}
+        </>
+      ),
+    });
+  }
+  steps.push({
+    id: "finish",
+    label: "Complete",
+    body: (
+      <div className="flex flex-col items-center py-6 text-center">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-pass/12 text-pass">
+          <Check className="size-7 stroke-[2.4]" />
+        </div>
+        <h2 className="mt-4 text-[19px] font-semibold tracking-tight">
+          You&apos;ve finished this lesson
+        </h2>
+        <p className="mt-2 max-w-[48ch] text-[13px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">{lesson.subpattern}</span>{" "}
+          — this pattern will resurface inside later units and come back on your
+          spaced-review schedule. Mark it complete to keep climbing.
+        </p>
+        {lesson.trigger_signals.length > 0 && (
+          <div className="mt-6 w-full rounded-xl border bg-surface-2 p-4 text-left">
+            <span className="microlabel text-foreground">Remember the trigger</span>
+            <ul className="mt-2.5 flex flex-col gap-2">
+              {lesson.trigger_signals.map((sig, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-[13px]">
+                  <Target className="mt-0.5 size-[13px] shrink-0 text-medium" />
+                  <Markdown className="[&_p]:!my-0">{sig}</Markdown>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    ),
+  });
+
+  const currentIndex = Math.min(stepIndex, steps.length - 1);
+  const current = steps[currentIndex];
+  const isLast = currentIndex === steps.length - 1;
+  const blocked = !!current.blocked;
+
+  // Advance only when the current step's gate is satisfied, and unlock the next
+  // step so the progress bar can reach it (forward jumps are otherwise gated).
+  const goNext = () => {
+    if (blocked) return;
+    const next = Math.min(steps.length - 1, currentIndex + 1);
+    setStepIndex(next);
+    setUnlockedIndex((u) => Math.max(u, next));
+  };
+
+  return (
+    <main className="flex min-h-0 flex-1 flex-col">
+      {/* Compact header: back, lesson title + status, and the segmented stepper. */}
+      <div className="shrink-0 border-b bg-card/40 px-6 py-2.5">
+        <div className="mx-auto w-full max-w-[760px]">
+          <div className="flex items-center gap-2.5">
+            <Link
+              href={unitHref}
+              title={`Back to ${unitTitle || "course"}`}
+              aria-label={`Back to ${unitTitle || "course"}`}
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft className="size-[15px]" />
+            </Link>
+            <h1 className="min-w-0 flex-1 truncate text-[14.5px] font-semibold tracking-tight">
+              {lesson.subpattern}
+            </h1>
+            <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:inline">
+              {unitTitle}
+            </span>
+            <StatusPill status={status} />
+          </div>
+          <nav aria-label="Lesson steps" className="mt-2 flex items-center gap-3">
+            <div className="flex flex-1 gap-1">
+              {steps.map((s, i) => {
+                const reached = i <= unlockedIndex;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => reached && setStepIndex(i)}
+                    disabled={!reached}
+                    aria-label={`Step ${i + 1} of ${steps.length}: ${s.label}${reached ? "" : " (locked)"}`}
+                    aria-current={i === currentIndex ? "step" : undefined}
+                    className={cn(
+                      "h-1 flex-1 rounded-full transition-all",
+                      i <= currentIndex
+                        ? "bg-primary"
+                        : reached
+                          ? "bg-primary/30 hover:bg-primary/50"
+                          : "cursor-not-allowed bg-muted"
+                    )}
+                  />
+                );
+              })}
+            </div>
+            <span className="shrink-0 whitespace-nowrap font-mono text-[10.5px] text-muted-foreground">
+              {currentIndex + 1}/{steps.length} · {current.label}
+            </span>
+          </nav>
+        </div>
+      </div>
+
+      {/* Step body — one focused activity, re-mounted per step so it animates in. */}
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto px-7 py-8">
+        <div className="mx-auto w-full max-w-[760px]">
+          <div
+            key={current.id}
+            className="rise"
+            style={{ "--rise-i": 0 } as React.CSSProperties}
+          >
+            {current.body}
+          </div>
+        </div>
+      </div>
+
+      {/* Compact footer: Back / Continue (gated) — Mark complete on the last step. */}
+      <div className="shrink-0 border-t bg-card/40 px-6 py-2.5">
+        <div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-3">
           <button
             type="button"
-            onClick={markComplete}
-            disabled={status === "complete"}
-            className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 rounded-md px-4 py-2 text-[13px] font-semibold transition-[filter,transform] active:scale-[0.98]",
-              status === "complete"
-                ? "cursor-default bg-pass/15 text-pass"
-                : "bg-primary text-primary-foreground hover:brightness-110"
-            )}
+            onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+            disabled={currentIndex === 0}
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
           >
-            <Check className="size-[15px] stroke-[2.4]" />
-            {status === "complete" ? "Completed" : "Mark complete"}
+            <ArrowLeft className="size-[14px]" />
+            Back
           </button>
+
+          {blocked && current.blockedHint && (
+            <span className="hidden min-w-0 flex-1 items-center justify-center gap-1.5 truncate px-2 text-center text-[11.5px] text-muted-foreground sm:flex">
+              <Lock className="size-[12px] shrink-0" />
+              {current.blockedHint}
+            </span>
+          )}
+
+          {!isLast ? (
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={blocked}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-[12.5px] font-semibold text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
+            >
+              Continue
+              <ArrowRight className="size-[14px] stroke-[2.2]" />
+            </button>
+          ) : status === "complete" ? (
+            <Link
+              href={unitHref}
+              className="inline-flex items-center gap-1.5 rounded-md bg-pass/15 px-4 py-1.5 text-[12.5px] font-semibold text-pass transition-colors hover:bg-pass/20"
+            >
+              <Check className="size-[15px] stroke-[2.4]" />
+              Completed — back to unit
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={markComplete}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-[12.5px] font-semibold text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.98]"
+            >
+              <Check className="size-[15px] stroke-[2.4]" />
+              Mark complete
+            </button>
+          )}
         </div>
       </div>
     </main>
@@ -1189,37 +1445,27 @@ function LessonView({ lessonId }: { lessonId: string }) {
 
 /* --------------------------------------------------------------------- */
 
-/** A titled lesson section that hosts a quiz runner — matches the other
- *  lesson section headers (icon + microlabel + mono hint). */
-function QuizSection({
+/** The heading atop each lesson-player step — icon + title (a real heading, so
+ *  the lesson has a navigable outline) + an optional mono hint. */
+function StepHeading({
   icon: Icon,
   title,
   hint,
-  riseIndex,
-  children,
 }: {
   icon: typeof Check;
   title: string;
   hint?: string;
-  riseIndex: number;
-  children: React.ReactNode;
 }) {
   return (
-    <section
-      className="rise mt-7"
-      style={{ "--rise-i": riseIndex } as React.CSSProperties}
-    >
-      <div className="mb-3 flex items-center gap-2">
-        <Icon className="size-[15px] text-primary" />
-        <span className="microlabel text-foreground">{title}</span>
-        {hint && (
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {hint}
-          </span>
-        )}
-      </div>
-      {children}
-    </section>
+    <div className="mb-4 flex items-center gap-2">
+      <Icon className="size-[16px] text-primary" />
+      <h2 className="text-[16px] font-semibold tracking-tight">{title}</h2>
+      {hint && (
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {hint}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -1510,7 +1756,7 @@ function LearnRouter() {
   const unitId = searchParams.get("unit");
   if (searchParams.get("capstone")) return <CapstonePane />;
   if (searchParams.get("placement")) return <PlacementView />;
-  if (lessonId) return <LessonView lessonId={lessonId} />;
+  if (lessonId) return <LessonView key={lessonId} lessonId={lessonId} />;
   if (unitId) return <UnitView unitId={unitId} />;
   return <CourseView />;
 }

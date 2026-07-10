@@ -302,12 +302,7 @@ function PredictionPanel({
       </ul>
 
       {revealed && (
-        <div
-          className={cn(
-            "mt-3 rounded-md border-l-2 pl-3 text-[12.5px]",
-            correct ? "border-pass" : "border-fail"
-          )}
-        >
+        <div className="mt-3 rounded-md bg-muted/40 p-3 text-[12.5px]">
           <p
             className={cn(
               "flex items-center gap-1.5 font-semibold",

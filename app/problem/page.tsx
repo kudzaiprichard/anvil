@@ -241,6 +241,19 @@ function Workspace() {
   const capstoneMode = searchParams.get("capstone") === "1";
   const examMode = !!gateUnit || capstoneMode;
 
+  // Where the workspace's back button returns to. A lesson launches practice /
+  // worked-example problems with `?from=<lessonId>`; gate and capstone carry
+  // their own origin. This keeps the desktop app navigable — you can always get
+  // back to where you came from instead of being stranded on the problem.
+  const fromLesson = searchParams.get("from");
+  const backNav = fromLesson
+    ? { href: `/learn?lesson=${fromLesson}`, label: "Back to lesson" }
+    : gateUnit
+      ? { href: `/learn?unit=${gateUnit}`, label: "Back to unit" }
+      : capstoneMode
+        ? { href: "/learn?capstone=1", label: "Back to capstone" }
+        : { href: "/problems", label: "Problems" };
+
   // `problem` is derived: stale loads don't render while a new id is loading.
   const [loaded, setLoaded] = useState<{ id: string; problem: Problem } | null>(
     null
@@ -539,6 +552,7 @@ function Workspace() {
           onNext={() => undefined}
           onShuffle={() => undefined}
           onRun={() => undefined}
+          back={backNav}
         />
         <div className="flex flex-1 items-center justify-center">
           <Spinner className="size-6" />
@@ -558,6 +572,7 @@ function Workspace() {
     >
       <TopBar
         running={runState === "running"}
+        back={backNav}
         onOpenList={() => setSheetOpen(true)}
         onPrev={() => goTo(summaries[index - 1] ?? summaries[summaries.length - 1])}
         onNext={() => goTo(summaries[index + 1] ?? summaries[0])}
