@@ -11,6 +11,7 @@ pub mod lesson_progress;
 pub mod mastery;
 pub mod problem_state;
 pub mod quiz_result;
+pub mod review;
 pub mod user_problems;
 
 use std::path::Path;

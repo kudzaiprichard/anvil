@@ -11,10 +11,11 @@ use crate::domain::lesson::Lesson;
 use crate::domain::mastery::{GateOutcome, UnitProgress};
 use crate::domain::progress::{LessonProgress, LessonStatus};
 use crate::domain::quiz::{Quiz, QuizAnswer, QuizGrade};
+use crate::domain::review::{ReviewOutcome, ReviewQueue, ReviewRating};
 use crate::domain::unit::Unit;
 use crate::error::{AppError, AppResult};
 use crate::services::db::{self, lesson_progress};
-use crate::services::{progression, quiz};
+use crate::services::{progression, quiz, review};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -137,4 +138,33 @@ pub fn evaluate_gate(
         used_help,
         &db::now_local_iso(),
     )
+}
+
+/// The spaced-review queue (Phase 6, COURSE_BLUEPRINT.md §7): the Stage-1
+/// problems due to be re-solved *cold* right now — interleaved across patterns —
+/// plus the honest habit header (streak-with-freezes, counts). Pure engine
+/// output derived from the FSRS `review_schedule`; content stays bundled data.
+#[tauri::command]
+pub fn get_review_queue(state: State<AppState>) -> AppResult<ReviewQueue> {
+    log::debug!("get_review_queue");
+    review::queue(
+        &state.curriculum,
+        &state.db,
+        chrono::Utc::now(),
+        chrono::Local::now().date_naive(),
+    )
+}
+
+/// Records a cold re-solve and reschedules the card via FSRS (COURSE_BLUEPRINT.md
+/// §7). `rating` is the learner's self-assessed recall after re-solving; an
+/// `again` demotes the card (interval collapses, lapse counter bumps). Rejects a
+/// problem that never entered the queue.
+#[tauri::command]
+pub fn record_review(
+    state: State<AppState>,
+    problem_id: String,
+    rating: ReviewRating,
+) -> AppResult<ReviewOutcome> {
+    log::debug!("record_review: {problem_id} {rating:?}");
+    review::record(&state.db, &problem_id, rating, chrono::Utc::now())
 }

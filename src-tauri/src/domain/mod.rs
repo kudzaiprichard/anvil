@@ -15,5 +15,6 @@ pub mod preset;
 pub mod problem;
 pub mod progress;
 pub mod quiz;
+pub mod review;
 pub mod run;
 pub mod unit;

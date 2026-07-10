@@ -24,6 +24,9 @@ import type {
   Quiz,
   QuizAnswer,
   QuizGrade,
+  ReviewOutcome,
+  ReviewQueue,
+  ReviewRating,
   RunRequest,
   RunResult,
   RuntimeInfo,
@@ -134,6 +137,21 @@ export async function evaluateGate(
   usedHelp: boolean
 ): Promise<GateOutcome> {
   return call<GateOutcome>("evaluate_gate", { unitId, problemId, usedHelp });
+}
+
+/** The FSRS spaced-review queue: Stage-1 problems due to re-solve cold now
+ *  (interleaved) + the honest habit header (Phase 6). */
+export async function getReviewQueue(): Promise<ReviewQueue> {
+  return call<ReviewQueue>("get_review_queue");
+}
+
+/** Records a cold re-solve and reschedules the card. `rating` is self-assessed
+ *  recall; `again` demotes. */
+export async function recordReview(
+  problemId: string,
+  rating: ReviewRating
+): Promise<ReviewOutcome> {
+  return call<ReviewOutcome>("record_review", { problemId, rating });
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

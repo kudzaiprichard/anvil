@@ -10,6 +10,7 @@ use crate::domain::run::{Language, RunRequest, RunResult, RunStatus};
 use crate::error::{AppError, AppResult};
 use crate::services::db::{self, attempts};
 use crate::services::runner::{self, ProbeOutcome};
+use crate::services::review;
 use crate::state::AppState;
 
 async fn run(
@@ -55,6 +56,16 @@ async fn run(
     };
     if let Err(e) = attempts::record_attempt(&state.db, &record) {
         log::error!("failed to record attempt for {}: {e}", req.id);
+    }
+
+    // A passing SUBMIT of a course problem enters the FSRS spaced-review queue
+    // (Phase 6, COURSE_BLUEPRINT.md §7): solved Stage-1 problems come back to be
+    // re-solved cold. Non-course library problems are ignored by `enqueue`.
+    // A DB failure here must never eat the run result — log and move on.
+    if include_hidden && result.status == RunStatus::Pass {
+        if let Err(e) = review::enqueue(&state.curriculum, &state.db, &req.id, chrono::Utc::now()) {
+            log::error!("failed to enqueue review for {}: {e}", req.id);
+        }
     }
 
     Ok(result)

@@ -29,6 +29,11 @@ import type {
   QuizAnswer,
   QuizGrade,
   QuizItemResult,
+  ReviewCardState,
+  ReviewItem,
+  ReviewOutcome,
+  ReviewQueue,
+  ReviewRating,
   RunRequest,
   RunResult,
   RuntimeInfo,
@@ -405,6 +410,127 @@ export async function evaluateGate(
   }
 
   return { counted: true, unitMastered, alreadyMastered, gate, unlocked };
+}
+
+/* ---------- Phase 6: FSRS spaced review (in-memory mock) ---------- */
+
+interface MockCard {
+  problemId: string;
+  unitId: string;
+  state: ReviewCardState;
+  dueAt: string; // ISO
+  lastReviewedAt?: string;
+  lapses: number;
+}
+
+const mockReview = new Map<string, MockCard>();
+
+/** Seed a few Stage-1 problems as already-due so browser-dev shows a queue. */
+function seedReview() {
+  if (mockReview.size > 0) return;
+  const past = new Date(Date.now() - 36 * 3_600_000).toISOString();
+  const seeds: Array<[string, string]> = [
+    ["two-sum", "arrays-hashing"],
+    ["group-anagrams", "arrays-hashing"],
+    ["valid-palindrome", "two-pointers"],
+  ];
+  for (const [problemId, unitId] of seeds) {
+    mockReview.set(problemId, {
+      problemId,
+      unitId,
+      state: "new",
+      dueAt: past,
+      lapses: 0,
+    });
+  }
+}
+
+/** Round-robin due cards across units so patterns interleave. */
+function interleaveMock(items: ReviewItem[]): ReviewItem[] {
+  const groups: Array<[string, ReviewItem[]]> = [];
+  for (const it of items) {
+    const g = groups.find(([k]) => k === it.unitId);
+    if (g) g[1].push(it);
+    else groups.push([it.unitId, [it]]);
+  }
+  const out: ReviewItem[] = [];
+  let drained = false;
+  while (!drained) {
+    drained = true;
+    for (const [, q] of groups) {
+      const next = q.shift();
+      if (next) {
+        out.push(next);
+        drained = false;
+      }
+    }
+  }
+  return out;
+}
+
+export async function getReviewQueue(): Promise<ReviewQueue> {
+  await delay(80);
+  seedReview();
+  const now = Date.now();
+  const due: ReviewItem[] = [];
+  let laterCount = 0;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  let reviewedToday = 0;
+  for (const c of mockReview.values()) {
+    if (c.lastReviewedAt?.startsWith(todayIso)) reviewedToday += 1;
+    const dueMs = new Date(c.dueAt).getTime();
+    if (dueMs <= now) {
+      due.push({
+        problemId: c.problemId,
+        unitId: c.unitId,
+        state: c.state,
+        dueAt: c.dueAt,
+        lastReviewedAt: c.lastReviewedAt,
+        lapses: c.lapses,
+        overdueDays: Math.max(0, Math.floor((now - dueMs) / 86_400_000)),
+      });
+    } else {
+      laterCount += 1;
+    }
+  }
+  return {
+    due: interleaveMock(due),
+    laterCount,
+    habit: {
+      currentStreak: MOCK_PROGRESS.streakDays,
+      bestStreak: MOCK_PROGRESS.bestStreakDays,
+      freezeActive: false,
+      dueToday: due.length,
+      reviewedToday,
+    },
+  };
+}
+
+export async function recordReview(
+  problemId: string,
+  rating: ReviewRating
+): Promise<ReviewOutcome> {
+  await delay(120);
+  seedReview();
+  const card = mockReview.get(problemId);
+  if (!card) throw new Error(`'${problemId}' is not in the review queue`);
+  // Plausible spacing (not the real FSRS math): good/easy space out by days,
+  // again demotes to ~1 day and bumps the lapse counter.
+  const intervalDays =
+    rating === "again" ? 1 : rating === "hard" ? 2 : rating === "good" ? 4 : 8;
+  const demoted = rating === "again";
+  if (demoted) card.lapses += 1;
+  card.state = "review";
+  card.lastReviewedAt = new Date().toISOString();
+  card.dueAt = new Date(Date.now() + intervalDays * 86_400_000).toISOString();
+  return {
+    problemId,
+    state: card.state,
+    dueAt: card.dueAt,
+    intervalDays,
+    lapses: card.lapses,
+    demoted,
+  };
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {
