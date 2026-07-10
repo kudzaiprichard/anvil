@@ -1,7 +1,14 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Bookmark, ChevronDown, ChevronRight, Eye, FileUp } from "lucide-react";
+import {
+  Bookmark,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  FileUp,
+  ShieldAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 import { exportProblem } from "@/src/lib/api";
 import { CodeEditor } from "@/src/components/anvil/code-editor";
@@ -315,22 +322,75 @@ function SolutionTab({ problem }: { problem: Problem }) {
   );
 }
 
-/** Left pane of the workspace: Description / Hints / Solution. */
+/** In a mastery gate the reference solution stays hidden (COURSE_BLUEPRINT.md
+ *  §6): the learner may reveal it, but doing so voids the problem for the gate.
+ *  This interstitial makes that cost explicit and reports the choice upward so
+ *  the attempt is marked help-used. (Hints aren't offered at all during a gate.) */
+function GateSolutionGuard({ onReveal }: { onReveal: () => void }) {
+  return (
+    <div className="flex min-h-[240px] flex-col items-center justify-center gap-3.5 text-center">
+      <div className="flex size-[52px] items-center justify-center rounded-2xl bg-medium/15 text-medium">
+        <ShieldAlert className="size-6 stroke-[1.9]" />
+      </div>
+      <div>
+        <div className="text-[15px] font-semibold">
+          Solution is hidden during a gate
+        </div>
+        <p className="mx-auto mt-1.5 max-w-[340px] text-[13px] leading-relaxed text-muted-foreground">
+          Gate problems must be solved cold. You can reveal the reference
+          solution anyway, but this problem then{" "}
+          <strong className="text-foreground">won&apos;t count</strong> toward
+          mastering the unit.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onReveal}
+        className="rounded-[9px] border px-3.5 py-2 text-[13px] font-semibold text-medium transition-colors hover:bg-medium/10"
+      >
+        Reveal anyway — voids this problem
+      </button>
+    </div>
+  );
+}
+
+/** Left pane of the workspace: Description / Hints / Solution.
+ *  In `gateMode` hints are off entirely (no Hints tab) and the solution stays
+ *  hidden behind a reveal-voids-the-gate guard; revealing it reports via
+ *  `onGateHelpUsed` so the attempt is marked help-used. */
 export function ProblemPane({
   problem,
   bookmarked = false,
   onToggleBookmark,
+  gateMode = false,
+  onGateHelpUsed,
 }: {
   problem: Problem;
   bookmarked?: boolean;
   onToggleBookmark?: () => void;
+  gateMode?: boolean;
+  onGateHelpUsed?: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("description");
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "description", label: "Description" },
-    { id: "hints", label: "Hints" },
-    { id: "solution", label: "Solution" },
-  ];
+  // Whether the learner accepted the "reveal voids the gate" cost this session.
+  const [helpUnlocked, setHelpUnlocked] = useState(false);
+  // Hints are OFF on a gate (§6): the tab isn't even offered.
+  const tabs: { id: Tab; label: string }[] = gateMode
+    ? [
+        { id: "description", label: "Description" },
+        { id: "solution", label: "Solution" },
+      ]
+    : [
+        { id: "description", label: "Description" },
+        { id: "hints", label: "Hints" },
+        { id: "solution", label: "Solution" },
+      ];
+
+  const reveal = () => {
+    setHelpUnlocked(true);
+    onGateHelpUsed?.();
+  };
+  const solutionGuarded = gateMode && !helpUnlocked;
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -341,13 +401,16 @@ export function ProblemPane({
             type="button"
             onClick={() => setTab(id)}
             className={cn(
-              "relative px-2.5 py-2.5 text-[13px] transition-colors",
+              "relative flex items-center gap-1.5 px-2.5 py-2.5 text-[13px] transition-colors",
               tab === id
                 ? "font-semibold text-foreground"
                 : "font-medium text-muted-foreground hover:text-foreground"
             )}
           >
             {label}
+            {solutionGuarded && id === "solution" && (
+              <ShieldAlert className="size-[13px] text-medium" />
+            )}
             {tab === id && (
               <span className="absolute inset-x-1.5 -bottom-px h-0.5 rounded-sm bg-primary" />
             )}
@@ -362,10 +425,16 @@ export function ProblemPane({
             onToggleBookmark={onToggleBookmark}
           />
         )}
-        {tab === "hints" && <HintsTab key={problem.id} problem={problem} />}
-        {tab === "solution" && (
-          <SolutionTab key={problem.id} problem={problem} />
+        {/* Hints tab only exists outside a gate. */}
+        {tab === "hints" && !gateMode && (
+          <HintsTab key={problem.id} problem={problem} />
         )}
+        {tab === "solution" &&
+          (solutionGuarded ? (
+            <GateSolutionGuard onReveal={reveal} />
+          ) : (
+            <SolutionTab key={problem.id} problem={problem} />
+          ))}
       </div>
     </div>
   );

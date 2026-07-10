@@ -8,10 +8,12 @@ use tauri::State;
 
 use crate::domain::curriculum::Curriculum;
 use crate::domain::lesson::Lesson;
+use crate::domain::mastery::{GateOutcome, UnitProgress};
 use crate::domain::progress::{LessonProgress, LessonStatus};
 use crate::domain::unit::Unit;
 use crate::error::{AppError, AppResult};
 use crate::services::db::{self, lesson_progress};
+use crate::services::progression;
 use crate::state::AppState;
 
 #[tauri::command]
@@ -61,4 +63,39 @@ pub fn record_lesson_progress(
 pub fn get_lesson_progress(state: State<AppState>) -> AppResult<Vec<LessonProgress>> {
     log::debug!("get_lesson_progress");
     lesson_progress::list(&state.db)
+}
+
+/// Every unit's progression snapshot (locked/unlocked/mastered + lesson and
+/// gate progress), in stage order — the course overview and unit views read
+/// this to gate navigation and draw progress. Engine logic, not stored data
+/// (LESSON_COURSE_DESIGN.md §6): lock state is derived from the prereq DAG and
+/// which units have passed their gate.
+#[tauri::command]
+pub fn get_progression(state: State<AppState>) -> AppResult<Vec<UnitProgress>> {
+    log::debug!("get_progression");
+    progression::progression(&state.curriculum, &state.db)
+}
+
+/// Evaluates a passing gate attempt (COURSE_BLUEPRINT.md §6). The unit is
+/// derived from validated content — a caller can't gate a non-gate problem or a
+/// locked unit. `used_help` is trusted from the workspace, which sets it when
+/// the learner reveals a hint or the solution: such an attempt is recorded but
+/// never counts toward mastery. On a counted pass that meets the threshold, the
+/// unit is mastered and the next unit(s) unlock.
+#[tauri::command]
+pub fn evaluate_gate(
+    state: State<AppState>,
+    unit_id: String,
+    problem_id: String,
+    used_help: bool,
+) -> AppResult<GateOutcome> {
+    log::debug!("evaluate_gate: {unit_id} / {problem_id} (used_help={used_help})");
+    progression::evaluate_gate(
+        &state.curriculum,
+        &state.db,
+        &unit_id,
+        &problem_id,
+        used_help,
+        &db::now_local_iso(),
+    )
 }

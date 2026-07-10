@@ -8,6 +8,7 @@ pub mod diagram;
 pub mod draft;
 pub mod lc_import;
 pub mod lesson;
+pub mod mastery;
 pub mod pack;
 pub mod preset;
 pub mod problem;

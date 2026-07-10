@@ -330,6 +330,61 @@ export interface Lesson {
   follow_up: string[];
 }
 
+/* ---------- progression & mastery gate (Phase 3) ----------
+ * Per-user *state* shapes (camelCase), distinct from the snake_case content
+ * schemas above. Mirror src-tauri/src/domain/mastery.rs field-for-field. */
+
+/** A unit's lock state: `locked` until every prereq is mastered, `mastered`
+ *  once its gate is passed. */
+export type UnitStatus = "locked" | "unlocked" | "mastered";
+
+/** How close the learner is to clearing a unit's mastery gate — only hint-free,
+ *  no-peek solves are tallied (COURSE_BLUEPRINT.md §6). */
+export interface UnitGateState {
+  /** Gate problems that must be solved hint-free. */
+  passCount: number;
+  /** Whether ≥1 of those solves must be a `novel` problem. */
+  requireNovel: boolean;
+  /** Soft per-problem target in minutes — shown, never enforced. */
+  timerTargetMin: number;
+  /** Distinct gate problems solved hint-free so far. */
+  passedCount: number;
+  /** Of those, how many were tagged novel. */
+  passedNovel: number;
+  /** The gate problem slugs cleared hint-free. */
+  solvedSlugs: string[];
+  /** Total gate problems in this unit's pool. */
+  total: number;
+  /** `true` once passedCount ≥ passCount and the novel requirement is met. */
+  met: boolean;
+}
+
+/** A unit's full progression snapshot for the course/unit views. */
+export interface UnitProgress {
+  unitId: string;
+  status: UnitStatus;
+  lessonsTotal: number;
+  lessonsComplete: number;
+  gate: UnitGateState;
+  /** Prereq unit ids not yet mastered — empty when unlocked/mastered. */
+  blockedBy: string[];
+}
+
+/** The result of one gate attempt (`evaluateGate`). */
+export interface GateOutcome {
+  /** `false` when the learner used a hint/solution — a peeked attempt never
+   *  counts toward mastery. */
+  counted: boolean;
+  /** This solve tipped the unit over its gate threshold. */
+  unitMastered: boolean;
+  /** The unit was already mastered before this attempt. */
+  alreadyMastered: boolean;
+  /** The updated gate tally after this attempt. */
+  gate: UnitGateState;
+  /** Unit ids that transitioned locked→unlocked because of this pass. */
+  unlocked: string[];
+}
+
 /** Where a lesson sits for this user (§6.4). `not-started` is the absence of
  *  a stored row; the backend only ever records the other two. */
 export type LessonStatus = "not-started" | "in-progress" | "complete";

@@ -11,6 +11,7 @@ import type {
   Curriculum,
   DashboardData,
   DraftSummary,
+  GateOutcome,
   Lesson,
   LessonProgress,
   LessonStatus,
@@ -24,6 +25,7 @@ import type {
   RuntimeInfo,
   StatusAction,
   Unit,
+  UnitProgress,
   UserProblemDraft,
   ValidationResult,
 } from "@/src/lib/types";
@@ -99,6 +101,18 @@ export async function recordLessonProgress(
 
 export async function getLessonProgress(): Promise<LessonProgress[]> {
   return call<LessonProgress[]>("get_lesson_progress");
+}
+
+export async function getProgression(): Promise<UnitProgress[]> {
+  return call<UnitProgress[]>("get_progression");
+}
+
+export async function evaluateGate(
+  unitId: string,
+  problemId: string,
+  usedHelp: boolean
+): Promise<GateOutcome> {
+  return call<GateOutcome>("evaluate_gate", { unitId, problemId, usedHelp });
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

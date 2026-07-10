@@ -106,6 +106,8 @@ pub fn run() {
             commands::course::get_lesson,
             commands::course::record_lesson_progress,
             commands::course::get_lesson_progress,
+            commands::course::get_progression,
+            commands::course::evaluate_gate,
             commands::runner::run_code,
             commands::runner::submit_code,
             commands::runtimes::detect_runtimes,
