@@ -15,6 +15,7 @@ import type {
   Curriculum,
   DashboardData,
   DraftSummary,
+  GateOutcome,
   Lesson,
   LessonProgress,
   LessonStatus,
@@ -28,6 +29,9 @@ import type {
   RuntimeInfo,
   StatusAction,
   Unit,
+  UnitGateState,
+  UnitProgress,
+  UnitStatus,
   UserProblemDraft,
   ValidationIssue,
   ValidationResult,
@@ -220,6 +224,135 @@ export async function recordLessonProgress(
 export async function getLessonProgress(): Promise<LessonProgress[]> {
   await delay(80);
   return [...mockLessonProgress.values()];
+}
+
+/* ---------- progression + mastery gate (Phase 3) ----------
+ * Mirrors services::progression so browser dev gates units exactly like the
+ * real backend. Gate solves live in-memory (SQLite-backed in Tauri). */
+
+/** unitId -> set of gate slugs solved hint-free this session. */
+const mockGateSolves = new Map<string, Set<string>>();
+
+function gateStateFor(unit: Unit): UnitGateState {
+  const gateProblems = unit.problems.filter((p) => p.role === "gate");
+  const solved = mockGateSolves.get(unit.id) ?? new Set<string>();
+  const solvedSlugs = gateProblems
+    .filter((p) => solved.has(p.slug))
+    .map((p) => p.slug);
+  const passedNovel = gateProblems.filter(
+    (p) => solved.has(p.slug) && p.novel
+  ).length;
+  const passedCount = solvedSlugs.length;
+  const met =
+    passedCount >= unit.gate.pass_count &&
+    (!unit.gate.require_novel || passedNovel >= 1);
+  return {
+    passCount: unit.gate.pass_count,
+    requireNovel: unit.gate.require_novel,
+    timerTargetMin: unit.gate.timer_target_min,
+    passedCount,
+    passedNovel,
+    solvedSlugs,
+    total: gateProblems.length,
+    met,
+  };
+}
+
+function masteredUnitIds(): Set<string> {
+  const set = new Set<string>();
+  for (const u of MOCK_UNITS) if (gateStateFor(u).met) set.add(u.id);
+  return set;
+}
+
+function statusFor(
+  unit: Unit,
+  mastered: Set<string>
+): { status: UnitStatus; blockedBy: string[] } {
+  if (mastered.has(unit.id)) return { status: "mastered", blockedBy: [] };
+  const blockedBy = unit.prereqs.filter((p) => !mastered.has(p));
+  return {
+    status: blockedBy.length === 0 ? "unlocked" : "locked",
+    blockedBy,
+  };
+}
+
+function unitProgressFor(unit: Unit, mastered: Set<string>): UnitProgress {
+  const { status, blockedBy } = statusFor(unit, mastered);
+  const lessonsComplete = unit.lessons.filter(
+    (lid) => mockLessonProgress.get(lid)?.status === "complete"
+  ).length;
+  return {
+    unitId: unit.id,
+    status,
+    lessonsTotal: unit.lessons.length,
+    lessonsComplete,
+    gate: gateStateFor(unit),
+    blockedBy,
+  };
+}
+
+export async function getProgression(): Promise<UnitProgress[]> {
+  await delay(80);
+  const mastered = masteredUnitIds();
+  const order = MOCK_CURRICULUM.stages.flatMap((s) => s.units);
+  return order
+    .map((id) => MOCK_UNITS.find((u) => u.id === id))
+    .filter((u): u is Unit => Boolean(u))
+    .map((u) => unitProgressFor(u, mastered));
+}
+
+export async function evaluateGate(
+  unitId: string,
+  problemId: string,
+  usedHelp: boolean
+): Promise<GateOutcome> {
+  await delay(120);
+  const unit = MOCK_UNITS.find((u) => u.id === unitId);
+  if (!unit) throw new Error(`Unit not found: ${unitId}`);
+  const gateProblem = unit.problems.find(
+    (p) => p.slug === problemId && p.role === "gate"
+  );
+  if (!gateProblem)
+    throw new Error(`'${problemId}' is not a gate problem of unit '${unitId}'`);
+
+  const masteredBefore = masteredUnitIds();
+  const alreadyMastered = masteredBefore.has(unitId);
+  const { status } = statusFor(unit, masteredBefore);
+  if (status === "locked")
+    throw new Error(`unit '${unitId}' is locked — pass its prerequisites first`);
+
+  if (usedHelp) {
+    return {
+      counted: false,
+      unitMastered: false,
+      alreadyMastered,
+      gate: gateStateFor(unit),
+      unlocked: [],
+    };
+  }
+
+  const solved = mockGateSolves.get(unitId) ?? new Set<string>();
+  solved.add(problemId);
+  mockGateSolves.set(unitId, solved);
+  const gate = gateStateFor(unit);
+
+  let unitMastered = false;
+  const unlocked: string[] = [];
+  if (gate.met && !alreadyMastered) {
+    unitMastered = true;
+    const after = new Set(masteredBefore);
+    after.add(unitId);
+    for (const candidate of MOCK_UNITS) {
+      if (after.has(candidate.id)) continue;
+      const nowUnlocked = candidate.prereqs.every((p) => after.has(p));
+      const wasUnlocked = candidate.prereqs.every((p) =>
+        masteredBefore.has(p)
+      );
+      if (nowUnlocked && !wasUnlocked) unlocked.push(candidate.id);
+    }
+  }
+
+  return { counted: true, unitMastered, alreadyMastered, gate, unlocked };
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

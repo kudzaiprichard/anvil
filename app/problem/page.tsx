@@ -8,8 +8,17 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Code2, Maximize, Minimize, RotateCcw } from "lucide-react";
+import {
+  ChevronDown,
+  Code2,
+  Maximize,
+  Minimize,
+  RotateCcw,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/anvil/app-shell";
 import { CodeEditor } from "@/src/components/anvil/code-editor";
@@ -30,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/src/components/shadcn/dropdown-menu";
 import {
+  evaluateGate,
   getProblem,
   getProblemUserState,
   listProblems,
@@ -199,10 +209,27 @@ function WorkspaceBody({
   );
 }
 
+/** "arrays-hashing" -> "Arrays Hashing" — a readable unit label for the gate
+ *  banner without an extra fetch. */
+function prettifyUnit(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => (w.length <= 2 ? w : w[0].toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
 function Workspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+
+  // Mastery-gate mode (COURSE_BLUEPRINT.md §6): launched from a unit's gate
+  // with `?gate=<unitId>&target=<min>`. Hints/solution are guarded, a soft
+  // timer shows the target, and a pass is scored via `evaluateGate`.
+  const gateUnit = searchParams.get("gate");
+  const gateTargetRaw = searchParams.get("target");
+  const gateTarget = gateTargetRaw ? Number(gateTargetRaw) : undefined;
+  const [gateHelpUsed, setGateHelpUsed] = useState(false);
 
   // `problem` is derived: stale loads don't render while a new id is loading.
   const [loaded, setLoaded] = useState<{ id: string; problem: Problem } | null>(
@@ -275,6 +302,7 @@ function Workspace() {
       setRunState("idle");
       setResultsTab("testcase");
       setSelectedCase(0);
+      setGateHelpUsed(false);
     });
     return () => {
       cancelled = true;
@@ -333,6 +361,41 @@ function Workspace() {
     [router]
   );
 
+  // Scores a passing gate submit and reports the outcome. A help-used solve is
+  // recorded but doesn't count; a counted pass that masters the unit routes
+  // back to the unit view so the learner sees the next unit unlock.
+  const scoreGate = useCallback(
+    async (problemId: string, solveTime: string | null) => {
+      if (!gateUnit) return;
+      try {
+        const outcome = await evaluateGate(gateUnit, problemId, gateHelpUsed);
+        if (!outcome.counted) {
+          toast.warning(
+            "Solved — but this gate problem used help, so it doesn't count toward mastery."
+          );
+          return;
+        }
+        if (outcome.unitMastered) {
+          const extra = outcome.unlocked.length
+            ? ` ${outcome.unlocked.map(prettifyUnit).join(", ")} unlocked.`
+            : "";
+          toast.success(`Gate passed — unit mastered!${extra}`);
+          router.push(`/learn?unit=${gateUnit}`);
+        } else {
+          const { passedCount, passCount } = outcome.gate;
+          toast.success(
+            `Gate solve counted${solveTime ? ` (${solveTime})` : ""} — ${passedCount}/${passCount} cleared.`
+          );
+        }
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Could not score the gate"
+        );
+      }
+    },
+    [gateUnit, gateHelpUsed, router]
+  );
+
   // The one Run action: the app is fully offline, so there is no separate
   // Submit — every run executes the full suite (visible + hidden) and
   // records the attempt toward progress.
@@ -346,11 +409,15 @@ function Workspace() {
       if (result.status === "pass") {
         // Freeze the practice clock and record this problem's solve time.
         const solveTime = timerRef.current?.solvedNow() ?? null;
-        toast.success(
-          solveTime
-            ? `Accepted — solved in ${solveTime}.`
-            : "Accepted — all tests passed."
-        );
+        if (gateUnit) {
+          await scoreGate(problem.id, solveTime);
+        } else {
+          toast.success(
+            solveTime
+              ? `Accepted — solved in ${solveTime}.`
+              : "Accepted — all tests passed."
+          );
+        }
       }
       // statuses changed — refresh the rows that feed the problem sheet
       listProblems().then(setSummaries);
@@ -358,7 +425,7 @@ function Workspace() {
       setRunState("idle");
       toast.error(err instanceof Error ? err.message : "Run failed");
     }
-  }, [problem, runState, language, code]);
+  }, [problem, runState, language, code, gateUnit, scoreGate]);
 
   useWorkspaceShortcuts({
     onRun: execute,
@@ -436,7 +503,7 @@ function Workspace() {
       status={
         <span>
           #{problem.number} · {LANGUAGE_LABELS[language].toLowerCase()} · sandbox
-          local
+          local{gateUnit ? " · mastery gate" : ""}
         </span>
       }
     >
@@ -451,16 +518,36 @@ function Workspace() {
         }}
         onRun={execute}
         timer={
-          prefs.showTimer ? (
+          prefs.showTimer || gateUnit ? (
             <PracticeTimer
               key={problem.id}
               ref={timerRef}
               problemId={problem.id}
-              autoStart={prefs.timerAutoStart}
+              // A gate always runs the timer (soft target); practice honors the pref.
+              autoStart={gateUnit ? true : prefs.timerAutoStart}
+              targetMinutes={gateUnit ? gateTarget : undefined}
             />
           ) : undefined
         }
       />
+
+      {gateUnit && (
+        <div className="flex shrink-0 items-center gap-2.5 border-b border-medium/30 bg-medium/10 px-4 py-2 text-[12.5px]">
+          <ShieldCheck className="size-[15px] shrink-0 text-medium" />
+          <span className="font-semibold text-medium">Mastery gate</span>
+          <span className="text-muted-foreground">
+            {prettifyUnit(gateUnit)} · solve it cold — hints &amp; solution are off, timer is a soft target.
+          </span>
+          <span className="flex-1" />
+          <Link
+            href={`/learn?unit=${gateUnit}`}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-medium/15 hover:text-foreground"
+          >
+            <X className="size-[13px]" />
+            Exit gate
+          </Link>
+        </div>
+      )}
 
       <WorkspaceBody
         bodyRef={bodyRef}
@@ -478,6 +565,8 @@ function Workspace() {
             problem={problem}
             bookmarked={bookmarked}
             onToggleBookmark={handleToggleBookmark}
+            gateMode={!!gateUnit}
+            onGateHelpUsed={() => setGateHelpUsed(true)}
           />
         }
         editor={

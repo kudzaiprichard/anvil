@@ -13,5 +13,6 @@ pub mod pack_store;
 pub mod preset_store;
 pub mod problem_store;
 pub mod progress;
+pub mod progression;
 pub mod runner;
 pub mod runtime_detect;

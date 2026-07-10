@@ -13,7 +13,10 @@ import {
   GraduationCap,
   Lightbulb,
   Lock,
+  ShieldCheck,
+  Sparkles,
   Target,
+  Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/anvil/app-shell";
@@ -23,6 +26,7 @@ import {
   getCurriculum,
   getLesson,
   getLessonProgress,
+  getProgression,
   getUnit,
   listProblems,
   recordLessonProgress,
@@ -34,6 +38,8 @@ import type {
   LessonStatus,
   ProblemSummary,
   Unit,
+  UnitProgress,
+  UnitStatus,
 } from "@/src/lib/types";
 
 /** "two-sum" -> "Two Sum" — fallback label when a problem's statement isn't
@@ -78,6 +84,43 @@ function StatusPill({ status }: { status: LessonStatus }) {
   );
 }
 
+const UNIT_STATUS_META: Record<
+  UnitStatus,
+  { label: string; className: string; icon: typeof Check }
+> = {
+  mastered: {
+    label: "Mastered",
+    className: "border-pass/40 bg-pass/10 text-pass",
+    icon: Trophy,
+  },
+  unlocked: {
+    label: "In progress",
+    className: "border-primary/40 bg-primary/10 text-primary",
+    icon: CircleDot,
+  },
+  locked: {
+    label: "Locked",
+    className: "border-border bg-muted text-muted-foreground",
+    icon: Lock,
+  },
+};
+
+function UnitStatusBadge({ status }: { status: UnitStatus }) {
+  const meta = UNIT_STATUS_META[status];
+  const Icon = meta.icon;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[11px] font-semibold",
+        meta.className
+      )}
+    >
+      <Icon className="size-[12px] stroke-[2.4]" />
+      {meta.label}
+    </span>
+  );
+}
+
 /* --------------------------------------------------------------------- */
 /* Course overview                                                       */
 /* --------------------------------------------------------------------- */
@@ -85,8 +128,7 @@ function StatusPill({ status }: { status: LessonStatus }) {
 function CourseView() {
   const [curriculum, setCurriculum] = useState<Curriculum | null>(null);
   const [units, setUnits] = useState<Map<string, Unit>>(new Map());
-  const [lessons, setLessons] = useState<Map<string, Lesson>>(new Map());
-  const [progress, setProgress] = useState<Map<string, LessonStatus>>(
+  const [progress, setProgress] = useState<Map<string, UnitProgress>>(
     new Map()
   );
 
@@ -97,22 +139,14 @@ function CourseView() {
       const unitIds = c.stages.flatMap((s) => s.units);
       const [unitList, prog] = await Promise.all([
         Promise.all(unitIds.map((id) => getUnitSafe(id))),
-        getLessonProgress(),
+        getProgression(),
       ]);
+      if (cancelled) return;
       const unitMap = new Map<string, Unit>();
       for (const u of unitList) if (u) unitMap.set(u.id, u);
-
-      // Fetch the (few) authored lessons so we can show their sub-pattern titles.
-      const lessonIds = [...unitMap.values()].flatMap((u) => u.lessons);
-      const lessonList = await Promise.all(lessonIds.map((id) => getLesson(id)));
-      const lessonMap = new Map<string, Lesson>();
-      for (const l of lessonList) if (l) lessonMap.set(l.id, l);
-
-      if (cancelled) return;
       setCurriculum(c);
       setUnits(unitMap);
-      setLessons(lessonMap);
-      setProgress(new Map(prog.map((p) => [p.lessonId, p.status])));
+      setProgress(new Map(prog.map((p) => [p.unitId, p])));
     })();
     return () => {
       cancelled = true;
@@ -127,10 +161,10 @@ function CourseView() {
     );
   }
 
-  const allLessonIds = [...units.values()].flatMap((u) => u.lessons);
-  const doneCount = allLessonIds.filter(
-    (id) => progress.get(id) === "complete"
+  const masteredCount = [...progress.values()].filter(
+    (p) => p.status === "mastered"
   ).length;
+  const unitTotal = progress.size;
 
   return (
     <main className="min-h-0 flex-1 overflow-auto px-7 pb-10 pt-6">
@@ -147,28 +181,26 @@ function CourseView() {
               The DSA Course
             </h1>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
-              Learn to recognize which pattern an unseen problem needs — one
-              sub-pattern per lesson, solved on real problems.
+              One connected climb — each unit unlocks only when you pass the
+              one before it, hint-free under a timer.
             </p>
           </div>
         </div>
 
-        {allLessonIds.length > 0 && (
+        {unitTotal > 0 && (
           <div
             className="rise mt-4 flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-[12.5px]"
             style={{ "--rise-i": 1 } as React.CSSProperties}
           >
-            <span className="microlabel">Progress</span>
+            <span className="microlabel">Mastery</span>
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{
-                  width: `${(doneCount / allLessonIds.length) * 100}%`,
-                }}
+                className="h-full rounded-full bg-pass transition-all"
+                style={{ width: `${(masteredCount / unitTotal) * 100}%` }}
               />
             </div>
             <span className="font-mono text-xs text-muted-foreground">
-              {doneCount}/{allLessonIds.length} lessons
+              {masteredCount}/{unitTotal} units
             </span>
           </div>
         )}
@@ -193,8 +225,8 @@ function CourseView() {
                     <UnitCard
                       key={uid}
                       unit={unit}
-                      lessons={lessons}
-                      progress={progress}
+                      progress={progress.get(uid)}
+                      units={units}
                     />
                   );
                 })}
@@ -209,56 +241,456 @@ function CourseView() {
 
 function UnitCard({
   unit,
-  lessons,
   progress,
+  units,
 }: {
   unit: Unit;
-  lessons: Map<string, Lesson>;
-  progress: Map<string, LessonStatus>;
+  progress?: UnitProgress;
+  units: Map<string, Unit>;
 }) {
-  const hasLessons = unit.lessons.length > 0;
+  const status = progress?.status ?? "locked";
+  const locked = status === "locked";
+  const prereqTitles = (progress?.blockedBy ?? []).map(
+    (id) => units.get(id)?.title ?? prettifySlug(id)
+  );
+
   return (
-    <div className="rounded-lg border bg-card">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div>
+    <Link
+      href={`/learn?unit=${unit.id}`}
+      className={cn(
+        "group flex items-center gap-4 rounded-lg border bg-card px-4 py-3.5 transition-colors hover:bg-accent",
+        locked && "opacity-80"
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2.5">
           <h2 className="text-[15px] font-semibold">{unit.title}</h2>
-          <p className="mt-0.5 text-[11.5px] text-muted-foreground">
-            {unit.problems.length} problems
-            {unit.prereqs.length > 0 &&
-              ` · builds on ${unit.prereqs.join(", ")}`}
-          </p>
+          <UnitStatusBadge status={status} />
         </div>
+        <p className="mt-1 text-[11.5px] text-muted-foreground">
+          {locked && prereqTitles.length > 0 ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Lock className="size-[11px]" />
+              Pass {prereqTitles.join(" & ")} to unlock
+            </span>
+          ) : (
+            <>
+              {progress ? `${progress.lessonsTotal} lesson${progress.lessonsTotal === 1 ? "" : "s"}` : `${unit.lessons.length} lessons`}
+              {" · "}
+              {progress
+                ? `gate ${progress.gate.passedCount}/${progress.gate.passCount}`
+                : `${unit.problems.length} problems`}
+              {status === "mastered" && " · complete"}
+            </>
+          )}
+        </p>
+      </div>
+      <ArrowRight className="size-[15px] shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+    </Link>
+  );
+}
+
+/* --------------------------------------------------------------------- */
+/* Single unit (lessons + mastery gate)                                  */
+/* --------------------------------------------------------------------- */
+
+function UnitView({ unitId }: { unitId: string }) {
+  const [unit, setUnit] = useState<Unit | null>(null);
+  const [units, setUnits] = useState<Map<string, Unit>>(new Map());
+  const [progress, setProgress] = useState<UnitProgress | null>(null);
+  const [lessonStatus, setLessonStatus] = useState<Map<string, LessonStatus>>(
+    new Map()
+  );
+  const [problems, setProblems] = useState<Map<string, ProblemSummary>>(
+    new Map()
+  );
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [u, prog, lprog, summaries, curriculum] = await Promise.all([
+        getUnit(unitId),
+        getProgression(),
+        getLessonProgress(),
+        listProblems(),
+        getCurriculum(),
+      ]);
+      if (cancelled) return;
+      if (!u) {
+        setNotFound(true);
+        return;
+      }
+      setUnit(u);
+      setProgress(prog.find((p) => p.unitId === unitId) ?? null);
+      setLessonStatus(new Map(lprog.map((p) => [p.lessonId, p.status])));
+      setProblems(new Map(summaries.map((s) => [s.id, s])));
+
+      // Titles for prereq / unlocked-next references.
+      const allIds = curriculum.stages.flatMap((s) => s.units);
+      const unitList = await Promise.all(allIds.map((id) => getUnitSafe(id)));
+      if (cancelled) return;
+      const map = new Map<string, Unit>();
+      for (const un of unitList) if (un) map.set(un.id, un);
+      setUnits(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [unitId]);
+
+  const problemLabel = useCallback(
+    (slug: string) => {
+      const p = problems.get(slug);
+      return p ? `${p.number}. ${p.title}` : prettifySlug(slug);
+    },
+    [problems]
+  );
+
+  if (notFound) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
+        <p className="text-sm text-muted-foreground">Unit not found.</p>
+        <Link href="/learn" className="text-sm font-medium text-primary">
+          ← Back to the course
+        </Link>
+      </div>
+    );
+  }
+  if (!unit || !progress) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+
+  const locked = progress.status === "locked";
+  const prereqTitles = progress.blockedBy.map(
+    (id) => units.get(id)?.title ?? prettifySlug(id)
+  );
+  const gateProblems = unit.problems.filter((p) => p.role === "gate");
+
+  return (
+    <main className="min-h-0 flex-1 overflow-auto px-7 pb-16 pt-6">
+      <div className="mx-auto w-full max-w-[760px]">
+        <Link
+          href="/learn"
+          className="rise inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          style={{ "--rise-i": 0 } as React.CSSProperties}
+        >
+          <ArrowLeft className="size-[14px]" />
+          The DSA Course
+        </Link>
+
+        <div
+          className="rise mt-3 flex items-start justify-between gap-4"
+          style={{ "--rise-i": 1 } as React.CSSProperties}
+        >
+          <div>
+            <h1 className="text-[24px] font-semibold leading-tight tracking-tight">
+              {unit.title}
+            </h1>
+            {unit.prereqs.length > 0 && (
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                Builds on{" "}
+                {unit.prereqs
+                  .map((id) => units.get(id)?.title ?? prettifySlug(id))
+                  .join(", ")}
+              </p>
+            )}
+          </div>
+          <div className="mt-1.5 shrink-0">
+            <UnitStatusBadge status={progress.status} />
+          </div>
+        </div>
+
+        {/* Locked banner — the unit stays sealed until its prereqs are mastered. */}
+        {locked && (
+          <div
+            className="rise mt-6 flex items-start gap-3 rounded-lg border border-medium/30 bg-medium/10 p-4"
+            style={{ "--rise-i": 2 } as React.CSSProperties}
+          >
+            <Lock className="mt-0.5 size-[16px] shrink-0 text-medium" />
+            <div className="text-[13px]">
+              <p className="font-semibold">This unit is locked.</p>
+              <p className="mt-1 text-muted-foreground">
+                Pass the mastery gate for{" "}
+                <span className="font-medium text-foreground">
+                  {prereqTitles.join(" and ")}
+                </span>{" "}
+                first. The course is a single chain — earlier patterns are the
+                foundation for this one.
+              </p>
+              {progress.blockedBy.map((id) => (
+                <Link
+                  key={id}
+                  href={`/learn?unit=${id}`}
+                  className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-medium text-primary"
+                >
+                  Go to {units.get(id)?.title ?? prettifySlug(id)}
+                  <ArrowRight className="size-[13px]" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Lessons in order. */}
+        <section
+          className="rise mt-7"
+          style={{ "--rise-i": 3 } as React.CSSProperties}
+        >
+          <div className="flex items-center gap-2">
+            <BookOpen className="size-[15px] text-primary" />
+            <span className="microlabel text-foreground">Lessons</span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {progress.lessonsComplete}/{progress.lessonsTotal} complete
+            </span>
+          </div>
+          {unit.lessons.length > 0 ? (
+            <ul className="mt-3 flex flex-col gap-2">
+              {unit.lessons.map((lid) => (
+                <LessonRow
+                  key={lid}
+                  lessonId={lid}
+                  status={lessonStatus.get(lid) ?? "not-started"}
+                  locked={locked}
+                />
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 rounded-lg border border-dashed px-4 py-3 text-[12.5px] text-muted-foreground">
+              Lessons for this unit arrive in a later phase — you can still take
+              its mastery gate below.
+            </p>
+          )}
+        </section>
+
+        {/* Mastery gate. */}
+        <GateSection
+          unitId={unit.id}
+          progress={progress}
+          locked={locked}
+          gateProblems={gateProblems.map((p) => ({
+            slug: p.slug,
+            novel: p.novel,
+            label: problemLabel(p.slug),
+            solved: progress.gate.solvedSlugs.includes(p.slug),
+          }))}
+          nextTitles={
+            // Units this one unblocks, for the "unlocks …" line.
+            [...units.values()]
+              .filter((u) => u.prereqs.includes(unit.id))
+              .map((u) => u.title)
+          }
+        />
+      </div>
+    </main>
+  );
+}
+
+function LessonRow({
+  lessonId,
+  status,
+  locked,
+}: {
+  lessonId: string;
+  status: LessonStatus;
+  locked: boolean;
+}) {
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getLesson(lessonId).then((l) => !cancelled && setLesson(l));
+    return () => {
+      cancelled = true;
+    };
+  }, [lessonId]);
+
+  const label = lesson?.subpattern ?? prettifySlug(lessonId);
+  const inner = (
+    <>
+      <BookOpen
+        className={cn(
+          "size-[15px] shrink-0",
+          locked ? "text-muted-foreground" : "text-primary"
+        )}
+      />
+      <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
+        {label}
+      </span>
+      {locked ? (
+        <Lock className="size-[13px] text-muted-foreground" />
+      ) : (
+        <>
+          <StatusPill status={status} />
+          <ArrowRight className="size-[14px] text-muted-foreground" />
+        </>
+      )}
+    </>
+  );
+
+  if (locked) {
+    return (
+      <li className="flex cursor-not-allowed items-center gap-3 rounded-lg border bg-card px-4 py-2.5 opacity-70">
+        {inner}
+      </li>
+    );
+  }
+  return (
+    <li>
+      <Link
+        href={`/learn?lesson=${lessonId}`}
+        className="flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 transition-colors hover:bg-accent"
+      >
+        {inner}
+      </Link>
+    </li>
+  );
+}
+
+function GateSection({
+  unitId,
+  progress,
+  locked,
+  gateProblems,
+  nextTitles,
+}: {
+  unitId: string;
+  progress: UnitProgress;
+  locked: boolean;
+  gateProblems: {
+    slug: string;
+    novel: boolean;
+    label: string;
+    solved: boolean;
+  }[];
+  nextTitles: string[];
+}) {
+  const { gate } = progress;
+  const mastered = progress.status === "mastered";
+  const target = gate.timerTargetMin;
+
+  return (
+    <section
+      className="rise mt-8 rounded-xl border bg-surface-2 p-5"
+      style={{ "--rise-i": 4 } as React.CSSProperties}
+    >
+      <div className="flex items-center gap-2">
+        <ShieldCheck
+          className={cn("size-[16px]", mastered ? "text-pass" : "text-medium")}
+        />
+        <span className="microlabel text-foreground">Mastery gate</span>
+        {mastered && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-pass/10 px-2 py-[2px] text-[10.5px] font-semibold text-pass">
+            <Trophy className="size-[11px]" />
+            Passed
+          </span>
+        )}
       </div>
 
-      {hasLessons ? (
-        <ul className="border-t">
-          {unit.lessons.map((lid) => {
-            const lesson = lessons.get(lid);
-            const status = progress.get(lid) ?? "not-started";
-            return (
-              <li key={lid} className="border-b last:border-b-0">
-                <Link
-                  href={`/learn?lesson=${lid}`}
-                  className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent"
-                >
-                  <BookOpen className="size-[15px] shrink-0 text-primary" />
-                  <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
-                    {lesson?.subpattern ?? prettifySlug(lid)}
-                  </span>
-                  <StatusPill status={status} />
-                  <ArrowRight className="size-[14px] text-muted-foreground" />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div className="flex items-center gap-2 border-t px-4 py-2.5 text-[12px] text-muted-foreground">
-          <Lock className="size-[13px]" />
-          Lessons for this unit arrive in a later phase.
+      <p className="mt-2.5 text-[13px] leading-relaxed text-muted-foreground">
+        Fresh, unseen problems of this pattern. Solve{" "}
+        <span className="font-semibold text-foreground">{gate.passCount}</span>
+        {gate.requireNovel && (
+          <>
+            {" "}
+            (including{" "}
+            <span className="font-semibold text-foreground">≥1 novel</span>)
+          </>
+        )}{" "}
+        <span className="font-semibold text-foreground">hint-free</span> and
+        without peeking at the solution, aiming for under {target} min each.
+        Passing unlocks{" "}
+        {nextTitles.length > 0 ? nextTitles.join(", ") : "the next unit"}.
+      </p>
+
+      {/* progress bar */}
+      <div className="mt-4 flex items-center gap-3">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all",
+              gate.met ? "bg-pass" : "bg-medium"
+            )}
+            style={{
+              width: `${Math.min(100, (gate.passedCount / Math.max(1, gate.passCount)) * 100)}%`,
+            }}
+          />
         </div>
+        <span className="font-mono text-[11.5px] text-muted-foreground">
+          {gate.passedCount}/{gate.passCount} cleared
+        </span>
+      </div>
+      {gate.requireNovel && (
+        <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px]">
+          <Sparkles
+            className={cn(
+              "size-[12px]",
+              gate.passedNovel >= 1 ? "text-pass" : "text-muted-foreground"
+            )}
+          />
+          <span
+            className={cn(
+              gate.passedNovel >= 1
+                ? "font-medium text-pass"
+                : "text-muted-foreground"
+            )}
+          >
+            {gate.passedNovel >= 1
+              ? "Novel requirement met"
+              : "Needs at least one novel problem"}
+          </span>
+        </p>
       )}
-    </div>
+
+      {/* gate problems */}
+      <ul className="mt-4 flex flex-col gap-2">
+        {gateProblems.map((gp) => (
+          <li
+            key={gp.slug}
+            className="flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5"
+          >
+            {gp.solved ? (
+              <Check className="size-[15px] shrink-0 text-pass" />
+            ) : (
+              <Target className="size-[15px] shrink-0 text-medium" />
+            )}
+            <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
+              {gp.label}
+            </span>
+            {gp.novel && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-[1px] text-[10px] font-semibold text-primary">
+                <Sparkles className="size-[10px]" />
+                Novel
+              </span>
+            )}
+            {locked ? (
+              <Lock className="size-[13px] text-muted-foreground" />
+            ) : gp.solved ? (
+              <span className="text-[11.5px] font-semibold text-pass">
+                Cleared
+              </span>
+            ) : (
+              <Link
+                href={`/problem?id=${gp.slug}&gate=${unitId}&target=${target}`}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-medium px-3 py-1.5 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110"
+              >
+                Start gate
+                <ArrowRight className="size-[13px] stroke-[2.2]" />
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {locked && (
+        <p className="mt-3 text-[11.5px] text-muted-foreground">
+          Unlock this unit to take its gate.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -270,6 +702,7 @@ function LessonView({ lessonId }: { lessonId: string }) {
   const router = useRouter();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [unitTitle, setUnitTitle] = useState<string>("");
+  const [unitId, setUnitId] = useState<string>("");
   const [status, setStatus] = useState<LessonStatus>("not-started");
   const [problems, setProblems] = useState<Map<string, ProblemSummary>>(
     new Map()
@@ -291,6 +724,7 @@ function LessonView({ lessonId }: { lessonId: string }) {
         return;
       }
       setLesson(l);
+      setUnitId(l.unit);
       setProblems(new Map(summaries.map((s) => [s.id, s])));
       setStatus(prog.find((p) => p.lessonId === lessonId)?.status ?? "not-started");
 
@@ -318,11 +752,11 @@ function LessonView({ lessonId }: { lessonId: string }) {
       await recordLessonProgress(lessonId, "complete");
       setStatus("complete");
       toast.success("Lesson marked complete.");
-      router.push("/learn");
+      router.push(unitId ? `/learn?unit=${unitId}` : "/learn");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save progress");
     }
-  }, [lessonId, router]);
+  }, [lessonId, router, unitId]);
 
   if (notFound) {
     return (
@@ -351,7 +785,7 @@ function LessonView({ lessonId }: { lessonId: string }) {
     <main className="min-h-0 flex-1 overflow-auto px-7 pb-16 pt-6">
       <div className="mx-auto w-full max-w-[760px]">
         <Link
-          href="/learn"
+          href={unitId ? `/learn?unit=${unitId}` : "/learn"}
           className="rise inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           style={{ "--rise-i": 0 } as React.CSSProperties}
         >
@@ -525,7 +959,10 @@ async function getUnitSafe(id: string): Promise<Unit | null> {
 function LearnRouter() {
   const searchParams = useSearchParams();
   const lessonId = searchParams.get("lesson");
-  return lessonId ? <LessonView lessonId={lessonId} /> : <CourseView />;
+  const unitId = searchParams.get("unit");
+  if (lessonId) return <LessonView lessonId={lessonId} />;
+  if (unitId) return <UnitView unitId={unitId} />;
+  return <CourseView />;
 }
 
 export default function LearnPage() {

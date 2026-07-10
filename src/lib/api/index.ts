@@ -11,6 +11,7 @@ import type {
   Curriculum,
   DashboardData,
   DraftSummary,
+  GateOutcome,
   Lesson,
   LessonProgress,
   LessonStatus,
@@ -24,6 +25,7 @@ import type {
   RuntimeInfo,
   StatusAction,
   Unit,
+  UnitProgress,
   UserProblemDraft,
   ValidationResult,
 } from "@/src/lib/types";
@@ -65,6 +67,20 @@ export async function recordLessonProgress(
 
 export async function getLessonProgress(): Promise<LessonProgress[]> {
   return isTauri() ? backend.getLessonProgress() : mock.getLessonProgress();
+}
+
+export async function getProgression(): Promise<UnitProgress[]> {
+  return isTauri() ? backend.getProgression() : mock.getProgression();
+}
+
+export async function evaluateGate(
+  unitId: string,
+  problemId: string,
+  usedHelp: boolean
+): Promise<GateOutcome> {
+  return isTauri()
+    ? backend.evaluateGate(unitId, problemId, usedHelp)
+    : mock.evaluateGate(unitId, problemId, usedHelp);
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

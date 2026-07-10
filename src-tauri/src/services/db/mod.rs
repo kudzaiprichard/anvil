@@ -8,6 +8,7 @@ pub mod attempts;
 pub mod drafts;
 pub mod imported_problems;
 pub mod lesson_progress;
+pub mod mastery;
 pub mod problem_state;
 pub mod user_problems;
 
@@ -54,6 +55,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("migrations/0001_init.sql")),
     (2, include_str!("migrations/0002_imported_problems.sql")),
     (3, include_str!("migrations/0003_curriculum.sql")),
+    (4, include_str!("migrations/0004_gate_solve.sql")),
 ];
 
 fn migrate(conn: &Connection) -> AppResult<()> {
