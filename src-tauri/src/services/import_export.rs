@@ -101,8 +101,7 @@ pub fn parse_any_import(
         // collide with each other or the library
         let mut taken: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut out = Vec::with_capacity(pack.problems.len());
-        let mut number = first_number;
-        for problem in pack.problems {
+        for (number, problem) in (first_number..).zip(pack.problems) {
             // `combined` is scoped to this block so its borrow of `taken`
             // is released before the insert below.
             let prepared = {
@@ -110,7 +109,6 @@ pub fn parse_any_import(
                 prepare_one(problem, &combined, number)?
             };
             taken.insert(prepared.id.clone());
-            number += 1;
             out.push(prepared);
         }
         Ok(out)
