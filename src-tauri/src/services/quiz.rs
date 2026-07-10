@@ -62,7 +62,10 @@ mod tests {
     #[test]
     fn grades_a_lesson_quiz_and_records_the_signal() {
         let (_dir, store, db) = fixture();
-        let quiz = store.get_quiz("01-hashmap-lookup").expect("lesson quiz").clone();
+        let quiz = store
+            .get_quiz("01-hashmap-lookup")
+            .expect("lesson quiz")
+            .clone();
         // Answer every item correctly using the stored answers.
         let answers: Vec<QuizAnswer> = quiz
             .items
@@ -86,7 +89,10 @@ mod tests {
     fn grades_the_interleaved_pattern_pool() {
         let (_dir, store, db) = fixture();
         let pool = store.pattern_pool().clone();
-        assert!(!pool.items.is_empty(), "shipped pattern pool should be non-empty");
+        assert!(
+            !pool.items.is_empty(),
+            "shipped pattern pool should be non-empty"
+        );
         // Answer just the first pool item, correctly — only answered items count.
         let first = &pool.items[0];
         let grade = submit(

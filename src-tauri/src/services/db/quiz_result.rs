@@ -113,10 +113,20 @@ mod tests {
     #[test]
     fn retakes_accumulate_as_history() {
         let (_dir, db) = temp_db();
-        record(&db, "pattern-pool", &[result("p1", QuizItemType::PatternPicker, false)], "T1")
-            .unwrap();
-        record(&db, "pattern-pool", &[result("p1", QuizItemType::PatternPicker, true)], "T2")
-            .unwrap();
+        record(
+            &db,
+            "pattern-pool",
+            &[result("p1", QuizItemType::PatternPicker, false)],
+            "T1",
+        )
+        .unwrap();
+        record(
+            &db,
+            "pattern-pool",
+            &[result("p1", QuizItemType::PatternPicker, true)],
+            "T2",
+        )
+        .unwrap();
         let s = stats(&db, "pattern-pool").unwrap();
         assert_eq!(s.answered, 2);
         assert_eq!(s.correct, 1);

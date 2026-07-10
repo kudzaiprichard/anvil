@@ -225,7 +225,10 @@ mod tests {
                 item("q1", QuizItemType::Complexity, &["a", "b"], "b"),
             ],
         };
-        assert!(quiz.validate().unwrap_err().contains("duplicate quiz item id"));
+        assert!(quiz
+            .validate()
+            .unwrap_err()
+            .contains("duplicate quiz item id"));
     }
 
     fn sample_quiz() -> Quiz {
@@ -233,7 +236,12 @@ mod tests {
         picker.correct_pattern = Some("arrays-hashing".into());
         Quiz {
             items: vec![
-                item("q1", QuizItemType::ConceptCheck, &["value", "index"], "value"),
+                item(
+                    "q1",
+                    QuizItemType::ConceptCheck,
+                    &["value", "index"],
+                    "value",
+                ),
                 picker,
             ],
         }
@@ -243,8 +251,14 @@ mod tests {
     fn grade_scores_selected_answers_in_item_order() {
         let quiz = sample_quiz();
         let grade = quiz.grade(&[
-            QuizAnswer { item_id: "q2".into(), selected: "hash".into() },
-            QuizAnswer { item_id: "q1".into(), selected: "index".into() },
+            QuizAnswer {
+                item_id: "q2".into(),
+                selected: "hash".into(),
+            },
+            QuizAnswer {
+                item_id: "q1".into(),
+                selected: "index".into(),
+            },
         ]);
         assert_eq!(grade.total, 2);
         assert_eq!(grade.correct_count, 1);
@@ -254,7 +268,10 @@ mod tests {
         assert_eq!(grade.results[1].item_id, "q2");
         assert!(grade.results[1].correct);
         // Pattern-picker echoes the pattern; concept-check does not.
-        assert_eq!(grade.results[1].correct_pattern.as_deref(), Some("arrays-hashing"));
+        assert_eq!(
+            grade.results[1].correct_pattern.as_deref(),
+            Some("arrays-hashing")
+        );
         assert!(grade.results[0].correct_pattern.is_none());
     }
 
@@ -296,7 +313,10 @@ mod tests {
         // Only the answered item (q2) is graded.
         assert_eq!(value["results"][0]["itemId"], json!("q2"));
         assert_eq!(value["results"][0]["type"], json!("pattern-picker"));
-        assert_eq!(value["results"][0]["correctPattern"], json!("arrays-hashing"));
+        assert_eq!(
+            value["results"][0]["correctPattern"],
+            json!("arrays-hashing")
+        );
         let back: QuizGrade = serde_json::from_value(value).unwrap();
         assert_eq!(back, grade);
     }

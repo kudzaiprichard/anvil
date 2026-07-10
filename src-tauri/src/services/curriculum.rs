@@ -390,7 +390,10 @@ mod tests {
         )
         .unwrap();
         let err = CurriculumStore::load(&dir, &real_packs()).unwrap_err();
-        assert!(err.to_string().contains("must be a pattern-picker"), "{err}");
+        assert!(
+            err.to_string().contains("must be a pattern-picker"),
+            "{err}"
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 
