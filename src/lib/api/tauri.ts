@@ -8,6 +8,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  CapstoneOutcome,
+  CapstoneView,
   ComplexityReport,
   Curriculum,
   DashboardData,
@@ -16,6 +18,8 @@ import type {
   Lesson,
   LessonProgress,
   LessonStatus,
+  PlacementOutcome,
+  PlacementProbe,
   Problem,
   ProblemFilter,
   ProblemSummary,
@@ -24,6 +28,7 @@ import type {
   Quiz,
   QuizAnswer,
   QuizGrade,
+  Readiness,
   ReviewOutcome,
   ReviewQueue,
   ReviewRating,
@@ -137,6 +142,36 @@ export async function evaluateGate(
   usedHelp: boolean
 ): Promise<GateOutcome> {
   return call<GateOutcome>("evaluate_gate", { unitId, problemId, usedHelp });
+}
+
+/** Phase 7: the Stage-7 mixed capstone (unlabeled cross-unit pool). */
+export async function getCapstone(): Promise<CapstoneView | null> {
+  return (await call<CapstoneView | null>("get_capstone")) ?? null;
+}
+
+/** Scores one capstone attempt (peeked attempts never count). */
+export async function evaluateCapstone(
+  problemId: string,
+  usedHelp: boolean
+): Promise<CapstoneOutcome> {
+  return call<CapstoneOutcome>("evaluate_capstone", { problemId, usedHelp });
+}
+
+/** The diagnostic placement probe (unlabeled recognition items). */
+export async function getPlacement(): Promise<PlacementProbe> {
+  return call<PlacementProbe>("get_placement");
+}
+
+/** Applies the placement probe — places the learner out of recognized units. */
+export async function applyPlacement(
+  answers: QuizAnswer[]
+): Promise<PlacementOutcome> {
+  return call<PlacementOutcome>("apply_placement", { answers });
+}
+
+/** The honest course-readiness signal (ladder mastery + capstone). */
+export async function getReadiness(): Promise<Readiness> {
+  return call<Readiness>("get_readiness");
 }
 
 /** The FSRS spaced-review queue: Stage-1 problems due to re-solve cold now

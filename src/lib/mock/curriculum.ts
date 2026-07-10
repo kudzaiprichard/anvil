@@ -25,6 +25,23 @@ export const MOCK_CURRICULUM: Curriculum = {
     timer_target_min: 25,
     threshold_pct: 80,
   },
+  // Browser-dev capstone (the real backend ships the full cross-unit pool). A
+  // small unlabeled Stage-1 pool so the capstone UI has something to render.
+  capstone: {
+    id: "mixed-capstone",
+    stage: "s7",
+    title: "Mixed Capstone",
+    pass_count: 2,
+    timer_target_min: 40,
+    problems: [
+      { slug: "two-sum", unit: "arrays-hashing" },
+      { slug: "3sum", unit: "two-pointers" },
+      {
+        slug: "longest-substring-without-repeating-characters",
+        unit: "sliding-window",
+      },
+    ],
+  },
 };
 
 export const MOCK_UNITS: Unit[] = [
