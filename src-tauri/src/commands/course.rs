@@ -10,10 +10,11 @@ use crate::domain::curriculum::Curriculum;
 use crate::domain::lesson::Lesson;
 use crate::domain::mastery::{GateOutcome, UnitProgress};
 use crate::domain::progress::{LessonProgress, LessonStatus};
+use crate::domain::quiz::{Quiz, QuizAnswer, QuizGrade};
 use crate::domain::unit::Unit;
 use crate::error::{AppError, AppResult};
 use crate::services::db::{self, lesson_progress};
-use crate::services::progression;
+use crate::services::{progression, quiz};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -32,6 +33,44 @@ pub fn get_unit(state: State<AppState>, id: String) -> AppResult<Option<Unit>> {
 pub fn get_lesson(state: State<AppState>, id: String) -> AppResult<Option<Lesson>> {
     log::debug!("get_lesson: {id}");
     Ok(state.curriculum.get_lesson(&id).cloned())
+}
+
+/// A lesson's formative quiz (concept-check + pattern-picker + complexity
+/// items). Thin lookup into the validated content — `None` for an unknown
+/// lesson id, mirroring `get_lesson`.
+#[tauri::command]
+pub fn get_quiz(state: State<AppState>, lesson_id: String) -> AppResult<Option<Quiz>> {
+    log::debug!("get_quiz: {lesson_id}");
+    Ok(state.curriculum.get_quiz(&lesson_id).cloned())
+}
+
+/// The interleaved, cross-unit pattern-picker pool (unlabeled recognition
+/// drills). Empty when no pool ships.
+#[tauri::command]
+pub fn get_pattern_pool(state: State<AppState>) -> AppResult<Quiz> {
+    log::debug!("get_pattern_pool");
+    Ok(state.curriculum.pattern_pool().clone())
+}
+
+/// Grades a formative quiz submission and records the outcome to feed the
+/// review signal (LESSON_COURSE_DESIGN.md §3.4). `source` is a lesson id or the
+/// reserved `pattern-pool` id. Grading is server-side against the validated
+/// content, so the answer key never has to be trusted from the caller. Quizzes
+/// **never gate progression** — the result is feedback only.
+#[tauri::command]
+pub fn submit_quiz(
+    state: State<AppState>,
+    source: String,
+    answers: Vec<QuizAnswer>,
+) -> AppResult<QuizGrade> {
+    log::debug!("submit_quiz: {source} ({} answer(s))", answers.len());
+    quiz::submit(
+        &state.curriculum,
+        &state.db,
+        &source,
+        &answers,
+        &db::now_local_iso(),
+    )
 }
 
 /// Records that the user opened (`in-progress`) or finished (`complete`) a

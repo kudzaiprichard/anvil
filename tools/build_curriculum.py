@@ -180,8 +180,11 @@ def validate_diagram(diagram: dict, where: str) -> None:
 def validate_quiz(quiz: dict, where: str) -> None:
     items = quiz.get("items")
     _require(isinstance(items, list) and items, f"{where}: quiz has no items")
+    seen_ids: set[str] = set()
     for item in items:
         iid = item.get("id", "<missing id>")
+        _require(iid not in seen_ids, f"{where}: duplicate quiz item id '{iid}'")
+        seen_ids.add(iid)
         _require(item.get("type") in QUIZ_TYPES, f"{where}: quiz item '{iid}' has invalid type '{item.get('type')}'")
         options = item.get("options")
         _require(isinstance(options, list) and options, f"{where}: quiz item '{iid}' has no options")
@@ -315,6 +318,26 @@ def check() -> int:
     for lid, lesson in lessons.items():
         if lesson["unit"] not in units:
             errors.append(f"lesson '{lid}': references unknown unit '{lesson['unit']}'")
+
+    # Interleaved pattern-picker pool (Phase 4): optional, but if present every
+    # item must be a pattern-picker whose correct_pattern names a real unit.
+    pool_path = CURRICULUM_DIR / "pattern-pool.json"
+    if pool_path.exists():
+        try:
+            pool = json.loads(pool_path.read_text(encoding="utf-8"))
+            validate_quiz(pool, "pattern-pool.json")
+            for item in pool.get("items", []):
+                iid = item.get("id", "<missing id>")
+                if item.get("type") != "pattern-picker":
+                    errors.append(f"pattern-pool.json: item '{iid}' must be a pattern-picker")
+                elif item.get("correct_pattern") not in units:
+                    errors.append(
+                        f"pattern-pool.json: item '{iid}' correct_pattern "
+                        f"'{item.get('correct_pattern')}' is not a known unit"
+                    )
+            ok += 1
+        except (json.JSONDecodeError, CheckError) as e:
+            errors.append(f"pattern-pool.json: {e}")
 
     # every referenced slug has a frozen pack
     pack_slugs = load_pack_slugs()

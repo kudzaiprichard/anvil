@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use crate::domain::curriculum::Curriculum;
 use crate::domain::diagram::DiagramSpec;
 use crate::domain::lesson::{Lesson, LessonFrontmatter};
-use crate::domain::quiz::Quiz;
+use crate::domain::quiz::{Quiz, QuizItemType};
 use crate::domain::unit::Unit;
 use crate::error::{AppError, AppResult};
 use crate::services::pack_store::PackStore;
@@ -22,6 +22,12 @@ pub struct CurriculumStore {
     curriculum: Curriculum,
     units: HashMap<String, Unit>,
     lessons: HashMap<String, Lesson>,
+    /// The interleaved, cross-unit pattern-picker pool (Phase 4,
+    /// LESSON_COURSE_DESIGN.md §13.3): unlabeled "which pattern?" prompts drawn
+    /// from across the stage, used for spaced/interleaved formative retrieval.
+    /// Empty when no `curriculum/pattern-pool.json` ships (optional content,
+    /// like lessons).
+    pattern_pool: Quiz,
 }
 
 impl CurriculumStore {
@@ -32,6 +38,7 @@ impl CurriculumStore {
         let curriculum = load_curriculum(&curriculum_dir.join("curriculum.json"))?;
         let units = load_units(&curriculum_dir.join("units"))?;
         let lessons = load_lessons(&resources_dir.join("lessons"))?;
+        let pattern_pool = load_pattern_pool(&curriculum_dir.join("pattern-pool.json"))?;
 
         for id in curriculum.unit_ids() {
             if !units.contains_key(id) {
@@ -67,10 +74,24 @@ impl CurriculumStore {
             }
         }
 
+        // Every pattern-pool item's `correct_pattern` must name a real unit —
+        // the pool trains recognition *of the units in this course*.
+        for item in &pattern_pool.items {
+            if let Some(pattern) = &item.correct_pattern {
+                if !units.contains_key(pattern) {
+                    return Err(AppError::Validation(format!(
+                        "pattern-pool item '{}': correct_pattern '{pattern}' is not a known unit",
+                        item.id
+                    )));
+                }
+            }
+        }
+
         log::info!(
-            "curriculum: {} units, {} lessons loaded from {}",
+            "curriculum: {} units, {} lessons, {} pattern-pool item(s) loaded from {}",
             units.len(),
             lessons.len(),
+            pattern_pool.items.len(),
             resources_dir.display()
         );
 
@@ -78,6 +99,7 @@ impl CurriculumStore {
             curriculum,
             units,
             lessons,
+            pattern_pool,
         })
     }
 
@@ -92,6 +114,40 @@ impl CurriculumStore {
     pub fn get_lesson(&self, id: &str) -> Option<&Lesson> {
         self.lessons.get(id)
     }
+
+    /// A lesson's quiz (Phase 4 `get_quiz`) — the formative concept-check +
+    /// pattern-picker items authored alongside the lesson.
+    pub fn get_quiz(&self, lesson_id: &str) -> Option<&Quiz> {
+        self.lessons.get(lesson_id).map(|l| &l.quiz)
+    }
+
+    /// The interleaved cross-unit pattern-picker pool (may be empty).
+    pub fn pattern_pool(&self) -> &Quiz {
+        &self.pattern_pool
+    }
+}
+
+/// Loads + validates the optional interleaved pattern-picker pool. A missing
+/// file yields an empty pool (like a missing lessons dir); a present file must
+/// be a well-formed quiz whose items are *all* `pattern-picker` — the pool is
+/// the recognition drill, nothing else belongs in it.
+fn load_pattern_pool(path: &Path) -> AppResult<Quiz> {
+    if !path.is_file() {
+        return Ok(Quiz { items: Vec::new() });
+    }
+    let pool = load_json::<Quiz>(path)?;
+    pool.validate()
+        .map_err(|msg| AppError::Validation(format!("{}: {msg}", path.display())))?;
+    for item in &pool.items {
+        if item.item_type != QuizItemType::PatternPicker {
+            return Err(AppError::Validation(format!(
+                "{}: pattern-pool item '{}' must be a pattern-picker",
+                path.display(),
+                item.id
+            )));
+        }
+    }
+    Ok(pool)
 }
 
 fn load_curriculum(path: &Path) -> AppResult<Curriculum> {
@@ -305,6 +361,62 @@ mod tests {
             .unwrap()
             .lessons
             .contains(&"01-hashmap-lookup".to_string()));
+
+        // get_quiz is the lesson's quiz.
+        assert_eq!(
+            store.get_quiz("01-hashmap-lookup").map(|q| q.items.len()),
+            Some(lesson.quiz.items.len())
+        );
+
+        // The interleaved pattern pool loads, is all pattern-picker, and every
+        // item's correct_pattern names a real unit.
+        let pool = store.pattern_pool();
+        assert!(!pool.items.is_empty(), "shipped pattern pool present");
+        for item in &pool.items {
+            assert_eq!(item.item_type, QuizItemType::PatternPicker);
+            let pat = item.correct_pattern.as_deref().expect("picker has pattern");
+            assert!(store.get_unit(pat).is_some(), "unknown pool pattern {pat}");
+        }
+    }
+
+    #[test]
+    fn pattern_pool_rejects_a_non_picker_item() {
+        let dir = scratch("pool-non-picker");
+        write_valid_curriculum(&dir, "two-sum");
+        std::fs::write(
+            dir.join("curriculum").join("pattern-pool.json"),
+            r#"{ "items": [{ "id": "x", "type": "complexity", "prompt_md": "p",
+                 "options": ["a", "b"], "answer": "a", "explanation_md": "e" }] }"#,
+        )
+        .unwrap();
+        let err = CurriculumStore::load(&dir, &real_packs()).unwrap_err();
+        assert!(err.to_string().contains("must be a pattern-picker"), "{err}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn pattern_pool_rejects_unknown_pattern() {
+        let dir = scratch("pool-unknown-pattern");
+        write_valid_curriculum(&dir, "two-sum");
+        std::fs::write(
+            dir.join("curriculum").join("pattern-pool.json"),
+            r#"{ "items": [{ "id": "x", "type": "pattern-picker", "prompt_md": "p",
+                 "options": ["a", "b"], "answer": "a", "correct_pattern": "ghost-unit",
+                 "explanation_md": "e" }] }"#,
+        )
+        .unwrap();
+        let err = CurriculumStore::load(&dir, &real_packs()).unwrap_err();
+        assert!(err.to_string().contains("not a known unit"), "{err}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn missing_pattern_pool_is_an_empty_pool() {
+        let dir = scratch("pool-absent");
+        write_valid_curriculum(&dir, "two-sum");
+        let store = CurriculumStore::load(&dir, &real_packs()).expect("loads without a pool");
+        assert!(store.pattern_pool().items.is_empty());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

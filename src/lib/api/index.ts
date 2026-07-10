@@ -20,6 +20,9 @@ import type {
   ProblemSummary,
   ProblemUserState,
   Progress,
+  Quiz,
+  QuizAnswer,
+  QuizGrade,
   RunRequest,
   RunResult,
   RuntimeInfo,
@@ -54,6 +57,23 @@ export async function getUnit(id: string): Promise<Unit | null> {
 
 export async function getLesson(id: string): Promise<Lesson | null> {
   return isTauri() ? backend.getLesson(id) : mock.getLesson(id);
+}
+
+export async function getQuiz(lessonId: string): Promise<Quiz | null> {
+  return isTauri() ? backend.getQuiz(lessonId) : mock.getQuiz(lessonId);
+}
+
+export async function getPatternPool(): Promise<Quiz> {
+  return isTauri() ? backend.getPatternPool() : mock.getPatternPool();
+}
+
+export async function submitQuiz(
+  source: string,
+  answers: QuizAnswer[]
+): Promise<QuizGrade> {
+  return isTauri()
+    ? backend.submitQuiz(source, answers)
+    : mock.submitQuiz(source, answers);
 }
 
 export async function recordLessonProgress(

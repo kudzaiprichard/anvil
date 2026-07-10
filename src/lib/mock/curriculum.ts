@@ -1,4 +1,4 @@
-import type { Curriculum, Lesson, Unit } from "@/src/lib/types";
+import type { Curriculum, Lesson, Quiz, Unit } from "@/src/lib/types";
 
 /**
  * Mock course content — mirrors the shipped Stage-1 vertical slice
@@ -211,4 +211,146 @@ export const MOCK_LESSONS: Record<string, Lesson> = {
       "What if you had to return *all* pairs that sum to the target, not just one?",
     ],
   },
+};
+
+/**
+ * The interleaved, cross-unit pattern-picker pool (Phase 4) — mirrors
+ * `resources/curriculum/pattern-pool.json` so browser dev drills the same
+ * unlabeled recognition prompts the Rust loader serves.
+ */
+export const MOCK_PATTERN_POOL: Quiz = {
+  items: [
+    {
+      id: "pp-unsorted-pair-sum",
+      type: "pattern-picker",
+      prompt_md:
+        "You get an **unsorted** array of integers and must return the **positions** of two entries that add up to a target. What do you reach for first?",
+      options: [
+        "Walk two pointers inward from both ends",
+        "Keep a hash map of values seen so far and look up each complement",
+        "Slide a variable-width window across the array",
+        "Sort the array, then binary-search for each complement",
+      ],
+      answer: "Keep a hash map of values seen so far and look up each complement",
+      correct_pattern: "arrays-hashing",
+      explanation_md:
+        "**Unsorted + return original indices + O(n)** is the hash-map complement fingerprint. Sorting would scramble the positions you must report.",
+    },
+    {
+      id: "pp-sorted-pair-sum",
+      type: "pattern-picker",
+      prompt_md:
+        "An array is **already sorted ascending**. Find two values that sum to a target, using only **O(1)** extra space. Which technique fits best?",
+      options: [
+        "Keep a hash map of values seen so far and look up each complement",
+        "Walk one pointer from each end, moving them based on the sum",
+        "Expand and shrink a window over the array",
+        "Recurse with memoization over index and remaining target",
+      ],
+      answer: "Walk one pointer from each end, moving them based on the sum",
+      correct_pattern: "two-pointers",
+      explanation_md:
+        "**Sorted + O(1) space** is the tell for opposite-ends two pointers: too-small sum → advance left, too-large → retreat right.",
+    },
+    {
+      id: "pp-longest-unique-substring",
+      type: "pattern-picker",
+      prompt_md:
+        "Find the length of the **longest substring with no repeating characters** in a string. What shape does the solution take?",
+      options: [
+        "A fixed-size window swept once across the string",
+        "A variable-size window that grows, and shrinks from the left on a repeat",
+        "Sort the characters and scan for runs",
+        "A hash map from each character to its global frequency",
+      ],
+      answer:
+        "A variable-size window that grows, and shrinks from the left on a repeat",
+      correct_pattern: "sliding-window",
+      explanation_md:
+        "**\"Longest substring such that a condition holds\"** is a dynamic sliding window: extend right, and shrink from the left when the invariant breaks.",
+    },
+    {
+      id: "pp-container-most-water",
+      type: "pattern-picker",
+      prompt_md:
+        "Given heights of vertical lines, pick two lines that with the x-axis hold the **most water**. Best approach?",
+      options: [
+        "Two pointers at the ends, always moving the shorter line inward",
+        "A sliding window of fixed width",
+        "A hash map of height to index",
+        "Dynamic programming over subranges",
+      ],
+      answer: "Two pointers at the ends, always moving the shorter line inward",
+      correct_pattern: "two-pointers",
+      explanation_md:
+        "Area is bounded by the **shorter** line, so moving the taller one can never help — advance the shorter pointer.",
+    },
+    {
+      id: "pp-group-anagrams",
+      type: "pattern-picker",
+      prompt_md:
+        "Group a list of words so that all **anagrams of each other** land in the same bucket. What organizes the buckets?",
+      options: [
+        "A hash map keyed by each word's canonical form (e.g. its sorted letters)",
+        "Two pointers comparing words end to end",
+        "A sliding window over each word",
+        "Binary search after sorting the whole list",
+      ],
+      answer:
+        "A hash map keyed by each word's canonical form (e.g. its sorted letters)",
+      correct_pattern: "arrays-hashing",
+      explanation_md:
+        "Anagrams share one invariant — the same multiset of letters. Reduce each word to a **canonical key** and bucket by it. \"Group by an equivalence\" ⇒ hashing.",
+    },
+    {
+      id: "pp-max-sum-k-window",
+      type: "pattern-picker",
+      prompt_md:
+        "Find the maximum sum of any **exactly k consecutive** elements in an array of numbers. Which is the O(n) way?",
+      options: [
+        "A fixed-size window of width k, adding the entering and dropping the leaving element",
+        "A variable-size window that grows while the sum is small",
+        "A hash map of prefix sums",
+        "Two pointers from both ends",
+      ],
+      answer:
+        "A fixed-size window of width k, adding the entering and dropping the leaving element",
+      correct_pattern: "sliding-window",
+      explanation_md:
+        "A **fixed** length ‘k consecutive’ is the fixed-size sliding window: slide by one, add the new element, subtract the one that fell off.",
+    },
+    {
+      id: "pp-contains-duplicate",
+      type: "pattern-picker",
+      prompt_md:
+        "Decide whether an array contains **any duplicate value at all** (just yes/no). Cheapest reliable approach?",
+      options: [
+        "Insert into a hash set and report a collision",
+        "Two pointers scanning inward",
+        "A sliding window of growing size",
+        "Sort, then two pointers",
+      ],
+      answer: "Insert into a hash set and report a collision",
+      correct_pattern: "arrays-hashing",
+      explanation_md:
+        "\"**Have I seen this before?**\" over an unordered collection is a hash-set membership check — one pass, O(n).",
+    },
+    {
+      id: "pp-min-subarray-sum",
+      type: "pattern-picker",
+      prompt_md:
+        "In an array of **positive** integers, find the length of the **shortest contiguous subarray whose sum is ≥ target**. What fits?",
+      options: [
+        "A variable-size window that grows to reach the target, then shrinks from the left",
+        "A hash map from value to index",
+        "Two pointers from opposite ends of the array",
+        "Sort the array first, then scan",
+      ],
+      answer:
+        "A variable-size window that grows to reach the target, then shrinks from the left",
+      correct_pattern: "sliding-window",
+      explanation_md:
+        "Positive values make the window sum monotonic — growing raises it, shrinking lowers it — which a dynamic window exploits. Sorting would destroy contiguity.",
+    },
+  ],
 };

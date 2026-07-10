@@ -20,6 +20,9 @@ import type {
   ProblemSummary,
   ProblemUserState,
   Progress,
+  Quiz,
+  QuizAnswer,
+  QuizGrade,
   RunRequest,
   RunResult,
   RuntimeInfo,
@@ -90,6 +93,23 @@ export async function getUnit(id: string): Promise<Unit | null> {
 
 export async function getLesson(id: string): Promise<Lesson | null> {
   return (await call<Lesson | null>("get_lesson", { id })) ?? null;
+}
+
+export async function getQuiz(lessonId: string): Promise<Quiz | null> {
+  return (await call<Quiz | null>("get_quiz", { lessonId })) ?? null;
+}
+
+export async function getPatternPool(): Promise<Quiz> {
+  return call<Quiz>("get_pattern_pool");
+}
+
+/** Grades a formative quiz submission and records the review signal. `source`
+ *  is a lesson id or `PATTERN_POOL_SOURCE`. Never blocks progression. */
+export async function submitQuiz(
+  source: string,
+  answers: QuizAnswer[]
+): Promise<QuizGrade> {
+  return call<QuizGrade>("submit_quiz", { source, answers });
 }
 
 export async function recordLessonProgress(
