@@ -125,6 +125,25 @@ impl CurriculumStore {
     pub fn pattern_pool(&self) -> &Quiz {
         &self.pattern_pool
     }
+
+    /// The unit whose problem pool references `slug`, if any. Used by the FSRS
+    /// review layer (Phase 6) to (a) decide whether a solved problem belongs to
+    /// the course and should enter the review queue, and (b) tag a due card with
+    /// its pattern for interleaving. A slug lives in exactly one unit in the
+    /// Stage-1 slice; the first match wins if that ever changes.
+    pub fn unit_of_problem(&self, slug: &str) -> Option<&str> {
+        self.units
+            .values()
+            .find(|u| u.problems.iter().any(|p| p.slug == slug))
+            .map(|u| u.id.as_str())
+    }
+
+    /// Whether `slug` is a problem taught/tested anywhere in the course — the
+    /// gate the review queue uses to stay Stage-1-only (the wider catalog never
+    /// enters spaced review).
+    pub fn is_course_problem(&self, slug: &str) -> bool {
+        self.unit_of_problem(slug).is_some()
+    }
 }
 
 /// Loads + validates the optional interleaved pattern-picker pool. A missing

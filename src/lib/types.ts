@@ -449,6 +449,69 @@ export interface LessonProgress {
   completedAt?: string;
 }
 
+/* ---------- retention & habit (Phase 6) ---------- */
+
+/** The learner's self-assessed recall after a cold re-solve — the four FSRS
+ *  grades. `again` is the failure grade that demotes the card. */
+export type ReviewRating = "again" | "hard" | "good" | "easy";
+
+/** Where a card sits in the FSRS state machine (mirrors `review_schedule.state`). */
+export type ReviewCardState = "new" | "learning" | "review" | "relearning";
+
+/** One problem due to be re-solved cold now, in the interleaved queue. */
+export interface ReviewItem {
+  /** LeetCode slug — the workspace opens this for a cold re-solve. */
+  problemId: string;
+  /** The unit whose pattern this belongs to — drives interleaving + labels. */
+  unitId: string;
+  state: ReviewCardState;
+  /** When the card became due (RFC3339 UTC). */
+  dueAt: string;
+  /** Last re-solve, or absent for a card that entered the queue and hasn't
+   *  been reviewed yet. */
+  lastReviewedAt?: string;
+  /** Times this problem has been failed (`again`) — the demotion counter. */
+  lapses: number;
+  /** Whole days overdue (0 when it just came due). */
+  overdueDays: number;
+}
+
+/** The honest habit layer (COURSE_BLUEPRINT.md §7): a streak that survives one
+ *  missed day via a freeze ("never miss twice"). No XP, no leaderboards. */
+export interface HabitState {
+  /** Consecutive practice days, forgiving one isolated missed day. */
+  currentStreak: number;
+  bestStreak: number;
+  /** A freeze is currently holding the streak together (yesterday was missed);
+   *  miss again and it breaks. */
+  freezeActive: boolean;
+  /** Cards due to re-solve right now. */
+  dueToday: number;
+  /** Cards already re-solved today. */
+  reviewedToday: number;
+}
+
+/** The review page payload: what's due (interleaved), how many are scheduled
+ *  for later, and the habit header. */
+export interface ReviewQueue {
+  due: ReviewItem[];
+  laterCount: number;
+  habit: HabitState;
+}
+
+/** The result of recording one re-solve (`recordReview`). */
+export interface ReviewOutcome {
+  problemId: string;
+  state: ReviewCardState;
+  dueAt: string;
+  /** Days until next due — the spacing interval FSRS just chose. */
+  intervalDays: number;
+  lapses: number;
+  /** `true` when the re-solve was failed (`again`): interval collapsed, lapse
+   *  counter bumped. */
+  demoted: boolean;
+}
+
 /* ---------- progress & status (app types) ---------- */
 
 export type ProblemStatus = "todo" | "in-progress" | "solved" | "needs-review";

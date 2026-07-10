@@ -24,6 +24,9 @@ import type {
   Quiz,
   QuizAnswer,
   QuizGrade,
+  ReviewOutcome,
+  ReviewQueue,
+  ReviewRating,
   RunRequest,
   RunResult,
   RuntimeInfo,
@@ -102,6 +105,19 @@ export async function evaluateGate(
   return isTauri()
     ? backend.evaluateGate(unitId, problemId, usedHelp)
     : mock.evaluateGate(unitId, problemId, usedHelp);
+}
+
+export async function getReviewQueue(): Promise<ReviewQueue> {
+  return isTauri() ? backend.getReviewQueue() : mock.getReviewQueue();
+}
+
+export async function recordReview(
+  problemId: string,
+  rating: ReviewRating
+): Promise<ReviewOutcome> {
+  return isTauri()
+    ? backend.recordReview(problemId, rating)
+    : mock.recordReview(problemId, rating);
 }
 
 export async function runCode(req: RunRequest): Promise<RunResult> {

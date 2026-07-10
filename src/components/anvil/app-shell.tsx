@@ -8,6 +8,7 @@ import {
   Hammer,
   LayoutDashboard,
   Library,
+  RotateCcw,
   Settings,
 } from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
@@ -37,6 +38,7 @@ import { useAppShortcuts } from "./use-app-shortcuts";
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, match: ["/"] },
   { href: "/learn", label: "Course", icon: GraduationCap, match: ["/learn"] },
+  { href: "/review", label: "Review", icon: RotateCcw, match: ["/review"] },
   {
     href: "/problems",
     label: "Library",
