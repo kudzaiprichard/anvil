@@ -54,12 +54,10 @@ fn full_tier_import_runs_and_judges_against_the_pack() {
 
     // Materialize the pack's stress generators into literal hidden cases.
     let stress = materialize_stress(pack, "python");
-    // Some CI sandboxes cap threads/processes, so the harness fails to launch
-    // ("runner error: ... can't start new thread") and every generator is
-    // skipped. That is an environment limit, not a product bug — skip the test.
-    // A skip from any *other* cause (a genuine generator/materialization bug)
-    // still trips the assertion below, so this doesn't mask real regressions.
-    if !stress.skipped.is_empty() && stress.skipped.iter().all(|s| s.contains("runner error")) {
+    // Some CI sandboxes cap threads/processes, so the harness can't launch and
+    // every generator is skipped with a runner error — an environment limit,
+    // not a product bug. Skip; a skip from any other cause still asserts below.
+    if common::stress_skipped_by_sandbox(&stress.skipped) {
         eprintln!(
             "SKIPPED: sandbox could not execute stress generators here: {:?}",
             stress.skipped

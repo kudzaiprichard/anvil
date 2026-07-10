@@ -14,6 +14,17 @@ pub fn runtime_available(program: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// True when a stress-materialization skip list is non-empty and *every* skip
+/// is a sandbox execution failure (`AppError::Runner`, which Displays as
+/// `"runner error: ..."` — e.g. a CI thread/process cap surfacing as
+/// "can't start new thread"), rather than a genuine generator/materialization
+/// bug. Lets the sandbox-dependent stress tests skip on an environment limit
+/// without masking a real regression (a non-runner skip returns `false`, so the
+/// caller's `assert!` still fires).
+pub fn stress_skipped_by_sandbox(skipped: &[String]) -> bool {
+    !skipped.is_empty() && skipped.iter().all(|s| s.contains("runner error"))
+}
+
 #[macro_export]
 macro_rules! require_runtime {
     ($program:literal) => {
