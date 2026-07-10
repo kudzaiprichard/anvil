@@ -253,7 +253,11 @@ function PredictionPanel({
         {predict.prompt_md}
       </Markdown>
 
-      <ul className="mt-2.5 flex flex-col gap-1.5">
+      <ul
+        className="mt-2.5 flex flex-col gap-1.5"
+        role="radiogroup"
+        aria-label={perform ? "Perform the step" : "Predict what happens next"}
+      >
         {predict.choices.map((choice) => {
           const isPick = committedChoice === choice.id;
           const isAnswer = revealed && choice.id === predict.answer;
@@ -262,6 +266,8 @@ function PredictionPanel({
             <li key={choice.id}>
               <button
                 type="button"
+                role="radio"
+                aria-checked={isPick}
                 onClick={() => !revealed && onCommit(choice.id)}
                 disabled={revealed}
                 className={cn(
@@ -285,7 +291,9 @@ function PredictionPanel({
                   {isWrongPick && <X className="size-[11px] stroke-[3]" />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <Markdown className="[&_p]:!my-0">{choice.label_md}</Markdown>
+                  <Markdown inline className="[&_p]:!my-0">
+                    {choice.label_md}
+                  </Markdown>
                 </span>
               </button>
             </li>

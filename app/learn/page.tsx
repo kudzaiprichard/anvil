@@ -216,7 +216,18 @@ function CourseView() {
             style={{ "--rise-i": 1 } as React.CSSProperties}
           >
             <span className="microlabel">Readiness</span>
-            <div className="h-1.5 min-w-[120px] flex-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-1.5 min-w-[120px] flex-1 overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-label="Course readiness"
+              aria-valuenow={
+                readiness
+                  ? readiness.percent
+                  : Math.round((masteredCount / unitTotal) * 100)
+              }
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
               <div
                 className="h-full rounded-full bg-pass transition-all"
                 style={{
@@ -697,7 +708,15 @@ function GateSection({
 
       {/* progress bar */}
       <div className="mt-4 flex items-center gap-3">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-label="Mastery gate progress"
+          aria-valuenow={gate.passedCount}
+          aria-valuemin={0}
+          aria-valuemax={gate.passCount}
+          aria-valuetext={`${gate.passedCount} of ${gate.passCount} gate problems cleared`}
+        >
           <div
             className={cn(
               "h-full rounded-full transition-all",
@@ -1276,7 +1295,15 @@ function CapstonePane() {
 
         <div className="mt-4 flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-[12.5px]">
           <span className="microlabel">Progress</span>
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-label="Capstone progress"
+            aria-valuenow={capstone.passedCount}
+            aria-valuemin={0}
+            aria-valuemax={capstone.passCount}
+            aria-valuetext={`${capstone.passedCount} of ${capstone.passCount} capstone problems cleared`}
+          >
             <div
               className="h-full rounded-full bg-pass transition-all"
               style={{

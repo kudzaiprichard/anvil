@@ -46,6 +46,31 @@ import * as backend from "@/src/lib/api/tauri";
 
 export { paramNames } from "@/src/lib/api/mock";
 
+/**
+ * Bundled course *content* — the curriculum, units, lessons, quizzes, and the
+ * pattern pool — is immutable for the life of the process: it is glob-loaded and
+ * validated once at startup and never mutated at runtime. The course UI hops
+ * course → unit → lesson and back, and each view independently needs the
+ * curriculum plus the full unit set (to resolve prereq / pattern-reveal titles).
+ * Without a cache that is a fresh fan-out of ~19 unit reads on every hop. Memoize
+ * the in-flight promise per (getter, key) so repeat reads are free and
+ * concurrent reads dedupe onto one backend call. Per-user state (progress,
+ * gates, reviews, readiness, the capstone view) is deliberately NOT cached here
+ * — only pure, immutable content is.
+ */
+const contentCache = new Map<string, Promise<unknown>>();
+function cachedContent<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = contentCache.get(key) as Promise<T> | undefined;
+  if (hit) return hit;
+  const p = load();
+  contentCache.set(key, p);
+  // A failed load must not poison the cache — drop it so a later call retries.
+  p.catch(() => {
+    if (contentCache.get(key) === p) contentCache.delete(key);
+  });
+  return p;
+}
+
 export async function listProblems(
   filter?: ProblemFilter
 ): Promise<ProblemSummary[]> {
@@ -57,23 +82,33 @@ export async function getProblem(id: string): Promise<Problem | null> {
 }
 
 export async function getCurriculum(): Promise<Curriculum> {
-  return isTauri() ? backend.getCurriculum() : mock.getCurriculum();
+  return cachedContent("curriculum", () =>
+    isTauri() ? backend.getCurriculum() : mock.getCurriculum()
+  );
 }
 
 export async function getUnit(id: string): Promise<Unit | null> {
-  return isTauri() ? backend.getUnit(id) : mock.getUnit(id);
+  return cachedContent(`unit:${id}`, () =>
+    isTauri() ? backend.getUnit(id) : mock.getUnit(id)
+  );
 }
 
 export async function getLesson(id: string): Promise<Lesson | null> {
-  return isTauri() ? backend.getLesson(id) : mock.getLesson(id);
+  return cachedContent(`lesson:${id}`, () =>
+    isTauri() ? backend.getLesson(id) : mock.getLesson(id)
+  );
 }
 
 export async function getQuiz(lessonId: string): Promise<Quiz | null> {
-  return isTauri() ? backend.getQuiz(lessonId) : mock.getQuiz(lessonId);
+  return cachedContent(`quiz:${lessonId}`, () =>
+    isTauri() ? backend.getQuiz(lessonId) : mock.getQuiz(lessonId)
+  );
 }
 
 export async function getPatternPool(): Promise<Quiz> {
-  return isTauri() ? backend.getPatternPool() : mock.getPatternPool();
+  return cachedContent("patternPool", () =>
+    isTauri() ? backend.getPatternPool() : mock.getPatternPool()
+  );
 }
 
 export async function submitQuiz(

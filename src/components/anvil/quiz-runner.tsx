@@ -93,13 +93,20 @@ export function QuizRunner({
                 {String(i + 1).padStart(2, "0")}
               </span>
               <div className="min-w-0 flex-1">
-                <Markdown className="[&_p]:!my-0 text-[13.5px]">
+                <Markdown
+                  id={`${item.id}-prompt`}
+                  className="[&_p]:!my-0 text-[13.5px]"
+                >
                   {item.prompt_md}
                 </Markdown>
               </div>
             </div>
 
-            <ul className="mt-3 flex flex-col gap-1.5">
+            <ul
+              className="mt-3 flex flex-col gap-1.5"
+              role="radiogroup"
+              aria-labelledby={`${item.id}-prompt`}
+            >
               {item.options.map((option) => {
                 const isSelected = selected[item.id] === option;
                 const isAnswer = graded && option === result?.answer;
@@ -109,6 +116,8 @@ export function QuizRunner({
                   <li key={option}>
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={isSelected}
                       onClick={() => pick(item.id, option)}
                       disabled={graded}
                       className={cn(
