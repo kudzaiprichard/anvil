@@ -7,12 +7,15 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Brain,
   Check,
   CircleDot,
   Dumbbell,
   GraduationCap,
   Lightbulb,
+  ListChecks,
   Lock,
+  Puzzle,
   ShieldCheck,
   Sparkles,
   Target,
@@ -21,22 +24,26 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/anvil/app-shell";
 import { Markdown } from "@/src/components/anvil/markdown";
+import { QuizRunner } from "@/src/components/anvil/quiz-runner";
 import { Spinner } from "@/src/components/anvil/spinner";
 import {
   getCurriculum,
   getLesson,
   getLessonProgress,
+  getPatternPool,
   getProgression,
   getUnit,
   listProblems,
   recordLessonProgress,
 } from "@/src/lib/api";
 import { cn } from "@/src/lib/utils";
+import { PATTERN_POOL_SOURCE } from "@/src/lib/types";
 import type {
   Curriculum,
   Lesson,
   LessonStatus,
   ProblemSummary,
+  Quiz,
   Unit,
   UnitProgress,
   UnitStatus,
@@ -707,16 +714,24 @@ function LessonView({ lessonId }: { lessonId: string }) {
   const [problems, setProblems] = useState<Map<string, ProblemSummary>>(
     new Map()
   );
+  const [pool, setPool] = useState<Quiz | null>(null);
+  /** Unit id → title, for resolving a pattern-picker's revealed pattern. */
+  const [unitTitles, setUnitTitles] = useState<Map<string, string>>(new Map());
+  /** Patterns the learner has already met (this unit's prereqs + recap units) —
+   *  what the start-of-lesson warm-up retrieves. */
+  const [earlierUnitIds, setEarlierUnitIds] = useState<Set<string>>(new Set());
   const [notFound, setNotFound] = useState(false);
   const recordedFor = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [l, prog, summaries] = await Promise.all([
+      const [l, prog, summaries, patternPool, curriculum] = await Promise.all([
         getLesson(lessonId),
         getLessonProgress(),
         listProblems(),
+        getPatternPool(),
+        getCurriculum(),
       ]);
       if (cancelled) return;
       if (!l) {
@@ -726,10 +741,25 @@ function LessonView({ lessonId }: { lessonId: string }) {
       setLesson(l);
       setUnitId(l.unit);
       setProblems(new Map(summaries.map((s) => [s.id, s])));
+      setPool(patternPool);
       setStatus(prog.find((p) => p.lessonId === lessonId)?.status ?? "not-started");
 
-      const unit = await getUnitSafe(l.unit);
-      if (!cancelled) setUnitTitle(unit?.title ?? l.unit);
+      // All unit titles (for the pattern reveal) + this lesson's unit prereqs.
+      const allIds = curriculum.stages.flatMap((s) => s.units);
+      const unitList = await Promise.all(allIds.map((id) => getUnitSafe(id)));
+      if (cancelled) return;
+      const titles = new Map<string, string>();
+      for (const u of unitList) if (u) titles.set(u.id, u.title);
+      setUnitTitles(titles);
+      const unit = unitList.find((u) => u?.id === l.unit) ?? null;
+      setUnitTitle(unit?.title ?? l.unit);
+
+      // Earlier patterns = this unit's prereqs + the units of any recap lessons.
+      const earlier = new Set<string>(unit?.prereqs ?? []);
+      const recapLessons = await Promise.all(l.recap.map((id) => getLesson(id)));
+      if (cancelled) return;
+      for (const rl of recapLessons) if (rl) earlier.add(rl.unit);
+      setEarlierUnitIds(earlier);
 
       // Opening a lesson marks it in-progress (once), unless already complete.
       if (recordedFor.current !== lessonId) {
@@ -780,6 +810,25 @@ function LessonView({ lessonId }: { lessonId: string }) {
     const p = problems.get(slug);
     return p ? `${p.number}. ${p.title}` : prettifySlug(slug);
   };
+  const patternLabel = (id: string) => unitTitles.get(id) ?? prettifySlug(id);
+
+  // Split the lesson quiz for spaced placement (LESSON_COURSE_DESIGN.md §13.3):
+  // concept-check/complexity land mid-lesson, pattern-picker at the end.
+  const conceptItems = lesson.quiz.items.filter(
+    (it) => it.type === "concept-check" || it.type === "complexity"
+  );
+  const lessonPickers = lesson.quiz.items.filter(
+    (it) => it.type === "pattern-picker"
+  );
+  const poolItems = pool?.items ?? [];
+  // Warm-up (start): retrieve an *earlier* pattern this lesson builds on.
+  const warmupItems = poolItems.filter(
+    (it) => it.correct_pattern && earlierUnitIds.has(it.correct_pattern)
+  );
+  // Interleaved recognition (end): unlabeled drills for this unit's pattern.
+  const interleavedItems = poolItems.filter(
+    (it) => it.correct_pattern === lesson.unit
+  );
 
   return (
     <main className="min-h-0 flex-1 overflow-auto px-7 pb-16 pt-6">
@@ -804,6 +853,27 @@ function LessonView({ lessonId }: { lessonId: string }) {
             <StatusPill status={status} />
           </div>
         </div>
+
+        {/* Warm-up retrieval (start) — spaced recall of an earlier pattern this
+            lesson builds on. Empty for the course's very first lesson. */}
+        {warmupItems.length > 0 && (
+          <QuizSection
+            icon={Brain}
+            title="Warm-up retrieval"
+            hint="recall an earlier pattern first"
+            riseIndex={2}
+          >
+            <p className="mb-3 text-[12.5px] text-muted-foreground">
+              Before the new idea, retrieve a pattern you already know — spacing
+              is what makes it stick. No labels: read the prompt and name it.
+            </p>
+            <QuizRunner
+              source={PATTERN_POOL_SOURCE}
+              items={warmupItems}
+              patternLabel={patternLabel}
+            />
+          </QuizSection>
+        )}
 
         {/* Trigger signals — the recognition cue, taught explicitly. */}
         {lesson.trigger_signals.length > 0 && (
@@ -865,6 +935,23 @@ function LessonView({ lessonId }: { lessonId: string }) {
           </Link>
         </section>
 
+        {/* Concept check (mid-lesson) — low-stakes retrieval on the just-taught
+            idea. Never a gate. */}
+        {conceptItems.length > 0 && (
+          <QuizSection
+            icon={ListChecks}
+            title="Concept check"
+            hint="retrieval, not a gate"
+            riseIndex={5}
+          >
+            <QuizRunner
+              source={lessonId}
+              items={conceptItems}
+              patternLabel={patternLabel}
+            />
+          </QuizSection>
+        )}
+
         {/* Practice — faded → independent. */}
         {lesson.practice.length > 0 && (
           <section
@@ -895,6 +982,44 @@ function LessonView({ lessonId }: { lessonId: string }) {
               ))}
             </ul>
           </section>
+        )}
+
+        {/* Pattern-picker drills (end) — the moat: name the pattern from an
+            unlabeled prompt, then read the trigger. */}
+        {lessonPickers.length > 0 && (
+          <QuizSection
+            icon={Puzzle}
+            title="Pattern-picker"
+            hint="which pattern, and why?"
+            riseIndex={7}
+          >
+            <p className="mb-3 text-[12.5px] text-muted-foreground">
+              No pattern labels — decide which technique the prompt calls for.
+              This is the skill that transfers to unseen problems.
+            </p>
+            <QuizRunner
+              source={lessonId}
+              items={lessonPickers}
+              patternLabel={patternLabel}
+            />
+          </QuizSection>
+        )}
+
+        {/* Interleaved recognition — extra unlabeled drills for this pattern,
+            drawn from the cross-unit pool. */}
+        {interleavedItems.length > 0 && (
+          <QuizSection
+            icon={Sparkles}
+            title="Interleaved recognition"
+            hint="mixed prompts, no labels"
+            riseIndex={8}
+          >
+            <QuizRunner
+              source={PATTERN_POOL_SOURCE}
+              items={interleavedItems}
+              patternLabel={patternLabel}
+            />
+          </QuizSection>
         )}
 
         {/* Follow-up ladder — where interview difficulty lives. */}
@@ -946,6 +1071,40 @@ function LessonView({ lessonId }: { lessonId: string }) {
 }
 
 /* --------------------------------------------------------------------- */
+
+/** A titled lesson section that hosts a quiz runner — matches the other
+ *  lesson section headers (icon + microlabel + mono hint). */
+function QuizSection({
+  icon: Icon,
+  title,
+  hint,
+  riseIndex,
+  children,
+}: {
+  icon: typeof Check;
+  title: string;
+  hint?: string;
+  riseIndex: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className="rise mt-7"
+      style={{ "--rise-i": riseIndex } as React.CSSProperties}
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <Icon className="size-[15px] text-primary" />
+        <span className="microlabel text-foreground">{title}</span>
+        {hint && (
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {hint}
+          </span>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 /** getUnit that never throws — a missing unit just yields null. */
 async function getUnitSafe(id: string): Promise<Unit | null> {

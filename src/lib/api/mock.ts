@@ -24,6 +24,10 @@ import type {
   ProblemSummary,
   ProblemUserState,
   Progress,
+  Quiz,
+  QuizAnswer,
+  QuizGrade,
+  QuizItemResult,
   RunRequest,
   RunResult,
   RuntimeInfo,
@@ -36,11 +40,12 @@ import type {
   ValidationIssue,
   ValidationResult,
 } from "@/src/lib/types";
-import { PATTERNS } from "@/src/lib/types";
+import { PATTERNS, PATTERN_POOL_SOURCE } from "@/src/lib/types";
 import { applyProblemFilter } from "@/src/lib/api/filters";
 import {
   MOCK_CURRICULUM,
   MOCK_LESSONS,
+  MOCK_PATTERN_POOL,
   MOCK_UNITS,
 } from "@/src/lib/mock/curriculum";
 import { MOCK_PROBLEMS } from "@/src/lib/mock/problems";
@@ -190,6 +195,52 @@ export async function getUnit(id: string): Promise<Unit | null> {
 export async function getLesson(id: string): Promise<Lesson | null> {
   await delay(80);
   return MOCK_LESSONS[id] ?? null;
+}
+
+export async function getQuiz(lessonId: string): Promise<Quiz | null> {
+  await delay(80);
+  return MOCK_LESSONS[lessonId]?.quiz ?? null;
+}
+
+export async function getPatternPool(): Promise<Quiz> {
+  await delay(80);
+  return MOCK_PATTERN_POOL;
+}
+
+/** Grades a formative submission exactly like `services::quiz::submit` +
+ *  `Quiz::grade`, so browser dev scores quizzes the same way the backend does.
+ *  Records nothing durable — the review signal is SQLite-backed in Tauri. */
+export async function submitQuiz(
+  source: string,
+  answers: QuizAnswer[]
+): Promise<QuizGrade> {
+  await delay(120);
+  const quiz =
+    source === PATTERN_POOL_SOURCE ? MOCK_PATTERN_POOL : MOCK_LESSONS[source]?.quiz;
+  if (!quiz) throw new Error(`Quiz not found for source: ${source}`);
+
+  // Grade only the items the learner actually answered (§ Quiz::grade): a
+  // placement can be submitted section-by-section without the rest counting.
+  const results: QuizItemResult[] = quiz.items.flatMap((item) => {
+    const answer = answers.find((a) => a.itemId === item.id);
+    if (!answer) return [];
+    return [
+      {
+        itemId: item.id,
+        type: item.type,
+        correct: answer.selected === item.answer,
+        selected: answer.selected,
+        answer: item.answer,
+        explanation_md: item.explanation_md,
+        correctPattern: item.correct_pattern,
+      },
+    ];
+  });
+  return {
+    correctCount: results.filter((r) => r.correct).length,
+    total: results.length,
+    results,
+  };
 }
 
 /** Session-local lesson progress so browser dev badges lessons like the real

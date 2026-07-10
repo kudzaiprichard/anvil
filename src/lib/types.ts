@@ -291,6 +291,37 @@ export interface Quiz {
   items: QuizItem[];
 }
 
+/** One learner answer to a quiz item (`submitQuiz` payload). */
+export interface QuizAnswer {
+  itemId: string;
+  /** The option text the learner selected. */
+  selected: string;
+}
+
+/** The graded outcome of one quiz item (`submitQuiz` result). Formative only —
+ *  `answer`/`explanation` are echoed so the runner reveals the trigger after
+ *  the learner commits; pattern-picker items also carry `correctPattern`. */
+export interface QuizItemResult {
+  itemId: string;
+  type: QuizItemType;
+  correct: boolean;
+  selected: string;
+  /** The correct option text. */
+  answer: string;
+  explanation_md: string;
+  correctPattern?: string;
+}
+
+/** A full graded submission (`submitQuiz`). Never blocks progression. */
+export interface QuizGrade {
+  correctCount: number;
+  total: number;
+  results: QuizItemResult[];
+}
+
+/** Reserved `submitQuiz` source id for the interleaved cross-unit pool. */
+export const PATTERN_POOL_SOURCE = "pattern-pool";
+
 export type DiagramMode = "view" | "perform";
 
 export interface DiagramStep {

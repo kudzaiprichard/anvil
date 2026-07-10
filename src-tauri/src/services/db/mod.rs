@@ -10,6 +10,7 @@ pub mod imported_problems;
 pub mod lesson_progress;
 pub mod mastery;
 pub mod problem_state;
+pub mod quiz_result;
 pub mod user_problems;
 
 use std::path::Path;
@@ -56,6 +57,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (2, include_str!("migrations/0002_imported_problems.sql")),
     (3, include_str!("migrations/0003_curriculum.sql")),
     (4, include_str!("migrations/0004_gate_solve.sql")),
+    (5, include_str!("migrations/0005_quiz_result.sql")),
 ];
 
 fn migrate(conn: &Connection) -> AppResult<()> {
