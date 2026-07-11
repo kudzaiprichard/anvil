@@ -15,6 +15,178 @@
     },
     {
       "id": "q2",
+      "type": "concept-check",
+      "prompt_md": "What does the `held` state represent at the end of a given day in the buy/sell-with-cooldown DP?",
+      "options": [
+        "The maximum profit achievable if you are currently holding a share at the end of that day",
+        "The total number of shares bought so far",
+        "The profit from the single best trade seen so far",
+        "Whether today's price is higher than yesterday's"
+      ],
+      "answer": "The maximum profit achievable if you are currently holding a share at the end of that day",
+      "explanation_md": "Each named state tracks the best profit conditioned on ending the day in that particular status — here, currently owning a share."
+    },
+    {
+      "id": "q3",
+      "type": "concept-check",
+      "prompt_md": "Why is `held` initialized to negative infinity (or a very small number) at day 0, rather than 0?",
+      "options": [
+        "Because on day 0 you haven't had a chance to buy yet under this initialization convention, so 'currently holding' is an impossible/invalid state to have a real profit for",
+        "Because negative infinity forces the algorithm to never buy",
+        "Because all prices are assumed negative",
+        "Because it must match the value of `sold` exactly at day 0"
+      ],
+      "answer": "Because on day 0 you haven't had a chance to buy yet under this initialization convention, so 'currently holding' is an impossible/invalid state to have a real profit for",
+      "explanation_md": "Depending on the exact loop formulation, `held` before any transaction represents an unreachable state, so it's seeded with negative infinity so it never wins a later max() comparison until a real buy happens."
+    },
+    {
+      "id": "q4",
+      "type": "concept-check",
+      "prompt_md": "In the recurrence `held = max(held, rest - price)`, what does the `rest - price` branch represent?",
+      "options": [
+        "Buying today, transitioning from the resting state into holding, paying today's price",
+        "Selling today at the current price",
+        "Staying in the held state without any transaction",
+        "The cooldown day immediately after a sale"
+      ],
+      "answer": "Buying today, transitioning from the resting state into holding, paying today's price",
+      "explanation_md": "The only way to newly enter `held` is to buy, which can only happen from the `rest` state (not straight from `sold`), and buying subtracts today's price from the running profit."
+    },
+    {
+      "id": "q5",
+      "type": "concept-check",
+      "prompt_md": "In the recurrence `rest = max(rest, prev_sold)`, why does `rest` read `prev_sold` (yesterday's sold value) instead of today's `sold`?",
+      "options": [
+        "Because entering the cooldown/rest state today can only come from having sold on a previous day, and using today's freshly computed sold would be a same-day dependency error",
+        "Because prev_sold is always larger than sold",
+        "Because rest and sold must always differ by exactly one day",
+        "It's an arbitrary choice; either value works identically"
+      ],
+      "answer": "Because entering the cooldown/rest state today can only come from having sold on a previous day, and using today's freshly computed sold would be a same-day dependency error",
+      "explanation_md": "All three state updates within one iteration must read values as they stood *before* today's update, so the recurrence saves `prev_sold` before overwriting `sold` to avoid reading today's not-yet-final value out of order."
+    },
+    {
+      "id": "q6",
+      "type": "concept-check",
+      "prompt_md": "What does each column of the conceptual state-machine DP table represent, and what does each row represent?",
+      "options": [
+        "Each column is one day; each row is one named state (held, sold, rest)",
+        "Each column is one named state; each row is one price value",
+        "Each column is one transaction; each row is one day",
+        "Rows and columns both index days, forming a full 2-D grid like grid-path DP"
+      ],
+      "answer": "Each column is one day; each row is one named state (held, sold, rest)",
+      "explanation_md": "The state machine keeps one column per day and one row per named state, with each cell holding the best value for being in that state on that day."
+    },
+    {
+      "id": "q7",
+      "type": "concept-check",
+      "prompt_md": "Why does a plain greedy rule like 'sell whenever tomorrow's price is lower' fail once a cooldown constraint is introduced?",
+      "options": [
+        "Because a locally optimal sell today can force you into an extra unproductive cooldown day that a different, less greedy choice would have avoided",
+        "Because greedy algorithms never work on arrays of prices",
+        "Because cooldown constraints only apply to the first transaction",
+        "Because greedy requires the prices to be sorted first"
+      ],
+      "answer": "Because a locally optimal sell today can force you into an extra unproductive cooldown day that a different, less greedy choice would have avoided",
+      "explanation_md": "The cooldown couples today's decision to tomorrow's options, so a choice that looks best in isolation can be globally worse once its downstream lockout effect is considered — exactly what the state machine's transitions capture and a greedy rule ignores."
+    },
+    {
+      "id": "q8",
+      "type": "concept-check",
+      "prompt_md": "How can the state-machine DP table be rolled from O(n) states-over-time down to O(1) space?",
+      "options": [
+        "Because each day's states only depend on the immediately preceding day's states, so a handful of scalar variables can replace the full table",
+        "Because only the final day's states matter, so all earlier days can be discarded immediately",
+        "Because prices are bounded, so the table can be replaced by a fixed-size lookup",
+        "Because held, sold, and rest are always equal to each other"
+      ],
+      "answer": "Because each day's states only depend on the immediately preceding day's states, so a handful of scalar variables can replace the full table",
+      "explanation_md": "Just like rolling a grid-path table down to one row, a state machine whose transitions only look one step back can drop the whole history and keep only the previous column's state values."
+    },
+    {
+      "id": "q9",
+      "type": "concept-check",
+      "prompt_md": "What is a common bug when implementing buy/sell-with-cooldown: computing `held` before saving `prev_sold`, or vice versa. Which order is correct and why?",
+      "options": [
+        "Save `prev_sold` from the current sold value before overwriting sold, then compute the new sold, held, and rest from the saved/previous values",
+        "Compute held first, then sold, then rest, discarding prev_sold entirely",
+        "Compute all three simultaneously using this iteration's freshly updated held value",
+        "Order doesn't matter as long as all three variables are updated somewhere in the loop"
+      ],
+      "answer": "Save `prev_sold` from the current sold value before overwriting sold, then compute the new sold, held, and rest from the saved/previous values",
+      "explanation_md": "Since `sold` gets overwritten in the same iteration and `rest` needs yesterday's sold value, failing to snapshot it first causes `rest` to silently read today's already-updated sold, corrupting the cooldown logic."
+    },
+    {
+      "id": "q10",
+      "type": "concept-check",
+      "prompt_md": "If you needed to extend this state machine to allow at most k transactions total, how would the state representation change?",
+      "options": [
+        "Add a third dimension tracking transactions used so far, alongside day and named state",
+        "Replace the named states with a single running profit variable",
+        "Remove the cooldown rule entirely since it's incompatible with a transaction limit",
+        "Switch to a 1-D DP array indexed only by day, dropping the states"
+      ],
+      "answer": "Add a third dimension tracking transactions used so far, alongside day and named state",
+      "explanation_md": "A transaction limit adds a new axis to track ('transactions used'), on top of day and state — the state machine grows richer but keeps the same table discipline."
+    },
+    {
+      "id": "q11",
+      "type": "complexity",
+      "prompt_md": "What is the time and space complexity of the rolled-down state-machine solution for buy/sell with cooldown, given n days?",
+      "options": [
+        "O(n) time, O(1) space",
+        "O(n) time, O(n) space",
+        "O(n^2) time, O(1) space",
+        "O(2^n) time, O(n) space"
+      ],
+      "answer": "O(n) time, O(1) space",
+      "explanation_md": "Each day's held/sold/rest values only depend on the previous day's values, so one linear pass suffices and only a handful of variables need to be kept."
+    },
+    {
+      "id": "q12",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of the brute-force approach that tries every subset of buy/sell days directly?",
+      "options": [
+        "Exponential in n",
+        "O(n)",
+        "O(n log n)",
+        "O(n * k) where k is the number of allowed transactions"
+      ],
+      "answer": "Exponential in n",
+      "explanation_md": "Deciding, for every day, whether to buy/sell/hold independently produces exponentially many combinations to check without the state-machine's shared substructure."
+    },
+    {
+      "id": "q13",
+      "type": "complexity",
+      "prompt_md": "Before rolling to O(1) space, if you stored a full table of shape (n days) x (3 states), what would the space complexity be?",
+      "options": ["O(n)", "O(n^2)", "O(1)", "O(3^n)"],
+      "answer": "O(n)",
+      "explanation_md": "3 is a constant number of states, so a full table of n days by 3 states is O(3n) = O(n) space — before the further optimization down to O(1) using only the previous column."
+    },
+    {
+      "id": "q14",
+      "type": "complexity",
+      "prompt_md": "If the problem is extended to allow at most k transactions, adding a third dimension of size k+1 to the state table, what is the new time complexity for n days?",
+      "options": [
+        "O(n * k)",
+        "O(n) unchanged, since k is always a small constant",
+        "O(n^2 * k^2)",
+        "O(2^k * n)"
+      ],
+      "answer": "O(n * k)",
+      "explanation_md": "Each of the n days now has O(k) states to update (one per transaction count used so far, times the constant number of named states), giving O(n*k) total work."
+    },
+    {
+      "id": "q15",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of the plain (no cooldown, unlimited transactions) buy/sell-stock problem solved with a single running max-profit variable?",
+      "options": ["O(n)", "O(n log n)", "O(n^2)", "O(2^n)"],
+      "answer": "O(n)",
+      "explanation_md": "With unlimited transactions and no cooldown, a single linear pass tracking the minimum price seen so far and the best profit suffices — still O(n), the simplest member of this state-machine family."
+    },
+    {
+      "id": "q16",
       "type": "pattern-picker",
       "prompt_md": "You're making a sequence of buy/sell decisions across days, where selling locks you out of buying again for one extra day. Which approach fits?",
       "options": [
@@ -28,17 +200,130 @@
       "explanation_md": "A cooldown constraint that couples consecutive decisions is the fingerprint of state-machine DP: name the states, write the transition formulas, and evaluate them left to right."
     },
     {
-      "id": "q3",
-      "type": "complexity",
-      "prompt_md": "What is the time and space complexity of the rolled-down state-machine solution for buy/sell with cooldown, given n days?",
+      "id": "q17",
+      "type": "pattern-picker",
+      "prompt_md": "You're solving buy/sell stock where every sale incurs a fixed transaction fee, and there's no cooldown restriction. Which approach fits?",
       "options": [
-        "O(n) time, O(1) space",
-        "O(n) time, O(n) space",
-        "O(n^2) time, O(1) space",
-        "O(2^n) time, O(n) space"
+        "Two named states (holding, not-holding) updated each day, subtracting the fee at the moment of sale",
+        "A greedy rule that only sells when the price gain exceeds the fee, checked independently per pair of days",
+        "Backtracking over every possible subset of buy/sell days",
+        "A 1-D DP array over price differences only"
       ],
-      "answer": "O(n) time, O(1) space",
-      "explanation_md": "Each day's held/sold/rest values only depend on the previous day's values, so one linear pass suffices and only a handful of variables need to be kept."
+      "answer": "Two named states (holding, not-holding) updated each day, subtracting the fee at the moment of sale",
+      "correct_pattern": "dp-2d",
+      "explanation_md": "Still a small, nameable status per day (holding vs. not) with a transition cost applied on sale — the same state-machine shape as cooldown, just with a fee subtracted instead of a lockout day enforced."
+    },
+    {
+      "id": "q18",
+      "type": "pattern-picker",
+      "prompt_md": "You're solving buy/sell stock where you're allowed at most 2 total transactions (buy-then-sell counts as one), and no cooldown or fee applies. Which approach fits?",
+      "options": [
+        "A DP table over (day, transactions used, holding-or-not) — a richer state machine with an extra transaction-count axis",
+        "The plain two-state (holding, not-holding) machine from the unlimited-transaction case, unchanged",
+        "Backtracking over every combination of up to 2 buy/sell pairs",
+        "A greedy pick of the 2 largest single-day price gains"
+      ],
+      "answer": "A DP table over (day, transactions used, holding-or-not) — a richer state machine with an extra transaction-count axis",
+      "correct_pattern": "dp-2d",
+      "explanation_md": "Limiting the transaction count adds a new state dimension (how many of your 2 transactions you've spent) to the same day-by-state table discipline, rather than changing the underlying approach."
+    },
+    {
+      "id": "q19",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a single array of prices and asked only for the maximum profit from at most one buy and one sell (no cooldown, no fee, no repeated transactions). Which approach fits?",
+      "options": [
+        "A single linear pass tracking the minimum price seen so far and the best profit if sold today",
+        "A full state-machine DP with named states for holding/resting/sold",
+        "Backtracking over every pair of buy/sell days",
+        "A 2-D DP table over two day indices, like a two-sequence comparison"
+      ],
+      "answer": "A single linear pass tracking the minimum price seen so far and the best profit if sold today",
+      "correct_pattern": "dp-1d",
+      "explanation_md": "This is a trap: with only a single transaction allowed and no coupling constraint between decisions, the problem collapses to tracking one running minimum and one running best profit — a 1-D scan, not a multi-state machine."
+    },
+    {
+      "id": "q20",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a sequence of on/off switch flips over time, where each flip has a cost, and a 'lockout' period after turning on before you can turn off again. You want the minimum total cost. Which approach fits?",
+      "options": [
+        "Track named states (on, off, locked-out) and compute the best cost in each state at every time step",
+        "Greedily flip the switch whenever it's cheaper than staying in the current state, checked independently at each step",
+        "Backtracking over every possible sequence of flips",
+        "A 2-D DP table over two independent array indices, like grid-path counting"
+      ],
+      "answer": "Track named states (on, off, locked-out) and compute the best cost in each state at every time step",
+      "correct_pattern": "dp-2d",
+      "explanation_md": "A lockout period coupling consecutive decisions, with a small nameable status per step, is the same state-machine DP fingerprint as buy/sell with cooldown — just relabeled as on/off/locked-out instead of held/sold/rest."
+    },
+    {
+      "id": "q21",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a sequence of daily temperatures and must find, for each day, the number of days until a warmer temperature (or 0 if none exists). Which approach fits?",
+      "options": [
+        "A monotonic stack that pops indices whenever a warmer day is found",
+        "A state machine with named hot/cold states per day",
+        "A 2-D DP table over two day indices",
+        "Backtracking over every future day for each starting day"
+      ],
+      "answer": "A monotonic stack that pops indices whenever a warmer day is found",
+      "correct_pattern": "stack",
+      "explanation_md": "This is a trap: even though it's a sequence of day-by-day decisions like buy/sell, there's no cooldown or coupling constraint between consecutive choices here — 'next greater element' is answered by a monotonic stack, not a state machine."
+    },
+    {
+      "id": "q22",
+      "type": "pattern-picker",
+      "prompt_md": "You're solving buy/sell stock with unlimited transactions and no cooldown or fee at all — just maximize total profit from any number of non-overlapping buy/sell pairs. Which approach fits?",
+      "options": [
+        "Greedy: sum up every positive day-to-day price increase",
+        "A full state-machine DP with named holding/resting/sold states, same as the cooldown variant",
+        "Backtracking over every combination of buy/sell pairs",
+        "A 2-D DP table over two day indices"
+      ],
+      "answer": "Greedy: sum up every positive day-to-day price increase",
+      "correct_pattern": "dp-1d",
+      "explanation_md": "This is a trap: with no cooldown, no fee, and unlimited transactions, there's no coupling between consecutive decisions to model — summing every positive day-over-day delta is provably equivalent and needs no state machine at all."
+    },
+    {
+      "id": "q23",
+      "type": "pattern-picker",
+      "prompt_md": "You're modeling a traffic light system where the light cycles red -> green -> yellow -> red, each transition has a fixed duration, and you want the total time to reach a target state count. Which approach fits?",
+      "options": [
+        "A state machine tracking the current light color at each time step and its transition rules",
+        "A 2-D DP table over two independent light indices",
+        "Backtracking over every possible sequence of light changes",
+        "A monotonic stack tracking light durations"
+      ],
+      "answer": "A state machine tracking the current light color at each time step and its transition rules",
+      "correct_pattern": "dp-2d",
+      "explanation_md": "A small, fixed, nameable set of statuses (red, green, yellow) with fixed transitions between them is exactly the state-machine DP shape, just outside the stock-trading framing."
+    },
+    {
+      "id": "q24",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a sequence of decisions where each day you can be in state A or state B, moving between them has a cost, and today's optimal choice depends only on which state you were in yesterday — but there is no limit on how many times you can switch and no lockout after switching. Which approach fits?",
+      "options": [
+        "A 1-D DP array holding two running values (best cost ending in A, best cost ending in B) updated each day",
+        "A full state-machine table with an extra transaction-count dimension",
+        "Backtracking over every possible sequence of states",
+        "A greedy rule that always switches to whichever state has the lower immediate cost"
+      ],
+      "answer": "A 1-D DP array holding two running values (best cost ending in A, best cost ending in B) updated each day",
+      "correct_pattern": "dp-1d",
+      "explanation_md": "This is a trap: two running values updated each day from only the previous day's values is really a 1-D DP with a constant-size per-step state, not a distinct 2-D pattern — the same rolled-down shape you'd reach for a plain two-state machine with no extra constraints."
+    },
+    {
+      "id": "q25",
+      "type": "pattern-picker",
+      "prompt_md": "You're given prices over n days and must choose the single best day to buy and the single best later day to sell, but you must also enumerate and print every (buy day, sell day) pair that achieves the maximum profit (not just the max value). Which approach fits?",
+      "options": [
+        "Backtracking / try all — after finding the max profit with a linear scan, re-scan and collect every pair that achieves it",
+        "A state machine with named holding/resting states, since it directly enumerates all optimal pairs",
+        "A 2-D DP table over two day indices, since it stores every pair's profit already",
+        "A monotonic stack over prices"
+      ],
+      "answer": "Backtracking / try all — after finding the max profit with a linear scan, re-scan and collect every pair that achieves it",
+      "correct_pattern": "backtracking",
+      "explanation_md": "This is a trap: once the task shifts from 'the best value' to 'every pair achieving that value,' you need to enumerate outputs, which is a try-all/collection task layered on top of (not replaced by) the DP — a pure state machine only tracks the best scalar value, not every witness pair."
     }
   ]
 }

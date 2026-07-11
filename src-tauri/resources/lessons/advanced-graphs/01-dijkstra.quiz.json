@@ -11,10 +11,117 @@
         "Whether `node` equals the source"
       ],
       "answer": "Whether `node` has already been finalized (is already a key in `dist`)",
-      "explanation_md": "The same node can be pushed onto the heap multiple times, once per relaxing edge. Only the *first* pop (the smallest `d`) is the true shortest distance; later, stale pops for the same node must be skipped, not overwritten into `dist`."
+      "explanation_md": "The same node can be pushed onto the heap multiple times, once per relaxing edge. Only the first pop (the smallest `d`) is the true shortest distance; later, stale pops for the same node must be skipped."
     },
     {
       "id": "q2",
+      "type": "concept-check",
+      "prompt_md": "Why can't you just use a plain FIFO queue (BFS) to find shortest paths once edge weights start to vary?",
+      "options": [
+        "BFS's queue order reflects hop count, not true cumulative distance, so it can report a node as \"closer\" when it's actually more expensive",
+        "BFS uses too much memory for weighted graphs",
+        "BFS cannot be used on directed graphs",
+        "BFS requires every edge weight to equal zero"
+      ],
+      "answer": "BFS's queue order reflects hop count, not true cumulative distance, so it can report a node as \"closer\" when it's actually more expensive",
+      "explanation_md": "BFS's ordering guarantee only holds when every edge costs the same. Once weights differ, \"visited earliest\" and \"visited cheapest\" stop being the same thing."
+    },
+    {
+      "id": "q3",
+      "type": "concept-check",
+      "prompt_md": "Why does Dijkstra's algorithm give wrong answers when a graph has negative edge weights?",
+      "options": [
+        "Once a node is popped and finalized, Dijkstra never revisits it — but a later negative edge could still produce a cheaper route to it",
+        "The min-heap implementation cannot store negative numbers",
+        "Negative weights always make the graph disconnected",
+        "Dijkstra only works on undirected graphs"
+      ],
+      "answer": "Once a node is popped and finalized, Dijkstra never revisits it — but a later negative edge could still produce a cheaper route to it",
+      "explanation_md": "Dijkstra's correctness relies on \"pop order is distance order,\" which assumes adding more edges never makes a path cheaper. Negative edges break that assumption."
+    },
+    {
+      "id": "q4",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of Dijkstra's algorithm implemented with a binary heap on a graph with `V` vertices and `E` edges?",
+      "options": ["O(V + E)", "O(V log V)", "O((V + E) log V)", "O(V^2)"],
+      "answer": "O((V + E) log V)",
+      "explanation_md": "Every edge can push once onto the heap (O(E) pushes) and every push/pop costs O(log V); each vertex is also popped once, giving O((V + E) log V) overall."
+    },
+    {
+      "id": "q5",
+      "type": "concept-check",
+      "prompt_md": "What does each entry pushed onto Dijkstra's heap represent?",
+      "options": [
+        "A `(distance-so-far, node)` pair",
+        "A `(node, node)` edge pair only",
+        "Just the node id, ordered by insertion",
+        "A `(weight, source, destination)` triple for every edge in the graph"
+      ],
+      "answer": "A `(distance-so-far, node)` pair",
+      "explanation_md": "The heap orders candidates by tentative distance so the cheapest unfinished node is always popped next; the node id is just the payload attached to that key."
+    },
+    {
+      "id": "q6",
+      "type": "concept-check",
+      "prompt_md": "Why can the same node end up in Dijkstra's heap more than once?",
+      "options": [
+        "Because it gets pushed again every time one of its incoming edges is relaxed with a new tentative distance",
+        "Because the heap requires duplicate entries to sort correctly",
+        "Because `heapq` always inserts each element twice",
+        "Because the input graph itself contains duplicate nodes"
+      ],
+      "answer": "Because it gets pushed again every time one of its incoming edges is relaxed with a new tentative distance",
+      "explanation_md": "A node can be reached from several different neighbors, each relaxation pushing a fresh candidate distance; only the smallest of those pops actually matters."
+    },
+    {
+      "id": "q7",
+      "type": "concept-check",
+      "prompt_md": "What guarantee makes it safe to treat a node's distance as final the very first time it's popped from Dijkstra's heap?",
+      "options": [
+        "The heap always pops nodes in increasing order of tentative distance, so any not-yet-seen route to that node would have to be at least as expensive",
+        "The heap is emptied completely before any distance is trusted",
+        "Nodes are visited in the order they were originally pushed, like a FIFO queue",
+        "Every edge in the graph has the same weight"
+      ],
+      "answer": "The heap always pops nodes in increasing order of tentative distance, so any not-yet-seen route to that node would have to be at least as expensive",
+      "explanation_md": "Because non-negative weights mean extending a path never makes it cheaper, whatever the heap would pop next can only be equal or more expensive than what was just popped."
+    },
+    {
+      "id": "q8",
+      "type": "complexity",
+      "prompt_md": "What is the space complexity of Dijkstra's algorithm on a graph with `V` vertices and `E` edges?",
+      "options": ["O(V + E)", "O(V^2)", "O(1)", "O(E log V)"],
+      "answer": "O(V + E)",
+      "explanation_md": "The adjacency list takes O(V + E), and the heap plus the `dist` map each hold at most O(E) and O(V) entries respectively, so the total is O(V + E)."
+    },
+    {
+      "id": "q9",
+      "type": "concept-check",
+      "prompt_md": "A buggy Dijkstra implementation omits the `if node in dist: continue` check after popping. What goes wrong?",
+      "options": [
+        "A stale, more expensive heap entry for an already-finalized node can overwrite its correct distance with a worse one",
+        "The program crashes immediately with an index error",
+        "The heap silently drops the node and never processes it",
+        "Nothing changes — the check is purely cosmetic"
+      ],
+      "answer": "A stale, more expensive heap entry for an already-finalized node can overwrite its correct distance with a worse one",
+      "explanation_md": "Without the skip, a later, larger pop for the same node would overwrite `dist[node]` with a worse value and re-relax its neighbors using that wrong number."
+    },
+    {
+      "id": "q10",
+      "type": "concept-check",
+      "prompt_md": "To reconstruct the actual shortest *path* (not just its length), what would you additionally track alongside `dist`?",
+      "options": [
+        "A `parent`/`prev` map recording which node each node was reached from when its distance was finalized",
+        "Nothing extra — `dist` alone reconstructs the path",
+        "A second heap sorted by node id",
+        "The total number of edges in the graph"
+      ],
+      "answer": "A `parent`/`prev` map recording which node each node was reached from when its distance was finalized",
+      "explanation_md": "Recording the predecessor at the moment a node's distance is finalized lets you walk backward from the target to the source afterward to rebuild the path."
+    },
+    {
+      "id": "q11",
       "type": "pattern-picker",
       "prompt_md": "You have a directed graph with non-negative edge weights and must find the shortest time for a signal to reach every node from one source. Which approach fits?",
       "options": [
@@ -25,15 +132,133 @@
       ],
       "answer": "Push `(0, source)` onto a min-heap and repeatedly pop the smallest tentative distance, relaxing that node's neighbors",
       "correct_pattern": "advanced-graphs",
-      "explanation_md": "Weighted edges plus \"shortest path from one source\" is the fingerprint for Dijkstra: a min-heap frontier ordered by true cumulative distance, not hop count. BFS's queue order only reflects distance when every edge costs the same."
+      "explanation_md": "Weighted edges plus \"shortest path from one source\" is the fingerprint for Dijkstra: a min-heap frontier ordered by true cumulative distance, not hop count."
     },
     {
-      "id": "q3",
-      "type": "complexity",
-      "prompt_md": "What is the time complexity of Dijkstra's algorithm implemented with a binary heap on a graph with `V` vertices and `E` edges?",
-      "options": ["O(V + E)", "O(V log V)", "O((V + E) log V)", "O(V^2)"],
-      "answer": "O((V + E) log V)",
-      "explanation_md": "Every edge can push once onto the heap (O(E) pushes) and every push/pop costs O(log V); each vertex is also popped and finalized once, giving O((V + E) log V) overall."
+      "id": "q12",
+      "type": "pattern-picker",
+      "prompt_md": "An unweighted graph (or one where every edge costs exactly 1) and you need the fewest hops from a source to a target. Which approach fits best?",
+      "options": [
+        "Plain BFS from the source, since every edge already costs the same",
+        "Push `(0, source)` onto a min-heap and run Dijkstra's relaxation",
+        "Relax every edge for `k + 1` rounds (Bellman-Ford)",
+        "Sort edges and connect them with Union-Find"
+      ],
+      "answer": "Plain BFS from the source, since every edge already costs the same",
+      "correct_pattern": "graphs",
+      "explanation_md": "BFS's queue order already reflects hop count when every edge costs 1 — reaching for a min-heap is unnecessary machinery for a problem with no real weights."
+    },
+    {
+      "id": "q13",
+      "type": "pattern-picker",
+      "prompt_md": "A weighted graph may contain negative edge weights (but no negative cycle), and you need shortest distances from a source to all nodes. Which approach fits?",
+      "options": [
+        "Bellman-Ford: relax every edge repeatedly, since Dijkstra's finalize-on-pop guarantee breaks with negative edges",
+        "Dijkstra's algorithm with a min-heap",
+        "Prim's algorithm",
+        "Plain BFS"
+      ],
+      "answer": "Bellman-Ford: relax every edge repeatedly, since Dijkstra's finalize-on-pop guarantee breaks with negative edges",
+      "correct_pattern": "advanced-graphs",
+      "explanation_md": "Negative edges are the trigger that rules out Dijkstra outright; Bellman-Ford's repeated full-edge relaxation still converges correctly."
+    },
+    {
+      "id": "q14",
+      "type": "pattern-picker",
+      "prompt_md": "You must connect every server in a network with minimum total cable cost — there's no single \"source\" server whose distance to others matters. Which approach fits?",
+      "options": [
+        "Minimum spanning tree (Prim's or Kruskal's)",
+        "Dijkstra's algorithm from an arbitrary source",
+        "Bellman-Ford bounded to k hops",
+        "Plain DFS to find any spanning tree"
+      ],
+      "answer": "Minimum spanning tree (Prim's or Kruskal's)",
+      "correct_pattern": "advanced-graphs",
+      "explanation_md": "\"Connect everything as cheaply as possible\" with no fixed source or destination is the MST fingerprint, not a shortest-path one."
+    },
+    {
+      "id": "q15",
+      "type": "pattern-picker",
+      "prompt_md": "A flight network has weighted edges, and you must find the cheapest price from a source to a destination using at most `k` stops. Which approach fits?",
+      "options": [
+        "Relax every edge exactly `k + 1` times, snapshotting distances between rounds",
+        "Push `(0, source)` onto a min-heap and pop the smallest cumulative distance",
+        "BFS layer by layer, counting hops only",
+        "Try every ordering of intermediate airports"
+      ],
+      "answer": "Relax every edge exactly `k + 1` times, snapshotting distances between rounds",
+      "correct_pattern": "advanced-graphs",
+      "explanation_md": "A hop/stop ceiling rules out Dijkstra, which has no notion of a budget; bounded Bellman-Ford relaxation answers exactly this question."
+    },
+    {
+      "id": "q16",
+      "type": "pattern-picker",
+      "prompt_md": "You need to determine whether all nodes in an undirected graph are reachable from each other (the graph is fully connected) — no weights involved. Which approach fits?",
+      "options": [
+        "Plain BFS/DFS from any node, checking whether every node gets visited",
+        "Dijkstra's algorithm with a min-heap",
+        "Bellman-Ford relaxation",
+        "Prim's algorithm"
+      ],
+      "answer": "Plain BFS/DFS from any node, checking whether every node gets visited",
+      "correct_pattern": "graphs",
+      "explanation_md": "Connectivity with no weights is a plain traversal question — reach for BFS/DFS, not a weighted shortest-path or MST algorithm."
+    },
+    {
+      "id": "q17",
+      "type": "pattern-picker",
+      "prompt_md": "A grid where moving into a cell costs its elevation value, and you must minimize the highest elevation you're ever forced to cross on the way to the exit. Which approach fits?",
+      "options": [
+        "A min-heap of `(bottleneck-so-far, row, col)`, popping the smallest bottleneck and expanding to neighbors",
+        "Plain BFS treating every move as cost 1",
+        "Sort every cell by elevation and take the smallest n of them",
+        "Kruskal's algorithm over the grid's cells"
+      ],
+      "answer": "A min-heap of `(bottleneck-so-far, row, col)`, popping the smallest bottleneck and expanding to neighbors",
+      "correct_pattern": "advanced-graphs",
+      "explanation_md": "A weighted grid where cost is baked into each cell is Dijkstra territory, just with `max` standing in for `+` as the combine rule."
+    },
+    {
+      "id": "q18",
+      "type": "pattern-picker",
+      "prompt_md": "You just need to know whether *any* path exists from node A to node B at all — cost and weight don't matter, only reachability. Which approach fits?",
+      "options": [
+        "Plain BFS/DFS reachability check from A",
+        "Dijkstra's algorithm tracking cumulative weight",
+        "Prim's algorithm",
+        "Bounded Bellman-Ford relaxation"
+      ],
+      "answer": "Plain BFS/DFS reachability check from A",
+      "correct_pattern": "graphs",
+      "explanation_md": "A yes/no reachability question needs nothing more than a traversal; pulling in a weighted shortest-path algorithm is solving a harder problem than was asked."
+    },
+    {
+      "id": "q19",
+      "type": "pattern-picker",
+      "prompt_md": "A weighted directed graph with strictly non-negative edges, and you only need the cheapest cost from a source to one specific target node (not every node). Which approach fits?",
+      "options": [
+        "Dijkstra's algorithm, which can even stop early once the target is popped",
+        "Bellman-Ford, relaxing every edge for V - 1 rounds",
+        "Prim's algorithm",
+        "Try every path from source to target"
+      ],
+      "answer": "Dijkstra's algorithm, which can even stop early once the target is popped",
+      "correct_pattern": "advanced-graphs",
+      "explanation_md": "Non-negative weights plus a single-source shortest-path question is still Dijkstra's fingerprint, whether you need one target's distance or all of them."
+    },
+    {
+      "id": "q20",
+      "type": "pattern-picker",
+      "prompt_md": "A large, sparse, directed graph where every edge weight is either zero or a positive number, and you need shortest distances from one source. Which approach fits?",
+      "options": [
+        "Dijkstra's algorithm with a min-heap — zero is still non-negative",
+        "Bellman-Ford, since zero-weight edges are treated as if negative",
+        "Plain BFS, ignoring the weights",
+        "Kruskal's algorithm with Union-Find"
+      ],
+      "answer": "Dijkstra's algorithm with a min-heap — zero is still non-negative",
+      "correct_pattern": "advanced-graphs",
+      "explanation_md": "Dijkstra's guarantee only requires weights to be non-negative; zero-weight edges never make a later path cheaper than an already-finalized one, so the algorithm stays correct."
     }
   ]
 }

@@ -3,42 +3,311 @@
     {
       "id": "q1",
       "type": "concept-check",
-      "prompt_md": "In the dict + doubly-linked-list LRU design, what does the dict map each key to?",
+      "prompt_md": "Why does an LRU cache pair a hash map with a doubly linked list instead of using just one of them?",
       "options": [
-        "A copy of the value only",
-        "The doubly linked list node for that key, giving O(1) access to its position",
-        "The key's index in an array",
-        "The recency rank of the key as an integer"
+        "The map gives O(1) lookup-by-key, but has no notion of recency order; the list gives recency order, but only a doubly linked one supports O(1) removal from the middle",
+        "The list is only there to save memory, not for correctness",
+        "A hash map alone can already track recency if you iterate its keys in insertion order",
+        "The doubly linked list replaces the hash map entirely once the cache is full"
       ],
-      "answer": "The doubly linked list node for that key, giving O(1) access to its position",
-      "explanation_md": "The dict's job is purely addressing: hand back the exact node object in O(1) so it can be unlinked and relinked without any scan."
+      "answer": "The map gives O(1) lookup-by-key, but has no notion of recency order; the list gives recency order, but only a doubly linked one supports O(1) removal from the middle",
+      "explanation_md": "Neither structure alone gives both O(1) lookup and O(1) reordering — the composition is what buys both at once."
     },
     {
       "id": "q2",
-      "type": "pattern-picker",
-      "prompt_md": "You need get/put in O(1) on a fixed-capacity cache, evicting the least-recently-used entry on overflow. Which design fits?",
+      "type": "concept-check",
+      "prompt_md": "What does each value in the hash map actually point to in a hash-map-plus-doubly-linked-list LRU cache?",
       "options": [
-        "A dict alone, scanning all entries to find the least-recently-used one on eviction",
-        "A dict mapping key to a node in a doubly linked list, so lookup is O(1) and recency order updates by unlinking/relinking in O(1)",
-        "A sorted list of (last-used-time, key) pairs, re-sorted after every access",
-        "A single array, shifting elements to keep the most-recent one at the front"
+        "The node object living in the linked list, so the map can jump straight to it in O(1) instead of scanning the list",
+        "The node's value only, with the position tracked separately",
+        "The index of the node counted from the head",
+        "A copy of the node, kept independent of the list"
       ],
-      "answer": "A dict mapping key to a node in a doubly linked list, so lookup is O(1) and recency order updates by unlinking/relinking in O(1)",
-      "correct_pattern": "design-ood",
-      "explanation_md": "Fixed capacity + recency-based eviction + O(1) get/put is the fingerprint for composing a hash map with a doubly linked list — neither structure alone gives O(1) both ways."
+      "answer": "The node object living in the linked list, so the map can jump straight to it in O(1) instead of scanning the list",
+      "explanation_md": "Storing the node reference (not a copy or an index) is what lets the map hand you something you can unlink and relink in O(1)."
     },
     {
       "id": "q3",
-      "type": "complexity",
-      "prompt_md": "What is the time complexity of get and put in the dict + doubly-linked-list LRU cache design?",
+      "type": "concept-check",
+      "prompt_md": "On a `get(key)` that hits, besides returning the value, what must happen to keep the structure correct?",
       "options": [
-        "O(1) for both",
-        "O(log n) for both",
-        "O(n) for get, O(1) for put",
+        "The node must be unlinked from its current position and relinked at the most-recently-used end",
+        "Nothing else — reads don't affect recency, only writes do",
+        "The node must be deleted from the map and reinserted with a new key",
+        "The whole list must be rebuilt in sorted key order"
+      ],
+      "answer": "The node must be unlinked from its current position and relinked at the most-recently-used end",
+      "explanation_md": "A `get` still counts as \"using\" the key, so it must promote that key's node to the most-recently-used end, or the recency order silently goes stale."
+    },
+    {
+      "id": "q4",
+      "type": "concept-check",
+      "prompt_md": "Which entry gets evicted when a `put` pushes the cache over capacity?",
+      "options": [
+        "The node at the least-recently-used end of the list, and its key must also be deleted from the map",
+        "The node at the most-recently-used end of the list",
+        "A random node, since order doesn't matter once the cache is full",
+        "The node with the smallest key value"
+      ],
+      "answer": "The node at the least-recently-used end of the list, and its key must also be deleted from the map",
+      "explanation_md": "Eviction is by recency, not by key or value — and both structures must be updated, or the map keeps a dangling reference to a node no longer in the list."
+    },
+    {
+      "id": "q5",
+      "type": "concept-check",
+      "prompt_md": "Why do implementations commonly use two sentinel (dummy) nodes for head and tail instead of tracking real head/tail pointers directly?",
+      "options": [
+        "Sentinels remove edge cases like an empty list or removing the true first/last node, since every real node always has a non-null neighbor on both sides",
+        "Sentinels make the map lookups faster",
+        "Sentinels are required so the list can be doubly linked at all",
+        "Sentinels let you skip storing keys in the map"
+      ],
+      "answer": "Sentinels remove edge cases like an empty list or removing the true first/last node, since every real node always has a non-null neighbor on both sides",
+      "explanation_md": "With sentinels, `_remove` and `_push_front` never have to special-case null neighbors, which is exactly the kind of off-by-one bug this structure is prone to."
+    },
+    {
+      "id": "q6",
+      "type": "concept-check",
+      "prompt_md": "A `put` on a key that already exists in the cache should NOT do which of the following?",
+      "options": [
+        "Insert a brand-new node for that key while leaving the old node for the same key still linked in the list",
+        "Update the existing node's value",
+        "Move the key's node to the most-recently-used end",
+        "Overwrite the map entry to point at the (possibly same) node"
+      ],
+      "answer": "Insert a brand-new node for that key while leaving the old node for the same key still linked in the list",
+      "explanation_md": "Leaving a stale duplicate node linked in the list is the classic bug here: the map would only reference the new node, but the old one keeps taking up a capacity slot with a dangling identity."
+    },
+    {
+      "id": "q7",
+      "type": "concept-check",
+      "prompt_md": "Why must the `_remove` and `_push_front` helpers only touch `prev`/`next` pointers, never scan the list to find a position?",
+      "options": [
+        "Because scanning to find where a node sits would cost O(n), throwing away the whole point of pairing the map with the list",
+        "Because Python doesn't allow scanning linked lists",
+        "Because the map already stores the position as an integer index",
+        "Scanning is fine here; it doesn't affect the overall complexity"
+      ],
+      "answer": "Because scanning to find where a node sits would cost O(n), throwing away the whole point of pairing the map with the list",
+      "explanation_md": "The map hands you the exact node object in O(1); the linked list then unlinks/relinks that specific node in O(1) purely through pointer surgery, no traversal needed."
+    },
+    {
+      "id": "q8",
+      "type": "concept-check",
+      "prompt_md": "Extending this design to LFU (least *frequently* used instead of least *recently* used) still uses a hash-map-plus-linked-structure composition. What's the key difference in what must be tracked?",
+      "options": [
+        "Each entry needs an access-frequency count as well, and eviction now targets the lowest frequency (with recency as a tiebreaker) rather than just the oldest-touched entry",
+        "LFU requires no linked list at all, just a sorted array",
+        "LFU is identical to LRU with no extra bookkeeping required",
+        "LFU only evicts the most recently used entry"
+      ],
+      "answer": "Each entry needs an access-frequency count as well, and eviction now targets the lowest frequency (with recency as a tiebreaker) rather than just the oldest-touched entry",
+      "explanation_md": "LFU keeps the same map-plus-list composition idea but adds a frequency dimension, often via frequency buckets, since \"used most\" and \"used most recently\" are different signals."
+    },
+    {
+      "id": "q9",
+      "type": "concept-check",
+      "prompt_md": "A common bug in hand-rolled LRU implementations is a \"stale pointer.\" Which scenario describes this bug?",
+      "options": [
+        "The map still holds a reference to a node that was unlinked from the list (e.g. during eviction) without also being removed from the map",
+        "The list has more nodes than the map has keys, by design",
+        "Two different keys legitimately share the same node object",
+        "The head sentinel points to the tail sentinel when the cache is empty"
+      ],
+      "answer": "The map still holds a reference to a node that was unlinked from the list (e.g. during eviction) without also being removed from the map",
+      "explanation_md": "The map and the list must be updated together on every mutation — forgetting to delete the evicted key from the map leaves a dangling reference that later corrupts a `get`."
+    },
+    {
+      "id": "q10",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of both `get` and `put` in the hash-map-plus-doubly-linked-list LRU design?",
+      "options": [
+        "O(1) for both, since the map gives O(1) lookup and the doubly linked list gives O(1) unlink/relink",
+        "O(n) for both, since the list must be scanned to find the node",
+        "O(log n) for both, since the list is kept sorted by recency",
         "O(1) for get, O(n) for put"
       ],
-      "answer": "O(1) for both",
-      "explanation_md": "Each call does one dict lookup plus O(1) pointer relinking at the list's sentinel ends — no scanning, ever — at the cost of O(capacity) extra space for the map and the list nodes."
+      "answer": "O(1) for both, since the map gives O(1) lookup and the doubly linked list gives O(1) unlink/relink",
+      "explanation_md": "That's the entire reason for the composition: every operation is a constant number of map and pointer operations, regardless of cache size."
+    },
+    {
+      "id": "q11",
+      "type": "complexity",
+      "prompt_md": "What is the space complexity of an LRU cache holding up to capacity `c` entries?",
+      "options": [
+        "O(c), since the map holds at most c key-to-node entries and the list holds at most c nodes",
+        "O(1), since sentinels make the list size irrelevant",
+        "O(c^2), since every node also stores a pointer to every other node",
+        "O(log c), matching a balanced tree of the same size"
+      ],
+      "answer": "O(c), since the map holds at most c key-to-node entries and the list holds at most c nodes",
+      "explanation_md": "Both structures are bounded by the same capacity, so total space scales linearly with capacity, not with the number of operations performed."
+    },
+    {
+      "id": "q12",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of a naive LRU alternative that stores `(key, value, last_used_time)` in a plain list and scans it on every access to find the least-recently-used entry?",
+      "options": [
+        "O(n) per operation, since finding the minimum last-used time requires scanning every entry",
+        "O(1) per operation, same as the map-plus-list design",
+        "O(log n) per operation, since the list can be binary-searched by time",
+        "O(n log n) per operation, since the list must be fully re-sorted"
+      ],
+      "answer": "O(n) per operation, since finding the minimum last-used time requires scanning every entry",
+      "explanation_md": "Without a structure that maintains recency order for free, every eviction decision costs a linear scan — exactly what the doubly linked list avoids."
+    },
+    {
+      "id": "q13",
+      "type": "complexity",
+      "prompt_md": "If you used a singly linked list instead of a doubly linked list for the recency structure, what would happen to the cost of removing an arbitrary (non-head) node?",
+      "options": [
+        "It would become O(n) in the worst case, since you'd need to walk from the head to find the node's predecessor before you could unlink it",
+        "It would stay O(1), since singly linked lists support removal from any position just as fast",
+        "It would become O(log n), matching a balanced tree",
+        "Removal would become impossible without rebuilding the list"
+      ],
+      "answer": "It would become O(n) in the worst case, since you'd need to walk from the head to find the node's predecessor before you could unlink it",
+      "explanation_md": "A singly linked list only exposes `next` pointers, so removing a node you've jumped to via the map still requires finding its predecessor by walking from the front — the whole reason this design specifically needs a *doubly* linked list."
+    },
+    {
+      "id": "q14",
+      "type": "pattern-picker",
+      "prompt_md": "You need a fixed-capacity cache with O(1) get and put, where a full cache evicts whichever key hasn't been touched (read or written) for the longest time.",
+      "options": [
+        "Hash map + doubly linked list",
+        "Hash map + sorted list / binary search on timestamps",
+        "Single hash map",
+        "Two heaps"
+      ],
+      "answer": "Hash map + doubly linked list",
+      "correct_pattern": "design-ood",
+      "explanation_md": "O(1) get/put with recency-based eviction is the exact trigger for hash map (O(1) lookup) plus doubly linked list (O(1) reordering)."
+    },
+    {
+      "id": "q15",
+      "type": "pattern-picker",
+      "prompt_md": "You just need to store key-value pairs and look them up by key, with no capacity limit and no eviction of any kind.",
+      "options": [
+        "Single hash map",
+        "Hash map + doubly linked list",
+        "Hash map + sorted list / binary search on timestamps",
+        "Two heaps"
+      ],
+      "answer": "Single hash map",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "Trap: with no eviction and no ordering requirement, a plain hash map already gives O(1) get/put — the linked list only earns its keep when recency has to be tracked and enforced."
+    },
+    {
+      "id": "q16",
+      "type": "pattern-picker",
+      "prompt_md": "Design a cache where, on overflow, you must evict the entry that was inserted or accessed longest ago, and every get/put must run in constant time.",
+      "options": [
+        "Hash map + doubly linked list",
+        "Hash map + dynamic array",
+        "Hash map + sorted list / binary search on timestamps",
+        "Two heaps"
+      ],
+      "answer": "Hash map + doubly linked list",
+      "correct_pattern": "design-ood",
+      "explanation_md": "\"Constant-time get/put with eviction of the longest-untouched entry\" is the LRU signature — hash map for lookup, doubly linked list for O(1) recency reordering."
+    },
+    {
+      "id": "q17",
+      "type": "pattern-picker",
+      "prompt_md": "You maintain a simple queue of tasks and only ever need to process them in the exact order they were added, with no need to reorder or evict based on usage.",
+      "options": [
+        "Hash map + doubly linked list",
+        "Single hash map",
+        "Hash map + sorted list / binary search on timestamps",
+        "Two heaps"
+      ],
+      "answer": "Hash map + doubly linked list",
+      "correct_pattern": "linked-list",
+      "explanation_md": "Trap: a plain linked list (or a queue built on one) is enough for strict insertion-order processing — the paired hash map is only needed when you must also jump to an arbitrary key in O(1) and reorder it, which a pure FIFO queue never does."
+    },
+    {
+      "id": "q18",
+      "type": "pattern-picker",
+      "prompt_md": "Every `get` on a key must count as \"using\" that key, immediately moving it to the front of an internal ordering, and this must not cost more than O(1).",
+      "options": [
+        "Hash map + doubly linked list",
+        "Hash map + dynamic array",
+        "Hash map + sorted list / binary search on timestamps",
+        "Two heaps"
+      ],
+      "answer": "Hash map + doubly linked list",
+      "correct_pattern": "design-ood",
+      "explanation_md": "Moving an arbitrary node to the front in O(1) requires pointer surgery, which only a doubly linked list supports; a dynamic array would need O(n) shifting."
+    },
+    {
+      "id": "q19",
+      "type": "pattern-picker",
+      "prompt_md": "You need to evict entries once capacity is exceeded, but eviction should be based on which key has been accessed the *fewest* number of times overall, not which was touched least recently.",
+      "options": [
+        "Hash map + doubly linked list (plus a frequency count per node)",
+        "Hash map + sorted list / binary search on timestamps",
+        "Single hash map",
+        "Two heaps"
+      ],
+      "answer": "Hash map + doubly linked list (plus a frequency count per node)",
+      "correct_pattern": "design-ood",
+      "explanation_md": "This is the LFU variant: it keeps the map-plus-linked-structure composition but adds a frequency dimension, since \"used most\" is a different signal from \"used most recently.\""
+    },
+    {
+      "id": "q20",
+      "type": "pattern-picker",
+      "prompt_md": "You must support O(1) lookup by key, and whenever an entry is evicted (at fixed capacity), it must always be the entry that was accessed longest ago among all current entries.",
+      "options": [
+        "Hash map + doubly linked list",
+        "Hash map + dynamic array",
+        "Hash map + sorted list / binary search on timestamps",
+        "Single hash map"
+      ],
+      "answer": "Hash map + doubly linked list",
+      "correct_pattern": "design-ood",
+      "explanation_md": "\"O(1) lookup plus eviction of the longest-untouched entry\" is the canonical LRU trigger, answered by pairing a hash map with a doubly linked list kept in recency order."
+    },
+    {
+      "id": "q21",
+      "type": "pattern-picker",
+      "prompt_md": "You must serve the most recent N log lines on demand, discarding the oldest line whenever a new one arrives past that limit, with O(1) insert.",
+      "options": [
+        "Hash map + doubly linked list",
+        "Single hash map",
+        "Two heaps",
+        "Hash map + sorted list / binary search on timestamps"
+      ],
+      "answer": "Hash map + doubly linked list",
+      "correct_pattern": "design-ood",
+      "explanation_md": "A bounded, always-fresh window with O(1) eviction of the oldest entry is the same recency-eviction shape LRU solves — hash map for lookup, doubly linked list for O(1) push/evict at either end."
+    },
+    {
+      "id": "q22",
+      "type": "pattern-picker",
+      "prompt_md": "You need to check whether a value has ever been seen before, with no notion of capacity, recency, or eviction at all.",
+      "options": [
+        "Single hash map (or hash set)",
+        "Hash map + doubly linked list",
+        "Hash map + sorted list / binary search on timestamps",
+        "Two heaps"
+      ],
+      "answer": "Single hash map (or hash set)",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "Trap: plain membership testing with no eviction policy needs nothing beyond a hash set — the linked list only pays for itself once recency ordering and bounded capacity enter the picture."
+    },
+    {
+      "id": "q23",
+      "type": "pattern-picker",
+      "prompt_md": "Design a cache with O(1) get/put where, on overflow, the evicted entry must be the one that will be used furthest in the future among all current entries (an oracle scenario, not recency- or frequency-based).",
+      "options": [
+        "Hash map + doubly linked list",
+        "None of the standard compositions apply directly — this needs future knowledge no online recency/frequency structure can provide",
+        "Hash map + sorted list / binary search on timestamps",
+        "Single hash map"
+      ],
+      "answer": "None of the standard compositions apply directly — this needs future knowledge no online recency/frequency structure can provide",
+      "correct_pattern": "design-ood",
+      "explanation_md": "Trap: \"used furthest in the future\" (Belady's optimal eviction) requires knowing future access patterns in advance — an online structure like LRU only approximates this using recency as a proxy, which is why LRU exists in the first place."
     }
   ]
 }
