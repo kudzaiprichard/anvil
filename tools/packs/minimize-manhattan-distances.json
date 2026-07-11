@@ -1,0 +1,37 @@
+{
+  "slug": "minimize-manhattan-distances",
+  "judge": "exact",
+  "pattern": "Rotate coordinates by 45° (u=x+y, v=x-y) so Manhattan distance becomes Chebyshev distance (max of |du|, |dv|); the maximum pairwise distance then equals max(u)-min(u) or max(v)-min(v); try removing each candidate extremal point.",
+  "hints": [
+    "Manhattan distance |x1-x2|+|y1-y2| = max(|(x1+y1)-(x2+y2)|, |(x1-y1)-(x2-y2)|) after the rotation u=x+y, v=x-y. So the maximum pairwise Manhattan distance equals max(max_u-min_u, max_v-min_v).",
+    "The point achieving the overall maximum must be one of the four extremal points (argmax u, argmin u, argmax v, argmin v). Try removing each of these at most 4 candidates and recompute the maximum.",
+    "For each candidate removal, compute the new max over u and v spans using the remaining points (use sorted arrays or track second extremes). Take the minimum over all 4 removal attempts."
+  ],
+  "constraints": [
+    { "param": "points", "kind": "int[][]", "len": [3, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "example 1 with 4 points", "input": [[[3, 10], [5, 15], [10, 2], [4, 4]]] },
+    { "kind": "edge", "description": "all three points identical, removing any gives distance 0", "input": [[[1, 1], [1, 1], [1, 1]]] },
+    { "kind": "edge", "description": "three collinear points on x-axis", "input": [[[0, 0], [5, 0], [10, 0]]] },
+    { "kind": "edge", "description": "points forming a triangle, removing farthest shrinks span", "input": [[[0, 0], [100, 0], [50, 1]]] },
+    { "kind": "boundary", "description": "extremal coordinate values", "input": [[[1, 1], [100000000, 100000000], [1, 100000000]]] },
+    { "kind": "trap", "description": "removing the point that achieves max in u still leaves a large v span", "input": [[[0, 10], [10, 0], [5, 5], [0, 0]]] },
+    { "kind": "trap", "description": "two points are symmetric extremes; removing either gives same result", "input": [[[0, 0], [10, 10], [5, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "random point sets of moderate size to verify coordinate rotation approach",
+      "seed": 19,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, size)\n    points = [[rng.randint(1, 10**8), rng.randint(1, 10**8)] for _ in range(n)]\n    return [points]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumDistance(self, points):\n        n = len(points)\n        best = float('inf')\n        for skip in range(n):\n            cur_max = 0\n            for i in range(n):\n                if i == skip: continue\n                for j in range(i+1, n):\n                    if j == skip: continue\n                    d = abs(points[i][0]-points[j][0]) + abs(points[i][1]-points[j][1])\n                    cur_max = max(cur_max, d)\n            best = min(best, cur_max)\n        return best\n",
+  "no_anchor_ok": true,
+  "solutions": {
+    "python": "class Solution:\n    def minimumDistance(self, points):\n        # u = x+y, v = x-y; max Manhattan = max(max_u-min_u, max_v-min_v)\n        n = len(points)\n        us = sorted((x+y, i) for i, (x, y) in enumerate(points))\n        vs = sorted((x-y, i) for i, (x, y) in enumerate(points))\n\n        def max_dist_without(skip):\n            # max u span\n            max_u = us[-1][0] if us[-1][1] != skip else us[-2][0]\n            min_u = us[0][0] if us[0][1] != skip else us[1][0]\n            # max v span\n            max_v = vs[-1][0] if vs[-1][1] != skip else vs[-2][0]\n            min_v = vs[0][0] if vs[0][1] != skip else vs[1][0]\n            return max(max_u - min_u, max_v - min_v)\n\n        # candidates: the four extremal point indices\n        candidates = {us[0][1], us[-1][1], vs[0][1], vs[-1][1]}\n        return min(max_dist_without(s) for s in candidates)\n",
+    "javascript": "var minimumDistance = function(points) {\n    const n = points.length;\n    const us = points.map(([x,y], i) => [x+y, i]).sort((a,b) => a[0]-b[0]);\n    const vs = points.map(([x,y], i) => [x-y, i]).sort((a,b) => a[0]-b[0]);\n\n    function maxDistWithout(skip) {\n        const maxU = us[n-1][1] !== skip ? us[n-1][0] : us[n-2][0];\n        const minU = us[0][1] !== skip ? us[0][0] : us[1][0];\n        const maxV = vs[n-1][1] !== skip ? vs[n-1][0] : vs[n-2][0];\n        const minV = vs[0][1] !== skip ? vs[0][0] : vs[1][0];\n        return Math.max(maxU - minU, maxV - minV);\n    }\n\n    const candidates = new Set([\n        us[0][1], us[n-1][1], vs[0][1], vs[n-1][1]\n    ]);\n    let best = Infinity;\n    for (const s of candidates) best = Math.min(best, maxDistWithout(s));\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-area-rectangle",
+  "judge": "exact",
+  "pattern": "Group corner points by hashing diagonal pairs: any two points with different x and y can serve as opposite corners, and a rectangle exists only when the other two corners are also present in the set.",
+  "hints": [
+    "A rectangle with axis-aligned sides is fixed entirely by one of its diagonals, so think about pairs of points rather than quadruples.",
+    "Pick two points that differ in both coordinates as opposite corners; the remaining two corners are forced, so just check whether they exist.",
+    "Put every point in a hash set. For each pair (x1,y1),(x2,y2) with x1!=x2 and y1!=y2, see if (x1,y2) and (x2,y1) are present, and track the smallest |x1-x2|*|y1-y2|."
+  ],
+  "constraints": [
+    { "param": "points", "kind": "int[][]", "len": [1, 500], "value": [0, 40000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one obvious unit square plus a stray interior point", "input": [[[1, 1], [1, 3], [3, 1], [3, 3], [2, 2]]] },
+    { "kind": "edge", "description": "two candidate rectangles sharing a side, the thinner one wins", "input": [[[1, 1], [1, 3], [3, 1], [3, 3], [4, 1], [4, 3]]] },
+    { "kind": "trap", "description": "no rectangle can be formed, must return zero", "input": [[[0, 0], [1, 1], [2, 2], [3, 3]]] },
+    { "kind": "trap", "description": "three corners present but the fourth missing", "input": [[[0, 0], [0, 1], [1, 0]]] },
+    { "kind": "boundary", "description": "single point cannot form a rectangle", "input": [[[5, 5]]] },
+    { "kind": "edge", "description": "exact unit square gives area one", "input": [[[0, 0], [0, 1], [1, 0], [1, 1]]] },
+    { "kind": "trap", "description": "collinear points on one row never close a rectangle", "input": [[[0, 0], [1, 0], [2, 0], [3, 0]]] },
+    { "kind": "edge", "description": "two disjoint squares, the smaller area is chosen", "input": [[[0, 0], [0, 2], [2, 0], [2, 2], [5, 5], [5, 6], [6, 5], [6, 6]]] }
+  ],
+  "stress": [
+    {
+      "description": "dense points on a small coordinate grid so many rectangles arise",
+      "seed": 17,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    pts = set()\n    cap = max(1, min(size, 480))\n    while len(pts) < cap:\n        pts.add((rng.randrange(0, 30), rng.randrange(0, 30)))\n    return [[list(p) for p in pts]]\n",
+      "note": "narrow grid maximises coincidental corner matches"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minAreaRect(self, points):\n        pts = set(map(tuple, points))\n        best = float('inf')\n        n = len(points)\n        for i in range(n):\n            for j in range(i + 1, n):\n                x1, y1 = points[i]\n                x2, y2 = points[j]\n                if x1 == x2 or y1 == y2:\n                    continue\n                if (x1, y2) in pts and (x2, y1) in pts:\n                    area = abs(x1 - x2) * abs(y1 - y2)\n                    if area < best:\n                        best = area\n        return 0 if best == float('inf') else best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minAreaRect(self, points):\n        cols = {}\n        for x, y in points:\n            cols.setdefault(x, []).append(y)\n        best = float('inf')\n        last = {}\n        for x in sorted(cols):\n            ys = sorted(cols[x])\n            for i in range(len(ys)):\n                for j in range(i + 1, len(ys)):\n                    key = (ys[i], ys[j])\n                    if key in last:\n                        best = min(best, (x - last[key]) * (ys[j] - ys[i]))\n                    last[key] = x\n        return 0 if best == float('inf') else best\n",
+    "javascript": "var minAreaRect = function(points) {\n    const cols = new Map();\n    for (const [x, y] of points) {\n        if (!cols.has(x)) cols.set(x, []);\n        cols.get(x).push(y);\n    }\n    let best = Infinity;\n    const last = new Map();\n    const xs = [...cols.keys()].sort((a, b) => a - b);\n    for (const x of xs) {\n        const ys = cols.get(x).slice().sort((a, b) => a - b);\n        for (let i = 0; i < ys.length; i++) {\n            for (let j = i + 1; j < ys.length; j++) {\n                const key = ys[i] + ',' + ys[j];\n                if (last.has(key)) {\n                    best = Math.min(best, (x - last.get(key)) * (ys[j] - ys[i]));\n                }\n                last.set(key, x);\n            }\n        }\n    }\n    return best === Infinity ? 0 : best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

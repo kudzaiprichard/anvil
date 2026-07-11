@@ -1,0 +1,36 @@
+{
+  "slug": "sum-of-distances",
+  "judge": "exact",
+  "pattern": "Only indices that share the same value ever contribute to each other's answer, so bucketing indices by value and sweeping each bucket with a running prefix sum of positions turns an all-pairs distance sum into linear total work.",
+  "hints": [
+    "An index's answer only involves other indices holding the exact same value, so first group every index by its value.",
+    "Within one value's sorted list of indices, split each index's contribution into two parts: the sum of distances to indices before it in the list, and the sum of distances to indices after it.",
+    "A running prefix sum of positions inside the group lets you get both the 'before' sum and the 'after' sum in O(1) per index, using how many indices come before/after and their summed position."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all values distinct, so every answer is zero", "input": [[10, 20, 30, 40]] },
+    { "kind": "edge", "description": "all values identical", "input": [[7, 7, 7, 7]] },
+    { "kind": "boundary", "description": "single element", "input": [[42]] },
+    { "kind": "trap", "description": "the repeated value is itself zero, which must not be treated as 'no value'", "input": [[0, 0, 0]] },
+    { "kind": "trap", "description": "a repeated value with a distinct value sitting between the two occurrences", "input": [[5, 1, 5]] },
+    { "kind": "boundary", "description": "two elements, both distinct", "input": [[1, 2]] },
+    { "kind": "edge", "description": "the repeated value sits at the extreme ends of the value range", "input": [[0, 1000000000, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "random array with a limited value pool so groups are non-trivial in size",
+      "seed": 11,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 5000))\n    value_pool = max(1, n // 20)\n    nums = [rng.randint(0, value_pool) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def distance(self, nums):\n        n = len(nums)\n        arr = [0] * n\n        for i in range(n):\n            total = 0\n            for j in range(n):\n                if j != i and nums[j] == nums[i]:\n                    total += abs(i - j)\n            arr[i] = total\n        return arr\n",
+  "solutions": {
+    "python": "from collections import defaultdict\nclass Solution:\n    def distance(self, nums):\n        n = len(nums)\n        groups = defaultdict(list)\n        for i, v in enumerate(nums):\n            groups[v].append(i)\n        arr = [0] * n\n        for idxs in groups.values():\n            m = len(idxs)\n            prefix = [0] * (m + 1)\n            for i, idx in enumerate(idxs):\n                prefix[i + 1] = prefix[i] + idx\n            total_sum = prefix[m]\n            for t, idx in enumerate(idxs):\n                left_count = t\n                left_sum = prefix[t]\n                right_count = m - t - 1\n                right_sum = total_sum - prefix[t + 1]\n                arr[idx] = (idx * left_count - left_sum) + (right_sum - idx * right_count)\n        return arr\n",
+    "javascript": "var distance = function(nums) {\n    const n = nums.length;\n    const groups = new Map();\n    for (let i = 0; i < n; i++) {\n        if (!groups.has(nums[i])) groups.set(nums[i], []);\n        groups.get(nums[i]).push(i);\n    }\n    const arr = new Array(n).fill(0);\n    for (const idxs of groups.values()) {\n        const m = idxs.length;\n        const prefix = new Array(m + 1).fill(0);\n        for (let i = 0; i < m; i++) prefix[i + 1] = prefix[i] + idxs[i];\n        const totalSum = prefix[m];\n        for (let t = 0; t < m; t++) {\n            const idx = idxs[t];\n            const leftCount = t;\n            const leftSum = prefix[t];\n            const rightCount = m - t - 1;\n            const rightSum = totalSum - prefix[t + 1];\n            arr[idx] = (idx * leftCount - leftSum) + (rightSum - idx * rightCount);\n        }\n    }\n    return arr;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-pair-removal-to-sort-array-i",
+  "judge": "exact",
+  "pattern": "The process is fully deterministic -- always merge the leftmost minimum-sum adjacent pair -- so the answer is just the count of merges a direct simulation performs before the array happens to become non-decreasing.",
+  "hints": [
+    "At each step you have no real choice: scan the current array for the adjacent pair with the smallest sum, breaking ties by taking the leftmost one, and replace those two entries with their sum.",
+    "After every merge, check whether the (now shorter) array is non-decreasing; if it is, stop and report how many merges you performed.",
+    "Because the array shrinks by one element each merge and the allowed length is tiny, a direct rebuild-and-rescan simulation is fast enough -- the challenge is just getting the leftmost-minimum-sum tie-break exactly right."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 50], "value": [-1000, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two merges needed", "input": [[5, 2, 3, 1]] },
+    { "kind": "edge", "description": "statement example, already sorted", "input": [[1, 2, 2]] },
+    { "kind": "boundary", "description": "a single element is trivially sorted", "input": [[7]] },
+    { "kind": "boundary", "description": "two elements already in order", "input": [[1, 2]] },
+    { "kind": "trap", "description": "several adjacent pairs tie for the minimum sum, so the leftmost one must be chosen first", "input": [[4, 1, 1, 4, 1, 1, 4]] },
+    { "kind": "trap", "description": "strictly decreasing values, forcing repeated merges from the right before the array can settle", "input": [[9, 7, 5, 3, 1]] },
+    { "kind": "trap", "description": "negative numbers whose pair sums are more negative than any positive pairing, so merging starts from the negative cluster", "input": [[3, -5, -4, 2, 6]] },
+    { "kind": "edge", "description": "a longer mixed sequence needing several rounds of merging", "input": [[8, 1, 6, 2, 9, 3, 7, 0, 5, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays across the full allowed length and value range",
+      "seed": 12,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(50, size))\n    nums = [rng.randint(-1000, 1000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def minimumPairRemoval(self, nums):\n        n = len(nums)\n        if n <= 1:\n            return 0\n        val = list(nums)\n        prev = [i - 1 for i in range(n)]\n        nxt = [i + 1 for i in range(n)]\n        alive = [True] * n\n        bad = 0\n        for i in range(n - 1):\n            if val[i] > val[i + 1]:\n                bad += 1\n        heap = []\n        for i in range(n - 1):\n            heapq.heappush(heap, (val[i] + val[i + 1], i, i + 1))\n        ops = 0\n        while bad > 0:\n            while True:\n                s, i, j = heapq.heappop(heap)\n                if alive[i] and alive[j] and nxt[i] == j and val[i] + val[j] == s:\n                    break\n            p = prev[i]\n            q = nxt[j]\n            vi_old, vj_old = val[i], val[j]\n            if vi_old > vj_old:\n                bad -= 1\n            if p != -1 and val[p] > vi_old:\n                bad -= 1\n            if q < n and vj_old > val[q]:\n                bad -= 1\n            newv = vi_old + vj_old\n            val[i] = newv\n            alive[j] = False\n            nxt[i] = q\n            if q < n:\n                prev[q] = i\n            if p != -1:\n                if val[p] > newv:\n                    bad += 1\n                heapq.heappush(heap, (val[p] + newv, p, i))\n            if q < n:\n                if newv > val[q]:\n                    bad += 1\n                heapq.heappush(heap, (newv + val[q], i, q))\n            ops += 1\n        return ops\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumPairRemoval(self, nums):\n        a = list(nums)\n        ops = 0\n        while True:\n            n = len(a)\n            sorted_ok = True\n            for i in range(n - 1):\n                if a[i] > a[i + 1]:\n                    sorted_ok = False\n                    break\n            if sorted_ok:\n                return ops\n            best_i, best_sum = 0, a[0] + a[1]\n            for i in range(1, n - 1):\n                s = a[i] + a[i + 1]\n                if s < best_sum:\n                    best_sum = s\n                    best_i = i\n            a = a[:best_i] + [a[best_i] + a[best_i + 1]] + a[best_i + 2:]\n            ops += 1\n",
+    "javascript": "var minimumPairRemoval = function(nums) {\n    let a = nums.slice();\n    let ops = 0;\n    while (true) {\n        const n = a.length;\n        let sortedOk = true;\n        for (let i = 0; i < n - 1; i++) {\n            if (a[i] > a[i + 1]) { sortedOk = false; break; }\n        }\n        if (sortedOk) return ops;\n        let bestI = 0, bestSum = a[0] + a[1];\n        for (let i = 1; i < n - 1; i++) {\n            const s = a[i] + a[i + 1];\n            if (s < bestSum) { bestSum = s; bestI = i; }\n        }\n        const merged = a[bestI] + a[bestI + 1];\n        a = a.slice(0, bestI).concat([merged], a.slice(bestI + 2));\n        ops++;\n    }\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

@@ -1,0 +1,39 @@
+{
+  "slug": "evaluate-division",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "Treating each variable as a node and each ratio as a weighted directed edge turns every query into a path-product search through a graph, where the multiplied edge weights along a path give the answer and an absent path means it is undeterminable.",
+  "hints": [
+    "Each equation a / b = v is really two facts: an edge from a to b worth v and an edge from b to a worth 1/v.",
+    "A query c / d is the product of the edge weights along any path from c to d; if no such path exists (or a variable was never mentioned) the answer is -1.",
+    "Build an adjacency map of these weighted edges, then for each query run a depth-first or breadth-first search multiplying weights as you go, returning the accumulated product when you reach the target."
+  ],
+  "constraints": [
+    { "param": "equations", "kind": "string[][]", "len": [1, 20] },
+    { "param": "values", "kind": "float[]" },
+    { "param": "queries", "kind": "string[][]", "len": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "chained ratios with undefined and self queries", "input": [[["a", "b"], ["b", "c"]], [2.0, 3.0], [["a", "c"], ["b", "a"], ["a", "e"], ["a", "a"], ["x", "x"]]] },
+    { "kind": "edge", "description": "multi-letter variable names along a chain", "input": [[["a", "b"], ["b", "c"], ["bc", "cd"]], [1.5, 2.5, 5.0], [["a", "c"], ["c", "b"], ["bc", "cd"], ["cd", "bc"]]] },
+    { "kind": "edge", "description": "single equation queried in both directions plus unknowns", "input": [[["a", "b"]], [0.5], [["a", "b"], ["b", "a"], ["a", "c"], ["x", "y"]]] },
+    { "kind": "boundary", "description": "self query on a known variable is exactly one", "input": [[["a", "b"]], [3.0], [["a", "a"]]] },
+    { "kind": "trap", "description": "self query on an unknown variable is undeterminable, not one", "input": [[["a", "b"]], [3.0], [["z", "z"]]] },
+    { "kind": "trap", "description": "two disconnected components cannot answer a cross-component query", "input": [[["a", "b"], ["c", "d"]], [2.0, 4.0], [["a", "d"], ["a", "b"], ["c", "d"]]] },
+    { "kind": "boundary", "description": "extreme ratio value carried across a chain", "input": [[["a", "b"], ["b", "c"]], [20.0, 20.0], [["a", "c"], ["c", "a"]]] }
+  ],
+  "stress": [
+    {
+      "description": "a single connected chain so every query has a determinable path, exercising long path products in both directions",
+      "seed": 11,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(20, size))\n    names = ['v%d' % i for i in range(n)]\n    equations = []\n    values = []\n    for i in range(n - 1):\n        equations.append([names[i], names[i + 1]])\n        values.append(round(rng.uniform(0.5, 5.0), 3))\n    queries = []\n    for _ in range(min(20, n)):\n        i = rng.randrange(n)\n        j = rng.randrange(n)\n        queries.append([names[i], names[j]])\n    return [equations, values, queries]\n",
+      "note": "connected chain keeps every query answerable; both forward and reverse paths are queried"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def calcEquation(self, equations, values, queries):\n        graph = {}\n        for (a, b), v in zip(equations, values):\n            graph.setdefault(a, []).append((b, v))\n            graph.setdefault(b, []).append((a, 1.0 / v))\n        res = []\n        for c, d in queries:\n            if c not in graph or d not in graph:\n                res.append(-1.0)\n                continue\n            stack = [(c, 1.0)]\n            seen = {c}\n            ans = -1.0\n            while stack:\n                node, prod = stack.pop()\n                if node == d:\n                    ans = prod\n                    break\n                for nxt, w in graph[node]:\n                    if nxt not in seen:\n                        seen.add(nxt)\n                        stack.append((nxt, prod * w))\n            res.append(ans)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def calcEquation(self, equations, values, queries):\n        parent = {}\n        weight = {}\n\n        def find(x):\n            if x not in parent:\n                parent[x] = x\n                weight[x] = 1.0\n                return x\n            if parent[x] != x:\n                root = find(parent[x])\n                weight[x] *= weight[parent[x]]\n                parent[x] = root\n            return parent[x]\n\n        for (a, b), v in zip(equations, values):\n            find(a)\n            find(b)\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n                weight[ra] = v * weight[b] / weight[a]\n\n        res = []\n        for c, d in queries:\n            if c not in parent or d not in parent or find(c) != find(d):\n                res.append(-1.0)\n            else:\n                res.append(weight[c] / weight[d])\n        return res\n",
+    "javascript": "var calcEquation = function(equations, values, queries) {\n    const parent = {};\n    const weight = {};\n    function find(x) {\n        if (!(x in parent)) {\n            parent[x] = x;\n            weight[x] = 1.0;\n            return x;\n        }\n        if (parent[x] !== x) {\n            const root = find(parent[x]);\n            weight[x] *= weight[parent[x]];\n            parent[x] = root;\n        }\n        return parent[x];\n    }\n    for (let i = 0; i < equations.length; i++) {\n        const [a, b] = equations[i];\n        const v = values[i];\n        find(a);\n        find(b);\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) {\n            parent[ra] = rb;\n            weight[ra] = v * weight[b] / weight[a];\n        }\n    }\n    const res = [];\n    for (const [c, d] of queries) {\n        if (!(c in parent) || !(d in parent) || find(c) !== find(d)) {\n            res.push(-1.0);\n        } else {\n            res.push(weight[c] / weight[d]);\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O((E + Q) * alpha)", "space": "O(V)" }
+}

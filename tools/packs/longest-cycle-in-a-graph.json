@@ -1,0 +1,36 @@
+{
+  "slug": "longest-cycle-in-a-graph",
+  "judge": "exact",
+  "pattern": "In a functional graph every node leads into at most one cycle, so timestamping nodes along each walk lets a revisit on the current path reveal a cycle's length directly.",
+  "hints": [
+    "Each node has at most one successor, so any walk eventually either dies at -1 or loops; a loop is the cycle to measure.",
+    "Stamp each node with the step at which you first see it on the current walk; if you revisit a node from the same walk, the step difference is the cycle length.",
+    "Track a global visited set and per-walk first-seen timestamps; when you re-enter a node visited on this same walk, the current step minus its stamp is a cycle length, and you take the maximum."
+  ],
+  "constraints": [
+    { "param": "edges", "kind": "int[]", "len": [2, 100000], "value": [-1, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single cycle of length three", "input": [[3, 3, 4, 2, 3]] },
+    { "kind": "edge", "description": "no cycle at all", "input": [[2, -1, 3, 1]] },
+    { "kind": "edge", "description": "self-loop disallowed so a two-node cycle is minimal", "input": [[1, 0]] },
+    { "kind": "boundary", "description": "every node dead-ends, no cycle", "input": [[-1, -1]] },
+    { "kind": "trap", "description": "tail feeding into a cycle must not inflate the length", "input": [[1, 2, 3, 1]] },
+    { "kind": "trap", "description": "two disjoint cycles, the longer one wins", "input": [[1, 0, 3, 4, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random functional graph mixing cycles and dead ends",
+      "seed": 29,
+      "size": 6000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    edges = []\n    for i in range(n):\n        if rng.random() < 0.15:\n            edges.append(-1)\n        else:\n            t = rng.randrange(0, n)\n            while t == i:\n                t = rng.randrange(0, n)\n            edges.append(t)\n    return [edges]\n",
+      "note": "edges[i] != i enforced; many small cycles plus tails"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestCycle(self, edges):\n        # Independent: classic Tarjan-style iterative DFS coloring, measuring the\n        # back-edge depth difference when a gray node is re-encountered.\n        n = len(edges)\n        color = [0] * n  # 0 white, 1 gray, 2 black\n        depth = [0] * n\n        best = -1\n        for s in range(n):\n            if color[s] != 0:\n                continue\n            path = []\n            cur = s\n            d = 0\n            while cur != -1 and color[cur] == 0:\n                color[cur] = 1\n                depth[cur] = d\n                path.append(cur)\n                d += 1\n                cur = edges[cur]\n            if cur != -1 and color[cur] == 1:\n                best = max(best, d - depth[cur])\n            for node in path:\n                color[node] = 2\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestCycle(self, edges):\n        n = len(edges)\n        visited = [False] * n\n        ans = -1\n        for i in range(n):\n            if visited[i]:\n                continue\n            stamp = {}\n            cur = i\n            step = 0\n            while cur != -1 and not visited[cur]:\n                if cur in stamp:\n                    ans = max(ans, step - stamp[cur])\n                    break\n                stamp[cur] = step\n                step += 1\n                cur = edges[cur]\n            for node in stamp:\n                visited[node] = True\n        return ans\n",
+    "javascript": "var longestCycle = function(edges) {\n    const n = edges.length;\n    const visited = new Array(n).fill(false);\n    let ans = -1;\n    for (let i = 0; i < n; i++) {\n        if (visited[i]) continue;\n        const stamp = new Map();\n        let cur = i, step = 0;\n        while (cur !== -1 && !visited[cur]) {\n            if (stamp.has(cur)) {\n                ans = Math.max(ans, step - stamp.get(cur));\n                break;\n            }\n            stamp.set(cur, step);\n            step += 1;\n            cur = edges[cur];\n        }\n        for (const node of stamp.keys()) visited[node] = true;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

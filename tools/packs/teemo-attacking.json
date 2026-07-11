@@ -1,0 +1,39 @@
+{
+  "slug": "teemo-attacking",
+  "judge": "exact",
+  "pattern": "Summing overlapping fixed-length intervals reduces to clamping each gap between consecutive starts by the effect duration.",
+  "hints": [
+    "Each attack would add a fixed span, but an attack arriving early cuts the previous span short.",
+    "Walk consecutive attack times: the contribution of each is the smaller of the duration and the gap to the next attack.",
+    "Add the gap (next start minus current start) capped at duration for every attack except the last, then add a full duration for the final attack."
+  ],
+  "constraints": [
+    { "param": "timeSeries", "kind": "int[]", "len": [1, 10000], "value": [0, 10000000] },
+    { "param": "duration", "kind": "int", "value": [0, 10000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two non-overlapping attacks", "input": [[1, 4], 2] },
+    { "kind": "trap", "description": "second attack resets before first ends", "input": [[1, 2], 2] },
+    { "kind": "boundary", "description": "single attack", "input": [[5], 3] },
+    { "kind": "boundary", "description": "zero duration yields no poison", "input": [[1, 2, 3], 0] },
+    { "kind": "edge", "description": "all attacks at the same instant", "input": [[7, 7, 7], 4] },
+    { "kind": "trap", "description": "back-to-back attacks each contribute exactly one second of overlap save", "input": [[0, 1, 2, 3, 4], 2] },
+    { "kind": "boundary", "description": "max-magnitude time and duration", "input": [[0, 10000000], 10000000] },
+    { "kind": "edge", "description": "gaps larger than duration never overlap", "input": [[1, 100, 200], 5] }
+  ],
+  "stress": [
+    {
+      "description": "many strictly increasing attack times with random gaps",
+      "seed": 7,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    t = rng.randrange(0, 100)\n    series = []\n    for _ in range(n):\n        series.append(t)\n        t += rng.randrange(0, 10)\n        if t > 10000000:\n            t = 10000000\n    duration = rng.randrange(0, 50)\n    return [series, duration]\n",
+      "note": "non-decreasing series within bounds; small gaps create overlaps"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findPoisonedDuration(self, timeSeries, duration):\n        if duration == 0:\n            return 0\n        poisoned = set()\n        for t in timeSeries:\n            for s in range(t, t + duration):\n                poisoned.add(s)\n        return len(poisoned)\n",
+  "solutions": {
+    "python": "class Solution:\n    def findPoisonedDuration(self, timeSeries, duration):\n        if not timeSeries:\n            return 0\n        total = 0\n        for i in range(len(timeSeries) - 1):\n            gap = timeSeries[i + 1] - timeSeries[i]\n            total += min(gap, duration)\n        return total + duration\n",
+    "javascript": "var findPoisonedDuration = function(timeSeries, duration) {\n    if (timeSeries.length === 0) return 0;\n    let total = 0;\n    for (let i = 0; i < timeSeries.length - 1; i++) {\n        const gap = timeSeries[i + 1] - timeSeries[i];\n        total += Math.min(gap, duration);\n    }\n    return total + duration;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

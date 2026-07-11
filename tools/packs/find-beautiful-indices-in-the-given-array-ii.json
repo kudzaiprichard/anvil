@@ -1,0 +1,40 @@
+{
+  "slug": "find-beautiful-indices-in-the-given-array-ii",
+  "judge": "exact",
+  "pattern": "Use KMP to find all occurrences of both patterns in the main string, then use two-pointer or binary search to pair each occurrence of 'a' with a nearby occurrence of 'b' within distance k.",
+  "hints": [
+    "First collect all start positions where 'a' appears in s and all positions where 'b' appears, using KMP or a similar linear-time string search.",
+    "For each position i where 'a' starts, you need to check if any 'b' occurrence j satisfies |i - j| <= k; sort the 'b' positions and binary-search for the closest one.",
+    "Return every valid 'a' index in sorted order; since KMP scans left to right the list is already sorted."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 500000] },
+    { "param": "a", "kind": "string", "len": [1, 500000] },
+    { "param": "b", "kind": "string", "len": [1, 500000] },
+    { "param": "k", "kind": "int", "value": [1, 500000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a and b are the same string, index 0 qualifies", "input": ["abcd", "a", "a", 4] },
+    { "kind": "edge", "description": "no occurrence of a in s", "input": ["xyz", "ab", "x", 5] },
+    { "kind": "edge", "description": "a occurs but no b occurrence within k", "input": ["aaaaabbbbb", "a", "b", 1] },
+    { "kind": "edge", "description": "overlapping occurrences of a", "input": ["aaa", "a", "a", 1] },
+    { "kind": "boundary", "description": "single character s equals a and b", "input": ["z", "z", "z", 1] },
+    { "kind": "boundary", "description": "k equals s length, every a-occurrence qualifies if any b exists", "input": ["abcabc", "a", "b", 6] },
+    { "kind": "trap", "description": "b occurrence exists but just outside k distance on both sides", "input": ["xaxbx", "a", "b", 1] },
+    { "kind": "trap", "description": "multiple a occurrences, only some within k of a b", "input": ["isawsquirrelnearmysquirrelhouseohmy", "my", "squirrel", 15] }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase string with short repeated a and b patterns",
+      "seed": 7,
+      "size": 500000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = size\n    s = ''.join(rng.choice('abcde') for _ in range(n))\n    a = ''.join(rng.choice('abcde') for _ in range(rng.randint(1, 5)))\n    b = ''.join(rng.choice('abcde') for _ in range(rng.randint(1, 5)))\n    k = rng.randint(1, n)\n    return [s, a, b, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def beautifulIndices(self, s: str, a: str, b: str, k: int) -> list:\n        n = len(s)\n        la, lb = len(a), len(b)\n        a_pos = [i for i in range(n - la + 1) if s[i:i+la] == a]\n        b_pos = [i for i in range(n - lb + 1) if s[i:i+lb] == b]\n        result = []\n        for i in a_pos:\n            if any(abs(i - j) <= k for j in b_pos):\n                result.append(i)\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def beautifulIndices(self, s: str, a: str, b: str, k: int) -> list:\n        import bisect\n        def kmp_search(text, pat):\n            if not pat:\n                return list(range(len(text)))\n            n, m = len(text), len(pat)\n            fail = [0] * m\n            j = 0\n            for i in range(1, m):\n                while j and pat[i] != pat[j]:\n                    j = fail[j-1]\n                if pat[i] == pat[j]:\n                    j += 1\n                fail[i] = j\n            res, j = [], 0\n            for i in range(n):\n                while j and text[i] != pat[j]:\n                    j = fail[j-1]\n                if text[i] == pat[j]:\n                    j += 1\n                if j == m:\n                    res.append(i - m + 1)\n                    j = fail[j-1]\n            return res\n        a_pos = kmp_search(s, a)\n        b_pos = kmp_search(s, b)\n        result = []\n        for i in a_pos:\n            lo = bisect.bisect_left(b_pos, i - k)\n            if lo < len(b_pos) and b_pos[lo] <= i + k:\n                result.append(i)\n        return result\n",
+    "javascript": "var beautifulIndices = function(s, a, b, k) {\n    function kmpSearch(text, pat) {\n        const n = text.length, m = pat.length;\n        if (m === 0) return Array.from({length: n}, (_, i) => i);\n        const fail = new Array(m).fill(0);\n        let j = 0;\n        for (let i = 1; i < m; i++) {\n            while (j && pat[i] !== pat[j]) j = fail[j-1];\n            if (pat[i] === pat[j]) j++;\n            fail[i] = j;\n        }\n        const res = []; j = 0;\n        for (let i = 0; i < n; i++) {\n            while (j && text[i] !== pat[j]) j = fail[j-1];\n            if (text[i] === pat[j]) j++;\n            if (j === m) { res.push(i - m + 1); j = fail[j-1]; }\n        }\n        return res;\n    }\n    function bisectLeft(arr, val) {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) { const mid = (lo+hi)>>1; if (arr[mid] < val) lo = mid+1; else hi = mid; }\n        return lo;\n    }\n    const aPos = kmpSearch(s, a);\n    const bPos = kmpSearch(s, b);\n    const result = [];\n    for (const i of aPos) {\n        const lo = bisectLeft(bPos, i - k);\n        if (lo < bPos.length && bPos[lo] <= i + k) result.push(i);\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O((|s|+|a|+|b|) + |a_pos| log |b_pos|)", "space": "O(|s|)" }
+}

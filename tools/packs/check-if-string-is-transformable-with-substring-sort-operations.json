@@ -1,0 +1,39 @@
+{
+  "slug": "check-if-string-is-transformable-with-substring-sort-operations",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "You may repeatedly pick any substring of a digit string and sort it in place; decide whether that lets you turn one digit string into another.",
+  "hints": [
+    "Sorting a substring can only ever remove inversions, never create one, so think of the whole process as a sequence of adjacent swaps that each fix a pair where a larger digit sits before a smaller one.",
+    "For each digit value, remember the positions where it appears in the original string, in left-to-right order; matching the target character by character consumes the earliest remaining position for that digit.",
+    "Before consuming a digit's position, make sure no strictly smaller digit still has an unused occurrence sitting further left, since that digit would have to be dragged rightward past a smaller one, which no sequence of sorts can do."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] },
+    { "param": "t", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "s already equals t, no transformation needed", "input": ["120", "120"] },
+    { "kind": "edge", "description": "single-character strings", "input": ["7", "7"] },
+    { "kind": "edge", "description": "sorting the whole string once reaches strictly ascending order", "input": ["4321", "1234"] },
+    { "kind": "boundary", "description": "a long run of one repeated digit", "input": ["55555", "55555"] },
+    { "kind": "trap", "description": "the target reintroduces an inversion that no sequence of sorts could ever create", "input": ["12", "21"] },
+    { "kind": "trap", "description": "a smaller digit sits ahead of the position a larger digit needs to be pulled from", "input": ["3140", "1340"] },
+    { "kind": "edge", "description": "digits already close to their target order, needing only local rearrangement", "input": ["2130", "2103"] }
+  ],
+  "stress": [
+    {
+      "description": "random digit strings paired with a shuffled permutation of the same multiset",
+      "seed": 23,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    s = ''.join(str(rng.randint(0, 9)) for _ in range(n))\n    t_chars = list(s)\n    rng.shuffle(t_chars)\n    t = ''.join(t_chars)\n    return [s, t]\n",
+      "note": "kept well under the length cap so the O(n^2) oracle finishes quickly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isTransformable(self, s: str, t: str) -> bool:\n        if sorted(s) != sorted(t):\n            return False\n        remaining = list(s)\n        for ch in t:\n            idx = remaining.index(ch)\n            for k in range(idx):\n                if remaining[k] <= ch:\n                    return False\n            remaining.pop(idx)\n        return True\n",
+  "solutions": {
+    "python": "from collections import deque\n\n\nclass Solution:\n    def isTransformable(self, s: str, t: str) -> bool:\n        if sorted(s) != sorted(t):\n            return False\n        pos = [deque() for _ in range(10)]\n        for i, ch in enumerate(s):\n            pos[int(ch)].append(i)\n        for ch in t:\n            d = int(ch)\n            if not pos[d]:\n                return False\n            p = pos[d][0]\n            for smaller in range(d):\n                if pos[smaller] and pos[smaller][0] < p:\n                    return False\n            pos[d].popleft()\n        return True\n",
+    "javascript": "var isTransformable = function(s, t) {\n    const sortedS = s.split('').sort().join('');\n    const sortedT = t.split('').sort().join('');\n    if (sortedS !== sortedT) return false;\n    const pos = Array.from({ length: 10 }, () => []);\n    for (let i = 0; i < s.length; i++) {\n        pos[Number(s[i])].push(i);\n    }\n    const head = new Array(10).fill(0);\n    for (let i = 0; i < t.length; i++) {\n        const d = Number(t[i]);\n        if (head[d] >= pos[d].length) return false;\n        const p = pos[d][head[d]];\n        for (let smaller = 0; smaller < d; smaller++) {\n            if (head[smaller] < pos[smaller].length && pos[smaller][head[smaller]] < p) {\n                return false;\n            }\n        }\n        head[d]++;\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(10 * n)", "space": "O(n)" }
+}

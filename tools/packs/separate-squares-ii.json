@@ -1,0 +1,81 @@
+{
+  "slug": "separate-squares-ii",
+  "judge": {
+    "type": "float",
+    "epsilon": 0.00001
+  },
+  "pattern": "Slicing the union of squares into horizontal slabs at every square edge turns 'area below Y' into a piecewise-linear function of Y that can be solved exactly, one slab at a time, instead of searched for.",
+  "hints": [
+    "Cut the y-axis at every square's top and bottom edge; inside any one resulting slab, the set of squares that fully cover that slab never changes, so the union width covered in that slab is a constant.",
+    "For each slab, merge the x-intervals of the squares that fully cover it into a union length (overlapping x-ranges count once) -- multiply by the slab's height to get that slab's full contribution to the total area.",
+    "Walk the slabs from the bottom up accumulating area; once the running total would cross half of the whole union area, solve linearly within that one slab for the exact height where it crosses."
+  ],
+  "constraints": [
+    {
+      "param": "squares",
+      "kind": "int[][]",
+      "rows": [1, 50000],
+      "cols": [3, 3],
+      "value": [0, 1000000000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two disjoint unit squares",
+      "input": [[[0,0,1],[2,2,1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, overlap counted only once",
+      "input": [[[0,0,2],[1,1,1]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single square, the line must sit at its exact midpoint",
+      "input": [[[5, 5, 10]]]
+    },
+    {
+      "kind": "edge",
+      "description": "many identical stacked squares collapse to one square's worth of area",
+      "input": [[[0,0,4],[0,0,4],[0,0,4]]]
+    },
+    {
+      "kind": "trap",
+      "description": "a plausible solution counting overlap twice would get this wrong",
+      "input": [[[0,0,4],[2,2,4]]]
+    },
+    {
+      "kind": "trap",
+      "description": "one huge square and one tiny square far above it",
+      "input": [[[0,0,100],[0,200,1]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "squares touching edge to edge with no gap or overlap",
+      "input": [[[0,0,3],[0,3,3]]]
+    },
+    {
+      "kind": "trap",
+      "description": "partial overlap only in one corner of two squares",
+      "input": [[[0,0,4],[3,3,4]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random squares with varied positions and sizes, some overlapping",
+      "seed": 6,
+      "size": 150,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(150, size))\n    squares = []\n    for _ in range(n):\n        x = rng.randint(0, 500)\n        y = rng.randint(0, 500)\n        l = rng.randint(1, 200)\n        squares.append([x, y, l])\n    return [squares]\n"
+    }
+  ],
+  "oracle_python": "import bisect\nclass Solution:\n    def separateSquares(self, squares):\n        xs = sorted(set([x for x, y, l in squares] + [x + l for x, y, l in squares]))\n        ys = sorted(set([y for x, y, l in squares] + [y + l for x, y, l in squares]))\n        cols = len(xs) - 1\n        rows = len(ys) - 1\n        covered = [[False] * cols for _ in range(rows)]\n        for x, y, l in squares:\n            x0, x1 = bisect.bisect_left(xs, x), bisect.bisect_left(xs, x + l)\n            y0, y1 = bisect.bisect_left(ys, y), bisect.bisect_left(ys, y + l)\n            for r in range(y0, y1):\n                for c in range(x0, x1):\n                    covered[r][c] = True\n        total = 0.0\n        row_areas = []\n        for r in range(rows):\n            h = ys[r + 1] - ys[r]\n            w = sum((xs[c + 1] - xs[c]) for c in range(cols) if covered[r][c])\n            row_areas.append((ys[r], ys[r + 1], w))\n            total += w * h\n        target = total / 2\n        cum = 0.0\n        for Ya, Yb, w in row_areas:\n            full = w * (Yb - Ya)\n            if w == 0:\n                continue\n            if cum + full >= target:\n                remaining = target - cum\n                return Ya + remaining / w\n            cum += full\n        return ys[-1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def separateSquares(self, squares):\n        ys = sorted(set([y for _, y, l in squares] + [y + l for _, y, l in squares]))\n        total = 0.0\n        slab_data = []\n        for i in range(len(ys) - 1):\n            Ya, Yb = ys[i], ys[i + 1]\n            mid = (Ya + Yb) / 2\n            intervals = []\n            for x, y, l in squares:\n                if y <= Ya and y + l >= Yb:\n                    intervals.append((x, x + l))\n            union_len = 0.0\n            if intervals:\n                intervals.sort()\n                cur_s, cur_e = intervals[0]\n                for s, e in intervals[1:]:\n                    if s > cur_e:\n                        union_len += cur_e - cur_s\n                        cur_s, cur_e = s, e\n                    else:\n                        cur_e = max(cur_e, e)\n                union_len += cur_e - cur_s\n            h = Yb - Ya\n            slab_data.append((Ya, Yb, union_len))\n            total += union_len * h\n\n        target = total / 2\n        cum = 0.0\n        for Ya, Yb, union_len in slab_data:\n            full = union_len * (Yb - Ya)\n            if union_len == 0:\n                continue\n            if cum + full >= target:\n                remaining = target - cum\n                return Ya + remaining / union_len\n            cum += full\n        return ys[-1]\n",
+    "javascript": "var separateSquares = function(squares) {\n    const ySet = new Set();\n    for (const [, y, l] of squares) {\n        ySet.add(y);\n        ySet.add(y + l);\n    }\n    const ys = [...ySet].sort((a, b) => a - b);\n    let total = 0;\n    const slabData = [];\n    for (let i = 0; i < ys.length - 1; i++) {\n        const Ya = ys[i], Yb = ys[i + 1];\n        const intervals = [];\n        for (const [x, y, l] of squares) {\n            if (y <= Ya && y + l >= Yb) intervals.push([x, x + l]);\n        }\n        intervals.sort((a, b) => a[0] - b[0]);\n        let unionLen = 0;\n        if (intervals.length > 0) {\n            let curS = intervals[0][0], curE = intervals[0][1];\n            for (let j = 1; j < intervals.length; j++) {\n                const [s, e] = intervals[j];\n                if (s > curE) {\n                    unionLen += curE - curS;\n                    curS = s; curE = e;\n                } else {\n                    curE = Math.max(curE, e);\n                }\n            }\n            unionLen += curE - curS;\n        }\n        const h = Yb - Ya;\n        slabData.push([Ya, Yb, unionLen]);\n        total += unionLen * h;\n    }\n    const target = total / 2;\n    let cum = 0;\n    for (const [Ya, Yb, unionLen] of slabData) {\n        const full = unionLen * (Yb - Ya);\n        if (unionLen === 0) continue;\n        if (cum + full >= target) {\n            const remaining = target - cum;\n            return Ya + remaining / unionLen;\n        }\n        cum += full;\n    }\n    return ys[ys.length - 1];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2 log n)",
+    "space": "O(n)"
+  }
+}

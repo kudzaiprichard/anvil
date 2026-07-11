@@ -1,0 +1,39 @@
+{
+  "slug": "surrounded-regions",
+  "judge": { "type": "in_place", "arg_index": 0 },
+  "no_anchor_ok": true,
+  "pattern": "Only the open cells connected to a border survive, so flooding inward from the edges marks the safe ones and everything left unmarked is captured.",
+  "hints": [
+    "A region of open cells is captured only if none of its cells touches the grid border, so border-connected open cells and anything reachable from them are safe.",
+    "Start a search from every open cell on the four edges, marking all open cells reachable from the border as safe.",
+    "Flood-fill (DFS or BFS) from each border 'O', tagging reachable cells with a temporary marker; afterwards turn every remaining plain 'O' into 'X' and restore the markers back to 'O'."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "str[][]", "rows": [1, 200], "cols": [1, 200], "note": "each cell is 'X' or 'O'" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "interior region is captured, border-touching region survives", "input": [[["X", "X", "X", "X"], ["X", "O", "O", "X"], ["X", "X", "O", "X"], ["X", "O", "X", "X"]]] },
+    { "kind": "boundary", "description": "single cell board, nothing to capture", "input": [[["X"]]] },
+    { "kind": "boundary", "description": "single open cell on the border survives", "input": [[["O"]]] },
+    { "kind": "trap", "description": "open region snakes to the border and is fully safe", "input": [[["O", "O", "O"], ["O", "X", "O"], ["O", "O", "O"]]] },
+    { "kind": "trap", "description": "fully enclosed open block is captured", "input": [[["X", "X", "X", "X"], ["X", "O", "O", "X"], ["X", "O", "O", "X"], ["X", "X", "X", "X"]]] },
+    { "kind": "edge", "description": "all open cells, every one touches a border", "input": [[["O", "O"], ["O", "O"]]] },
+    { "kind": "trap", "description": "interior open cell with a border-connected channel stays", "input": [[["X", "O", "X"], ["X", "O", "X"], ["X", "X", "X"]]] },
+    { "kind": "edge", "description": "no open cells at all", "input": [[["X", "X"], ["X", "X"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random grid with mixed cells so captured and safe regions both occur",
+      "seed": 41,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 15)\n    n = rng.randint(1, 15)\n    board = [['O' if rng.random() < 0.55 else 'X' for _ in range(n)] for _ in range(m)]\n    return [board]\n",
+      "note": "55 percent open cells gives a healthy mix of border-connected and enclosed regions"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def solve(self, board):\n        if not board or not board[0]:\n            return\n        m, n = len(board), len(board[0])\n        safe = [[False] * n for _ in range(m)]\n        from collections import deque\n        q = deque()\n        for i in range(m):\n            for j in range(n):\n                on_border = i == 0 or j == 0 or i == m - 1 or j == n - 1\n                if on_border and board[i][j] == 'O':\n                    safe[i][j] = True\n                    q.append((i, j))\n        while q:\n            i, j = q.popleft()\n            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                ni, nj = i + di, j + dj\n                if 0 <= ni < m and 0 <= nj < n and not safe[ni][nj] and board[ni][nj] == 'O':\n                    safe[ni][nj] = True\n                    q.append((ni, nj))\n        for i in range(m):\n            for j in range(n):\n                if board[i][j] == 'O' and not safe[i][j]:\n                    board[i][j] = 'X'\n",
+  "solutions": {
+    "python": "class Solution:\n    def solve(self, board):\n        if not board or not board[0]:\n            return\n        m, n = len(board), len(board[0])\n        stack = []\n        for i in range(m):\n            for j in range(n):\n                if (i in (0, m - 1) or j in (0, n - 1)) and board[i][j] == 'O':\n                    stack.append((i, j))\n        while stack:\n            i, j = stack.pop()\n            if 0 <= i < m and 0 <= j < n and board[i][j] == 'O':\n                board[i][j] = '#'\n                stack.extend([(i+1, j), (i-1, j), (i, j+1), (i, j-1)])\n        for i in range(m):\n            for j in range(n):\n                if board[i][j] == 'O':\n                    board[i][j] = 'X'\n                elif board[i][j] == '#':\n                    board[i][j] = 'O'\n",
+    "javascript": "var solve = function(board) {\n    if (!board || !board[0]) return;\n    const m = board.length, n = board[0].length;\n    const stack = [];\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if ((i === 0 || i === m - 1 || j === 0 || j === n - 1) && board[i][j] === 'O') stack.push([i, j]);\n        }\n    }\n    while (stack.length) {\n        const [i, j] = stack.pop();\n        if (i >= 0 && i < m && j >= 0 && j < n && board[i][j] === 'O') {\n            board[i][j] = '#';\n            stack.push([i+1, j], [i-1, j], [i, j+1], [i, j-1]);\n        }\n    }\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (board[i][j] === 'O') board[i][j] = 'X';\n            else if (board[i][j] === '#') board[i][j] = 'O';\n        }\n    }\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "count-submatrices-with-all-ones",
+  "judge": "exact",
+  "pattern": "Turning each column into a running 'height of consecutive ones ending here' lets every submatrix be seen as a rectangle under a histogram, so a per-row stack sweep counts them all without ever enumerating corners.",
+  "hints": [
+    "For each row, first turn every column into a running count of consecutive ones ending at that row (reset to zero the instant a zero appears).",
+    "For a fixed bottom row, the number of all-ones submatrices ending at column j equals the sum, over every possible left edge up to j, of the minimum running-count value between that left edge and j.",
+    "Compute that per-column sum incrementally: keep a stack that merges columns whose running count is at least as large as the current one, subtract what those merged columns used to contribute and add back their new, smaller contribution, so the running total updates in one left-to-right pass."
+  ],
+  "constraints": [
+    { "param": "mat", "kind": "int[][]", "len": [1, 150], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, 13 submatrices", "input": [[[1, 0, 1], [1, 1, 0], [1, 1, 0]]] },
+    { "kind": "edge", "description": "statement example, 24 submatrices", "input": [[[0, 1, 1, 0], [0, 1, 1, 1], [1, 1, 1, 0]]] },
+    { "kind": "boundary", "description": "single cell that is a one", "input": [[[1]]] },
+    { "kind": "boundary", "description": "single cell that is a zero", "input": [[[0]]] },
+    { "kind": "trap", "description": "all zeros, no submatrix qualifies", "input": [[[0, 0, 0], [0, 0, 0]]] },
+    { "kind": "trap", "description": "all ones, every rectangle counts", "input": [[[1, 1, 1], [1, 1, 1], [1, 1, 1]]] },
+    { "kind": "trap", "description": "single row with a zero splitting two runs of ones", "input": [[[1, 1, 0, 1, 1, 1]]] },
+    { "kind": "trap", "description": "single column with a zero splitting two runs of ones", "input": [[[1], [1], [0], [1], [1]]] },
+    { "kind": "edge", "description": "checkerboard pattern, only 1x1 submatrices qualify", "input": [[[1, 0, 1], [0, 1, 0], [1, 0, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "large random binary matrix near the maximum allowed dimensions",
+      "seed": 23,
+      "size": 150,
+      "generator_python": "def gen(rng, size):\n    dim = max(1, min(size, 150))\n    mat = [[rng.randint(0, 1) for _ in range(dim)] for _ in range(dim)]\n    return [mat]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numSubmat(self, mat):\n        m, n = len(mat), len(mat[0])\n        total = 0\n        for top in range(m):\n            col_ok = [True] * n\n            for bottom in range(top, m):\n                run = 0\n                for j in range(n):\n                    if mat[bottom][j] == 0:\n                        col_ok[j] = False\n                    if col_ok[j]:\n                        run += 1\n                    else:\n                        run = 0\n                    total += run\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def numSubmat(self, mat):\n        m, n = len(mat), len(mat[0])\n        heights = [0] * n\n        result = 0\n        for i in range(m):\n            for j in range(n):\n                heights[j] = heights[j] + 1 if mat[i][j] == 1 else 0\n            stack = []\n            f = 0\n            row_total = 0\n            for j in range(n):\n                h = heights[j]\n                count = 1\n                removed = 0\n                while stack and stack[-1][0] >= h:\n                    old_h, old_c = stack.pop()\n                    removed += old_h * old_c\n                    count += old_c\n                stack.append((h, count))\n                f = f - removed + h * count\n                row_total += f\n            result += row_total\n        return result\n",
+    "javascript": "var numSubmat = function(mat) {\n    const m = mat.length, n = mat[0].length;\n    const heights = new Array(n).fill(0);\n    let result = 0;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            heights[j] = mat[i][j] === 1 ? heights[j] + 1 : 0;\n        }\n        const stack = [];\n        let f = 0;\n        let rowTotal = 0;\n        for (let j = 0; j < n; j++) {\n            const h = heights[j];\n            let count = 1;\n            let removed = 0;\n            while (stack.length && stack[stack.length - 1][0] >= h) {\n                const [oldH, oldC] = stack.pop();\n                removed += oldH * oldC;\n                count += oldC;\n            }\n            stack.push([h, count]);\n            f = f - removed + h * count;\n            rowTotal += f;\n        }\n        result += rowTotal;\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "number-of-ways-to-form-a-target-string-given-a-dictionary",
+  "judge": "exact",
+  "pattern": "Because using a column locks out every column to its left for every word, the only thing that matters at each step is how many characters are still available going forward -- a column-by-column knapsack over how much of the target has been placed so far.",
+  "hints": [
+    "Every word has the same length, and using column k in any word permanently retires columns 0..k for all words -- so think of processing the shared column index from left to right exactly once.",
+    "For a fixed column, precompute how many words have each letter at that column; that count is exactly how many ways you can use this column to place one particular target character next.",
+    "Track, for each number of target characters already placed, how many ways reach that state; when you consider the next column you can either skip it entirely or use it to place the next needed target character, so update the counts for 'already placed i characters' from the smaller indices upward and take everything modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 1000] },
+    { "param": "target", "kind": "string", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three four-letter words", "input": [["acca", "bbbb", "caca"], "aba"] },
+    { "kind": "edge", "description": "statement example, two four-letter words", "input": [["abba", "baab"], "bab"] },
+    { "kind": "boundary", "description": "single word, single character target", "input": [["z"], "z"] },
+    { "kind": "boundary", "description": "single word, no matching character anywhere", "input": [["abc"], "z"] },
+    { "kind": "trap", "description": "target longer than every word, so no arrangement of columns can possibly cover it", "input": [["ab", "ba"], "abc"] },
+    { "kind": "trap", "description": "every word identical, still each column only usable once overall", "input": [["aaa", "aaa", "aaa"], "aaa"] },
+    { "kind": "trap", "description": "target requires the same character repeated more times than columns can provide without reuse", "input": [["aa"], "aa"] },
+    { "kind": "trap", "description": "many words share the needed letters, producing a large combinatorial count", "input": [["aaaa", "aaaa", "aaaa", "aaaa"], "aa"] }
+  ],
+  "stress": [
+    {
+      "description": "random small alphabet words and target so many column choices overlap",
+      "seed": 21,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    num_words = max(1, min(size, 40))\n    word_len = max(1, min(size // 2 + 1, 25))\n    target_len = max(1, min(word_len, 12))\n    alphabet = 'abc'\n    words = [''.join(rng.choice(alphabet) for _ in range(word_len)) for _ in range(num_words)]\n    target = ''.join(rng.choice(alphabet) for _ in range(target_len))\n    return [words, target]\n"
+    }
+  ],
+  "oracle_python": "import sys\nfrom functools import lru_cache\n\nclass Solution:\n    def numWays(self, words, target):\n        sys.setrecursionlimit(10000)\n        MOD = 10 ** 9 + 7\n        L = len(words[0])\n        T = len(target)\n        cnt = [[0] * 26 for _ in range(L)]\n        for w in words:\n            for k, ch in enumerate(w):\n                cnt[k][ord(ch) - 97] += 1\n\n        @lru_cache(maxsize=None)\n        def solve(i, k):\n            if i == T:\n                return 1\n            if k == L:\n                return 0\n            res = solve(i, k + 1)\n            c = cnt[k][ord(target[i]) - 97]\n            if c:\n                res += c * solve(i + 1, k + 1)\n            return res % MOD\n\n        result = solve(0, 0)\n        solve.cache_clear()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def numWays(self, words, target):\n        MOD = 10 ** 9 + 7\n        L = len(words[0])\n        T = len(target)\n        cnt = [[0] * 26 for _ in range(L)]\n        for w in words:\n            for k, ch in enumerate(w):\n                cnt[k][ord(ch) - 97] += 1\n        dp = [0] * (T + 1)\n        dp[0] = 1\n        for k in range(L):\n            for i in range(T - 1, -1, -1):\n                if dp[i]:\n                    c = cnt[k][ord(target[i]) - 97]\n                    if c:\n                        dp[i + 1] = (dp[i + 1] + dp[i] * c) % MOD\n        return dp[T]\n",
+    "javascript": "var numWays = function(words, target) {\n    const MOD = 1000000007;\n    const L = words[0].length;\n    const T = target.length;\n    const cnt = Array.from({ length: L }, () => new Array(26).fill(0));\n    for (const w of words) {\n        for (let k = 0; k < L; k++) {\n            cnt[k][w.charCodeAt(k) - 97]++;\n        }\n    }\n    const dp = new Array(T + 1).fill(0);\n    dp[0] = 1;\n    for (let k = 0; k < L; k++) {\n        for (let i = T - 1; i >= 0; i--) {\n            if (dp[i]) {\n                const c = cnt[k][target.charCodeAt(i) - 97];\n                if (c) {\n                    dp[i + 1] = (dp[i + 1] + dp[i] * c) % MOD;\n                }\n            }\n        }\n    }\n    return dp[T];\n};\n"
+  },
+  "complexity": { "time": "O(L*T + words.length*L)", "space": "O(T)" }
+}

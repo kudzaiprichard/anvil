@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-number-of-removals-to-make-mountain-array",
+  "judge": "exact",
+  "pattern": "For every index, measure the longest strictly increasing run ending there and the longest strictly increasing run starting there read backwards, then keep whichever index gives the tallest peak spanning both sides.",
+  "hints": [
+    "A mountain array is one strictly increasing prefix followed by one strictly decreasing suffix meeting at a single peak — removals just need to shrink everything outside that shape.",
+    "For each index i, compute the length of the longest strictly increasing subsequence ending at i (reading left to right), and separately the length of the longest strictly increasing subsequence starting at i when the array is read right to left.",
+    "An index only qualifies as a peak if both of those lengths are at least 2 (something must actually climb up to it and something must actually climb down from it); the answer is the array length minus the best combined peak height (counting the peak once, not twice)."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [3, 1000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "already a valid minimal three-element mountain", "input": [[1, 3, 2]] },
+    { "kind": "trap", "description": "flat plateaus on both sides of the peak that must be thinned to strictly monotonic runs", "input": [[2, 2, 2, 3, 4, 3, 2, 2]] },
+    { "kind": "trap", "description": "long decreasing run at the front and increasing run at the back need trimming from both ends", "input": [[9, 8, 1, 2, 3, 4, 5, 2, 1]] },
+    { "kind": "edge", "description": "oscillating duplicates force the peak to a specific middle index", "input": [[1, 2, 1, 2, 1]] },
+    { "kind": "boundary", "description": "already strictly increasing then strictly decreasing across a longer array, zero removals needed", "input": [[1, 2, 3, 4, 5, 6, 4, 2, 0]] },
+    { "kind": "trap", "description": "two candidate peaks of different achievable heights, only the taller one should win", "input": [[1, 2, 3, 2, 1, 2, 3, 4, 3, 1]] },
+    { "kind": "boundary", "description": "values at the extreme constraint bound", "input": [[1, 500000000, 1000000000, 999999999, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "a random array at the length cap guaranteed to contain at least one true mountain shape",
+      "seed": 5,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 1000))\n    peak = rng.randint(1, n - 2)\n    left_vals = sorted(rng.sample(range(1, 1000000000), peak))\n    right_len = n - peak - 1\n    right_vals = sorted(rng.sample(range(1, 1000000000), right_len), reverse=True)\n    top = max(left_vals + right_vals, default=0) + 1\n    nums = left_vals + [top] + right_vals\n    for idx in range(n):\n        if rng.random() < 0.2:\n            nums[idx] = nums[rng.randint(0, n - 1)]\n    return [nums]\n",
+      "note": "builds a guaranteed strict mountain then randomly duplicates some values from elsewhere in the array to force real removals"
+    }
+  ],
+  "oracle_python": "import bisect\n\n\nclass Solution:\n    def minimumMountainRemovals(self, nums):\n        def lis_ending_lengths(arr):\n            tails = []\n            lengths = []\n            for x in arr:\n                idx = bisect.bisect_left(tails, x)\n                if idx == len(tails):\n                    tails.append(x)\n                else:\n                    tails[idx] = x\n                lengths.append(idx + 1)\n            return lengths\n\n        n = len(nums)\n        left = lis_ending_lengths(nums)\n        right = lis_ending_lengths(nums[::-1])[::-1]\n        best = 0\n        for i in range(n):\n            if left[i] >= 2 and right[i] >= 2:\n                best = max(best, left[i] + right[i] - 1)\n        return n - best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumMountainRemovals(self, nums) -> int:\n        n = len(nums)\n        left = [1] * n\n        for i in range(n):\n            for j in range(i):\n                if nums[j] < nums[i]:\n                    left[i] = max(left[i], left[j] + 1)\n        right = [1] * n\n        for i in range(n - 1, -1, -1):\n            for j in range(i + 1, n):\n                if nums[j] < nums[i]:\n                    right[i] = max(right[i], right[j] + 1)\n        best = 0\n        for i in range(n):\n            if left[i] >= 2 and right[i] >= 2:\n                best = max(best, left[i] + right[i] - 1)\n        return n - best\n",
+    "javascript": "var minimumMountainRemovals = function(nums) {\n    const n = nums.length;\n    const left = new Array(n).fill(1);\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < i; j++) {\n            if (nums[j] < nums[i]) left[i] = Math.max(left[i], left[j] + 1);\n        }\n    }\n    const right = new Array(n).fill(1);\n    for (let i = n - 1; i >= 0; i--) {\n        for (let j = i + 1; j < n; j++) {\n            if (nums[j] < nums[i]) right[i] = Math.max(right[i], right[j] + 1);\n        }\n    }\n    let best = 0;\n    for (let i = 0; i < n; i++) {\n        if (left[i] >= 2 && right[i] >= 2) best = Math.max(best, left[i] + right[i] - 1);\n    }\n    return n - best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

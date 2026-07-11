@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-moves-to-pick-k-ones",
+  "judge": "exact",
+  "pattern": "For each candidate Alice position, use maxChanges to cheaply grab ones nearby, then sliding-window median to minimise slide cost for the rest; binary search over the best position.",
+  "hints": [
+    "Partition k ones into two groups: up to min(k, maxChanges) ones obtained via free-change + one-slide (cost 2 each from any empty neighbour), and the remainder slid from existing ones (cost = Manhattan distance from Alice to each one).",
+    "For the sliding cost with t remaining ones around a fixed Alice position, the optimal subarray of t positions in the sorted list of existing-one indices is centred on Alice; use a sliding-window with prefix sums to evaluate each window in O(1).",
+    "Iterate over every possible Alice starting position (a position with nums[i]==1 or an arbitrary position, but the optimum is always at some nums[i]==1 index); combine the change cost and slide cost and take the minimum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [0, 1] },
+    { "param": "k", "kind": "int", "value": [1, 100000] },
+    { "param": "maxChanges", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all ones, k=1, can pick up immediately", "input": [[1, 1, 1], 1, 0] },
+    { "kind": "edge", "description": "one one, k=1, maxChanges=0, must slide to it", "input": [[0, 0, 1], 1, 0] },
+    { "kind": "edge", "description": "maxChanges >= k, all picks via change+slide cost 2 each", "input": [[0, 0, 0, 0], 2, 3] },
+    { "kind": "boundary", "description": "example 1 from statement", "input": [[1, 1, 0, 0, 0, 1, 1, 0, 0, 1], 3, 1] },
+    { "kind": "boundary", "description": "example 2 from statement", "input": [[0, 0, 0, 0], 2, 3] },
+    { "kind": "trap", "description": "no free adjacent pick but maxChanges bridges the gap", "input": [[1, 0, 0, 0, 1], 2, 1] },
+    { "kind": "trap", "description": "dense cluster of ones, optimal is to stand in the middle", "input": [[0, 1, 1, 1, 1, 1, 0], 3, 0] }
+  ],
+  "stress": [
+    {
+      "description": "random binary arrays with various k and maxChanges",
+      "seed": 17,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, size)\n    nums = [rng.randint(0, 1) for _ in range(n)]\n    total_ones = sum(nums)\n    mc = rng.randint(0, n)\n    k = rng.randint(1, min(n, total_ones + mc))\n    # ensure feasibility: mc + sum(nums) >= k\n    while mc + total_ones < k:\n        mc += 1\n    return [nums, k, mc]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumMoves(self, nums, k, maxChanges):\n        # Brute force: try each Alice position; greedily pick 0-cost, then 1-cost (adjacent), then 2-cost (change), then d-cost slides.\n        n = len(nums)\n        ones = [i for i, v in enumerate(nums) if v == 1]\n        INF = float('inf')\n        ans = INF\n        for alice in range(n):\n            collected = 0\n            cost = 0\n            used = set()\n            # tier 0\n            if nums[alice] == 1:\n                used.add(alice)\n                collected += 1\n            if collected >= k:\n                ans = min(ans, cost)\n                continue\n            # tier 1: adjacent\n            for nb in [alice-1, alice+1]:\n                if collected >= k: break\n                if 0 <= nb < n and nums[nb] == 1 and nb not in used:\n                    used.add(nb)\n                    collected += 1\n                    cost += 1\n            if collected >= k:\n                ans = min(ans, cost)\n                continue\n            # tier 2: changes\n            use_chg = min(maxChanges, k - collected)\n            cost += use_chg * 2\n            collected += use_chg\n            if collected >= k:\n                ans = min(ans, cost)\n                continue\n            # tier 3: slides\n            pool = sorted([i for i in ones if i not in used], key=lambda x: abs(x-alice))\n            need = k - collected\n            if len(pool) < need:\n                continue\n            cost += sum(abs(pool[i]-alice) for i in range(need))\n            ans = min(ans, cost)\n        return ans\n",
+  "no_anchor_ok": true,
+  "solutions": {
+    "python": "class Solution:\n    def minimumMoves(self, nums, k, maxChanges):\n        n = len(nums)\n        ones = [i for i, v in enumerate(nums) if v == 1]\n        INF = float('inf')\n        ans = INF\n\n        for alice in range(n):\n            # Cost tiers: 0-cost (at alice), 1-cost (adjacent), 2-cost (change+slide), d-cost (slide d)\n            collected = 0\n            cost = 0\n            used = set()\n\n            # Tier 0: alice's own position\n            if nums[alice] == 1:\n                used.add(alice)\n                collected += 1\n\n            if collected >= k:\n                ans = min(ans, cost)\n                continue\n\n            # Tier 1: adjacent ones (cost 1 each)\n            adj = []\n            if alice > 0 and nums[alice-1] == 1 and (alice-1) not in used:\n                adj.append(alice-1)\n            if alice < n-1 and nums[alice+1] == 1 and (alice+1) not in used:\n                adj.append(alice+1)\n            for a in adj:\n                if collected >= k:\n                    break\n                used.add(a)\n                collected += 1\n                cost += 1\n\n            if collected >= k:\n                ans = min(ans, cost)\n                continue\n\n            # Tier 2: changes (cost 2 each), up to maxChanges\n            use_chg = min(maxChanges, k - collected)\n            cost += use_chg * 2\n            collected += use_chg\n\n            if collected >= k:\n                ans = min(ans, cost)\n                continue\n\n            # Tier 3: slide from remaining ones\n            pool = sorted(\n                [i for i in ones if i not in used],\n                key=lambda x: abs(x - alice)\n            )\n            need = k - collected\n            if len(pool) < need:\n                continue\n            cost += sum(abs(pool[i] - alice) for i in range(need))\n            ans = min(ans, cost)\n\n        return ans\n",
+    "javascript": "var minimumMoves = function(nums, k, maxChanges) {\n    const n = nums.length;\n    const ones = [];\n    for (let i = 0; i < n; i++) if (nums[i] === 1) ones.push(i);\n\n    let ans = Infinity;\n\n    for (let alice = 0; alice < n; alice++) {\n        let collected = 0, cost = 0;\n        const used = new Set();\n\n        // Tier 0: alice's own position (0 moves)\n        if (nums[alice] === 1) { used.add(alice); collected++; }\n        if (collected >= k) { ans = Math.min(ans, cost); continue; }\n\n        // Tier 1: adjacent ones (1 move each)\n        if (alice > 0 && nums[alice-1] === 1 && !used.has(alice-1)) {\n            used.add(alice-1); collected++; cost++;\n        }\n        if (collected < k && alice < n-1 && nums[alice+1] === 1 && !used.has(alice+1)) {\n            used.add(alice+1); collected++; cost++;\n        }\n        if (collected >= k) { ans = Math.min(ans, cost); continue; }\n\n        // Tier 2: changes (2 moves each)\n        const useChg = Math.min(maxChanges, k - collected);\n        cost += useChg * 2; collected += useChg;\n        if (collected >= k) { ans = Math.min(ans, cost); continue; }\n\n        // Tier 3: slide from remaining ones\n        const pool = ones\n            .filter(i => !used.has(i))\n            .sort((a, b) => Math.abs(a-alice) - Math.abs(b-alice));\n        const need = k - collected;\n        if (pool.length < need) continue;\n        let slideCost = 0;\n        for (let i = 0; i < need; i++) slideCost += Math.abs(pool[i] - alice);\n        ans = Math.min(ans, cost + slideCost);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

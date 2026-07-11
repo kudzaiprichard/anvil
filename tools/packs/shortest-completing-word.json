@@ -1,0 +1,38 @@
+{
+  "slug": "shortest-completing-word",
+  "judge": "exact",
+  "pattern": "Reduce the plate to a letter-frequency requirement, then scan words keeping the shortest one whose own letter counts cover that requirement.",
+  "hints": [
+    "Only the alphabetic letters of the plate matter, case-folded; digits and spaces are noise.",
+    "Build a count of how many times each letter the plate needs, then a word qualifies only if it has at least that many of every required letter.",
+    "Walk the words in order and remember the shortest qualifying one; ties keep the earlier word because you only replace on a strictly shorter length."
+  ],
+  "constraints": [
+    { "param": "licensePlate", "kind": "string", "len": [1, 7] },
+    { "param": "words", "kind": "string[]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "needs two s plus t and p", "input": ["1s3 PSt", ["step", "steps", "stripe", "stepple"]] },
+    { "kind": "trap", "description": "tie on length returns the earliest word", "input": ["1s3 456", ["looks", "pest", "stew", "show"]] },
+    { "kind": "edge", "description": "single required letter, shortest containing word", "input": ["a", ["a", "ba", "cab"]] },
+    { "kind": "trap", "description": "case insensitivity, uppercase plate vs lowercase words", "input": ["PP", ["apple", "pp", "papp"]] },
+    { "kind": "trap", "description": "repeated requirement filters words with too few copies", "input": ["aa", ["ax", "aax", "baaa"]] },
+    { "kind": "boundary", "description": "plate full of non-letters needs nothing, shortest word wins", "input": ["1 2 3", ["zz", "a", "bbb"]] },
+    { "kind": "edge", "description": "exact length match decided by coverage", "input": ["dvg", ["vdg", "gvd", "abc"]] }
+  ],
+  "stress": [
+    {
+      "description": "random plates and word lists with a guaranteed answer",
+      "seed": 31,
+      "size": 400,
+      "generator_python": "import string\ndef gen(rng, size):\n    letters = 'abcde'\n    need = ''.join(rng.choice(letters) for _ in range(rng.randint(1, 3)))\n    plate = need + ''.join(rng.choice('0123456789 ') for _ in range(rng.randint(0, 3)))\n    words = []\n    n = rng.randint(1, max(1, min(size, 200)))\n    for _ in range(n):\n        w = ''.join(rng.choice(letters) for _ in range(rng.randint(1, 12)))\n        words.append(w)\n    # guarantee at least one completing word by appending the needed letters to a random word\n    base = ''.join(rng.choice(letters) for _ in range(rng.randint(0, 5)))\n    words.append(base + need)\n    rng.shuffle(words)\n    return [plate, words]\n",
+      "note": "always inserts a completing word so an answer exists"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shortestCompletingWord(self, licensePlate, words):\n        from collections import Counter\n        need = Counter(c.lower() for c in licensePlate if c.isalpha())\n        best = None\n        for w in words:\n            wc = Counter(w)\n            ok = all(wc[k] >= v for k, v in need.items())\n            if ok and (best is None or len(w) < len(best)):\n                best = w\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def shortestCompletingWord(self, licensePlate, words):\n        from collections import Counter\n        need = Counter(c.lower() for c in licensePlate if c.isalpha())\n        ans = None\n        for w in words:\n            wc = Counter(w)\n            if all(wc.get(k, 0) >= v for k, v in need.items()):\n                if ans is None or len(w) < len(ans):\n                    ans = w\n        return ans\n",
+    "javascript": "var shortestCompletingWord = function(licensePlate, words) {\n    const need = {};\n    for (const ch of licensePlate.toLowerCase()) {\n        if (ch >= 'a' && ch <= 'z') need[ch] = (need[ch] || 0) + 1;\n    }\n    let ans = null;\n    for (const w of words) {\n        const wc = {};\n        for (const ch of w) wc[ch] = (wc[ch] || 0) + 1;\n        let ok = true;\n        for (const k in need) {\n            if ((wc[k] || 0) < need[k]) { ok = false; break; }\n        }\n        if (ok && (ans === null || w.length < ans.length)) ans = w;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(total characters)", "space": "O(1)" }
+}

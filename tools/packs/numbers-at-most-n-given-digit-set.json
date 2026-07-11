@@ -1,0 +1,40 @@
+{
+  "slug": "numbers-at-most-n-given-digit-set",
+  "judge": "exact",
+  "pattern": "Count valid numbers shorter than n's digit-count freely, then walk n's digits left to right: for each position tally how many allowed digits are strictly smaller (those can fill the rest freely), and advance only if n's digit itself is available.",
+  "hints": [
+    "Any number with fewer digits than n is automatically valid, and its count is simply the number of available digits raised to that length.",
+    "For numbers with exactly as many digits as n, scan position by position: count how many allowed digits are strictly less than the current digit of n (those can use any combination for the remaining positions), then continue tightly only if the current digit of n is itself in the allowed set.",
+    "Sum `len(digits)^i` for i from 1 to len(str(n))-1 to handle shorter numbers, then do a single left-to-right pass over the digits of n, accumulating `count_less * len(digits)^(remaining positions)` at each step."
+  ],
+  "constraints": [
+    { "param": "digits", "kind": "string[]", "len": [1, 9] },
+    { "param": "n", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single digit in set, n equals that digit exactly", "input": [["7"], 7] },
+    { "kind": "boundary", "description": "single digit in set, n is larger so the digit itself counts", "input": [["7"], 8] },
+    { "kind": "boundary", "description": "single digit larger than n — no valid numbers", "input": [["9"], 5] },
+    { "kind": "edge", "description": "classic four-digit set with two-digit n boundary", "input": [["1","3","5","7"], 100] },
+    { "kind": "edge", "description": "three-digit set with large n exercises multi-length counting", "input": [["1","4","9"], 1000000000] },
+    { "kind": "trap", "description": "digit set containing only '1' — numbers are 1, 11, 111 etc.", "input": [["1"], 13] },
+    { "kind": "trap", "description": "all nine digits available — answer equals n itself", "input": [["1","2","3","4","5","6","7","8","9"], 25] },
+    { "kind": "edge", "description": "digit set where n has a digit not in the set, stopping the tight walk early", "input": [["1","3","5","7"], 21] },
+    { "kind": "boundary", "description": "n equals 1 with digit '1' in the set", "input": [["1"], 1] }
+  ],
+  "stress": [
+    {
+      "description": "small n so brute-force oracle finishes quickly, random digit subset",
+      "seed": 42,
+      "size": 5,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(1, min(9, max(1, size)))\n    all_digits = [str(i) for i in range(1, 10)]\n    chosen = sorted(rng.sample(all_digits, k))\n    n = rng.randint(1, 100000)\n    return [chosen, n]\n",
+      "note": "n capped at 100000 so the brute-force oracle can enumerate all candidates quickly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def atMostNGivenDigitSet(self, digits, n):\n        # Digit DP written iteratively in a different style for cross-checking.\n        s = str(n)\n        L = len(s)\n        d = len(digits)\n        count = 0\n        # Numbers with fewer digits than L\n        power = 1\n        for i in range(1, L):\n            power *= d\n            count += power\n        # Numbers with exactly L digits — tight walk\n        for i, ch in enumerate(s):\n            less = sum(1 for dig in digits if dig < ch)\n            remaining = L - 1 - i\n            place = 1\n            for _ in range(remaining):\n                place *= d\n            count += less * place\n            if ch not in digits:\n                return count\n        count += 1  # n itself is reachable\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def atMostNGivenDigitSet(self, digits, n):\n        s = str(n)\n        L = len(s)\n        d = len(digits)\n        total = 0\n        # All numbers with strictly fewer digits\n        pw = 1\n        for length in range(1, L):\n            pw *= d\n            total += pw\n        # Numbers with exactly L digits using digit DP\n        for i, ch in enumerate(s):\n            count_less = sum(1 for dig in digits if dig < ch)\n            remaining = L - 1 - i\n            place_value = d ** remaining\n            total += count_less * place_value\n            if ch not in digits:\n                return total\n        return total + 1  # n itself\n",
+    "javascript": "var atMostNGivenDigitSet = function(digits, n) {\n    const s = String(n);\n    const L = s.length;\n    const d = digits.length;\n    let total = 0;\n    // Numbers with fewer digits than L\n    let pw = 1;\n    for (let len = 1; len < L; len++) {\n        pw *= d;\n        total += pw;\n    }\n    // Numbers with exactly L digits\n    for (let i = 0; i < L; i++) {\n        const ch = s[i];\n        let countLess = 0;\n        for (const dig of digits) {\n            if (dig < ch) countLess++;\n        }\n        const remaining = L - 1 - i;\n        let placeValue = 1;\n        for (let r = 0; r < remaining; r++) placeValue *= d;\n        total += countLess * placeValue;\n        if (!digits.includes(ch)) return total;\n    }\n    return total + 1;\n};\n"
+  },
+  "complexity": { "time": "O(L * |digits|)", "space": "O(L)" }
+}

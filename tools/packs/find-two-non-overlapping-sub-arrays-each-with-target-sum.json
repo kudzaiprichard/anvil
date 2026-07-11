@@ -1,0 +1,74 @@
+{
+  "slug": "find-two-non-overlapping-sub-arrays-each-with-target-sum",
+  "judge": "exact",
+  "pattern": "Walking prefix sums left to right while remembering the shortest target-sum window ending at or before each position lets every new window instantly pair up with the best compatible partner to its left.",
+  "hints": [
+    "A subarray with sum == target ending at index r can be found in O(1) with a hashmap of prefix sums: it exists whenever prefixSum[r] - target has appeared before.",
+    "Keep a running array best[i] = the shortest target-sum subarray that ends anywhere at or before index i (or infinity if none yet). It only ever needs the value from one position back.",
+    "Whenever you find a target-sum window ending at r starting right after some index l, the best combined answer using that window is its length plus best[l] - update the answer with that sum, then refresh best[r]."
+  ],
+  "constraints": [
+    { "param": "arr", "kind": "int[]", "len": [1, 100000], "value": [1, 1000] },
+    { "param": "target", "kind": "int", "value": [1, 100000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "three single-element matches, pick any two for the minimal combined length",
+      "input": [[5, 5, 5], 5]
+    },
+    {
+      "kind": "edge",
+      "description": "matches of different lengths, minimal combined sum mixes a short and a longer one",
+      "input": [[2, 1, 1, 2, 4], 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element array can never supply two disjoint subarrays",
+      "input": [[1], 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "target exceeds the total sum, so no subarray at all can reach it",
+      "input": [[1, 2, 3], 1000]
+    },
+    {
+      "kind": "trap",
+      "description": "overlapping windows of the same target sum must not both be chosen",
+      "input": [[2, 2, 2, 2], 4]
+    },
+    {
+      "kind": "trap",
+      "description": "a longer early match would beat later shorter ones only if overlap were ignored",
+      "input": [[1, 1, 1, 1, 4, 4], 4]
+    },
+    {
+      "kind": "trap",
+      "description": "many equal-sum windows of varying length require tracking the true minimum seen so far, not just the most recent",
+      "input": [[3, 1, 2, 1, 1, 1, 3], 3]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-max length with small values and a mid-range target",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    arr = [rng.randint(1, 1000) for _ in range(n)]\n    target = rng.randint(1, 3000)\n    return [arr, target]\n"
+    },
+    {
+      "description": "dense small values so many overlapping target-sum windows exist",
+      "seed": 6,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    arr = [rng.randint(1, 4) for _ in range(n)]\n    target = rng.randint(1, 8)\n    return [arr, target]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSumOfLengths(self, arr, target):\n        n = len(arr)\n        subs = []\n        for i in range(n):\n            s = 0\n            for j in range(i, n):\n                s += arr[j]\n                if s == target:\n                    subs.append((i, j))\n        best = float('inf')\n        for i1, j1 in subs:\n            for i2, j2 in subs:\n                if j1 < i2 or j2 < i1:\n                    best = min(best, (j1 - i1 + 1) + (j2 - i2 + 1))\n        return best if best < float('inf') else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSumOfLengths(self, arr, target):\n        n = len(arr)\n        prefix = 0\n        seen = {0: -1}\n        INF = float('inf')\n        best = [INF] * n\n        ans = INF\n        for r in range(n):\n            prefix += arr[r]\n            cur_len = INF\n            if (prefix - target) in seen:\n                l = seen[prefix - target]\n                cur_len = r - l\n                if l >= 0 and best[l] < INF:\n                    ans = min(ans, cur_len + best[l])\n            prev_best = best[r - 1] if r > 0 else INF\n            best[r] = min(prev_best, cur_len)\n            seen[prefix] = r\n        return ans if ans < INF else -1\n",
+    "javascript": "var minSumOfLengths = function(arr, target) {\n    const n = arr.length;\n    let prefix = 0;\n    const seen = new Map([[0, -1]]);\n    const INF = Infinity;\n    const best = new Array(n).fill(INF);\n    let ans = INF;\n    for (let r = 0; r < n; r++) {\n        prefix += arr[r];\n        let curLen = INF;\n        if (seen.has(prefix - target)) {\n            const l = seen.get(prefix - target);\n            curLen = r - l;\n            if (l >= 0 && best[l] < INF) {\n                ans = Math.min(ans, curLen + best[l]);\n            }\n        }\n        const prevBest = r > 0 ? best[r - 1] : INF;\n        best[r] = Math.min(prevBest, curLen);\n        seen.set(prefix, r);\n    }\n    return ans < INF ? ans : -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

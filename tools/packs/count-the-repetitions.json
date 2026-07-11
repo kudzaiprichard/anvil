@@ -1,0 +1,48 @@
+{
+  "slug": "count-the-repetitions",
+  "judge": "exact",
+  "pattern": "Matching s2 greedily through repeated copies of s1 eventually revisits the same alignment state; detecting that cycle lets you fast-forward through millions of s1 copies arithmetically instead of scanning every character.",
+  "hints": [
+    "Scan s1 once and, for each starting offset into s2, record how the offset advances and how many full s2 copies complete after consuming one whole s1.",
+    "After at most a handful of s1 blocks the (offset-into-s2) state must repeat, because there are only len(s2) possible offsets, so the progress per block becomes periodic.",
+    "Find the pre-cycle and cycle in terms of (s2-offset after each s1 block), multiply the cycle's s2-count by how many cycles fit in n1, add the remainder, then divide the total s2 matches by n2."
+  ],
+  "constraints": [
+    { "param": "s1", "kind": "string", "len": [1, 100] },
+    { "param": "n1", "kind": "int", "value": [1, 1000000] },
+    { "param": "s2", "kind": "string", "len": [1, 100] },
+    { "param": "n2", "kind": "int", "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic case with extra junk characters in s1", "input": ["acb", 4, "ab", 2] },
+    { "kind": "edge", "description": "identical single copies", "input": ["acb", 1, "acb", 1] },
+    { "kind": "trap", "description": "s2 character never appears in s1 yields zero", "input": ["aaa", 100, "b", 1] },
+    { "kind": "boundary", "description": "single-character strings repeated", "input": ["a", 5, "a", 1] },
+    { "kind": "trap", "description": "n2 larger than achievable copies forces a smaller answer", "input": ["ab", 3, "ab", 2] },
+    { "kind": "edge", "description": "s2 longer than s1 needs multiple blocks per match", "input": ["abc", 6, "abcabc", 1] },
+    { "kind": "trap", "description": "interleaving so only partial matches accumulate slowly", "input": ["aabb", 3, "ab", 1] },
+    { "kind": "boundary", "description": "large repetition count exercises the fast-forward path", "input": ["abcabc", 10000, "abc", 3] }
+  ],
+  "stress": [
+    {
+      "description": "small random strings with modest repetition counts the brute oracle can simulate",
+      "seed": 21,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    alpha = 'abc'\n    s1 = ''.join(rng.choice(alpha) for _ in range(rng.randint(1, 8)))\n    s2 = ''.join(rng.choice(alpha) for _ in range(rng.randint(1, 4)))\n    n1 = rng.randint(1, 60)\n    n2 = rng.randint(1, 4)\n    return [s1, n1, s2, n2]\n",
+      "note": "lengths and counts kept small so char-by-char simulation stays fast"
+    },
+    {
+      "description": "two-letter alphabet to force frequent partial matches and cycles",
+      "seed": 53,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    alpha = 'ab'\n    s1 = ''.join(rng.choice(alpha) for _ in range(rng.randint(2, 10)))\n    s2 = ''.join(rng.choice(alpha) for _ in range(rng.randint(1, 3)))\n    n1 = rng.randint(1, 80)\n    n2 = rng.randint(1, 3)\n    return [s1, n1, s2, n2]\n",
+      "note": "dense matches stress the cycle detection against brute simulation"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getMaxRepetitions(self, s1, n1, s2, n2):\n        j = 0\n        s2_count = 0\n        for _ in range(n1):\n            for ch in s1:\n                if ch == s2[j]:\n                    j += 1\n                    if j == len(s2):\n                        j = 0\n                        s2_count += 1\n        return s2_count // n2\n",
+  "solutions": {
+    "python": "class Solution:\n    def getMaxRepetitions(self, s1, n1, s2, n2):\n        if n1 == 0:\n            return 0\n        index_after = [0] * len(s2)\n        counts_per_start = [0] * len(s2)\n        for start in range(len(s2)):\n            j = start\n            cnt = 0\n            for ch in s1:\n                if ch == s2[j]:\n                    j += 1\n                    if j == len(s2):\n                        j = 0\n                        cnt += 1\n            counts_per_start[start] = cnt\n            index_after[start] = j\n        total = 0\n        cur = 0\n        seen = {}\n        block = 0\n        while block < n1:\n            if cur in seen:\n                prev_block, prev_total = seen[cur]\n                cycle_blocks = block - prev_block\n                cycle_count = total - prev_total\n                remaining = n1 - block\n                cycles = remaining // cycle_blocks\n                total += cycles * cycle_count\n                block += cycles * cycle_blocks\n                seen = {}\n                if block >= n1:\n                    break\n            else:\n                seen[cur] = (block, total)\n            total += counts_per_start[cur]\n            cur = index_after[cur]\n            block += 1\n        return total // n2\n",
+    "javascript": "var getMaxRepetitions = function(s1, n1, s2, n2) {\n    if (n1 === 0) return 0;\n    const L = s2.length;\n    const indexAfter = new Array(L).fill(0);\n    const countsPerStart = new Array(L).fill(0);\n    for (let start = 0; start < L; start++) {\n        let j = start, cnt = 0;\n        for (const ch of s1) {\n            if (ch === s2[j]) {\n                j++;\n                if (j === L) { j = 0; cnt++; }\n            }\n        }\n        countsPerStart[start] = cnt;\n        indexAfter[start] = j;\n    }\n    let total = 0, cur = 0, block = 0;\n    let seen = new Map();\n    while (block < n1) {\n        if (seen.has(cur)) {\n            const [prevBlock, prevTotal] = seen.get(cur);\n            const cycleBlocks = block - prevBlock;\n            const cycleCount = total - prevTotal;\n            const remaining = n1 - block;\n            const cycles = Math.floor(remaining / cycleBlocks);\n            total += cycles * cycleCount;\n            block += cycles * cycleBlocks;\n            seen = new Map();\n            if (block >= n1) break;\n        } else {\n            seen.set(cur, [block, total]);\n        }\n        total += countsPerStart[cur];\n        cur = indexAfter[cur];\n        block++;\n    }\n    return Math.floor(total / n2);\n};\n"
+  },
+  "complexity": { "time": "O(len(s1) * len(s2))", "space": "O(len(s2))" }
+}

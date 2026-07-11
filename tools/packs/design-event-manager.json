@@ -1,0 +1,98 @@
+{
+  "slug": "design-event-manager",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Popping the highest-priority active event with a smallest-id tiebreak is a priority-queue job; because a priority change or a poll can strand old queue entries, the queue is checked against a live priority map so stale entries are simply discarded when they surface.",
+  "hints": [
+    "Scanning every active event to find the current best on each pollHighest call is too slow if there are many events — keep candidates ordered so the best one surfaces without a full rescan.",
+    "updatePriority changing an event's priority would normally mean finding and moving an entry buried inside the queue — instead just push a fresh entry for the new priority and let the old one become obsolete.",
+    "Keep a heap ordered by (priority descending, eventId ascending) alongside a map of each event's current true priority; pollHighest pops heap entries, skipping any whose priority no longer matches the map, until it finds one that does — that one is real and gets removed from the map too."
+  ],
+  "constraints": [
+    { "param": "events", "kind": "int[][]", "len": [1, 100000], "note": "each row [eventId, priority]; all eventIds distinct, 1<=eventId,priority<=1000000000" },
+    { "param": "eventId", "kind": "int", "value": [1, 1000000000] },
+    { "param": "priority", "kind": "int", "value": [1, 1000000000] },
+    { "param": "newPriority", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sample 1: a tie between two events is broken by the smaller id, then a priority update changes who wins next",
+      "input": [
+        ["EventManager", "pollHighest", "updatePriority", "pollHighest", "pollHighest"],
+        [[[[5, 7], [2, 7], [9, 4]]], [], [9, 7], [], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "sample 2: repeated polling eventually empties the manager",
+      "input": [
+        ["EventManager", "pollHighest", "pollHighest", "pollHighest"],
+        [[[[4, 1], [7, 2]]], [], [], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a three-way tie on priority is broken by the smallest eventId among all of them",
+      "input": [
+        ["EventManager", "pollHighest"],
+        [[[[5, 10], [3, 10], [8, 10]]], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "raising a low-priority event above the current leader changes who pollHighest returns next",
+      "input": [
+        ["EventManager", "updatePriority", "pollHighest"],
+        [[[[1, 5], [2, 50]]], [1, 100], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "polling an already-emptied manager keeps returning -1",
+      "input": [
+        ["EventManager", "pollHighest", "pollHighest"],
+        [[[[1, 1]]], [], []]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single event with eventId and priority at the constraint extremes",
+      "input": [
+        ["EventManager", "pollHighest"],
+        [[[[1000000000, 1000000000]]], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "updating the same event's priority more than once keeps only the most recent value",
+      "input": [
+        ["EventManager", "updatePriority", "updatePriority", "pollHighest"],
+        [[[[1, 5], [2, 5]]], [1, 1], [1, 50], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a manager that starts with several events polls them off strictly in priority order",
+      "input": [
+        ["EventManager", "pollHighest", "pollHighest", "pollHighest"],
+        [[[[1, 3], [2, 9], [3, 6]]], [], [], []]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random updatePriority/pollHighest traffic seeded with a batch of distinct events, restocking the pool as it drains",
+      "seed": 83,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    next_id = [1]\n    def fresh_id():\n        v = next_id[0]\n        next_id[0] += 1\n        return v\n    seed_events = []\n    active = {}\n    n0 = rng.randint(1, 30)\n    for _ in range(n0):\n        eid = fresh_id()\n        pr = rng.randint(1, 500)\n        seed_events.append([eid, pr])\n        active[eid] = pr\n    ops = ['EventManager']\n    args = [[seed_events]]\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.55 and active:\n            eid = rng.choice(list(active.keys()))\n            pr = rng.randint(1, 500)\n            ops.append('updatePriority')\n            args.append([eid, pr])\n            active[eid] = pr\n        else:\n            ops.append('pollHighest')\n            args.append([])\n            if active:\n                best_id = max(active.items(), key=lambda kv: (kv[1], -kv[0]))[0]\n                del active[best_id]\n    return [ops, args]\n",
+      "note": "generator's own active map only tracks ids it has itself created, so updatePriority always targets a still-active event as the problem guarantees"
+    }
+  ],
+  "oracle_python": "class EventManager:\n    def __init__(self, events):\n        self.active = {eventId: prio for eventId, prio in events}\n\n    def updatePriority(self, eventId, newPriority):\n        self.active[eventId] = newPriority\n\n    def pollHighest(self):\n        if not self.active:\n            return -1\n        best_id = None\n        best_key = None\n        for eventId, prio in self.active.items():\n            key = (prio, -eventId)\n            if best_key is None or key > best_key:\n                best_key = key\n                best_id = eventId\n        del self.active[best_id]\n        return best_id\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass EventManager:\n    def __init__(self, events):\n        self.priority = {}\n        self.heap = []\n        for eventId, prio in events:\n            self.priority[eventId] = prio\n            heapq.heappush(self.heap, (-prio, eventId))\n\n    def updatePriority(self, eventId, newPriority):\n        self.priority[eventId] = newPriority\n        heapq.heappush(self.heap, (-newPriority, eventId))\n\n    def pollHighest(self):\n        while self.heap:\n            negp, eventId = heapq.heappop(self.heap)\n            if eventId in self.priority and self.priority[eventId] == -negp:\n                del self.priority[eventId]\n                return eventId\n        return -1\n",
+    "javascript": "class EventManager {\n    constructor(events) {\n        this.priority = new Map();\n        this.heap = [];\n        for (const [eventId, prio] of events) {\n            this.priority.set(eventId, prio);\n            this._push(prio, eventId);\n        }\n    }\n    _better(a, b) {\n        if (a[0] !== b[0]) return a[0] > b[0];\n        return a[1] < b[1];\n    }\n    _push(priority, eventId) {\n        const heap = this.heap;\n        heap.push([priority, eventId]);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (this._better(heap[i], heap[p])) {\n                [heap[i], heap[p]] = [heap[p], heap[i]];\n                i = p;\n            } else break;\n        }\n    }\n    _pop() {\n        const heap = this.heap;\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length > 0) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                let best = i;\n                const l = 2 * i + 1;\n                const r = 2 * i + 2;\n                if (l < heap.length && this._better(heap[l], heap[best])) best = l;\n                if (r < heap.length && this._better(heap[r], heap[best])) best = r;\n                if (best === i) break;\n                [heap[i], heap[best]] = [heap[best], heap[i]];\n                i = best;\n            }\n        }\n        return top;\n    }\n    updatePriority(eventId, newPriority) {\n        this.priority.set(eventId, newPriority);\n        this._push(newPriority, eventId);\n    }\n    pollHighest() {\n        while (this.heap.length > 0) {\n            const [p, eventId] = this._pop();\n            if (this.priority.has(eventId) && this.priority.get(eventId) === p) {\n                this.priority.delete(eventId);\n                return eventId;\n            }\n        }\n        return -1;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) amortized per call", "space": "O(n)" }
+}

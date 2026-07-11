@@ -1,0 +1,38 @@
+{
+  "slug": "move-pieces-to-obtain-a-string",
+  "judge": "exact",
+  "pattern": "Pieces never pass through each other, so reachability reduces to checking that the non-blank characters match in order and that each L only moves left while each R only moves right.",
+  "hints": [
+    "Blanks are interchangeable, so first compare the two strings after deleting underscores; if those sequences differ the answer is already no.",
+    "An L can only drift left, so its position in the target must not be to the right of its start; symmetrically an R can only drift right.",
+    "Match the i-th piece of start to the i-th piece of target by walking both, comparing letters and the direction each one moved."
+  ],
+  "constraints": [
+    { "param": "start", "kind": "string", "len": [1, 100000] },
+    { "param": "target", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "both empty of pieces", "input": ["___", "___"] },
+    { "kind": "trap", "description": "L cannot move right", "input": ["_L", "L_"] },
+    { "kind": "trap", "description": "R cannot move left", "input": ["_R", "R_"] },
+    { "kind": "trap", "description": "an R and an L would have to cross each other", "input": ["R_L_", "__LR"] },
+    { "kind": "edge", "description": "multiple pieces all shifting in legal directions", "input": ["_L__R__R_", "L______RR"] },
+    { "kind": "trap", "description": "piece counts match but letter order differs", "input": ["LR", "RL"] },
+    { "kind": "boundary", "description": "single piece that stays put", "input": ["L", "L"] }
+  ],
+  "stress": [
+    {
+      "description": "random start, then derive a reachable-or-not target by occasionally shuffling blanks legally or planting a violation",
+      "seed": 17,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    start = ''.join(rng.choice('LR_') for _ in range(n))\n    # build target by random independent generation; correctness checked by oracle\n    target = ''.join(rng.choice('LR_') for _ in range(n))\n    return [start, target]\n",
+      "note": "purely random pairs exercise both reachable and unreachable cases"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canChange(self, start, target):\n        # BFS over reachable strings is exponential; instead use a clearly-correct\n        # invariant check independent of the optimized two-pointer: every move is\n        # an adjacent swap of a piece with a blank in its allowed direction, which\n        # preserves (a) the order of non-blank chars and (b) for the k-th piece,\n        # L can only decrease its index and R can only increase it.\n        s_pieces = [(c, i) for i, c in enumerate(start) if c != '_']\n        t_pieces = [(c, i) for i, c in enumerate(target) if c != '_']\n        if len(s_pieces) != len(t_pieces):\n            return False\n        for (sc, si), (tc, ti) in zip(s_pieces, t_pieces):\n            if sc != tc:\n                return False\n            if sc == 'L' and si < ti:\n                return False\n            if sc == 'R' and si > ti:\n                return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def canChange(self, start, target):\n        n = len(start)\n        i = j = 0\n        while i < n or j < n:\n            while i < n and start[i] == '_':\n                i += 1\n            while j < n and target[j] == '_':\n                j += 1\n            if i == n or j == n:\n                return i == n and j == n\n            if start[i] != target[j]:\n                return False\n            if start[i] == 'L' and i < j:\n                return False\n            if start[i] == 'R' and i > j:\n                return False\n            i += 1\n            j += 1\n        return True\n",
+    "javascript": "var canChange = function(start, target) {\n    const n = start.length;\n    let i = 0, j = 0;\n    while (i < n || j < n) {\n        while (i < n && start[i] === '_') i++;\n        while (j < n && target[j] === '_') j++;\n        if (i === n || j === n) return i === n && j === n;\n        if (start[i] !== target[j]) return false;\n        if (start[i] === 'L' && i < j) return false;\n        if (start[i] === 'R' && i > j) return false;\n        i++;\n        j++;\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

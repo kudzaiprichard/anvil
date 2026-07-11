@@ -1,0 +1,36 @@
+{
+  "slug": "house-robber-iii",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "For each node return two totals — the best if you take this node and the best if you skip it — and combine children's totals bottom-up so no two adjacent nodes are ever both taken.",
+  "hints": [
+    "Robbing a node forbids robbing its direct children, so the choice at a node depends on the choices made at its children.",
+    "Have each subtree report two numbers: the most it can yield with its root robbed, and the most with its root left alone.",
+    "If you rob a node, you add its value to the 'skip' totals of both children; if you skip it, each child contributes the larger of its two totals. The answer is the larger of the root's two numbers."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 10000], "value": [0, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "skip root, rob the deeper layer", "input": [[3, 2, 3, null, 3, null, 1]] },
+    { "kind": "edge", "description": "rob the two children instead of root plus grandchildren", "input": [[3, 4, 5, 1, 3, null, 1]] },
+    { "kind": "boundary", "description": "single node — rob it", "input": [[5]] },
+    { "kind": "trap", "description": "greedy 'take the root' loses to taking both children", "input": [[2, 1, 3, null, 4]] },
+    { "kind": "trap", "description": "left-skewed chain alternates take/skip optimally", "input": [[4, 1, null, 2, null, 100]] }
+  ],
+  "stress": [
+    {
+      "description": "random level-order tree with holes, values in range",
+      "seed": 29,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    arr = [rng.randint(0, 10000)]\n    for _ in range(n - 1):\n        arr.append(rng.randint(0, 10000) if rng.random() < 0.85 else None)\n    while arr and arr[-1] is None:\n        arr.pop()\n    return [arr]\n",
+      "note": "first element non-null so the root exists"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def rob(self, root):\n        # memoized: best for subtree given whether parent was robbed\n        from functools import lru_cache\n        memo = {}\n        def best(node, parent_robbed):\n            if not node:\n                return 0\n            key = (id(node), parent_robbed)\n            if key in memo:\n                return memo[key]\n            # option: skip this node\n            skip = best(node.left, False) + best(node.right, False)\n            if parent_robbed:\n                memo[key] = skip\n                return skip\n            # option: rob this node\n            take = node.val + best(node.left, True) + best(node.right, True)\n            res = max(skip, take)\n            memo[key] = res\n            return res\n        return best(root, False)\n",
+  "solutions": {
+    "python": "class Solution:\n    def rob(self, root):\n        def dfs(node):\n            if not node:\n                return (0, 0)\n            l = dfs(node.left)\n            r = dfs(node.right)\n            rob_node = node.val + l[1] + r[1]\n            skip_node = max(l) + max(r)\n            return (rob_node, skip_node)\n        return max(dfs(root))\n",
+    "javascript": "var rob = function(root) {\n    function dfs(node) {\n        if (!node) return [0, 0];\n        const l = dfs(node.left);\n        const r = dfs(node.right);\n        const robNode = node.val + l[1] + r[1];\n        const skipNode = Math.max(l[0], l[1]) + Math.max(r[0], r[1]);\n        return [robNode, skipNode];\n    }\n    const res = dfs(root);\n    return Math.max(res[0], res[1]);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

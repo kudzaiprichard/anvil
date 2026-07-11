@@ -1,0 +1,43 @@
+{
+  "slug": "painting-the-walls",
+  "judge": "exact",
+  "pattern": "Choosing which walls the paid painter handles is a knapsack where each choice buys both itself and extra idle-free-painter time, so the DP tracks accumulated time credit capped at n.",
+  "hints": [
+    "Every wall must end up painted by someone; a wall the free painter handles only counts if the paid painter is simultaneously busy elsewhere, so think in terms of which walls you hand to the paid painter and how much slack that buys.",
+    "If you give the paid painter a subset of walls, the free painter can cover at most the sum of those walls' times worth of other walls for free - so the subset is valid exactly when its total time plus its own size is at least n.",
+    "Run a knapsack DP over a 'credit' axis capped at n: dp[j] is the minimum cost to reach credit j, where taking wall i moves you from j to min(n, j + time[i] + 1) for cost[i]; the answer is dp[n]."
+  ],
+  "constraints": [
+    { "param": "cost", "kind": "int[]", "len": [1, 500], "value": [1, 1000000] },
+    { "param": "time", "kind": "int[]", "len": [1, 500], "value": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single wall, it must be painted by the paid painter since no other wall can occupy the free painter's prerequisite", "input": [[5], [3]] },
+    { "kind": "boundary", "description": "cheapest possible walls at the maximum time value", "input": [[1, 1], [500, 500]] },
+    { "kind": "boundary", "description": "priciest walls all with the minimum time, forcing a majority to be hired", "input": [[1000000, 1000000, 1000000], [1, 1, 1]] },
+    { "kind": "trap", "description": "one expensive slow wall looks efficient by raw time but two cheap fast walls beat it on total cost", "input": [[5, 1, 1], [100, 1, 1]] },
+    { "kind": "trap", "description": "uniform cost and time, exactly half the walls (rounded up) must be hired", "input": [[3, 3, 3], [1, 1, 1]] },
+    { "kind": "edge", "description": "one wall with ample spare time covers several cheap walls for free, cheaper than hiring more of them", "input": [[9, 1, 1, 1, 1], [10, 1, 1, 1, 1]] },
+    { "kind": "trap", "description": "mixed costs and times where the minimum-cost subset is not the one with the largest total time", "input": [[4, 8, 15, 16, 23, 42, 3, 7, 9, 10], [2, 3, 1, 4, 2, 5, 1, 2, 3, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "500 walls with random cost and time across the full allowed range",
+      "seed": 3,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = 500\n    cost = [rng.randint(1, 1000000) for _ in range(n)]\n    time = [rng.randint(1, 500) for _ in range(n)]\n    return [cost, time]\n"
+    },
+    {
+      "description": "500 walls all with the minimum time, forcing the DP to consider hiring a large fraction of walls",
+      "seed": 4,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = 500\n    cost = [rng.randint(1, 1000000) for _ in range(n)]\n    time = [1] * n\n    return [cost, time]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def paintWalls(self, cost, time):\n        n = len(cost)\n        best = None\n        for mask in range(1 << n):\n            total_time = 0\n            total_cost = 0\n            chosen = 0\n            for i in range(n):\n                if mask & (1 << i):\n                    total_time += time[i]\n                    total_cost += cost[i]\n                    chosen += 1\n            if total_time >= n - chosen:\n                if best is None or total_cost < best:\n                    best = total_cost\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def paintWalls(self, cost, time):\n        n = len(cost)\n        INF = float('inf')\n        dp = [0] + [INF] * n\n        for i in range(n):\n            c, t = cost[i], time[i]\n            for j in range(n, -1, -1):\n                if dp[j] == INF:\n                    continue\n                nj = j + t + 1\n                if nj > n:\n                    nj = n\n                if dp[j] + c < dp[nj]:\n                    dp[nj] = dp[j] + c\n        return dp[n]\n",
+    "javascript": "var paintWalls = function(cost, time) {\n    const n = cost.length;\n    const INF = Infinity;\n    const dp = new Array(n + 1).fill(INF);\n    dp[0] = 0;\n    for (let i = 0; i < n; i++) {\n        const c = cost[i], t = time[i];\n        for (let j = n; j >= 0; j--) {\n            if (dp[j] === INF) continue;\n            const nj = Math.min(n, j + t + 1);\n            if (dp[j] + c < dp[nj]) dp[nj] = dp[j] + c;\n        }\n    }\n    return dp[n];\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

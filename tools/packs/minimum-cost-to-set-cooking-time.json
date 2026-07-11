@@ -1,0 +1,40 @@
+{
+  "slug": "minimum-cost-to-set-cooking-time",
+  "judge": "exact",
+  "pattern": "A cooking time can be typed in at most two distinct minute:second splits (the direct one, and one fewer minute traded for sixty more seconds when that stays in range), so pricing both four-digit-or-shorter keypad sequences and keeping the cheaper one solves it.",
+  "hints": [
+    "The last two digits you push are always read as seconds and the two before that as minutes, and any digits you don't push are just assumed to be leading zeros -- so shorter pushed sequences are only possible when the leading digits of the four-digit form are zero.",
+    "There are at most two ways to split a target into minutes and seconds that the keypad can represent: the direct split (minutes = target // 60, seconds = the remainder), and, when the remainder is 39 or less and at least one minute is available to give up, one fewer minute paired with sixty extra seconds.",
+    "For each valid split, build its zero-padded four-digit string, drop any leading zeros (but keep at least one digit), then walk the remaining digits left to right adding the push cost every time and the move cost only when the digit actually differs from wherever the finger currently is -- take the cheaper of the (at most two) totals."
+  ],
+  "constraints": [
+    { "param": "startAt", "kind": "int", "value": [0, 9] },
+    { "param": "moveCost", "kind": "int", "value": [1, 100000] },
+    { "param": "pushCost", "kind": "int", "value": [1, 100000] },
+    { "param": "targetSeconds", "kind": "int", "value": [1, 6039] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "finger already rests on the one digit that needs pushing", "input": [8, 5, 3, 8] },
+    { "kind": "boundary", "description": "the maximum representable target, saturating both minutes and seconds at 99", "input": [0, 2, 3, 6039] },
+    { "kind": "boundary", "description": "the minimum possible target of one second", "input": [1, 4, 2, 1] },
+    { "kind": "trap", "description": "the direct minute:second split is not the cheapest -- a shorter alternative encoding with one fewer minute wins when moves are expensive", "input": [0, 100000, 1, 90] },
+    { "kind": "trap", "description": "a repeated digit across consecutive pushes should never be charged a move cost for the repeat", "input": [1, 99999, 7, 11] },
+    { "kind": "boundary", "description": "the alternative split sits exactly at its remainder threshold of 39", "input": [3, 10, 10, 99] },
+    { "kind": "edge", "description": "the finger starts on a digit that never appears anywhere in the cheapest sequence", "input": [7, 50, 5, 630] }
+  ],
+  "stress": [
+    {
+      "description": "random parameter combinations sampled across the full legal range of every argument",
+      "seed": 13,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    cap = max(1, min(size, 100000))\n    start_at = rng.randint(0, 9)\n    move_cost = rng.randint(1, cap)\n    push_cost = rng.randint(1, cap)\n    target_seconds = rng.randint(1, 6039)\n    return [start_at, move_cost, push_cost, target_seconds]\n",
+      "note": "this problem has no array to scale, so the generator instead samples widely across the bounded parameter space rather than growing an input size"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCostSetTime(self, startAt, moveCost, pushCost, targetSeconds):\n        best = None\n        for m in range(100):\n            s = targetSeconds - m * 60\n            if 0 <= s <= 99:\n                digits = '%02d%02d' % (m, s)\n                i = 0\n                while i < len(digits) - 1 and digits[i] == '0':\n                    i += 1\n                digits = digits[i:]\n                cost = 0\n                cur = startAt\n                for ch in digits:\n                    d = int(ch)\n                    if d != cur:\n                        cost += moveCost\n                    cost += pushCost\n                    cur = d\n                if best is None or cost < best:\n                    best = cost\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCostSetTime(self, startAt, moveCost, pushCost, targetSeconds):\n        candidates = []\n        m1, s1 = divmod(targetSeconds, 60)\n        if m1 <= 99:\n            candidates.append((m1, s1))\n        if m1 >= 1 and s1 <= 39:\n            candidates.append((m1 - 1, s1 + 60))\n        best = None\n        for m, s in candidates:\n            digits = ('%02d%02d' % (m, s)).lstrip('0') or '0'\n            cost = 0\n            cur = startAt\n            for ch in digits:\n                d = int(ch)\n                if d != cur:\n                    cost += moveCost\n                cost += pushCost\n                cur = d\n            if best is None or cost < best:\n                best = cost\n        return best\n",
+    "javascript": "var minCostSetTime = function(startAt, moveCost, pushCost, targetSeconds) {\n    const candidates = [];\n    const m1 = Math.floor(targetSeconds / 60);\n    const s1 = targetSeconds % 60;\n    if (m1 <= 99) candidates.push([m1, s1]);\n    if (m1 >= 1 && s1 <= 39) candidates.push([m1 - 1, s1 + 60]);\n    let best = Infinity;\n    for (const [m, s] of candidates) {\n        let digits = String(m).padStart(2, '0') + String(s).padStart(2, '0');\n        digits = digits.replace(/^0+(?=.)/, '');\n        let cost = 0;\n        let cur = startAt;\n        for (const ch of digits) {\n            const d = Number(ch);\n            if (d !== cur) cost += moveCost;\n            cost += pushCost;\n            cur = d;\n        }\n        best = Math.min(best, cost);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(1)", "space": "O(1)" }
+}

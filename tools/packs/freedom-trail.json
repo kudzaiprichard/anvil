@@ -1,0 +1,38 @@
+{
+  "slug": "freedom-trail",
+  "judge": "exact",
+  "pattern": "Dynamic programming over which ring position holds each key character, accumulating minimal circular rotation plus press cost across the keyword.",
+  "hints": [
+    "Rotating between two ring positions costs the smaller of the clockwise and anticlockwise distances on the circle.",
+    "Track, for each character of the key, the minimum total steps assuming the ring is aligned at each candidate position that matches that character.",
+    "Process the key left to right; for every position matching the current key character, take the best previous matching position plus its rotation distance, and add one press per character at the end."
+  ],
+  "constraints": [
+    { "param": "ring", "kind": "str", "len": [1, 100] },
+    { "param": "key", "kind": "str", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": ["godding", "gd"] },
+    { "kind": "edge", "description": "statement example two", "input": ["godding", "godding"] },
+    { "kind": "edge", "description": "single character ring and key", "input": ["a", "a"] },
+    { "kind": "trap", "description": "duplicate target characters favor the nearer occurrence", "input": ["caotmcaataijjxi", "oatjiioicitatajtijciocjcaaxaaatmctxamacaamjjx"] },
+    { "kind": "edge", "description": "repeated single character requires only presses", "input": ["aaaa", "aaaa"] },
+    { "kind": "trap", "description": "choosing the wrong copy increases total rotation", "input": ["abcabc", "cba"] },
+    { "kind": "boundary", "description": "key longer than ring with repeats", "input": ["edcba", "abcdeedcba"] }
+  ],
+  "stress": [
+    {
+      "description": "random small-alphabet rings and keys drawn from the ring's characters so the key is always spellable",
+      "seed": 41,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    alpha = 'abcde'\n    rlen = rng.randrange(1, max(2, size) + 1)\n    ring = ''.join(rng.choice(alpha) for _ in range(rlen))\n    present = list(set(ring))\n    klen = rng.randrange(1, max(2, size) + 1)\n    key = ''.join(rng.choice(present) for _ in range(klen))\n    return [ring, key]\n",
+      "note": "key chars are restricted to characters present in ring"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findRotateSteps(self, ring, key):\n        import sys\n        n = len(ring)\n        from functools import lru_cache\n        sys.setrecursionlimit(10000)\n        pos = {}\n        for i, c in enumerate(ring):\n            pos.setdefault(c, []).append(i)\n        @lru_cache(None)\n        def dp(ki, cur):\n            if ki == len(key):\n                return 0\n            best = float('inf')\n            for nxt in pos[key[ki]]:\n                d = abs(cur - nxt)\n                d = min(d, n - d)\n                best = min(best, d + 1 + dp(ki + 1, nxt))\n            return best\n        return dp(0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def findRotateSteps(self, ring, key):\n        n = len(ring)\n        pos = {}\n        for i, c in enumerate(ring):\n            pos.setdefault(c, []).append(i)\n        cur = {0: 0}\n        for ch in key:\n            nxt = {}\n            for p in pos[ch]:\n                best = float('inf')\n                for cp, cost in cur.items():\n                    d = abs(cp - p)\n                    d = min(d, n - d)\n                    best = min(best, cost + d + 1)\n                nxt[p] = best\n            cur = nxt\n        return min(cur.values())\n",
+    "javascript": "var findRotateSteps = function(ring, key) {\n    const n = ring.length;\n    const pos = {};\n    for (let i = 0; i < n; i++) {\n        (pos[ring[i]] = pos[ring[i]] || []).push(i);\n    }\n    let cur = new Map([[0, 0]]);\n    for (const ch of key) {\n        const next = new Map();\n        for (const p of pos[ch]) {\n            let best = Infinity;\n            for (const [cp, cost] of cur) {\n                let d = Math.abs(cp - p);\n                d = Math.min(d, n - d);\n                best = Math.min(best, cost + d + 1);\n            }\n            next.set(p, best);\n        }\n        cur = next;\n    }\n    let ans = Infinity;\n    for (const v of cur.values()) ans = Math.min(ans, v);\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(k * n^2)", "space": "O(n)" }
+}

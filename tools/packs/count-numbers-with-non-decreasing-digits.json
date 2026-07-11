@@ -1,0 +1,40 @@
+{
+  "slug": "count-numbers-with-non-decreasing-digits",
+  "judge": "exact",
+  "pattern": "Counting non-decreasing-digit numbers up to a bound is a classic digit dynamic program over the base-b representation, and the inclusive range is the difference of two prefix counts.",
+  "hints": [
+    "Define g(x) = how many integers in [0, x] have non-decreasing base-b digits. The answer for [l, r] is g(r) - g(l-1).",
+    "Build x in base b digit by digit from most significant. Track the last digit placed, whether you are still bound by the prefix of x (tight), and whether the number has started (to skip leading zeros).",
+    "At each position you may place any digit from 0 up to the tight limit that is at least the previous placed digit; memoize on (position, last digit, tight, started) and take everything modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "l", "kind": "string", "len": [1, 100] },
+    { "param": "r", "kind": "string", "len": [1, 100] },
+    { "param": "b", "kind": "int", "value": [2, 10] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "base 8 small range", "input": ["23", "28", 8] },
+    { "kind": "edge", "description": "base 2 small range", "input": ["2", "7", 2] },
+    { "kind": "boundary", "description": "single value range that is non-decreasing", "input": ["1", "1", 10] },
+    { "kind": "trap", "description": "range where l-1 borrowing matters", "input": ["10", "20", 10] },
+    { "kind": "edge", "description": "base 10 over a wider range", "input": ["1", "100", 10] },
+    { "kind": "trap", "description": "large multi-digit decimal bounds", "input": ["98", "123", 10] },
+    { "kind": "edge", "description": "base 3 range", "input": ["5", "40", 3] },
+    { "kind": "boundary", "description": "lower bound 1 so 0 must be excluded by l-1", "input": ["1", "9", 10] }
+  ],
+  "stress": [
+    {
+      "description": "random decimal range and base; large enough digit counts to exercise tight transitions",
+      "seed": 19,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    b = rng.randint(2, 10)\n    digits_lo = rng.randint(1, max(1, min(20, size)))\n    lo = rng.randint(10**(digits_lo-1), 10**digits_lo - 1) if digits_lo > 1 else rng.randint(1, 9)\n    span = rng.randint(0, 5000)\n    hi = lo + span\n    return [str(lo), str(hi), b]\n",
+      "note": "ranges can be large; the digit DP handles them while the oracle stays bounded by the chosen span"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countNumbers(self, l, r, b):\n        MOD = 10**9 + 7\n        def non_dec(x):\n            d = []\n            if x == 0:\n                d = [0]\n            else:\n                t = x\n                while t > 0:\n                    d.append(t % b)\n                    t //= b\n                d.reverse()\n            return all(d[i] <= d[i+1] for i in range(len(d)-1))\n        lo = int(l)\n        hi = int(r)\n        cnt = 0\n        for x in range(lo, hi + 1):\n            if non_dec(x):\n                cnt += 1\n        return cnt % MOD\n",
+  "solutions": {
+    "python": "from functools import lru_cache\n\nclass Solution:\n    def countNumbers(self, l, r, b):\n        MOD = 10**9 + 7\n        def to_base(x):\n            if x == 0:\n                return [0]\n            d = []\n            while x > 0:\n                d.append(x % b)\n                x //= b\n            return d[::-1]\n        def f(N):\n            if N < 0:\n                return 0\n            digs = to_base(N)\n            L = len(digs)\n            @lru_cache(maxsize=None)\n            def dp(pos, last, tight, started):\n                if pos == L:\n                    return 1\n                limit = digs[pos] if tight else (b - 1)\n                total = 0\n                for d in range(0, limit + 1):\n                    ntight = tight and (d == limit)\n                    if not started:\n                        if d == 0:\n                            total += dp(pos + 1, 0, ntight, False)\n                        else:\n                            total += dp(pos + 1, d, ntight, True)\n                    else:\n                        if d >= last:\n                            total += dp(pos + 1, d, ntight, True)\n                    total %= MOD\n                return total\n            res = dp(0, 0, True, False)\n            dp.cache_clear()\n            return res\n        return (f(int(r)) - f(int(l) - 1)) % MOD\n",
+    "javascript": "var countNumbers = function(l, r, b) {\n    const MOD = 1000000007n;\n    const B = BigInt(b);\n    const toBase = (x) => {\n        if (x === 0n) return [0];\n        const d = [];\n        while (x > 0n) { d.push(Number(x % B)); x /= B; }\n        return d.reverse();\n    };\n    const f = (N) => {\n        if (N < 0n) return 0n;\n        const digs = toBase(N);\n        const L = digs.length;\n        const memo = new Map();\n        const dp = (pos, last, tight, started) => {\n            if (pos === L) return 1n;\n            const key = pos + ',' + last + ',' + (tight ? 1 : 0) + ',' + (started ? 1 : 0);\n            if (memo.has(key)) return memo.get(key);\n            const limit = tight ? digs[pos] : (b - 1);\n            let total = 0n;\n            for (let d = 0; d <= limit; d++) {\n                const ntight = tight && (d === limit);\n                if (!started) {\n                    if (d === 0) total += dp(pos + 1, 0, ntight, false);\n                    else total += dp(pos + 1, d, ntight, true);\n                } else {\n                    if (d >= last) total += dp(pos + 1, d, ntight, true);\n                }\n                total %= MOD;\n            }\n            memo.set(key, total);\n            return total;\n        };\n        return dp(0, 0, true, false);\n    };\n    const ans = ((f(BigInt(r)) - f(BigInt(l) - 1n)) % MOD + MOD) % MOD;\n    return Number(ans);\n};\n"
+  },
+  "complexity": { "time": "O(len * b * b)", "space": "O(len * b)" }
+}

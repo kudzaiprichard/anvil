@@ -1,0 +1,81 @@
+{
+  "slug": "lexicographically-smallest-negated-permutation-that-sums-to-target",
+  "judge": "exact",
+  "pattern": "Once a set of values has been chosen to negate, the lexicographically smallest arrangement of that fixed multiset is always just sorting it -- so the only real decision is which values to make negative, and the biggest value should be negated first whenever that still leaves the rest able to reach the target.",
+  "hints": [
+    "Whatever values end up negative, arranging any fixed multiset of numbers into its lexicographically smallest sequence is simply sorting it in increasing order -- so the whole problem reduces to deciding which values get a minus sign.",
+    "The most negative number possible is always -n, and making a large value negative can only make the eventual sorted sequence's front smaller, never larger -- so greedily try to negate the largest remaining value first.",
+    "Only skip negating the current largest value if doing so would make it impossible for the smaller remaining values to make up the rest of the required sum; check this with a simple running total and the maximum sum the smaller values could still contribute."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [1, 100000]
+    },
+    {
+      "param": "target",
+      "kind": "int",
+      "value": [-10000000000, 10000000000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "smallest n, target reachable only by negating everything",
+      "input": [1, -1]
+    },
+    {
+      "kind": "edge",
+      "description": "smallest n, target unreachable",
+      "input": [1, 5]
+    },
+    {
+      "kind": "edge",
+      "description": "target equal to the sum of all positive values, nothing negated",
+      "input": [4, 10]
+    },
+    {
+      "kind": "boundary",
+      "description": "target at the most negative possible value, everything negated",
+      "input": [4, -10]
+    },
+    {
+      "kind": "boundary",
+      "description": "target one unit outside the achievable range",
+      "input": [4, 11]
+    },
+    {
+      "kind": "trap",
+      "description": "target has the wrong parity relative to the total, so no arrangement can ever work",
+      "input": [4, 9]
+    },
+    {
+      "kind": "trap",
+      "description": "a target achievable only by negating some, but not the largest, values",
+      "input": [5, 15]
+    },
+    {
+      "kind": "trap",
+      "description": "target of zero requires an exact balanced split",
+      "input": [4, 0]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random n with a target chosen from the achievable range so a real answer usually exists",
+      "seed": 111,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    total = n * (n + 1) // 2\n    t = rng.randint(0, total)\n    target = total - 2 * t\n    return [n, target]\n"
+    }
+  ],
+  "oracle_python": "from itertools import permutations, product\n\nclass Solution:\n    def lexSmallestNegatedPerm(self, n, target):\n        vals = list(range(1, n + 1))\n        best = None\n        for perm in permutations(vals):\n            for signs in product((1, -1), repeat=n):\n                arr = [s * v for s, v in zip(signs, perm)]\n                if sum(arr) == target:\n                    if best is None or arr < best:\n                        best = list(arr)\n        return best if best is not None else []\n",
+  "solutions": {
+    "python": "class Solution:\n    def lexSmallestNegatedPerm(self, n, target):\n        S = n * (n + 1) // 2\n        if (S - target) % 2 != 0:\n            return []\n        t = (S - target) // 2\n        if t < 0 or t > S:\n            return []\n        negated = [False] * (n + 1)\n        R = t\n        for v in range(n, 0, -1):\n            rem_sum = (v - 1) * v // 2\n            if 0 <= R - v <= rem_sum:\n                negated[v] = True\n                R -= v\n        neg_vals = sorted((v for v in range(1, n + 1) if negated[v]), reverse=True)\n        pos_vals = sorted(v for v in range(1, n + 1) if not negated[v])\n        return [-v for v in neg_vals] + pos_vals\n",
+    "javascript": "var lexSmallestNegatedPerm = function(n, target) {\n    const S = n * (n + 1) / 2;\n    if ((S - target) % 2 !== 0) return [];\n    const t = (S - target) / 2;\n    if (t < 0 || t > S) return [];\n    const negated = new Array(n + 1).fill(false);\n    let R = t;\n    for (let v = n; v >= 1; v--) {\n        const remSum = (v - 1) * v / 2;\n        if (R - v >= 0 && R - v <= remSum) {\n            negated[v] = true;\n            R -= v;\n        }\n    }\n    const negVals = [];\n    const posVals = [];\n    for (let v = 1; v <= n; v++) {\n        if (negated[v]) negVals.push(v);\n        else posVals.push(v);\n    }\n    negVals.sort((a, b) => b - a);\n    posVals.sort((a, b) => a - b);\n    return negVals.map(v => -v).concat(posVals);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

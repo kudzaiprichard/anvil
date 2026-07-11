@@ -1,0 +1,36 @@
+{
+  "slug": "maximum-average-pass-ratio",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "Each extra student should go to the class with the largest marginal ratio gain, which a max-heap keyed on that gain delivers greedily.",
+  "hints": [
+    "Adding a student to a class raises its ratio from pass/total to (pass+1)/(total+1); the gain shrinks as the class grows.",
+    "Because the marginal gain is largest for the class that benefits most right now, repeatedly serve that class.",
+    "Push each class onto a max-heap keyed by its marginal gain, pop the top, add a student, recompute its gain and push it back, repeating for every extra student; finally average all ratios."
+  ],
+  "constraints": [
+    { "param": "classes", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "extraStudents", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two extra students both help the first class most", "input": [[[1, 2], [3, 5], [2, 2]], 2] },
+    { "kind": "edge", "description": "four extra students spread across classes", "input": [[[2, 4], [3, 9], [4, 5], [2, 10]], 4] },
+    { "kind": "boundary", "description": "single class absorbs all extras", "input": [[[1, 3]], 5] },
+    { "kind": "trap", "description": "a fully passing class gives zero gain so others are preferred", "input": [[[2, 2], [1, 3]], 1] },
+    { "kind": "edge", "description": "one extra student, pick the bigger improvement", "input": [[[1, 4], [4, 5]], 1] },
+    { "kind": "boundary", "description": "every class already full passes", "input": [[[3, 3], [5, 5]], 3] }
+  ],
+  "stress": [
+    {
+      "description": "many classes with random pass<=total and a moderate extra budget",
+      "seed": 31,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    classes = []\n    for _ in range(n):\n        total = rng.randrange(1, 100001)\n        passi = rng.randrange(1, total + 1)\n        classes.append([passi, total])\n    extra = rng.randrange(1, 2001)\n    return [classes, extra]\n"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def maxAverageRatio(self, classes, extraStudents):\n        def gain(p, t):\n            return (p + 1) / (t + 1) - p / t\n        heap = [(-gain(p, t), p, t) for p, t in classes]\n        heapq.heapify(heap)\n        for _ in range(extraStudents):\n            g, p, t = heapq.heappop(heap)\n            p += 1\n            t += 1\n            heapq.heappush(heap, (-gain(p, t), p, t))\n        return sum(p / t for _, p, t in heap) / len(classes)\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def maxAverageRatio(self, classes, extraStudents):\n        def delta(p, t):\n            return (t - p) / (t * (t + 1))\n        heap = [(-delta(p, t), p, t) for p, t in classes]\n        heapq.heapify(heap)\n        for _ in range(extraStudents):\n            d, p, t = heapq.heappop(heap)\n            p += 1\n            t += 1\n            heapq.heappush(heap, (-delta(p, t), p, t))\n        total = 0.0\n        for _, p, t in heap:\n            total += p / t\n        return total / len(classes)\n",
+    "javascript": "var maxAverageRatio = function(classes, extraStudents) {\n    const delta = (p, t) => (t - p) / (t * (t + 1));\n    const heap = [];\n    const up = (i) => { while (i > 0) { const par = (i - 1) >> 1; if (heap[par][0] <= heap[i][0]) break; [heap[par], heap[i]] = [heap[i], heap[par]]; i = par; } };\n    const down = (i) => { const m = heap.length; for (;;) { let s = i, l = 2 * i + 1, r = 2 * i + 2; if (l < m && heap[l][0] < heap[s][0]) s = l; if (r < m && heap[r][0] < heap[s][0]) s = r; if (s === i) break; [heap[s], heap[i]] = [heap[i], heap[s]]; i = s; } };\n    const push = (x) => { heap.push(x); up(heap.length - 1); };\n    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; down(0); } return top; };\n    for (const [p, t] of classes) push([-delta(p, t), p, t]);\n    for (let i = 0; i < extraStudents; i++) {\n        const [d, p, t] = pop();\n        const np = p + 1, nt = t + 1;\n        push([-delta(np, nt), np, nt]);\n    }\n    let total = 0;\n    for (const [d, p, t] of heap) total += p / t;\n    return total / classes.length;\n};\n"
+  },
+  "complexity": { "time": "O((n + extra) log n)", "space": "O(n)" }
+}

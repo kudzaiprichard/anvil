@@ -1,0 +1,157 @@
+{
+  "slug": "select-cells-in-grid-with-maximum-score",
+  "judge": "exact",
+  "pattern": "Choosing at most one cell per row with all-distinct values is exactly a bipartite matching between distinct values and rows, and matching the largest values first with augmenting paths greedily builds the optimal selection.",
+  "hints": [
+    "Ignore individual cells for a moment and think in terms of distinct values: picking a value means claiming exactly one row that contains it, and no row can be claimed twice.",
+    "This is a bipartite matching problem between distinct values and rows; process the values from largest to smallest and try to match each one to some row containing it.",
+    "Use augmenting paths (as in classic bipartite matching): if a value's candidate rows are all taken, see whether the row's current value can instead be rematched to a different row it also appears in, freeing up a row for the new value."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [
+        1,
+        10
+      ],
+      "value": [
+        1,
+        100
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "three rows where one value conflict must be resolved by augmenting",
+      "input": [
+        [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            4,
+            3,
+            2
+          ],
+          [
+            1,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two rows sharing a value that must be reassigned to fit both high values in",
+      "input": [
+        [
+          [
+            8,
+            7,
+            6
+          ],
+          [
+            8,
+            3,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single row, single cell",
+      "input": [
+        [
+          [
+            42
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "every cell shares the same value across every row",
+      "input": [
+        [
+          [
+            7,
+            7
+          ],
+          [
+            7,
+            7
+          ],
+          [
+            7,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a row entirely of duplicate values only ever contributes once",
+      "input": [
+        [
+          [
+            5,
+            5,
+            5,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the best-looking greedy pick blocks a better overall combination unless it augments",
+      "input": [
+        [
+          [
+            9,
+            1
+          ],
+          [
+            9,
+            2
+          ],
+          [
+            1,
+            9
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "grids up to the full 10x10 boundary with a small value alphabet to force conflicts",
+      "seed": 101,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 10))\n    n = rng.randint(1, 10)\n    grid = [[rng.randint(1, 8) for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "a narrow value range forces many rows to compete for the same values"
+    },
+    {
+      "description": "grids with a wide value alphabet, fewer conflicts",
+      "seed": 102,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 10))\n    n = rng.randint(1, 10)\n    grid = [[rng.randint(1, 100) for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "checks the matching still behaves when conflicts are rare"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxScore(self, grid):\n        # Independent brute force: recursively decide, row by row, whether to\n        # skip it or claim one of its distinct values, tracking used values.\n        m = len(grid)\n        best = [0]\n\n        def dfs(row, used_values, score):\n            if row == m:\n                best[0] = max(best[0], score)\n                return\n            dfs(row + 1, used_values, score)\n            for v in set(grid[row]):\n                if v not in used_values:\n                    used_values.add(v)\n                    dfs(row + 1, used_values, score + v)\n                    used_values.remove(v)\n\n        dfs(0, set(), 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\nclass Solution:\n    def maxScore(self, grid):\n        value_rows = defaultdict(set)\n        for r, row in enumerate(grid):\n            for v in row:\n                value_rows[v].add(r)\n        match_row = {}\n\n        def try_kuhn(v, visited):\n            for r in value_rows[v]:\n                if r in visited:\n                    continue\n                visited.add(r)\n                if r not in match_row or try_kuhn(match_row[r], visited):\n                    match_row[r] = v\n                    return True\n            return False\n\n        total = 0\n        for v in sorted(value_rows.keys(), reverse=True):\n            if try_kuhn(v, set()):\n                total += v\n        return total\n",
+    "javascript": "var maxScore = function(grid) {\n    const valueRows = new Map();\n    for (let r = 0; r < grid.length; r++) {\n        for (const v of grid[r]) {\n            if (!valueRows.has(v)) valueRows.set(v, new Set());\n            valueRows.get(v).add(r);\n        }\n    }\n    const matchRow = new Map();\n    function tryKuhn(v, visited) {\n        for (const r of valueRows.get(v)) {\n            if (visited.has(r)) continue;\n            visited.add(r);\n            if (!matchRow.has(r) || tryKuhn(matchRow.get(r), visited)) {\n                matchRow.set(r, v);\n                return true;\n            }\n        }\n        return false;\n    }\n    const values = Array.from(valueRows.keys()).sort((a, b) => b - a);\n    let total = 0;\n    for (const v of values) {\n        if (tryKuhn(v, new Set())) total += v;\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(V * (V + m*n))",
+    "space": "O(m*n)"
+  }
+}

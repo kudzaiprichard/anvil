@@ -1,0 +1,43 @@
+{
+  "slug": "apply-operations-to-maximize-frequency-score",
+  "judge": "exact",
+  "pattern": "For any contiguous run of sorted values, the cheapest way to make them all equal is to march them toward the run's own median, so sliding a window across the sorted array and shrinking it whenever that cost exceeds the budget finds the longest affordable run directly.",
+  "hints": [
+    "The order in which you fix values does not matter, and the elements you end up merging together are always some sorted contiguous run -- other elements are irrelevant to that run's cost.",
+    "For a fixed contiguous run in sorted order, the cheapest single value to converge on is the run's own median; the total moves needed is the sum of absolute differences to that median.",
+    "Sort the array, then use a two-pointer window: extend the right edge one step at a time, and while the cost to converge the current window on its median exceeds k, shrink from the left. Track the largest window size seen using prefix sums to compute the median cost in O(1)."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [0, 100000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small budget lets three of four values converge", "input": [[1, 2, 6, 4], 3] },
+    { "kind": "boundary", "description": "zero budget just reads off the existing best frequency", "input": [[1, 4, 4, 2, 4], 0] },
+    { "kind": "edge", "description": "single element always has score one regardless of budget", "input": [[42], 0] },
+    { "kind": "trap", "description": "all values already identical, budget is irrelevant", "input": [[5, 5, 5, 5, 5], 0] },
+    { "kind": "boundary", "description": "huge budget can merge the entire array", "input": [[1, 1000000000, 500000000, 250000000], 100000000000000] },
+    { "kind": "trap", "description": "two tight clusters far apart, budget only affordable within one cluster", "input": [[1, 2, 3, 1000000, 1000001, 1000002], 3] },
+    { "kind": "edge", "description": "already-sorted run where widening the window by one costs just over budget", "input": [[10, 12, 14], 3] }
+  ],
+  "stress": [
+    {
+      "description": "large random array with a moderate budget",
+      "seed": 13,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    k = rng.randint(0, 10 ** 14)\n    return [nums, k]\n"
+    },
+    {
+      "description": "large array of tight clusters to stress the sliding window boundary",
+      "seed": 14,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = []\n    while len(nums) < n:\n        base = rng.randint(1, 999000000)\n        cluster = rng.randint(1, 50)\n        for _ in range(cluster):\n            if len(nums) >= n:\n                break\n            nums.append(base + rng.randint(-20, 20))\n    k = rng.randint(0, 5000)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxFrequencyScore(self, nums, k):\n        srt = sorted(nums)\n        n = len(srt)\n        prefix = [0] * (n + 1)\n        for i, v in enumerate(srt):\n            prefix[i + 1] = prefix[i] + v\n\n        def window_cost(l, r):\n            m = (l + r) // 2\n            median = srt[m]\n            left_count = m - l\n            left_sum = prefix[m] - prefix[l]\n            right_count = r - m\n            right_sum = prefix[r + 1] - prefix[m + 1]\n            return (median * left_count - left_sum) + (right_sum - median * right_count)\n\n        def feasible(length):\n            for l in range(0, n - length + 1):\n                if window_cost(l, l + length - 1) <= k:\n                    return True\n            return False\n\n        lo, hi = 1, n\n        while lo < hi:\n            mid = (lo + hi + 1) // 2\n            if feasible(mid):\n                lo = mid\n            else:\n                hi = mid - 1\n        return lo\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxFrequencyScore(self, nums, k):\n        srt = sorted(nums)\n        n = len(srt)\n        prefix = [0] * (n + 1)\n        for i, v in enumerate(srt):\n            prefix[i + 1] = prefix[i] + v\n\n        def window_cost(l, r):\n            m = (l + r) // 2\n            median = srt[m]\n            left_count = m - l\n            left_sum = prefix[m] - prefix[l]\n            right_count = r - m\n            right_sum = prefix[r + 1] - prefix[m + 1]\n            return (median * left_count - left_sum) + (right_sum - median * right_count)\n\n        best = 1\n        l = 0\n        for r in range(n):\n            while window_cost(l, r) > k:\n                l += 1\n            best = max(best, r - l + 1)\n        return best\n",
+    "javascript": "var maxFrequencyScore = function(nums, k) {\n    const srt = nums.slice().sort((a, b) => a - b);\n    const n = srt.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + srt[i];\n\n    function windowCost(l, r) {\n        const m = Math.floor((l + r) / 2);\n        const median = srt[m];\n        const leftCount = m - l;\n        const leftSum = prefix[m] - prefix[l];\n        const rightCount = r - m;\n        const rightSum = prefix[r + 1] - prefix[m + 1];\n        return (median * leftCount - leftSum) + (rightSum - median * rightCount);\n    }\n\n    let best = 1;\n    let l = 0;\n    for (let r = 0; r < n; r++) {\n        while (windowCost(l, r) > k) l++;\n        best = Math.max(best, r - l + 1);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

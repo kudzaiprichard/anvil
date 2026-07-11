@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-time-to-reach-destination-in-directed-graph",
+  "judge": "exact",
+  "pattern": "Arrival time is monotone and non-negative, so a Dijkstra-style relaxation where each edge contributes a wait-then-cross delay finds the earliest reachable time at every node.",
+  "hints": [
+    "Track the earliest time you can be standing at each node; waiting is free, so arriving earlier is never worse.",
+    "To use edge (u, v, s, e) from node u at time t, you must depart at some integer in [max(t, s), e]; the best is to leave as early as possible.",
+    "Run Dijkstra keyed on earliest arrival time: from time t at u, edge (u, v, s, e) yields arrival max(t, s) + 1 provided max(t, s) <= e."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "wait then cross", "input": [3, [[0, 1, 0, 1], [1, 2, 2, 5]]] },
+    { "kind": "edge", "description": "two routes, the slower-start one wins", "input": [4, [[0, 1, 0, 3], [1, 3, 7, 8], [0, 2, 1, 5], [2, 3, 4, 7]]] },
+    { "kind": "edge", "description": "no outgoing edge from the source", "input": [3, [[1, 0, 1, 3], [1, 2, 3, 5]]] },
+    { "kind": "boundary", "description": "single node, already at destination", "input": [1, []] },
+    { "kind": "trap", "description": "edge window closes before you can arrive", "input": [3, [[0, 1, 5, 5], [1, 2, 0, 0]]] },
+    { "kind": "trap", "description": "must wait at the start before the only edge opens", "input": [2, [[0, 1, 4, 9]]] },
+    { "kind": "edge", "description": "direct edge usable immediately", "input": [2, [[0, 1, 0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random small DAG-ish graphs with assorted time windows, checked against a relaxation oracle",
+      "seed": 41,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    edges = []\n    m = rng.randrange(0, n * 2)\n    for _ in range(m):\n        u = rng.randrange(0, n)\n        v = rng.randrange(0, n)\n        if u == v:\n            continue\n        s = rng.randrange(0, 20)\n        e = s + rng.randrange(0, 20)\n        edges.append([u, v, s, e])\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minTime(self, n, edges):\n        from collections import defaultdict\n        g = defaultdict(list)\n        for u, v, s, e in edges:\n            g[u].append((v, s, e))\n        INF = float('inf')\n        dist = [INF] * n\n        dist[0] = 0\n        for _ in range(n):\n            changed = False\n            for u in range(n):\n                if dist[u] == INF:\n                    continue\n                for v, s, e in g[u]:\n                    dep = max(dist[u], s)\n                    if dep <= e and dep + 1 < dist[v]:\n                        dist[v] = dep + 1\n                        changed = True\n            if not changed:\n                break\n        return dist[n - 1] if dist[n - 1] != INF else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minTime(self, n, edges):\n        from collections import defaultdict\n        import heapq\n        g = defaultdict(list)\n        for u, v, s, e in edges:\n            g[u].append((v, s, e))\n        INF = float('inf')\n        dist = [INF] * n\n        dist[0] = 0\n        pq = [(0, 0)]\n        while pq:\n            t, u = heapq.heappop(pq)\n            if t > dist[u]:\n                continue\n            if u == n - 1:\n                return t\n            for v, s, e in g[u]:\n                dep = max(t, s)\n                if dep <= e:\n                    nt = dep + 1\n                    if nt < dist[v]:\n                        dist[v] = nt\n                        heapq.heappush(pq, (nt, v))\n        return dist[n - 1] if dist[n - 1] != INF else -1\n",
+    "javascript": "var minTime = function(n, edges) {\n    const g = Array.from({ length: n }, () => []);\n    for (const [u, v, s, e] of edges) g[u].push([v, s, e]);\n    const INF = Infinity;\n    const dist = new Array(n).fill(INF);\n    dist[0] = 0;\n    const pq = [[0, 0]];\n    const push = (item) => {\n        pq.push(item);\n        let i = pq.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (pq[p][0] <= pq[i][0]) break;\n            [pq[p], pq[i]] = [pq[i], pq[p]]; i = p;\n        }\n    };\n    const pop = () => {\n        const top = pq[0]; const last = pq.pop();\n        if (pq.length) { pq[0] = last; let i = 0; const m = pq.length;\n            while (true) { let l = 2*i+1, r = 2*i+2, sm = i;\n                if (l < m && pq[l][0] < pq[sm][0]) sm = l;\n                if (r < m && pq[r][0] < pq[sm][0]) sm = r;\n                if (sm === i) break; [pq[sm], pq[i]] = [pq[i], pq[sm]]; i = sm; } }\n        return top;\n    };\n    while (pq.length) {\n        const [t, u] = pop();\n        if (t > dist[u]) continue;\n        if (u === n - 1) return t;\n        for (const [v, s, e] of g[u]) {\n            const dep = Math.max(t, s);\n            if (dep <= e) {\n                const nt = dep + 1;\n                if (nt < dist[v]) { dist[v] = nt; push([nt, v]); }\n            }\n        }\n    }\n    return dist[n - 1] !== INF ? dist[n - 1] : -1;\n};\n"
+  },
+  "complexity": { "time": "O((n + m) log n)", "space": "O(n + m)" }
+}

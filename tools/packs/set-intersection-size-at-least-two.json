@@ -1,0 +1,37 @@
+{
+  "slug": "set-intersection-size-at-least-two",
+  "judge": "exact",
+  "pattern": "Greedy after sorting by right endpoint then descending left: process intervals and, whenever one lacks two chosen points, add the largest still-available points (its top two) so they help the most future intervals.",
+  "hints": [
+    "Sort the intervals so you finish the ones that end earliest first, breaking ties by starting later.",
+    "Keep the two largest points you have already committed; for each interval count how many of them fall inside it.",
+    "If an interval already contains two chosen points do nothing; if it contains one, add its right end; if none, add its two rightmost values, since high points are reusable by later intervals."
+  ],
+  "constraints": [
+    { "param": "intervals", "kind": "int[][]", "len": [1, 3000], "value": [0, 100000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three intervals needing five points", "input": [[[1, 3], [3, 7], [8, 9]]] },
+    { "kind": "edge", "description": "heavily overlapping intervals share points", "input": [[[1, 3], [1, 4], [2, 5], [3, 5]]] },
+    { "kind": "trap", "description": "chained intervals forcing distinct point pairs", "input": [[[1, 2], [2, 3], [2, 4], [4, 5]]] },
+    { "kind": "boundary", "description": "single interval needs exactly two points", "input": [[[5, 9]]] },
+    { "kind": "trap", "description": "minimal-width interval pins two adjacent values", "input": [[[0, 1]]] },
+    { "kind": "edge", "description": "nested intervals all satisfied by the innermost pair", "input": [[[1, 10], [2, 9], [3, 8]]] },
+    { "kind": "trap", "description": "disjoint intervals each need their own pair", "input": [[[1, 2], [4, 5], [7, 8]]] }
+  ],
+  "stress": [
+    {
+      "description": "random intervals over a modest coordinate range",
+      "seed": 53,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    intervals = []\n    for _ in range(n):\n        a = rng.randint(0, 200)\n        b = rng.randint(a + 1, a + 30)\n        intervals.append([a, b])\n    return [intervals]\n",
+      "note": "ensures start < end and overlapping ranges to exercise reuse"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def intersectionSizeTwo(self, intervals):\n        # brute over a bounded coordinate domain: greedily but verify by DP-free set cover on small ranges\n        # independent approach: sort by end, keep explicit chosen-point set\n        ivs = sorted(intervals, key=lambda x: (x[1], -x[0]))\n        chosen = []\n        for a, b in ivs:\n            inside = [p for p in chosen if a <= p <= b]\n            need = 2 - len(inside)\n            if need <= 0:\n                continue\n            cand = list(range(b, a - 1, -1))\n            for p in cand:\n                if p not in chosen and need > 0:\n                    chosen.append(p)\n                    need -= 1\n        return len(chosen)\n",
+  "solutions": {
+    "python": "class Solution:\n    def intersectionSizeTwo(self, intervals):\n        ivs = sorted(intervals, key=lambda x: (x[1], -x[0]))\n        a = b = -1\n        count = 0\n        for s, e in ivs:\n            if s > b:\n                count += 2\n                a, b = e - 1, e\n            elif s > a:\n                count += 1\n                a, b = b, e\n        return count\n",
+    "javascript": "var intersectionSizeTwo = function(intervals) {\n    const ivs = intervals.slice().sort((x, y) => x[1] - y[1] || y[0] - x[0]);\n    let a = -1, b = -1, count = 0;\n    for (const [s, e] of ivs) {\n        if (s > b) {\n            count += 2;\n            a = e - 1;\n            b = e;\n        } else if (s > a) {\n            count += 1;\n            a = b;\n            b = e;\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

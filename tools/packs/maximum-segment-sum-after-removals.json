@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-segment-sum-after-removals",
+  "judge": "exact",
+  "pattern": "Deletions are hard online but trivial in reverse, so processing removals backward turns each step into a union-find merge that grows segments and tracks the running maximum sum.",
+  "hints": [
+    "Splitting an array by deletions is awkward; reversing time turns every deletion into an insertion that may join neighbors.",
+    "Process the removal queries from last to first, reactivating one index at a time and merging it with any already-active neighbor.",
+    "Use union-find where each root stores its segment sum; when you activate an index, union it with active neighbors, update the global max segment sum, and record that max as the answer for the step just before this insertion."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "removeQueries", "kind": "int[]", "len": [1, 100000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "removals from both ends inward", "input": [[1, 2, 5, 6, 1], [0, 3, 2, 4, 1]] },
+    { "kind": "edge", "description": "removals right to left", "input": [[3, 2, 11, 1], [3, 2, 1, 0]] },
+    { "kind": "boundary", "description": "single element", "input": [[7], [0]] },
+    { "kind": "trap", "description": "removing the middle splits a large segment", "input": [[5, 5, 5, 5, 5], [2, 0, 4, 1, 3]] },
+    { "kind": "edge", "description": "left to right removals", "input": [[4, 3, 2, 1], [0, 1, 2, 3]] },
+    { "kind": "trap", "description": "max moves between segments as larger one shrinks", "input": [[10, 1, 1, 10], [0, 3, 1, 2]] },
+    { "kind": "edge", "description": "two elements removed in order", "input": [[8, 9], [0, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random values with a random removal permutation",
+      "seed": 13,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    order = list(range(n))\n    rng.shuffle(order)\n    return [nums, order]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumSegmentSum(self, nums, removeQueries):\n        n = len(nums)\n        arr = nums[:]\n        ans = []\n        for q in removeQueries:\n            arr[q] = 0\n            best = 0\n            cur = 0\n            for v in arr:\n                if v == 0:\n                    cur = 0\n                else:\n                    cur += v\n                    if cur > best:\n                        best = cur\n            ans.append(best)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumSegmentSum(self, nums, removeQueries):\n        n = len(nums)\n        parent = list(range(n))\n        seg = [0] * n\n        active = [False] * n\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        ans = [0] * n\n        best = 0\n        for i in range(n - 1, 0, -1):\n            idx = removeQueries[i]\n            active[idx] = True\n            seg[idx] = nums[idx]\n            for nb in (idx - 1, idx + 1):\n                if 0 <= nb < n and active[nb]:\n                    ra, rb = find(idx), find(nb)\n                    if ra != rb:\n                        parent[rb] = ra\n                        seg[ra] += seg[rb]\n            best = max(best, seg[find(idx)])\n            ans[i - 1] = best\n        return ans\n",
+    "javascript": "var maximumSegmentSum = function(nums, removeQueries) {\n    const n = nums.length;\n    const parent = Array.from({length: n}, (_, i) => i);\n    const seg = new Array(n).fill(0);\n    const active = new Array(n).fill(false);\n    const find = (x) => {\n        while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }\n        return x;\n    };\n    const ans = new Array(n).fill(0);\n    let best = 0;\n    for (let i = n - 1; i > 0; i--) {\n        const idx = removeQueries[i];\n        active[idx] = true;\n        seg[idx] = nums[idx];\n        for (const nb of [idx - 1, idx + 1]) {\n            if (nb >= 0 && nb < n && active[nb]) {\n                const ra = find(idx), rb = find(nb);\n                if (ra !== rb) { parent[rb] = ra; seg[ra] += seg[rb]; }\n            }\n        }\n        const r = find(idx);\n        if (seg[r] > best) best = seg[r];\n        ans[i - 1] = best;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n a(n))", "space": "O(n)" }
+}

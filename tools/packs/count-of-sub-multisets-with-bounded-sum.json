@@ -1,0 +1,39 @@
+{
+  "slug": "count-of-sub-multisets-with-bounded-sum",
+  "judge": "exact",
+  "pattern": "Pull the zero-valued entries out as a free multiplier, then run a bounded-count knapsack over the distinct nonzero values using a sliding-window trick so every achievable sum is counted without ever looping over an individual value's copies one at a time.",
+  "hints": [
+    "Zero-valued entries are special: choosing any number of them, from none up to however many are in the array, never changes a sub-multiset's sum, so they only affect how many distinct sub-multisets share that same sum.",
+    "For the remaining values, group equal numbers together and treat each distinct value as an item you may take between zero and its own count of times -- that turns this into a bounded knapsack over sums rather than over individual array positions.",
+    "To fold in a value's contribution to every reachable sum without a slow inner loop over how many copies were used, extend the running count from one step lower and subtract off the case that would have used one copy more than the value's count allows."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 20000], "value": [0, 20000], "note": "the sum of all elements of nums does not exceed 20000" },
+    { "param": "l", "kind": "int", "value": [0, 20000] },
+    { "param": "r", "kind": "int", "value": [0, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a small array where only one particular combination reaches the target range", "input": [[1, 2, 2, 3], 6, 6] },
+    { "kind": "edge", "description": "a wider target range that several different combinations fall into", "input": [[2, 1, 4, 2, 7], 1, 5] },
+    { "kind": "edge", "description": "repeated values contribute several distinct combinations landing in the same range", "input": [[1, 2, 1, 3, 5, 2], 3, 5] },
+    { "kind": "edge", "description": "an array of only zeros, where each choice of how many zeros to include is its own distinct sub-multiset", "input": [[0, 0, 0], 0, 0] },
+    { "kind": "trap", "description": "a zero mixed with nonzero values, where the zero only multiplies the count of the zero-sum case", "input": [[0, 1, 2], 0, 0] },
+    { "kind": "trap", "description": "a target range that excludes every achievable nonzero sum, leaving nothing but a possible empty selection out of range too", "input": [[5, 5, 5], 1, 4] },
+    { "kind": "boundary", "description": "a single element sitting at the maximum allowed value, with a range wide enough to include both the empty and full selections", "input": [[20000], 0, 20000] },
+    { "kind": "boundary", "description": "the smallest possible array, holding just one zero", "input": [[0], 0, 0] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays whose total stays within the sum bound, with random target ranges",
+      "seed": 5,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    remaining = 20000\n    nums = []\n    for _ in range(n):\n        if remaining <= 0:\n            nums.append(0)\n            continue\n        v = rng.randint(0, min(remaining, 50))\n        nums.append(v)\n        remaining -= v\n    l = rng.randint(0, 20000)\n    r = rng.randint(l, 20000)\n    return [nums, l, r]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countSubMultisets(self, nums, l, r):\n        MOD = 1000000007\n        n = len(nums)\n        seen = set()\n        count = 0\n        for mask in range(1 << n):\n            subset = [nums[i] for i in range(n) if mask & (1 << i)]\n            s = sum(subset)\n            if l <= s <= r:\n                key = tuple(sorted(subset))\n                if key not in seen:\n                    seen.add(key)\n                    count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countSubMultisets(self, nums, l, r):\n        from collections import Counter\n        MOD = 1000000007\n        cnt = Counter(nums)\n        zeros = cnt.pop(0, 0)\n        values = sorted(cnt.keys())\n        dp = [0] * (r + 1)\n        dp[0] = 1\n        for v in values:\n            m = cnt[v]\n            new_dp = dp[:]\n            for s in range(v, r + 1):\n                new_dp[s] = (new_dp[s] + new_dp[s - v]) % MOD\n                idx = s - (m + 1) * v\n                if idx >= 0:\n                    new_dp[s] = (new_dp[s] - dp[idx]) % MOD\n            dp = new_dp\n        total = sum(dp[l:r + 1]) % MOD\n        total = total * (zeros + 1) % MOD\n        return total % MOD\n",
+    "javascript": "var countSubMultisets = function(nums, l, r) {\n    const MODN = 1000000007;\n    const cnt = new Map();\n    for (const x of nums) cnt.set(x, (cnt.get(x) || 0) + 1);\n    const zeros = cnt.get(0) || 0;\n    cnt.delete(0);\n    const values = Array.from(cnt.keys()).sort((a, b) => a - b);\n    let dp = new Array(r + 1).fill(0);\n    dp[0] = 1;\n    for (const v of values) {\n        const m = cnt.get(v);\n        const newDp = dp.slice();\n        for (let s = v; s <= r; s++) {\n            newDp[s] = (newDp[s] + newDp[s - v]) % MODN;\n            const idx = s - (m + 1) * v;\n            if (idx >= 0) {\n                newDp[s] = ((newDp[s] - dp[idx]) % MODN + MODN) % MODN;\n            }\n        }\n        dp = newDp;\n    }\n    let total = 0;\n    for (let s = l; s <= r; s++) total = (total + dp[s]) % MODN;\n    total = (total * (zeros + 1)) % MODN;\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(r * distinct(nums))", "space": "O(r)" }
+}

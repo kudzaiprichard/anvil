@@ -1,0 +1,84 @@
+{
+  "slug": "make-sum-divisible-by-p",
+  "judge": "exact",
+  "pattern": "Turn 'make the total divisible by p after deleting one chunk' into a prefix-sum-mod-p lookup: the shortest deletable chunk ending at any point is found by matching remainders in a hashmap, not by scanning every subarray.",
+  "hints": [
+    "First find the whole array's remainder mod p - if it is already 0, no deletion is needed at all.",
+    "Think in terms of running prefix sums taken mod p; deleting a subarray is the same as wanting two prefix positions whose remainders differ by exactly the whole array's remainder.",
+    "Keep a hashmap from remainder value to the most recent prefix index that produced it, and for each new prefix index look up the one remainder that would make the gap between the two indices divisible by p - track the smallest such gap, excluding the case where that gap would be the entire array."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "p", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sum is already divisible by p, no removal needed",
+      "input": [[1, 2, 3], 3]
+    },
+    {
+      "kind": "edge",
+      "description": "removing a single middle element fixes divisibility",
+      "input": [[3, 1, 4, 2], 6]
+    },
+    {
+      "kind": "edge",
+      "description": "removing a two-element subarray is the shortest fix",
+      "input": [[6, 3, 5, 2], 9]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element already divisible by p, nothing to remove",
+      "input": [[5], 5]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element not divisible by p, and removing it would remove the whole array - impossible",
+      "input": [[4], 5]
+    },
+    {
+      "kind": "trap",
+      "description": "the only subarray whose removal fixes the sum is the entire array, so the answer must be -1, not that length",
+      "input": [[1, 1], 3]
+    },
+    {
+      "kind": "trap",
+      "description": "large values near the constraint ceiling to catch overflow-style remainder mistakes",
+      "input": [[1000000000, 1000000000, 1000000000], 7]
+    },
+    {
+      "kind": "trap",
+      "description": "many equal elements where a naive scan could pick a longer removal than necessary",
+      "input": [[2, 2, 2, 2, 2, 2, 2], 4]
+    },
+    {
+      "kind": "boundary",
+      "description": "p equal to 1, every sum is divisible by 1 so no removal is ever needed",
+      "input": [[7, 9, 2, 5], 1]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-max length with small values and a small modulus, so many candidate removals exist",
+      "seed": 15,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 50) for _ in range(n)]\n    p = rng.randint(2, 97)\n    return [nums, p]\n"
+    },
+    {
+      "description": "near-max length with large values near the constraint ceiling and a large modulus",
+      "seed": 16,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    p = rng.randint(1, 1000000000)\n    return [nums, p]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSubarray(self, nums, p):\n        n = len(nums)\n        total = sum(nums) % p\n        if total == 0:\n            return 0\n        best = -1\n        for i in range(n):\n            s = 0\n            for j in range(i, n):\n                s = (s + nums[j]) % p\n                length = j - i + 1\n                if length == n:\n                    continue\n                if s == total:\n                    if best == -1 or length < best:\n                        best = length\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSubarray(self, nums, p):\n        n = len(nums)\n        total = sum(nums) % p\n        if total == 0:\n            return 0\n        seen = {0: -1}\n        cur = 0\n        best = n\n        for i, num in enumerate(nums):\n            cur = (cur + num) % p\n            need = (cur - total) % p\n            if need in seen:\n                length = i - seen[need]\n                if length < best:\n                    best = length\n            seen[cur] = i\n        return best if best < n else -1\n",
+    "javascript": "var minSubarray = function(nums, p) {\n    const n = nums.length;\n    let total = 0;\n    for (const num of nums) total = (total + num) % p;\n    if (total === 0) return 0;\n    const seen = new Map();\n    seen.set(0, -1);\n    let cur = 0;\n    let best = n;\n    for (let i = 0; i < n; i++) {\n        cur = (cur + nums[i]) % p;\n        const need = ((cur - total) % p + p) % p;\n        if (seen.has(need)) {\n            const length = i - seen.get(need);\n            if (length < best) best = length;\n        }\n        seen.set(cur, i);\n    }\n    return best < n ? best : -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

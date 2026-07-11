@@ -1,0 +1,62 @@
+{
+  "slug": "valid-number",
+  "judge": "exact",
+  "pattern": "A number's grammar factors into an optional sign, a mantissa that is either an integer or a decimal, and an optional exponent - which a single anchored regular expression captures exactly.",
+  "hints": [
+    "Break the string into at most three parts: a leading sign, the body (with or without a decimal point), and an optional exponent introduced by e or E.",
+    "The body is valid if it has digits before a dot, digits after a dot, or both - but a lone dot or empty body is not; the exponent, if present, must be a plain optionally-signed integer.",
+    "Match the whole string (anchored start to end) against: optional [+-], then one of digits / digits-dot-optional-digits / dot-digits, then an optional [eE] with optional sign followed by one or more digits. Any leftover or stray character fails."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "plain integer", "input": ["0"] },
+    { "kind": "edge", "description": "leading zeros are allowed", "input": ["0089"] },
+    { "kind": "edge", "description": "signed decimal", "input": ["-0.1"] },
+    { "kind": "edge", "description": "trailing dot with digits before it", "input": ["4."] },
+    { "kind": "edge", "description": "leading dot with digits after it", "input": ["-.9"] },
+    { "kind": "edge", "description": "integer with positive exponent", "input": ["2e10"] },
+    { "kind": "edge", "description": "uppercase exponent with sign", "input": ["-90E3"] },
+    { "kind": "edge", "description": "full decimal with signed exponent", "input": ["53.5e93"] },
+    { "kind": "edge", "description": "explicit plus exponent", "input": ["3e+7"] },
+    { "kind": "edge", "description": "signed mantissa and negative exponent", "input": ["+6e-1"] },
+    { "kind": "trap", "description": "lone dot is not a number", "input": ["."] },
+    { "kind": "trap", "description": "lone exponent letter", "input": ["e"] },
+    { "kind": "trap", "description": "exponent with no digits", "input": ["1e"] },
+    { "kind": "trap", "description": "signed lone dot", "input": ["+.8"] },
+    { "kind": "trap", "description": "exponent sign without digits", "input": ["4e+"] },
+    { "kind": "trap", "description": "fractional exponent is invalid", "input": ["99e2.5"] },
+    { "kind": "trap", "description": "surrounding spaces are not allowed", "input": [" 1 "] },
+    { "kind": "trap", "description": "trailing dot alone, digits present", "input": ["1."] },
+    { "kind": "trap", "description": "leading dot with a digit is valid", "input": [".1"] },
+    { "kind": "trap", "description": "double sign", "input": ["+-2"] },
+    { "kind": "trap", "description": "letters are never valid", "input": ["abc"] },
+    { "kind": "trap", "description": "exponent before any mantissa", "input": ["e3"] },
+    { "kind": "trap", "description": "trailing letter after a digit", "input": ["1a"] },
+    { "kind": "trap", "description": "two consecutive signs", "input": ["--6"] },
+    { "kind": "trap", "description": "mantissa with no digits at all around the dot then exponent", "input": [".e1"] }
+  ],
+  "stress": [
+    {
+      "description": "random short strings over the allowed alphabet, mixing valid and invalid forms",
+      "seed": 53,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    alpha = '0123456789+-.eE'\n    n = rng.randint(1, 20)\n    return [''.join(rng.choice(alpha) for _ in range(n))]\n",
+      "note": "alphabet matches the constraint: digits, signs, dot, and e/E"
+    },
+    {
+      "description": "biased generator that assembles plausibly-valid numbers from sign, mantissa, and exponent pieces",
+      "seed": 54,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    sign = rng.choice(['', '+', '-'])\n    body = rng.choice(['12', '0', '34.', '.56', '7.8', '.', ''])\n    exp = rng.choice(['', 'e3', 'E-2', 'e+5', 'e', 'e1.2'])\n    return [sign + body + exp]\n",
+      "note": "deliberately produces both valid and invalid combinations"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isNumber(self, s):\n        i, n = 0, len(s)\n        if i < n and s[i] in '+-':\n            i += 1\n        digits_before = False\n        while i < n and s[i].isdigit():\n            i += 1\n            digits_before = True\n        digits_after = False\n        if i < n and s[i] == '.':\n            i += 1\n            while i < n and s[i].isdigit():\n                i += 1\n                digits_after = True\n        if not (digits_before or digits_after):\n            return False\n        if i < n and s[i] in 'eE':\n            i += 1\n            if i < n and s[i] in '+-':\n                i += 1\n            exp_digits = False\n            while i < n and s[i].isdigit():\n                i += 1\n                exp_digits = True\n            if not exp_digits:\n                return False\n        return i == n\n",
+  "solutions": {
+    "python": "import re\n_NUM = re.compile(r'^[+-]?(\\d+\\.?\\d*|\\.\\d+)([eE][+-]?\\d+)?$')\nclass Solution:\n    def isNumber(self, s):\n        return _NUM.match(s) is not None\n",
+    "javascript": "var isNumber = function(s) {\n    return /^[+-]?(\\d+\\.?\\d*|\\.\\d+)([eE][+-]?\\d+)?$/.test(s);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

@@ -1,0 +1,39 @@
+{
+  "slug": "delete-nodes-and-return-forest",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json"], "returns": { "list_of": "tree" } },
+  "pattern": "A single post-order walk that prunes deleted nodes can also recognize a surviving node as a new root exactly when its parent was deleted, collecting the forest in one pass.",
+  "hints": [
+    "When you delete a node, each of its surviving children becomes the root of its own tree, so the parent's deletion status is what creates new roots.",
+    "Recurse returning each node or None after removing deleted ones; a node is a new forest root when it survives but its parent did not.",
+    "Pass down whether the parent was deleted; on the way back, detach deleted children by returning None, and record a surviving node as a root when its incoming parent was deleted (the original root counts as having a deleted parent)."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 1000], "value": [1, 1000] },
+    { "param": "to_delete", "kind": "int[]", "len": [0, 1000], "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "delete two internal nodes splitting into three trees", "input": [[1, 2, 3, 4, 5, 6, 7], [3, 5]] },
+    { "kind": "edge", "description": "delete a single leaf-ish node", "input": [[1, 2, 4, null, 3], [3]] },
+    { "kind": "trap", "description": "delete the root itself promoting its children", "input": [[1, 2, 3], [1]] },
+    { "kind": "boundary", "description": "empty delete list leaves the tree intact", "input": [[1, 2, 3], []] },
+    { "kind": "trap", "description": "delete every node leaves an empty forest", "input": [[1, 2, 3], [1, 2, 3]] },
+    { "kind": "edge", "description": "single node deleted", "input": [[7], [7]] },
+    { "kind": "edge", "description": "single node kept", "input": [[7], [3]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree with distinct values and a random delete subset",
+      "seed": 22,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 200)))\n    vals = rng.sample(range(1, 1001), n)\n    arr = [vals[0]]\n    # build a level-order tree where each slot may be a remaining value or null\n    pool = vals[1:]\n    pi = 0\n    while pi < len(pool):\n        if rng.random() < 0.8:\n            arr.append(pool[pi]); pi += 1\n        else:\n            arr.append(None)\n    while arr and arr[-1] is None:\n        arr.pop()\n    present = [v for v in arr if v is not None]\n    k = rng.randint(0, len(present))\n    to_delete = rng.sample(present, k) if k else []\n    return [arr, to_delete]\n",
+      "note": "values are distinct; delete set is a subset of present values"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def delNodes(self, root, to_delete):\n        ds = set(to_delete)\n        roots = []\n        # collect nodes top-down: BFS, marking which survive and who their parent is\n        if root is None:\n            return []\n        # First, build parent links and prune deleted nodes bottom-up.\n        def survives(node):\n            if node is None:\n                return None\n            node.left = survives(node.left)\n            node.right = survives(node.right)\n            if node.val in ds:\n                if node.left is not None:\n                    roots.append(node.left)\n                if node.right is not None:\n                    roots.append(node.right)\n                return None\n            return node\n        kept = survives(root)\n        if kept is not None:\n            roots.append(kept)\n        roots.sort(key=lambda nd: nd.val)\n        return roots\n",
+  "solutions": {
+    "python": "class Solution:\n    def delNodes(self, root, to_delete):\n        ds = set(to_delete)\n        forest = []\n        def walk(node, is_root):\n            if node is None:\n                return None\n            deleted = node.val in ds\n            if is_root and not deleted:\n                forest.append(node)\n            node.left = walk(node.left, deleted)\n            node.right = walk(node.right, deleted)\n            return None if deleted else node\n        walk(root, True)\n        forest.sort(key=lambda nd: nd.val)\n        return forest\n",
+    "javascript": "var delNodes = function(root, to_delete) {\n    const ds = new Set(to_delete);\n    const forest = [];\n    function walk(node, isRoot) {\n        if (node === null) return null;\n        const deleted = ds.has(node.val);\n        if (isRoot && !deleted) forest.push(node);\n        node.left = walk(node.left, deleted);\n        node.right = walk(node.right, deleted);\n        return deleted ? null : node;\n    }\n    walk(root, true);\n    forest.sort((a, b) => a.val - b.val);\n    return forest;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

@@ -1,0 +1,222 @@
+{
+  "slug": "parallel-courses-iii",
+  "judge": "exact",
+  "pattern": "Because prerequisites form a DAG, the earliest a course can finish is its own duration plus the latest finish time among its prerequisites, so a topological sweep that propagates finish times forward gives the answer as the maximum over all courses.",
+  "hints": [
+    "Model it as a DAG: build in-degrees and an adjacency list from `relations`, then process courses with a topological sweep (indegree-zero courses can start immediately).",
+    "Track each course's own finish time = the finish time of its latest-finishing prerequisite, plus its own duration; a course with no prerequisites simply finishes at its own duration.",
+    "As each course's indegree drops to zero, its finish time is already final -- propagate `max(successor's current finish, this course's finish + successor's duration)` forward, and the answer is the largest finish time across every course."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        50000
+      ]
+    },
+    {
+      "param": "relations",
+      "kind": "int[][]",
+      "len": [
+        0,
+        50000
+      ],
+      "value": [
+        1,
+        50000
+      ]
+    },
+    {
+      "param": "time",
+      "kind": "int[]",
+      "len": [
+        1,
+        50000
+      ],
+      "value": [
+        1,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a single course with no prerequisites",
+      "input": [
+        1,
+        [],
+        [
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two independent courses, no prerequisites at all",
+      "input": [
+        2,
+        [],
+        [
+          3,
+          10
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a straight chain of prerequisites",
+      "input": [
+        4,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single course with many prerequisites converging into it",
+      "input": [
+        5,
+        [
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        [
+          2,
+          4,
+          6,
+          8,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a diamond-shaped dependency where two parallel paths reconverge",
+      "input": [
+        4,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        [
+          1,
+          2,
+          3,
+          10
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two disjoint dependency chains where the longer one determines the answer",
+      "input": [
+        6,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ]
+        ],
+        [
+          1,
+          1,
+          100,
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "no relations at all among several courses",
+      "input": [
+        3,
+        [],
+        [
+          5,
+          2,
+          9
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random DAG (all edges point from a lower-numbered to a higher-numbered course, guaranteeing acyclicity) with random durations",
+      "seed": 15,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 50000))\n    time_ = [rng.randint(1, 10000) for _ in range(n)]\n    relations = []\n    max_edges = min(50000, n * (n - 1) // 2) if n > 1 else 0\n    edge_count = min(max_edges, n)\n    seen = set()\n    attempts = 0\n    while len(relations) < edge_count and attempts < edge_count * 3 + 10:\n        attempts += 1\n        a = rng.randint(1, n)\n        b = rng.randint(1, n)\n        if a < b and (a, b) not in seen:\n            seen.add((a, b))\n            relations.append([a, b])\n    return [n, relations, time_]\n"
+    }
+  ],
+  "oracle_python": "import sys\n\nclass Solution:\n    def minimumTime(self, n, relations, time):\n        preds = [[] for _ in range(n + 1)]\n        for u, v in relations:\n            preds[v].append(u)\n        sys.setrecursionlimit(100000)\n        memo = {}\n\n        def finish(u):\n            if u in memo:\n                return memo[u]\n            best_prereq = 0\n            for p in preds[u]:\n                best_prereq = max(best_prereq, finish(p))\n            result = best_prereq + time[u - 1]\n            memo[u] = result\n            return result\n\n        return max(finish(u) for u in range(1, n + 1))\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def minimumTime(self, n, relations, time):\n        indeg = [0] * (n + 1)\n        adj = [[] for _ in range(n + 1)]\n        for u, v in relations:\n            adj[u].append(v)\n            indeg[v] += 1\n        finish = [0] * (n + 1)\n        q = deque()\n        for i in range(1, n + 1):\n            if indeg[i] == 0:\n                q.append(i)\n                finish[i] = time[i - 1]\n        while q:\n            u = q.popleft()\n            for v in adj[u]:\n                if finish[u] + time[v - 1] > finish[v]:\n                    finish[v] = finish[u] + time[v - 1]\n                indeg[v] -= 1\n                if indeg[v] == 0:\n                    q.append(v)\n        return max(finish[1:])\n",
+    "javascript": "var minimumTime = function(n, relations, time) {\n    const indeg = new Array(n + 1).fill(0);\n    const adj = Array.from({length: n + 1}, () => []);\n    for (const [u, v] of relations) {\n        adj[u].push(v);\n        indeg[v]++;\n    }\n    const finish = new Array(n + 1).fill(0);\n    const queue = [];\n    for (let i = 1; i <= n; i++) {\n        if (indeg[i] === 0) {\n            queue.push(i);\n            finish[i] = time[i - 1];\n        }\n    }\n    let head = 0;\n    while (head < queue.length) {\n        const u = queue[head++];\n        for (const v of adj[u]) {\n            if (finish[u] + time[v - 1] > finish[v]) {\n                finish[v] = finish[u] + time[v - 1];\n            }\n            indeg[v]--;\n            if (indeg[v] === 0) queue.push(v);\n        }\n    }\n    return Math.max(...finish.slice(1));\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + m)",
+    "space": "O(n + m)"
+  }
+}

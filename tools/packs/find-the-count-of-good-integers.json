@@ -1,0 +1,112 @@
+{
+  "slug": "find-the-count-of-good-integers",
+  "judge": "exact",
+  "pattern": "A palindrome is fully determined by its first half, so generating every half and mirroring it enumerates every k-palindromic candidate, and grouping candidates by their digit multiset avoids counting the same rearrangement family twice.",
+  "hints": [
+    "Every palindrome of a fixed length is completely determined by choosing its first half (plus a middle digit when the length is odd), so you can enumerate all palindromes of that length by looping over every possible half.",
+    "For each half, mirror it into a full palindrome and check whether that number is divisible by k; if it is, the multiset of its digits describes an entire family of 'good' integers.",
+    "Different halves can mirror into palindromes that share the exact same digit multiset, so dedupe by the sorted digits before counting; then the number of good integers for a multiset is its total digit permutations minus the ones that start with zero."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        10
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        9
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "odd length with a mid-sized divisor",
+      "input": [
+        3,
+        5
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single-digit length, k picks out specific digits",
+      "input": [
+        1,
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "odd length with a larger divisor",
+      "input": [
+        5,
+        6
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length and minimum divisor",
+      "input": [
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum length and maximum divisor",
+      "input": [
+        10,
+        9
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "even length at a small size",
+      "input": [
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k=1 makes every rearrangeable palindrome divisible, testing the leading-zero exclusion at scale",
+      "input": [
+        4,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a divisor with no single-digit multiples forces multi-digit palindromes only",
+      "input": [
+        2,
+        7
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random length and divisor pairs across the full constraint space",
+      "seed": 61,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 10)\n    k = rng.randint(1, 9)\n    return [n, k]\n",
+      "note": "single random (n, k) pair per generated case"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countGoodIntegers(self, n, k):\n        # Independent approach: enumerate every distinct digit multiset directly\n        # (stars-and-bars over the 10 digits) instead of generating palindromes\n        # from their half, then check per multiset whether some half arrangement\n        # of it forms a k-palindromic number.\n        from itertools import combinations_with_replacement, permutations\n        from math import factorial\n\n        half = n // 2\n        odd = n % 2\n        total = 0\n        for multiset in combinations_with_replacement(range(10), n):\n            counts = [0] * 10\n            for d in multiset:\n                counts[d] += 1\n            odd_digits = [d for d in range(10) if counts[d] % 2 == 1]\n            if odd == 0 and odd_digits:\n                continue\n            if odd == 1 and len(odd_digits) != 1:\n                continue\n            half_pool = []\n            middle = None\n            for d in range(10):\n                half_pool.extend([d] * (counts[d] // 2))\n                if counts[d] % 2 == 1:\n                    middle = d\n            if len(half_pool) != half:\n                continue\n            found = False\n            for perm in set(permutations(half_pool)):\n                if half > 0 and perm[0] == 0:\n                    continue\n                if half == 0:\n                    if middle == 0:\n                        continue\n                    full = str(middle)\n                else:\n                    half_str = ''.join(map(str, perm))\n                    full = half_str + str(middle) + half_str[::-1] if odd else half_str + half_str[::-1]\n                if int(full) % k == 0:\n                    found = True\n                    break\n            if not found:\n                continue\n            denom = 1\n            for d in range(10):\n                denom *= factorial(counts[d])\n            total_perms = factorial(n) // denom\n            zero_leading = 0\n            if counts[0] > 0:\n                zero_leading = factorial(n - 1) // (factorial(counts[0] - 1) * (denom // factorial(counts[0])))\n            total += total_perms - zero_leading\n        return total\n",
+  "solutions": {
+    "python": "from math import factorial\n\nclass Solution:\n    def countGoodIntegers(self, n, k):\n        half = (n + 1) // 2\n        seen = set()\n        total = 0\n        start = 10 ** (half - 1) if half > 1 else 0\n        end = 10 ** half\n        for p in range(start, end):\n            ps = str(p)\n            if n % 2 == 0:\n                full = ps + ps[::-1]\n            else:\n                full = ps + ps[-2::-1]\n            if int(full) % k != 0:\n                continue\n            key = tuple(sorted(full))\n            if key in seen:\n                continue\n            seen.add(key)\n            counts = {}\n            for ch in full:\n                counts[ch] = counts.get(ch, 0) + 1\n            denom = 1\n            for c in counts.values():\n                denom *= factorial(c)\n            total_perms = factorial(n) // denom\n            zero_leading = 0\n            if '0' in counts:\n                zero_leading = factorial(n - 1) // (factorial(counts['0'] - 1) * (denom // factorial(counts['0'])))\n            total += total_perms - zero_leading\n        return total\n",
+    "javascript": "var countGoodIntegers = function(n, k) {\n    function factorial(x) { let r = 1; for (let i = 2; i <= x; i++) r *= i; return r; }\n    const half = Math.floor((n + 1) / 2);\n    const seen = new Set();\n    let total = 0;\n    const start = half > 1 ? Math.pow(10, half - 1) : 0;\n    const end = Math.pow(10, half);\n    for (let p = start; p < end; p++) {\n        const ps = String(p);\n        let full;\n        if (n % 2 === 0) full = ps + ps.split('').reverse().join('');\n        else full = ps + ps.slice(0, -1).split('').reverse().join('');\n        const num = BigInt(full);\n        if (num % BigInt(k) !== 0n) continue;\n        const key = full.split('').sort().join('');\n        if (seen.has(key)) continue;\n        seen.add(key);\n        const counts = {};\n        for (const ch of full) counts[ch] = (counts[ch] || 0) + 1;\n        let denom = 1;\n        for (const c of Object.values(counts)) denom *= factorial(c);\n        const totalPerms = factorial(n) / denom;\n        let zeroLeading = 0;\n        if (counts['0']) {\n            zeroLeading = factorial(n - 1) / (factorial(counts['0'] - 1) * (denom / factorial(counts['0'])));\n        }\n        total += totalPerms - zeroLeading;\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(10^(n/2) * n)",
+    "space": "O(10^(n/2))"
+  }
+}

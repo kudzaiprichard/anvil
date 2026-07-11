@@ -1,0 +1,117 @@
+{
+  "slug": "minimum-number-of-valid-strings-to-form-target-ii",
+  "judge": "exact",
+  "pattern": "Knowing, for every starting position in the target, the longest prefix of any word that matches there turns building the target into a jump game -- greedily extend as far as possible and count how many extensions it takes.",
+  "hints": [
+    "For each position i in the target and each candidate word, work out the length of the longest prefix of that word that matches the target starting at i -- the Z-function of word + separator + target gives you this for every i in one pass per word.",
+    "Keep, for every position i, only the BEST reach across all words -- the furthest index a single valid piece starting at i could bring you to.",
+    "This turns the problem into 'jump game': starting at 0, repeatedly jump to the furthest reachable position among all positions covered so far, counting jumps, until you reach or pass the end of the target (or get stuck, which means -1)."
+  ],
+  "constraints": [
+    {
+      "param": "words",
+      "kind": "string[]",
+      "len": [
+        1,
+        100
+      ],
+      "value": [
+        1,
+        50000
+      ]
+    },
+    {
+      "param": "target",
+      "kind": "string",
+      "len": [
+        1,
+        50000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, three pieces needed",
+      "input": [
+        [
+          "abc",
+          "aaaaa",
+          "bcdef"
+        ],
+        "aabcdabc"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, two repeated pieces",
+      "input": [
+        [
+          "abababab",
+          "ab"
+        ],
+        "ababaababa"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, impossible to form",
+      "input": [
+        [
+          "abcdef"
+        ],
+        "xyz"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "target is a single character matching a single word",
+      "input": [
+        [
+          "a"
+        ],
+        "a"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one word is a prefix of another, longer match wins",
+      "input": [
+        [
+          "ab",
+          "abcd"
+        ],
+        "abcdabcd"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "greedy must look ahead past a short first match",
+      "input": [
+        [
+          "ab",
+          "abc",
+          "cabc"
+        ],
+        "abcabc"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random target built by concatenating random word prefixes",
+      "seed": 13,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    import string\n    num_words = rng.randint(1, 8)\n    words = []\n    for _ in range(num_words):\n        wl = rng.randint(1, 30)\n        words.append(''.join(rng.choice('ab') for _ in range(wl)))\n    pieces = rng.randint(1, 20)\n    parts = []\n    for _ in range(pieces):\n        w = rng.choice(words)\n        cut = rng.randint(1, len(w))\n        parts.append(w[:cut])\n    target = ''.join(parts)\n    return [words, target]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minValidStrings(self, words, target):\n        m = len(target)\n        INF = float('inf')\n        dp = [INF] * (m + 1)\n        dp[0] = 0\n        for i in range(m):\n            if dp[i] == INF:\n                continue\n            for w in words:\n                max_len = min(len(w), m - i)\n                length = 0\n                while length < max_len and w[length] == target[i + length]:\n                    length += 1\n                for step in range(1, length + 1):\n                    if dp[i] + 1 < dp[i + step]:\n                        dp[i + step] = dp[i] + 1\n        return dp[m] if dp[m] != INF else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minValidStrings(self, words, target):\n        m = len(target)\n        reach = [0] * m\n\n        def z_function(s):\n            n = len(s)\n            z = [0] * n\n            l, r = 0, 0\n            for i in range(1, n):\n                if i < r:\n                    z[i] = min(r - i, z[i - l])\n                while i + z[i] < n and s[z[i]] == s[i + z[i]]:\n                    z[i] += 1\n                if i + z[i] > r:\n                    l, r = i, i + z[i]\n            return z\n\n        for w in words:\n            combined = w + chr(0) + target\n            z = z_function(combined)\n            wl = len(w)\n            for i in range(m):\n                L = min(z[wl + 1 + i], wl)\n                if L > reach[i]:\n                    reach[i] = L\n\n        if reach[0] == 0:\n            return -1\n        jumps = 1\n        cur_end = reach[0]\n        if cur_end >= m:\n            return jumps\n        farthest = cur_end\n        i = 1\n        while cur_end < m:\n            while i <= cur_end:\n                farthest = max(farthest, i + reach[i])\n                i += 1\n            if farthest <= cur_end:\n                return -1\n            jumps += 1\n            cur_end = farthest\n        return jumps\n",
+    "javascript": "function zFunction(s) {\n    const n = s.length;\n    const z = new Array(n).fill(0);\n    let l = 0, r = 0;\n    for (let i = 1; i < n; i++) {\n        if (i < r) z[i] = Math.min(r - i, z[i - l]);\n        while (i + z[i] < n && s[z[i]] === s[i + z[i]]) z[i]++;\n        if (i + z[i] > r) { l = i; r = i + z[i]; }\n    }\n    return z;\n}\n\nvar minValidStrings = function(words, target) {\n    const m = target.length;\n    const reach = new Array(m).fill(0);\n    for (const w of words) {\n        const combined = w + '\\u0000' + target;\n        const z = zFunction(combined);\n        const wl = w.length;\n        for (let i = 0; i < m; i++) {\n            const L = Math.min(z[wl + 1 + i], wl);\n            if (L > reach[i]) reach[i] = L;\n        }\n    }\n    if (reach[0] === 0) return -1;\n    let jumps = 1;\n    let curEnd = reach[0];\n    if (curEnd >= m) return jumps;\n    let farthest = curEnd;\n    let i = 1;\n    while (curEnd < m) {\n        while (i <= curEnd) {\n            farthest = Math.max(farthest, i + reach[i]);\n            i++;\n        }\n        if (farthest <= curEnd) return -1;\n        jumps++;\n        curEnd = farthest;\n    }\n    return jumps;\n};\n"
+  },
+  "complexity": {
+    "time": "O(sum(len(words)) + words.length * target.length)",
+    "space": "O(target.length)"
+  }
+}

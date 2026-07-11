@@ -1,0 +1,46 @@
+{
+  "slug": "minimum-operations-to-sort-a-string",
+  "judge": "exact",
+  "pattern": "Since sorting a substring only rearranges values that were already going to sit in that index range, comparing the string against its own fully-sorted target locates exactly the span that still needs fixing -- and whether that span touches both ends decides if one operation is enough, versus needing to fix the minimum and maximum characters into place from either side first.",
+  "hints": [
+    "Compare the string to its sorted form and find the first and last index where they disagree -- that is the only span an operation would ever need to touch.",
+    "If that span does not cover the entire string (it starts after index 0, or ends before the last index), one sort of a substring covering just that span finishes the job; if it covers everything, one operation is impossible because the whole string can't be selected.",
+    "When one operation cannot work, check whether the overall minimum character shows up anywhere before the very last position, or the overall maximum character shows up anywhere after the very first position -- either lets two operations pin one extreme in place and then finish the rest; if neither holds, three operations are always enough.",
+    "A string of length 2 that isn't already sorted can never be fixed at all, since the only non-trivial substring you're allowed to pick is the whole string."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "already sorted", "input": ["abc"] },
+    { "kind": "edge", "description": "one operation suffices, mismatch span doesn't touch the left end", "input": ["dog"] },
+    { "kind": "edge", "description": "mismatch spans the whole string but the minimum character is reachable from a proper prefix", "input": ["card"] },
+    { "kind": "boundary", "description": "single character, trivially sorted", "input": ["z"] },
+    { "kind": "boundary", "description": "length 2, already sorted", "input": ["ab"] },
+    { "kind": "trap", "description": "length 2, not sorted -- the only substring big enough to fix it is disallowed", "input": ["gf"] },
+    { "kind": "trap", "description": "reverse-sorted, minimum stuck at the very end and maximum stuck at the very front -- needs all three operations", "input": ["dcba"] },
+    { "kind": "trap", "description": "all identical characters, already sorted regardless of length", "input": ["eeee"] },
+    { "kind": "trap", "description": "only the last two characters are swapped -- smallest possible non-trivial fix", "input": ["abdc"] },
+    { "kind": "boundary", "description": "long uniform run with a single misplaced character deep inside", "input": ["aaaaaaaaaazaaaaaaaaaa"] }
+  ],
+  "stress": [
+    {
+      "description": "many random short strings over a small alphabet, exercising every branch (0/1/2/3/-1) via brute-forceable lengths",
+      "seed": 41,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(2, size))\n    alphabet = 'abcd'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "large random string exercising the linear scan at scale",
+      "seed": 42,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 100000))\n    alphabet = 'abcdefghij'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minOperations(self, s):\n        n = len(s)\n        # small strings: true brute-force BFS over every reachable string via <= 3 substring\n        # sorts (any substring except the whole string), independent of the closed-form solution.\n        if n <= 10:\n            target = ''.join(sorted(s))\n            if s == target:\n                return 0\n            if n == 2:\n                return -1\n            seen = {s}\n            frontier = [s]\n            depth = 0\n            while depth < 3:\n                depth += 1\n                nxt = []\n                for cur in frontier:\n                    for l in range(n):\n                        for r in range(l + 1, n):\n                            if l == 0 and r == n - 1:\n                                continue\n                            cand = cur[:l] + ''.join(sorted(cur[l:r+1])) + cur[r+1:]\n                            if cand == target:\n                                return depth\n                            if cand not in seen:\n                                seen.add(cand)\n                                nxt.append(cand)\n                frontier = nxt\n            return -1\n        # larger strings: an independently-styled linear pass (built around Python's own\n        # prefix/suffix helpers instead of the manual while-loops the optimal solution uses)\n        t = sorted(s)\n        pairs = list(zip(s, t))\n        if all(a == b for a, b in pairs):\n            return 0\n        first_bad = next(i for i, (a, b) in enumerate(pairs) if a != b)\n        last_bad = n - 1 - next(i for i, (a, b) in enumerate(reversed(pairs)) if a != b)\n        if first_bad != 0 or last_bad != n - 1:\n            return 1\n        if n == 2:\n            return -1\n        mn, mx = t[0], t[-1]\n        if s.find(mn) < n - 1 or s.rfind(mx) > 0:\n            return 2\n        return 3\n",
+  "solutions": {
+    "python": "class Solution:\n    def minOperations(self, s):\n        n = len(s)\n        t = sorted(s)\n        if list(s) == t:\n            return 0\n        l = 0\n        while s[l] == t[l]:\n            l += 1\n        r = n - 1\n        while s[r] == t[r]:\n            r -= 1\n        if not (l == 0 and r == n - 1):\n            return 1\n        if n == 2:\n            return -1\n        mn, mx = t[0], t[-1]\n        mn_in_prefix = any(ch == mn for ch in s[:n-1])\n        mx_in_suffix = any(ch == mx for ch in s[1:])\n        if mn_in_prefix or mx_in_suffix:\n            return 2\n        return 3\n",
+    "javascript": "var minOperations = function(s) {\n    const n = s.length;\n    const t = s.split('').sort();\n    let sorted = true;\n    for (let i = 0; i < n; i++) if (s[i] !== t[i]) { sorted = false; break; }\n    if (sorted) return 0;\n    let l = 0;\n    while (s[l] === t[l]) l++;\n    let r = n - 1;\n    while (s[r] === t[r]) r--;\n    if (!(l === 0 && r === n - 1)) return 1;\n    if (n === 2) return -1;\n    const mn = t[0], mx = t[n - 1];\n    let mnInPrefix = false;\n    for (let i = 0; i < n - 1; i++) if (s[i] === mn) { mnInPrefix = true; break; }\n    let mxInSuffix = false;\n    for (let i = 1; i < n; i++) if (s[i] === mx) { mxInSuffix = true; break; }\n    if (mnInPrefix || mxInSuffix) return 2;\n    return 3;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

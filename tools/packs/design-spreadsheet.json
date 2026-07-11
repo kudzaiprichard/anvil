@@ -1,0 +1,98 @@
+{
+  "slug": "design-spreadsheet",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A sparse spreadsheet only needs to remember the cells someone actually touched; anything never set defaults to zero, so a plain map from cell name to value is enough to evaluate a two-operand sum formula.",
+  "hints": [
+    "There is no need to allocate a full rows-by-26 grid up front — most cells will never be written, so only the ones that were explicitly set need to occupy any storage.",
+    "A formula is always exactly two operands joined by a plus sign after the leading '='; splitting on that single '+' separates the two operand tokens cleanly.",
+    "Each operand token is either a cell reference (a capital letter followed by digits) or a bare non-negative integer literal — decide which by looking at the token's first character, and treat any cell that was never set (or was reset) as the value zero."
+  ],
+  "constraints": [
+    { "param": "rows", "kind": "int", "value": [1, 1000] },
+    { "param": "cell", "kind": "string", "len": [2, 5], "note": "a capital letter A-Z followed by a 1-indexed row number <= rows" },
+    { "param": "value", "kind": "int", "value": [0, 100000] },
+    { "param": "formula", "kind": "string", "len": [3, 11], "note": "always \"=X+Y\" where X and Y are each either a cell reference or a non-negative integer literal <= 100000" }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sample sequence: literal-only formula, cell references, and a reset back to zero",
+      "input": [
+        ["Spreadsheet", "getValue", "setCell", "getValue", "setCell", "getValue", "resetCell", "getValue"],
+        [[3], ["=5+7"], ["A1", 10], ["=A1+6"], ["B2", 15], ["=A1+B2"], ["A1"], ["=A1+B2"]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a formula built from two plain integer literals, with no cells involved at all",
+      "input": [
+        ["Spreadsheet", "getValue"],
+        [[2], ["=100+23"]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a cell referenced before ever being set must read as zero, not raise an error",
+      "input": [
+        ["Spreadsheet", "getValue"],
+        [[9], ["=Z9+1"]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "resetCell on a cell that was never set is a harmless no-op",
+      "input": [
+        ["Spreadsheet", "resetCell", "getValue"],
+        [[4], ["C3"], ["=C3+9"]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a cell at the highest valid row for this sheet",
+      "input": [
+        ["Spreadsheet", "setCell", "getValue"],
+        [[3], ["C3", 40], ["=C3+2"]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "values at the constraint extremes: zero and the maximum cell value",
+      "input": [
+        ["Spreadsheet", "setCell", "setCell", "getValue"],
+        [[10], ["A1", 0], ["B1", 100000], ["=A1+B1"]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "setting the same cell twice keeps only the latest value, it does not accumulate",
+      "input": [
+        ["Spreadsheet", "setCell", "setCell", "getValue"],
+        [[2], ["A1", 5], ["A1", 30], ["=A1+0"]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a multi-digit row number in a cell reference must be parsed as one cell, not split apart",
+      "input": [
+        ["Spreadsheet", "setCell", "getValue"],
+        [[100], ["B99", 7], ["=B99+1"]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random setCell/resetCell/getValue traffic over a handful of cells and formulas",
+      "seed": 41,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    rows = rng.randint(5, 50)\n    cols = 'ABCDE'\n    def rand_cell():\n        return rng.choice(cols) + str(rng.randint(1, rows))\n    ops = ['Spreadsheet']\n    args = [[rows]]\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.4:\n            ops.append('setCell')\n            args.append([rand_cell(), rng.randint(0, 1000)])\n        elif r < 0.55:\n            ops.append('resetCell')\n            args.append([rand_cell()])\n        else:\n            def operand():\n                if rng.random() < 0.5:\n                    return rand_cell()\n                return str(rng.randint(0, 1000))\n            ops.append('getValue')\n            args.append(['=' + operand() + '+' + operand()])\n    return [ops, args]\n",
+      "note": "small 5-column cell alphabet makes repeated set/reset/read collisions on the same cells likely"
+    }
+  ],
+  "oracle_python": "import re\n\n\nclass Spreadsheet:\n    def __init__(self, rows):\n        self.grid = {}\n\n    def setCell(self, cell, value):\n        self.grid[cell] = value\n\n    def resetCell(self, cell):\n        if cell in self.grid:\n            del self.grid[cell]\n\n    def getValue(self, formula):\n        m = re.match(r'^=([A-Z][0-9]+|[0-9]+)\\+([A-Z][0-9]+|[0-9]+)$', formula)\n        left, right = m.group(1), m.group(2)\n\n        def val(tok):\n            if tok[0].isdigit():\n                return int(tok)\n            return self.grid.get(tok, 0)\n\n        return val(left) + val(right)\n",
+  "solutions": {
+    "python": "class Spreadsheet:\n    def __init__(self, rows):\n        self.rows = rows\n        self.cells = {}\n\n    def setCell(self, cell, value):\n        self.cells[cell] = value\n\n    def resetCell(self, cell):\n        self.cells.pop(cell, None)\n\n    def _value_of(self, token):\n        if token[0].isalpha():\n            return self.cells.get(token, 0)\n        return int(token)\n\n    def getValue(self, formula):\n        body = formula[1:]\n        plus = body.index('+')\n        left = body[:plus]\n        right = body[plus + 1:]\n        return self._value_of(left) + self._value_of(right)\n",
+    "javascript": "class Spreadsheet {\n    constructor(rows) {\n        this.rows = rows;\n        this.cells = new Map();\n    }\n    setCell(cell, value) {\n        this.cells.set(cell, value);\n    }\n    resetCell(cell) {\n        this.cells.delete(cell);\n    }\n    _valueOf(token) {\n        const c = token.charCodeAt(0);\n        if (c >= 65 && c <= 90) {\n            return this.cells.has(token) ? this.cells.get(token) : 0;\n        }\n        return parseInt(token, 10);\n    }\n    getValue(formula) {\n        const body = formula.slice(1);\n        const plus = body.indexOf('+');\n        const left = body.slice(0, plus);\n        const right = body.slice(plus + 1);\n        return this._valueOf(left) + this._valueOf(right);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per call", "space": "O(cells set)" }
+}

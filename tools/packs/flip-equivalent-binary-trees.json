@@ -1,0 +1,40 @@
+{
+  "slug": "flip-equivalent-binary-trees",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "tree"], "returns": "json" },
+  "pattern": "Two trees are equivalent under child-swaps when, at every node, the values agree and the two subtrees match either straight across or after swapping — a recursive comparison that tries both pairings.",
+  "hints": [
+    "A swap only ever exchanges the two children of a single node, so think about whether one tree can be turned into the other one node at a time.",
+    "At a pair of nodes, the values must be equal; then the left/right subtrees must correspond, but they are allowed to be matched in either of the two orders.",
+    "Recurse on the two possibilities at each node: left-to-left with right-to-right, or left-to-right with right-to-left; if either pairing works the nodes are equivalent, and two empties always match."
+  ],
+  "constraints": [
+    { "param": "root1", "kind": "tree", "len": [0, 100], "value": [0, 99] },
+    { "param": "root2", "kind": "tree", "len": [0, 100], "value": [0, 99] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "two empty trees are equivalent", "input": [[], []] },
+    { "kind": "trap", "description": "one empty, one a single node", "input": [[], [1]] },
+    { "kind": "edge", "description": "single matching node", "input": [[7], [7]] },
+    { "kind": "edge", "description": "children swapped at the root", "input": [[1, 2, 3], [1, 3, 2]] },
+    { "kind": "trap", "description": "same multiset of values but wrong structure", "input": [[1, 2, 3], [1, 2, null, 3]] },
+    { "kind": "trap", "description": "root values differ", "input": [[1, 2, 3], [2, 1, 3]] },
+    { "kind": "edge", "description": "deeper tree equivalent only after several swaps", "input": [[1, 2, 3, 4, 5, 6, null, null, null, 7, 8], [1, 3, 2, null, 6, 4, 5, null, null, null, null, 8, 7]] },
+    { "kind": "trap", "description": "identical shape but one leaf value off", "input": [[1, 2, 3, 4], [1, 3, 2, null, null, null, 5]] }
+  ],
+  "stress": [
+    {
+      "description": "build a random tree, then produce a flip-equivalent copy half the time and a perturbed copy the other half",
+      "seed": 47,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    vals = list(range(n))\n    rng.shuffle(vals)\n    # build a random binary tree as nested [val, left, right]\n    def build(items):\n        if not items:\n            return None\n        root = items[0]\n        rest = items[1:]\n        k = rng.randint(0, len(rest))\n        left = build(rest[:k])\n        right = build(rest[k:])\n        return [root, left, right]\n    tree = build(vals)\n    def to_level(t):\n        out = []\n        q = [t]\n        while q:\n            nxt = []\n            for node in q:\n                if node is None:\n                    out.append(None)\n                else:\n                    out.append(node[0])\n                    nxt.append(node[1])\n                    nxt.append(node[2])\n            q = nxt\n        while out and out[-1] is None:\n            out.pop()\n        return out\n    def flipped_copy(t):\n        if t is None:\n            return None\n        l = flipped_copy(t[1])\n        r = flipped_copy(t[2])\n        if rng.random() < 0.5:\n            return [t[0], r, l]\n        return [t[0], l, r]\n    a = to_level(tree)\n    if rng.random() < 0.5:\n        b = to_level(flipped_copy(tree))\n    else:\n        b = to_level(flipped_copy(tree))\n        if b:\n            idx = rng.randrange(len(b))\n            if b[idx] is None:\n                b[idx] = rng.randint(0, 99)\n            else:\n                b[idx] = (b[idx] + 1) % 100\n    if not a:\n        a = []\n    if not b:\n        b = []\n    return [a, b]\n",
+      "note": "values are a permutation so equality is well defined; the copy may be genuinely flip-equivalent or nudged off"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def flipEquiv(self, root1, root2):\n        def canon(node):\n            if node is None:\n                return (0,)\n            l = canon(node.left)\n            r = canon(node.right)\n            lo, hi = (l, r) if l <= r else (r, l)\n            return (1, node.val, lo, hi)\n        return canon(root1) == canon(root2)\n",
+  "solutions": {
+    "python": "class Solution:\n    def flipEquiv(self, root1, root2):\n        if root1 is None and root2 is None:\n            return True\n        if root1 is None or root2 is None:\n            return False\n        if root1.val != root2.val:\n            return False\n        return (\n            (self.flipEquiv(root1.left, root2.left) and self.flipEquiv(root1.right, root2.right))\n            or (self.flipEquiv(root1.left, root2.right) and self.flipEquiv(root1.right, root2.left))\n        )\n",
+    "javascript": "var flipEquiv = function(root1, root2) {\n    if (root1 === null && root2 === null) return true;\n    if (root1 === null || root2 === null) return false;\n    if (root1.val !== root2.val) return false;\n    return (\n        (flipEquiv(root1.left, root2.left) && flipEquiv(root1.right, root2.right)) ||\n        (flipEquiv(root1.left, root2.right) && flipEquiv(root1.right, root2.left))\n    );\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

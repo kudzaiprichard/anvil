@@ -1,0 +1,99 @@
+{
+  "slug": "design-graph-with-shortest-path-calculator",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Recomputing single-source shortest distances from scratch on every query keeps a directed weighted graph correct even as edges are added between queries, trading a per-query relaxation pass for the complexity of maintaining a live shortest-path index.",
+  "hints": [
+    "Precomputing all-pairs distances once won't survive a later addEdge, and there are too few nodes to worry about an expensive per-query recomputation — recompute single-source distances from node1 fresh each time shortestPath is called.",
+    "A directed edge only relaxes distances in one direction; walk outward from node1 relaxing every outgoing edge you know about, including ones inserted after construction.",
+    "Track a distance array seeded at infinity with node1 at 0, repeatedly pick the closest unfinished node and relax its outgoing edges until nothing improves, then read off node2 (or -1 if it never got a finite distance)."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 9900], "note": "each row [from, to, cost]; 0<=from,to<=n-1, 1<=cost<=1000000, no self-loops or repeated (from,to) pairs at any point" },
+    { "param": "edge", "kind": "int[]", "len": [3, 3], "note": "[from, to, cost] for a single addEdge call" },
+    { "param": "node1", "kind": "int", "value": [0, 99] },
+    { "param": "node2", "kind": "int", "value": [0, 99] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sample sequence: two queries before any edge is added, then addEdge unlocks a cheaper route",
+      "input": [
+        ["Graph", "shortestPath", "shortestPath", "addEdge", "shortestPath"],
+        [[4, [[0, 2, 5], [0, 1, 2], [1, 2, 1], [3, 0, 3]]], [3, 2], [0, 3], [[1, 3, 4]], [0, 3]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single node, no edges: the only reachable pair is a node to itself, at cost 0",
+      "input": [
+        ["Graph", "shortestPath"],
+        [[1, []], [0, 0]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two nodes with no path, then addEdge connects them and the path becomes usable",
+      "input": [
+        ["Graph", "shortestPath", "addEdge", "shortestPath"],
+        [[2, []], [0, 1], [[0, 1, 100]], [0, 1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "asking for the path from a node to itself must return 0 even when cheaper-looking cycles exist through neighbors",
+      "input": [
+        ["Graph", "shortestPath"],
+        [[3, [[0, 1, 5], [1, 2, 5], [2, 0, 5]]], [1, 1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a direct edge exists but a two-hop route is cheaper; the answer must pick the cheaper total, not the direct edge",
+      "input": [
+        ["Graph", "shortestPath"],
+        [[3, [[0, 2, 100], [0, 1, 1], [1, 2, 1]]], [0, 2]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "edges are directed: an edge from a to b does not imply a route from b to a",
+      "input": [
+        ["Graph", "shortestPath", "shortestPath"],
+        [[2, [[0, 1, 5]]], [0, 1], [1, 0]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "edge cost at the maximum constraint value",
+      "input": [
+        ["Graph", "shortestPath"],
+        [[2, [[0, 1, 1000000]]], [0, 1]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a long directed chain forces the calculator to sum every hop rather than shortcut",
+      "input": [
+        ["Graph", "shortestPath"],
+        [[10, [[0, 1, 1], [1, 2, 1], [2, 3, 1], [3, 4, 1], [4, 5, 1], [5, 6, 1], [6, 7, 1], [7, 8, 1], [8, 9, 1]]], [0, 9]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small directed graphs with interleaved addEdge and shortestPath calls, no self-loops or duplicate (from,to) pairs",
+      "seed": 5,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, 15)\n    existing = set()\n    edges = []\n    initial = rng.randint(0, min(20, n * (n - 1)))\n    tries = 0\n    while len(edges) < initial and tries < initial * 20 + 20:\n        tries += 1\n        f = rng.randint(0, n - 1)\n        t = rng.randint(0, n - 1)\n        if f == t or (f, t) in existing:\n            continue\n        c = rng.randint(1, 1000)\n        existing.add((f, t))\n        edges.append([f, t, c])\n    ops = ['Graph']\n    args = [[n, edges]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.25:\n            added = False\n            tries2 = 0\n            while not added and tries2 < 20:\n                tries2 += 1\n                f = rng.randint(0, n - 1)\n                t = rng.randint(0, n - 1)\n                if f == t or (f, t) in existing:\n                    continue\n                c = rng.randint(1, 1000)\n                existing.add((f, t))\n                ops.append('addEdge')\n                args.append([[f, t, c]])\n                added = True\n            if not added:\n                ops.append('shortestPath')\n                args.append([rng.randint(0, n - 1), rng.randint(0, n - 1)])\n        else:\n            ops.append('shortestPath')\n            args.append([rng.randint(0, n - 1), rng.randint(0, n - 1)])\n    return [ops, args]\n",
+      "note": "generator tracks the existing (from,to) pair set so it never proposes a self-loop or a repeated directed edge"
+    }
+  ],
+  "oracle_python": "class Graph:\n    def __init__(self, n, edges):\n        self.n = n\n        self.edges = [list(e) for e in edges]\n\n    def addEdge(self, edge):\n        self.edges.append(list(edge))\n\n    def shortestPath(self, node1, node2):\n        INF = float('inf')\n        dist = [INF] * self.n\n        dist[node1] = 0\n        for _ in range(self.n - 1):\n            updated = False\n            for f, t, c in self.edges:\n                if dist[f] != INF and dist[f] + c < dist[t]:\n                    dist[t] = dist[f] + c\n                    updated = True\n            if not updated:\n                break\n        return dist[node2] if dist[node2] != INF else -1\n",
+  "solutions": {
+    "python": "class Graph:\n    def __init__(self, n, edges):\n        self.n = n\n        self.adj = [[] for _ in range(n)]\n        for f, t, c in edges:\n            self.adj[f].append((t, c))\n\n    def addEdge(self, edge):\n        f, t, c = edge\n        self.adj[f].append((t, c))\n\n    def shortestPath(self, node1, node2):\n        n = self.n\n        INF = float('inf')\n        dist = [INF] * n\n        dist[node1] = 0\n        visited = [False] * n\n        for _ in range(n):\n            u = -1\n            best = INF\n            for i in range(n):\n                if not visited[i] and dist[i] < best:\n                    best = dist[i]\n                    u = i\n            if u == -1:\n                break\n            visited[u] = True\n            if u == node2:\n                return dist[u]\n            for v, w in self.adj[u]:\n                if dist[u] + w < dist[v]:\n                    dist[v] = dist[u] + w\n        return dist[node2] if dist[node2] != INF else -1\n",
+    "javascript": "class Graph {\n    constructor(n, edges) {\n        this.n = n;\n        this.adj = Array.from({ length: n }, () => []);\n        for (const [f, t, c] of edges) {\n            this.adj[f].push([t, c]);\n        }\n    }\n    addEdge(edge) {\n        const [f, t, c] = edge;\n        this.adj[f].push([t, c]);\n    }\n    shortestPath(node1, node2) {\n        const n = this.n;\n        const INF = Infinity;\n        const dist = new Array(n).fill(INF);\n        dist[node1] = 0;\n        const visited = new Array(n).fill(false);\n        for (let iter = 0; iter < n; iter++) {\n            let u = -1;\n            let best = INF;\n            for (let i = 0; i < n; i++) {\n                if (!visited[i] && dist[i] < best) {\n                    best = dist[i];\n                    u = i;\n                }\n            }\n            if (u === -1) break;\n            visited[u] = true;\n            if (u === node2) return dist[u];\n            for (const [v, w] of this.adj[u]) {\n                if (dist[u] + w < dist[v]) dist[v] = dist[u] + w;\n            }\n        }\n        return dist[node2] === INF ? -1 : dist[node2];\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n^2) per shortestPath, O(1) per addEdge", "space": "O(n + e)" }
+}

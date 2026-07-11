@@ -1,0 +1,43 @@
+{
+  "slug": "maximum-number-of-items-from-sale-i",
+  "judge": "exact",
+  "pattern": "Every item's total contribution -- the one copy you buy plus every other item it unlocks for free -- is a fixed number that never depends on what else you decide to buy, so this collapses into an ordinary knapsack over which items to activate, topped off with extra copies of whichever item is cheapest.",
+  "hints": [
+    "Buying a single copy of item i is worth 1 (itself) plus however many OTHER items have a factor that i's factor divides -- and that bonus count is fixed for item i regardless of anything else you buy, so precompute it once per item.",
+    "With a fixed per-item worth and a fixed per-item cost, deciding which items to buy at least one copy of is a textbook 0/1 knapsack over the budget: maximize total worth subject to total activation cost staying within budget.",
+    "Any budget left over after activating a chosen set is never wasted: spend every remaining unit on extra copies of whichever single item has the lowest price, since each such copy adds exactly one more item for the smallest possible cost."
+  ],
+  "constraints": [
+    { "param": "items", "kind": "int[][]", "len": [1, 1000], "value": [1, 1500] },
+    { "param": "budget", "kind": "int", "value": [1, 1500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a small set where combining an activation with leftover-budget filler beats any single choice", "input": [[[6, 2], [2, 6], [3, 4]], 9] },
+    { "kind": "edge", "description": "several items share divisibility relationships, rewarding careful selection", "input": [[[2, 4], [3, 2], [4, 1], [6, 4], [12, 4]], 8] },
+    { "kind": "boundary", "description": "a single item and a budget that buys exactly one copy with nothing left over", "input": [[[5, 5]], 5] },
+    { "kind": "boundary", "description": "budget is too small to buy anything at all", "input": [[[10, 10]], 5] },
+    { "kind": "trap", "description": "an item with factor 1 unlocks every other item for free, so it should be prioritized despite not being the cheapest", "input": [[[1, 10], [2, 1], [3, 1], [5, 1]], 11] },
+    { "kind": "trap", "description": "two items whose factors do not divide each other at all give no free copies between them", "input": [[[7, 3], [11, 3]], 6] },
+    { "kind": "trap", "description": "leftover budget after activation should still be spent on the globally cheapest item even if it wasn't activated", "input": [[[9, 9], [2, 1]], 12] }
+  ],
+  "stress": [
+    {
+      "description": "random items and budget across the full constraint range",
+      "seed": 12,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    items = [[rng.randint(1, 60), rng.randint(1, 60)] for _ in range(n)]\n    budget = rng.randint(1, 300)\n    return [items, budget]\n"
+    },
+    {
+      "description": "items with many shared small factors so free-copy chains are dense, near the upper item-count bound",
+      "seed": 13,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    items = [[rng.randint(1, 20), rng.randint(1, 1500)] for _ in range(n)]\n    budget = rng.randint(1, 1500)\n    return [items, budget]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumSaleItems(self, items, budget):\n        n = len(items)\n        factors = [it[0] for it in items]\n        prices = [it[1] for it in items]\n        D = [sum(1 for j in range(n) if i != j and factors[j] % factors[i] == 0) for i in range(n)]\n        values = [1 + D[i] for i in range(n)]\n        m = min(prices)\n        best = 0\n        for mask in range(1 << n):\n            cost = 0\n            val = 0\n            for i in range(n):\n                if mask & (1 << i):\n                    cost += prices[i]\n                    val += values[i]\n            if cost <= budget:\n                leftover = budget - cost\n                total = val + leftover // m\n                if total > best:\n                    best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumSaleItems(self, items, budget: int) -> int:\n        n = len(items)\n        factors = [it[0] for it in items]\n        prices = [it[1] for it in items]\n        D = [sum(1 for j in range(n) if i != j and factors[j] % factors[i] == 0) for i in range(n)]\n        values = [1 + D[i] for i in range(n)]\n        m = min(prices)\n        dp = [0] * (budget + 1)\n        for i in range(n):\n            p = prices[i]\n            v = values[i]\n            if p > budget:\n                continue\n            for b in range(budget, p - 1, -1):\n                cand = dp[b - p] + v\n                if cand > dp[b]:\n                    dp[b] = cand\n        best = 0\n        for b in range(budget + 1):\n            cand = dp[b] + (budget - b) // m\n            if cand > best:\n                best = cand\n        return best\n",
+    "javascript": "var maximumSaleItems = function(items, budget) {\n    const n = items.length;\n    const factors = items.map(it => it[0]);\n    const prices = items.map(it => it[1]);\n    const D = new Array(n).fill(0);\n    for (let i = 0; i < n; i++) {\n        let cnt = 0;\n        for (let j = 0; j < n; j++) {\n            if (i !== j && factors[j] % factors[i] === 0) cnt++;\n        }\n        D[i] = cnt;\n    }\n    const values = D.map(d => d + 1);\n    const m = Math.min(...prices);\n    const dp = new Array(budget + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        const p = prices[i];\n        const v = values[i];\n        if (p > budget) continue;\n        for (let b = budget; b >= p; b--) {\n            const cand = dp[b - p] + v;\n            if (cand > dp[b]) dp[b] = cand;\n        }\n    }\n    let best = 0;\n    for (let b = 0; b <= budget; b++) {\n        const cand = dp[b] + Math.floor((budget - b) / m);\n        if (cand > best) best = cand;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2 + n*budget)", "space": "O(budget)" }
+}

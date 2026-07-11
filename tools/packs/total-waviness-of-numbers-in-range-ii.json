@@ -1,0 +1,81 @@
+{
+  "slug": "total-waviness-of-numbers-in-range-ii",
+  "judge": "exact",
+  "pattern": "Since a peak or valley only ever depends on three consecutive digits, a digit-by-digit count-and-sum walk that remembers the previous two digits (and whether it is still bounded by the upper limit) can total the waviness of every number up to N without ever visiting them one by one.",
+  "hints": [
+    "Split the problem by digit length: every length shorter than N's own length is completely unrestricted, and only the numbers with exactly N's own digit count need to respect the 'at most N' limit.",
+    "For a fixed length, build the count digit by digit while remembering the previous two digits placed; each time you place a new digit, you can immediately tell whether the digit before it turned out to be a peak or a valley.",
+    "Track two running totals together at every state -- how many completions are possible, and how much total waviness they carry -- so that placing the next digit lets you add that digit's contribution to every one of those completions at once, without enumerating them."
+  ],
+  "constraints": [
+    {
+      "param": "num1",
+      "kind": "int",
+      "value": [1, 1000000000000000]
+    },
+    {
+      "param": "num2",
+      "kind": "int",
+      "value": [1, 1000000000000000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a single number with no peaks or valleys, too short",
+      "input": [5, 9]
+    },
+    {
+      "kind": "edge",
+      "description": "a single three-digit number that is itself a peak",
+      "input": [484, 484]
+    },
+    {
+      "kind": "edge",
+      "description": "a single three-digit number that is itself a valley",
+      "input": [212, 212]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible range, num1 equals num2 at the minimum bound",
+      "input": [1, 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "a wide range that pushes into six-digit numbers",
+      "input": [1, 300000]
+    },
+    {
+      "kind": "trap",
+      "description": "a number with multiple interior peaks and valleys back to back",
+      "input": [193764, 193764]
+    },
+    {
+      "kind": "trap",
+      "description": "a range crossing a round-number boundary where digit lengths change",
+      "input": [98, 102]
+    },
+    {
+      "kind": "trap",
+      "description": "monotonic digits produce zero waviness despite being multi-digit",
+      "input": [12345, 12345]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random sub-ranges across the full fifteen-digit constraint span",
+      "seed": 101,
+      "size": 1000000000000000,
+      "generator_python": "def gen(rng, size):\n    hi = max(1, min(size, 1000000000000000))\n    a = rng.randint(1, hi)\n    b = rng.randint(a, hi)\n    return [a, b]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def totalWaviness(self, num1, num2):\n        def waviness(x):\n            s = str(x)\n            L = len(s)\n            if L < 3:\n                return 0\n            c = 0\n            for i in range(1, L - 1):\n                a, b, cc = int(s[i - 1]), int(s[i]), int(s[i + 1])\n                if (a < b > cc) or (a > b < cc):\n                    c += 1\n            return c\n        total = 0\n        for x in range(num1, num2 + 1):\n            total += waviness(x)\n        return total\n",
+  "solutions": {
+    "python": "from functools import lru_cache\n\nclass Solution:\n    def totalWaviness(self, num1, num2):\n        def cum_waviness(N):\n            if N <= 0:\n                return 0\n            s = str(N)\n            L = len(s)\n            digits = [int(c) for c in s]\n            total = 0\n\n            def free_dp(length):\n                @lru_cache(maxsize=None)\n                def rec(idx, p2, p1):\n                    if idx == length:\n                        return (1, 0)\n                    cnt_total = 0\n                    sum_total = 0\n                    lo = 1 if idx == 0 else 0\n                    for d in range(lo, 10):\n                        contrib = 0\n                        if idx >= 2 and ((p2 < p1 > d) or (p2 > p1 < d)):\n                            contrib = 1\n                        subcnt, subsum = rec(idx + 1, p1, d)\n                        cnt_total += subcnt\n                        sum_total += subsum + contrib * subcnt\n                    return (cnt_total, sum_total)\n                _, sm = rec(0, -1, -1)\n                rec.cache_clear()\n                return sm\n\n            for length in range(1, L):\n                total += free_dp(length)\n\n            @lru_cache(maxsize=None)\n            def rec_tight(idx, p2, p1, tight):\n                if idx == L:\n                    return (1, 0)\n                cnt_total = 0\n                sum_total = 0\n                hi = digits[idx] if tight else 9\n                lo = 1 if idx == 0 else 0\n                for d in range(lo, hi + 1):\n                    contrib = 0\n                    if idx >= 2 and ((p2 < p1 > d) or (p2 > p1 < d)):\n                        contrib = 1\n                    ntight = tight and (d == hi)\n                    subcnt, subsum = rec_tight(idx + 1, p1, d, ntight)\n                    cnt_total += subcnt\n                    sum_total += subsum + contrib * subcnt\n                return (cnt_total, sum_total)\n\n            _, sm = rec_tight(0, -1, -1, True)\n            rec_tight.cache_clear()\n            total += sm\n            return total\n        return cum_waviness(num2) - cum_waviness(num1 - 1)\n",
+    "javascript": "var totalWaviness = function(num1, num2) {\n    function cumWaviness(N) {\n        if (N <= 0) return 0;\n        const s = String(N);\n        const L = s.length;\n        const digits = [...s].map(Number);\n        let total = 0;\n\n        function freeDp(length) {\n            const memo = new Map();\n            function rec(idx, p2, p1) {\n                if (idx === length) return [1, 0];\n                const key = idx + ',' + p2 + ',' + p1;\n                if (memo.has(key)) return memo.get(key);\n                let cntTotal = 0, sumTotal = 0;\n                const lo = idx === 0 ? 1 : 0;\n                for (let d = lo; d <= 9; d++) {\n                    let contrib = 0;\n                    if (idx >= 2 && ((p2 < p1 && p1 > d) || (p2 > p1 && p1 < d))) contrib = 1;\n                    const [subcnt, subsum] = rec(idx + 1, p1, d);\n                    cntTotal += subcnt;\n                    sumTotal += subsum + contrib * subcnt;\n                }\n                const res = [cntTotal, sumTotal];\n                memo.set(key, res);\n                return res;\n            }\n            const [, sm] = rec(0, -1, -1);\n            return sm;\n        }\n\n        for (let length = 1; length < L; length++) total += freeDp(length);\n\n        const memoTight = new Map();\n        function recTight(idx, p2, p1, tight) {\n            if (idx === L) return [1, 0];\n            const key = idx + ',' + p2 + ',' + p1 + ',' + (tight ? 1 : 0);\n            if (memoTight.has(key)) return memoTight.get(key);\n            let cntTotal = 0, sumTotal = 0;\n            const hi = tight ? digits[idx] : 9;\n            const lo = idx === 0 ? 1 : 0;\n            for (let d = lo; d <= hi; d++) {\n                let contrib = 0;\n                if (idx >= 2 && ((p2 < p1 && p1 > d) || (p2 > p1 && p1 < d))) contrib = 1;\n                const ntight = tight && d === hi;\n                const [subcnt, subsum] = recTight(idx + 1, p1, d, ntight);\n                cntTotal += subcnt;\n                sumTotal += subsum + contrib * subcnt;\n            }\n            const res = [cntTotal, sumTotal];\n            memoTight.set(key, res);\n            return res;\n        }\n        const [, sm2] = recTight(0, -1, -1, true);\n        total += sm2;\n        return total;\n    }\n    return cumWaviness(num2) - cumWaviness(num1 - 1);\n};\n"
+  },
+  "complexity": {
+    "time": "O(log(N)^2) digit DP per bound",
+    "space": "O(log(N))"
+  }
+}

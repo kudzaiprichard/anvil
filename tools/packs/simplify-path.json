@@ -1,0 +1,38 @@
+{
+  "slug": "simplify-path",
+  "judge": "exact",
+  "pattern": "A stack of directory names canonicalizes a Unix path: each real name is pushed, a parent reference pops, and current-directory or empty segments are ignored.",
+  "hints": [
+    "Splitting the path on the slash character turns it into a list of segments, most of which are either real names or special tokens.",
+    "Walk the segments keeping a stack: a normal name goes on, an empty piece or a single dot is skipped, and a double dot should undo the most recent name.",
+    "After processing, join the stacked names with single slashes and prepend a leading slash; an empty stack means the root, which is just one slash."
+  ],
+  "constraints": [
+    { "param": "path", "kind": "str", "len": [1, 3000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "trailing slash is dropped", "input": ["/home/"] },
+    { "kind": "edge", "description": "repeated slashes collapse", "input": ["/home//foo/"] },
+    { "kind": "trap", "description": "parent reference pops a directory", "input": ["/home/user/Documents/../Pictures"] },
+    { "kind": "trap", "description": "parent reference above root stays at root", "input": ["/../"] },
+    { "kind": "trap", "description": "triple dot is an ordinary directory name", "input": ["/.../a/../b/c/../d/./"] },
+    { "kind": "boundary", "description": "the root itself", "input": ["/"] },
+    { "kind": "edge", "description": "single dot is the current directory", "input": ["/a/./b/./c/"] },
+    { "kind": "trap", "description": "many parents collapse to root", "input": ["/a/../../../b"] }
+  ],
+  "stress": [
+    {
+      "description": "random valid absolute paths built from names, dots, and double dots",
+      "seed": 23,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    names = ['a', 'b', 'foo', 'bar', '.', '..', '...', 'x1', 'home']\n    n = rng.randint(1, max(1, min(40, size)))\n    parts = [rng.choice(names) for _ in range(n)]\n    sep = ''.join('/' * rng.randint(1, 2) for _ in range(n))\n    path = '/'\n    for p in parts:\n        path += p + '/' * rng.randint(1, 2)\n    return [path]\n",
+      "note": "double slashes and dot tokens stress the canonicalization rules"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def simplifyPath(self, path):\n        out = []\n        for seg in path.split('/'):\n            if seg == '' or seg == '.':\n                continue\n            if seg == '..':\n                if out:\n                    out.pop()\n            else:\n                out.append(seg)\n        return '/' + '/'.join(out)\n",
+  "solutions": {
+    "python": "class Solution:\n    def simplifyPath(self, path):\n        stack = []\n        for seg in path.split('/'):\n            if seg in ('', '.'):\n                continue\n            if seg == '..':\n                if stack:\n                    stack.pop()\n            else:\n                stack.append(seg)\n        return '/' + '/'.join(stack)\n",
+    "javascript": "var simplifyPath = function(path) {\n    const stack = [];\n    for (const seg of path.split('/')) {\n        if (seg === '' || seg === '.') continue;\n        if (seg === '..') {\n            if (stack.length) stack.pop();\n        } else {\n            stack.push(seg);\n        }\n    }\n    return '/' + stack.join('/');\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

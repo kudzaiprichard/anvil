@@ -1,0 +1,78 @@
+{
+  "slug": "length-of-longest-v-shaped-diagonal-segment",
+  "judge": "exact",
+  "pattern": "Since the required value at each step is forced by an alternating sequence and a single clockwise turn is either taken now or never, memoizing on position, direction, next-expected-value, and whether the turn is still available covers every possible segment.",
+  "hints": [
+    "From a cell holding 1, walk outward along one of the four diagonal directions; the value needed at each next step alternates 2, 0, 2, 0, ... regardless of how far you've gone.",
+    "At any cell along the way, you may either keep going straight or spend your one allowed turn by rotating the direction 90 degrees clockwise -- (dr, dc) becomes (dc, -dr) -- and continuing the same alternating sequence from there.",
+    "Memoize on (row, col, direction, which value is expected next, whether the turn is still available) so overlapping walks from different starting cells are never recomputed, then take the best result over every starting 1-cell and direction."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "rows": [1, 500],
+      "cols": [1, 500],
+      "value": [0, 2]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, a turn improves the result",
+      "input": [[[2,2,1,2,2],[2,0,2,2,0],[2,0,1,1,0],[1,0,2,2,2],[2,0,0,2,2]]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a shorter turned segment",
+      "input": [[[2,2,2,2,2],[2,0,2,2,0],[2,0,1,1,0],[1,0,2,2,2],[2,0,0,2,2]]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, no turn needed at all",
+      "input": [[[1,2,2,2,2],[2,2,2,2,0],[2,0,0,0,0],[0,0,2,2,2],[2,0,0,2,0]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "statement example, minimum 1x1 grid",
+      "input": [[[1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "grid with no 1 at all, no segment possible",
+      "input": [[[0,2,0],[2,0,2],[0,2,0]]]
+    },
+    {
+      "kind": "trap",
+      "description": "a longer straight run exists but a turn near the very start beats it",
+      "input": [[[1,0,0],[0,2,0],[0,0,2]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "single row grid, no diagonal moves possible",
+      "input": [[[2, 1, 2, 0, 2]]]
+    },
+    {
+      "kind": "trap",
+      "description": "turning off the grid edge must be rejected, only the straight continuation counts",
+      "input": [[[0,0,1],[0,2,0],[2,0,0]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small grid over values 0,1,2",
+      "seed": 29,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(20, size))\n    m = max(1, min(20, size))\n    grid = [[rng.choice([0, 1, 2]) for _ in range(m)] for _ in range(n)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def lenOfVDiagonal(self, grid):\n        n = len(grid)\n        m = len(grid[0])\n        DIRS = [(1, 1), (1, -1), (-1, -1), (-1, 1)]\n\n        def clockwise(dr, dc):\n            return (dc, -dr)\n\n        def simulate(r, c, dr, dc, turn_at):\n            length = 1\n            expect = 2\n            step = 0\n            cur_r, cur_c, cur_dr, cur_dc = r, c, dr, dc\n            turned = False\n            while True:\n                nr, nc = cur_r + cur_dr, cur_c + cur_dc\n                if not (0 <= nr < n and 0 <= nc < m):\n                    break\n                if grid[nr][nc] != expect:\n                    break\n                length += 1\n                cur_r, cur_c = nr, nc\n                expect = 2 if expect == 0 else 0\n                step += 1\n                if (not turned) and turn_at == step:\n                    cur_dr, cur_dc = clockwise(cur_dr, cur_dc)\n                    turned = True\n            return length\n\n        ans = 0\n        for r in range(n):\n            for c in range(m):\n                if grid[r][c] != 1:\n                    continue\n                ans = max(ans, 1)\n                for dr, dc in DIRS:\n                    max_steps = n + m\n                    for turn_at in range(-1, max_steps + 1):\n                        ans = max(ans, simulate(r, c, dr, dc, turn_at))\n        return ans\n",
+  "solutions": {
+    "python": "from functools import lru_cache\nclass Solution:\n    def lenOfVDiagonal(self, grid):\n        n = len(grid)\n        m = len(grid[0])\n        DIRS = [(1, 1), (1, -1), (-1, -1), (-1, 1)]\n\n        def clockwise(dr, dc):\n            return (dc, -dr)\n\n        @lru_cache(maxsize=None)\n        def extend(r, c, dr, dc, expect, can_turn):\n            best = 0\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < n and 0 <= nc < m and grid[nr][nc] == expect:\n                nxt = 2 if expect == 0 else 0\n                best = 1 + extend(nr, nc, dr, dc, nxt, can_turn)\n            if can_turn:\n                ndr, ndc = clockwise(dr, dc)\n                nr2, nc2 = r + ndr, c + ndc\n                if 0 <= nr2 < n and 0 <= nc2 < m and grid[nr2][nc2] == expect:\n                    nxt = 2 if expect == 0 else 0\n                    cand = 1 + extend(nr2, nc2, ndr, ndc, nxt, False)\n                    if cand > best:\n                        best = cand\n            return best\n\n        ans = 0\n        for r in range(n):\n            for c in range(m):\n                if grid[r][c] == 1:\n                    ans = max(ans, 1)\n                    for dr, dc in DIRS:\n                        ans = max(ans, 1 + extend(r, c, dr, dc, 2, True))\n        extend.cache_clear()\n        return ans\n",
+    "javascript": "var lenOfVDiagonal = function(grid) {\n    const n = grid.length, m = grid[0].length;\n    const DIRS = [[1, 1], [1, -1], [-1, -1], [-1, 1]];\n    function clockwise(dr, dc) { return [dc, -dr]; }\n    const memo = new Map();\n\n    function extend(r, c, dr, dc, expect, canTurn) {\n        const key = r + ',' + c + ',' + dr + ',' + dc + ',' + expect + ',' + (canTurn ? 1 : 0);\n        if (memo.has(key)) return memo.get(key);\n        let best = 0;\n        const nr = r + dr, nc = c + dc;\n        if (nr >= 0 && nr < n && nc >= 0 && nc < m && grid[nr][nc] === expect) {\n            const nxt = expect === 0 ? 2 : 0;\n            best = 1 + extend(nr, nc, dr, dc, nxt, canTurn);\n        }\n        if (canTurn) {\n            const [ndr, ndc] = clockwise(dr, dc);\n            const nr2 = r + ndr, nc2 = c + ndc;\n            if (nr2 >= 0 && nr2 < n && nc2 >= 0 && nc2 < m && grid[nr2][nc2] === expect) {\n                const nxt = expect === 0 ? 2 : 0;\n                const cand = 1 + extend(nr2, nc2, ndr, ndc, nxt, false);\n                if (cand > best) best = cand;\n            }\n        }\n        memo.set(key, best);\n        return best;\n    }\n\n    let ans = 0;\n    for (let r = 0; r < n; r++) {\n        for (let c = 0; c < m; c++) {\n            if (grid[r][c] === 1) {\n                ans = Math.max(ans, 1);\n                for (const [dr, dc] of DIRS) {\n                    ans = Math.max(ans, 1 + extend(r, c, dr, dc, 2, true));\n                }\n            }\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n*m)",
+    "space": "O(n*m)"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "slug": "finding-mk-average",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A fixed-size sliding window over the last m values, partitioned into smallest-k, middle, and largest-k buckets with a running middle sum, lets the trimmed mean be read off in logarithmic time per update.",
+  "hints": [
+    "Only the most recent m elements ever matter, so maintain them as a sliding window and drop the oldest each time the window overflows.",
+    "The answer ignores the k smallest and k largest of those m values; if you keep a running sum of just the middle band, the average is that sum divided by m minus two k.",
+    "Use an ordered/balanced structure (or three buckets kept sorted) so inserting and removing a value, and rebalancing across the smallest-k / middle / largest-k boundaries, is logarithmic; before m elements exist return minus one."
+  ],
+  "constraints": [
+    { "param": "m", "kind": "int", "value": [3, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] },
+    { "param": "num", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example: returns -1 before m elements, then the trimmed average",
+      "input": [
+        ["MKAverage", "addElement", "addElement", "calculateMKAverage", "addElement", "calculateMKAverage", "addElement", "addElement", "addElement", "calculateMKAverage"],
+        [[3, 1], [3], [1], [], [10], [], [5], [5], [5], []]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest legal m with k=1 so exactly one middle element remains",
+      "input": [
+        ["MKAverage", "addElement", "addElement", "addElement", "calculateMKAverage"],
+        [[3, 1], [7], [2], [9], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all equal values: trimmed average equals that value",
+      "input": [
+        ["MKAverage", "addElement", "addElement", "addElement", "addElement", "addElement", "calculateMKAverage"],
+        [[5, 1], [4], [4], [4], [4], [4], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "window slides past older extremes; result must reflect only the last m",
+      "input": [
+        ["MKAverage", "addElement", "addElement", "addElement", "addElement", "addElement", "calculateMKAverage", "addElement", "addElement", "addElement", "calculateMKAverage"],
+        [[3, 1], [100], [1], [100], [1], [100], [], [50], [50], [50], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "result rounds down (floor) when the trimmed sum is not divisible",
+      "input": [
+        ["MKAverage", "addElement", "addElement", "addElement", "addElement", "addElement", "calculateMKAverage"],
+        [[5, 1], [1], [2], [3], [4], [100], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "k larger than 1 trims a wider band on both ends",
+      "input": [
+        ["MKAverage", "addElement", "addElement", "addElement", "addElement", "addElement", "addElement", "addElement", "calculateMKAverage"],
+        [[7, 2], [1], [2], [3], [4], [5], [6], [7], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate values straddling the trim boundary must be counted correctly",
+      "input": [
+        ["MKAverage", "addElement", "addElement", "addElement", "addElement", "addElement", "calculateMKAverage"],
+        [[5, 1], [3], [3], [3], [3], [3], []]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long stream of additions interleaved with average queries over a moderate window",
+      "seed": 31,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(3, 40)\n    kmax = (m - 1) // 2\n    k = rng.randint(1, max(1, kmax))\n    ops = ['MKAverage']\n    args = [[m, k]]\n    for _ in range(size):\n        if rng.random() < 0.7:\n            ops.append('addElement')\n            args.append([rng.randint(1, 1000)])\n        else:\n            ops.append('calculateMKAverage')\n            args.append([])\n    return [ops, args]\n",
+      "note": "k chosen so 1 < 2k < m always holds; queries before m elements exercise the -1 branch"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass MKAverage:\n    def __init__(self, m: int, k: int):\n        self.m = m\n        self.k = k\n        self.q = deque()\n    def addElement(self, num: int) -> None:\n        self.q.append(num)\n        if len(self.q) > self.m:\n            self.q.popleft()\n    def calculateMKAverage(self) -> int:\n        if len(self.q) < self.m:\n            return -1\n        s = sorted(self.q)\n        mid = s[self.k:self.m - self.k]\n        return sum(mid) // len(mid)\n",
+  "solutions": {
+    "python": "import bisect\nclass MKAverage:\n    def __init__(self, m: int, k: int):\n        self.m = m\n        self.k = k\n        self.q = []\n        self.sorted = []\n    def addElement(self, num: int) -> None:\n        self.q.append(num)\n        bisect.insort(self.sorted, num)\n        if len(self.q) > self.m:\n            old = self.q.pop(0)\n            idx = bisect.bisect_left(self.sorted, old)\n            self.sorted.pop(idx)\n    def calculateMKAverage(self) -> int:\n        if len(self.q) < self.m:\n            return -1\n        mid = self.sorted[self.k:self.m - self.k]\n        return sum(mid) // len(mid)\n",
+    "javascript": "function lowerBound(arr, x) {\n    let lo = 0, hi = arr.length;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (arr[mid] < x) lo = mid + 1; else hi = mid;\n    }\n    return lo;\n}\nvar MKAverage = function(m, k) {\n    this.m = m;\n    this.k = k;\n    this.q = [];\n    this.sorted = [];\n};\nMKAverage.prototype.addElement = function(num) {\n    this.q.push(num);\n    const pos = lowerBound(this.sorted, num);\n    this.sorted.splice(pos, 0, num);\n    if (this.q.length > this.m) {\n        const old = this.q.shift();\n        const idx = lowerBound(this.sorted, old);\n        this.sorted.splice(idx, 1);\n    }\n};\nMKAverage.prototype.calculateMKAverage = function() {\n    if (this.q.length < this.m) return -1;\n    let sum = 0;\n    for (let i = this.k; i < this.m - this.k; i++) sum += this.sorted[i];\n    const cnt = this.m - 2 * this.k;\n    return Math.floor(sum / cnt);\n};\n"
+  },
+  "complexity": { "time": "O(m) per op (sorted-list insert/remove)", "space": "O(m)" }
+}

@@ -1,0 +1,47 @@
+{
+  "slug": "minimum-moves-to-balance-circular-array",
+  "judge": "exact",
+  "pattern": "With only one negative balance ever present, every unit of relief it needs can only travel toward it from one of two directions around the circle, so the cheapest way to cover the deficit is to pull units from whichever neighbors are closest first, going farther only once the closer supply runs out.",
+  "hints": [
+    "If the total of every balance is negative there simply isn't enough to go around, so no sequence of moves can fix it.",
+    "When nothing is negative, no moves are needed at all; otherwise there is exactly one deficit to fill, and every other position's units can reach it going either clockwise or counter-clockwise around the circle -- moving a unit costs exactly the number of steps of whichever direction is shorter.",
+    "Sort the other positions by that shorter distance and take from the closest ones first, only reaching further away once the nearer supply is exhausted -- this greedy order minimizes the total number of moves."
+  ],
+  "constraints": [
+    { "param": "balance", "kind": "int[]", "len": [1, 100000], "value": [-1000000000, 1000000000], "note": "at most one entry is negative in the given array" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": [[5, 1, -4]] },
+    { "kind": "edge", "description": "statement example two", "input": [[1, 2, -5, 2]] },
+    { "kind": "edge", "description": "statement example three, impossible because the total is negative", "input": [[-3, 2]] },
+    { "kind": "edge", "description": "single person, already non-negative, nothing to do", "input": [[0]] },
+    { "kind": "edge", "description": "single person, negative with no one else to help", "input": [[-5]] },
+    { "kind": "trap", "description": "no negative balance at all, answer is zero even though nothing is uniform", "input": [[10, 3, 7, 1]] },
+    { "kind": "trap", "description": "total exactly zero, the deficit is exactly coverable with no surplus left over", "input": [[3, 3, -6]] },
+    { "kind": "trap", "description": "the deficit sits between two equally-close neighbors on a small ring, so ties in distance must be handled correctly", "input": [[2, -4, 2, 0]] },
+    { "kind": "boundary", "description": "values at the maximum allowed magnitude", "input": [[1000000000, 1000000000, -2000000000]] }
+  ],
+  "stress": [
+    {
+      "description": "random rings with one negative entry placed at a random position",
+      "seed": 8801,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 5000))\n    balance = [rng.randint(0, 1000) for _ in range(n)]\n    neg_i = rng.randint(0, n - 1)\n    balance[neg_i] = -rng.randint(1, 1000 * n if n > 0 else 1)\n    return [balance]\n"
+    },
+    {
+      "description": "random rings that are deliberately infeasible (total negative)",
+      "seed": 8802,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 3000))\n    balance = [rng.randint(0, 10) for _ in range(n)]\n    neg_i = rng.randint(0, n - 1)\n    balance[neg_i] = -(sum(balance) + rng.randint(1, 1000))\n    return [balance]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minMoves(self, balance):\n        n = len(balance)\n        total = sum(balance)\n        if total < 0:\n            return -1\n        neg_idx = None\n        for i, b in enumerate(balance):\n            if b < 0:\n                neg_idx = i\n                break\n        if neg_idx is None:\n            return 0\n        deficit = -balance[neg_idx]\n        items = []\n        for i in range(n):\n            if i == neg_idx:\n                continue\n            best = None\n            for direction in (1, -1):\n                d = 0\n                cur = i\n                while cur != neg_idx:\n                    cur = (cur + direction) % n\n                    d += 1\n                if best is None or d < best:\n                    best = d\n            items.append((best, balance[i]))\n        items.sort(key=lambda p: p[0])\n        moves = 0\n        remaining = deficit\n        for cost, amt in items:\n            if remaining <= 0:\n                break\n            take = amt if amt < remaining else remaining\n            moves += take * cost\n            remaining -= take\n        return moves\n",
+  "solutions": {
+    "python": "class Solution:\n    def minMoves(self, balance):\n        n = len(balance)\n        total = sum(balance)\n        if total < 0:\n            return -1\n        neg_idx = None\n        for i, b in enumerate(balance):\n            if b < 0:\n                neg_idx = i\n                break\n        if neg_idx is None:\n            return 0\n        deficit = -balance[neg_idx]\n        items = []\n        for i in range(n):\n            if i == neg_idx:\n                continue\n            cw = (neg_idx - i) % n\n            ccw = n - cw\n            cost = cw if cw < ccw else ccw\n            items.append((cost, balance[i]))\n        items.sort()\n        moves = 0\n        remaining = deficit\n        for cost, amt in items:\n            if remaining <= 0:\n                break\n            take = amt if amt < remaining else remaining\n            moves += take * cost\n            remaining -= take\n        return moves\n",
+    "javascript": "var minMoves = function(balance) {\n    const n = balance.length;\n    let total = 0;\n    for (const b of balance) total += b;\n    if (total < 0) return -1;\n    let negIdx = -1;\n    for (let i = 0; i < n; i++) {\n        if (balance[i] < 0) { negIdx = i; break; }\n    }\n    if (negIdx === -1) return 0;\n    let deficit = -balance[negIdx];\n    const items = [];\n    for (let i = 0; i < n; i++) {\n        if (i === negIdx) continue;\n        const cw = ((negIdx - i) % n + n) % n;\n        const ccw = n - cw;\n        const cost = Math.min(cw, ccw);\n        items.push([cost, balance[i]]);\n    }\n    items.sort((a, b) => a[0] - b[0]);\n    let moves = 0;\n    let remaining = deficit;\n    for (const [cost, amt] of items) {\n        if (remaining <= 0) break;\n        const take = Math.min(amt, remaining);\n        moves += take * cost;\n        remaining -= take;\n    }\n    return moves;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

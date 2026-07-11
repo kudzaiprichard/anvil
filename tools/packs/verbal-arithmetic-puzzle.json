@@ -1,0 +1,125 @@
+{
+  "slug": "verbal-arithmetic-puzzle",
+  "judge": "exact",
+  "pattern": "Assigning digits column by column from the units place with a carry lets the addition constraints prune the search early, so backtracking over at most ten letters stays tractable.",
+  "hints": [
+    "There are at most ten distinct letters, so a digit assignment is a partial permutation of 0 through 9 - small enough to search with backtracking.",
+    "Work the columns from least significant to most significant, carrying like manual addition, so each column gives an equation that constrains the letters in it before you go deeper.",
+    "Forbid a zero for any leading letter, ensure no two letters share a digit, and at the final column require the running carry to vanish; if any complete assignment satisfies every column, the puzzle is solvable."
+  ],
+  "constraints": [
+    {
+      "param": "words",
+      "kind": "string[]",
+      "len": [
+        2,
+        5
+      ]
+    },
+    {
+      "param": "result",
+      "kind": "string",
+      "len": [
+        1,
+        7
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "classic two-word puzzle that is solvable",
+      "input": [
+        [
+          "SEND",
+          "MORE"
+        ],
+        "MONEY"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "repeated word, solvable",
+      "input": [
+        [
+          "SIX",
+          "SEVEN",
+          "SEVEN"
+        ],
+        "TWENTY"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no assignment satisfies the sum",
+      "input": [
+        [
+          "LEET",
+          "CODE"
+        ],
+        "POINT"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "result too short to ever hold the sum",
+      "input": [
+        [
+          "AAA",
+          "BBB"
+        ],
+        "C"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single-letter words add cleanly",
+      "input": [
+        [
+          "A",
+          "B"
+        ],
+        "A"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "leading-zero restriction blocks the only sum",
+      "input": [
+        [
+          "AB",
+          "BA"
+        ],
+        "AA"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "small solvable carry chain",
+      "input": [
+        [
+          "AS",
+          "A"
+        ],
+        "MOM"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small random puzzles within a tight letter budget so the search stays fast",
+      "seed": 59,
+      "size": 5,
+      "generator_python": "def gen(rng, size):\n    import string\n    letters = string.ascii_uppercase[:rng.randint(3, 5)]\n    def word():\n        ln = rng.randint(1, 3)\n        return ''.join(rng.choice(letters) for _ in range(ln))\n    nwords = rng.randint(2, 3)\n    words = [word() for _ in range(nwords)]\n    result = word()\n    return [words, result]\n",
+      "note": "tight caps keep the column backtracking fast on every generated case"
+    }
+  ],
+  "solutions": {
+    "python": "class Solution:\n    def isSolvable(self, words, result):\n        rows = words + [result]\n        if any(len(w) > len(result) for w in words):\n            return False\n        letters = set()\n        for w in rows:\n            letters.update(w)\n        if len(letters) > 10:\n            return False\n        leading = set(w[0] for w in rows if len(w) > 1)\n        maxlen = len(result)\n        assigned = {}\n        used = [False] * 10\n        def dfs(col, row, carry):\n            if col == maxlen:\n                return carry == 0\n            if row < len(words):\n                w = words[row]\n                if col >= len(w):\n                    return dfs(col, row + 1, carry)\n                ch = w[len(w) - 1 - col]\n                if ch in assigned:\n                    return dfs(col, row + 1, carry + assigned[ch])\n                for d in range(10):\n                    if used[d] or (d == 0 and ch in leading):\n                        continue\n                    assigned[ch] = d\n                    used[d] = True\n                    if dfs(col, row + 1, carry + d):\n                        used[d] = False\n                        del assigned[ch]\n                        return True\n                    used[d] = False\n                    del assigned[ch]\n                return False\n            rch = result[maxlen - 1 - col]\n            digit = carry % 10\n            ncarry = carry // 10\n            if rch in assigned:\n                if assigned[rch] != digit:\n                    return False\n                return dfs(col + 1, 0, ncarry)\n            if used[digit] or (digit == 0 and rch in leading):\n                return False\n            assigned[rch] = digit\n            used[digit] = True\n            if dfs(col + 1, 0, ncarry):\n                used[digit] = False\n                del assigned[rch]\n                return True\n            used[digit] = False\n            del assigned[rch]\n            return False\n        return dfs(0, 0, 0)\n",
+    "javascript": "var isSolvable = function(words, result) {\n    const rows = words.concat([result]);\n    for (const w of words) if (w.length > result.length) return false;\n    const letters = new Set();\n    for (const w of rows) for (const c of w) letters.add(c);\n    if (letters.size > 10) return false;\n    const leading = new Set();\n    for (const w of rows) if (w.length > 1) leading.add(w[0]);\n    const maxlen = result.length;\n    const assigned = new Map();\n    const used = new Array(10).fill(false);\n    function dfs(col, row, carry) {\n        if (col === maxlen) return carry === 0;\n        if (row < words.length) {\n            const w = words[row];\n            if (col >= w.length) return dfs(col, row + 1, carry);\n            const ch = w[w.length - 1 - col];\n            if (assigned.has(ch)) return dfs(col, row + 1, carry + assigned.get(ch));\n            for (let d = 0; d < 10; d++) {\n                if (used[d] || (d === 0 && leading.has(ch))) continue;\n                assigned.set(ch, d);\n                used[d] = true;\n                if (dfs(col, row + 1, carry + d)) { used[d] = false; assigned.delete(ch); return true; }\n                used[d] = false;\n                assigned.delete(ch);\n            }\n            return false;\n        }\n        const rch = result[maxlen - 1 - col];\n        const digit = carry % 10;\n        const ncarry = Math.floor(carry / 10);\n        if (assigned.has(rch)) {\n            if (assigned.get(rch) !== digit) return false;\n            return dfs(col + 1, 0, ncarry);\n        }\n        if (used[digit] || (digit === 0 && leading.has(rch))) return false;\n        assigned.set(rch, digit);\n        used[digit] = true;\n        if (dfs(col + 1, 0, ncarry)) { used[digit] = false; assigned.delete(rch); return true; }\n        used[digit] = false;\n        assigned.delete(rch);\n        return false;\n    }\n    return dfs(0, 0, 0);\n};\n"
+  },
+  "complexity": {
+    "time": "exponential in distinct letters",
+    "space": "O(1)"
+  }
+}

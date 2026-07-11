@@ -1,0 +1,37 @@
+{
+  "slug": "inverse-coin-change",
+  "judge": "exact",
+  "pattern": "Replaying the coin-change DP from the smallest amount upward reveals each missing denomination exactly where the running way-count falls short.",
+  "hints": [
+    "Process amounts from 1 upward, keeping the number of ways achievable with the denominations discovered so far.",
+    "If the recorded ways for an amount exceed what your current coins explain, that amount itself must be a denomination; if they fall short, no set works.",
+    "Start with one way to make zero, and for each amount compare the DP value to the target: a shortfall means add that amount as a coin and fold it into the DP, an overshoot means return empty, and a match means move on."
+  ],
+  "constraints": [
+    { "param": "numWays", "kind": "int[]", "len": [1, 100], "value": [0, 200000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "even denominations recovered", "input": [[0, 1, 0, 2, 0, 3, 0, 4, 0, 5]] },
+    { "kind": "edge", "description": "mix including the unit coin", "input": [[1, 2, 2, 3, 4]] },
+    { "kind": "trap", "description": "no valid set explains the counts", "input": [[1, 2, 3, 4, 15]] },
+    { "kind": "trap", "description": "first amount unreachable forbids the unit coin", "input": [[0, 1, 0]] },
+    { "kind": "boundary", "description": "single amount, no coin of value one", "input": [[0]] },
+    { "kind": "boundary", "description": "single amount with the unit coin", "input": [[1]] },
+    { "kind": "trap", "description": "all zeros means the empty coin set", "input": [[0, 0, 0, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "build numWays from a random coin subset so solvable cases dominate, with small n for the brute oracle",
+      "seed": 41,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, max(2, size) + 1)\n    coins = [c for c in range(1, n + 1) if rng.random() < 0.5]\n    dp = [0] * (n + 1)\n    dp[0] = 1\n    for c in coins:\n        for a in range(c, n + 1):\n            dp[a] += dp[a - c]\n    nw = dp[1:]\n    if rng.random() < 0.3 and n >= 1:\n        idx = rng.randrange(0, n)\n        nw[idx] = nw[idx] + rng.randrange(1, 4)\n    return [nw]\n",
+      "note": "small n keeps the combinatorial oracle fast; some perturbed (unsolvable) cases included"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def findCoins(self, numWays):\n        n = len(numWays)\n        def ways(coins):\n            dp = [0] * (n + 1)\n            dp[0] = 1\n            for c in coins:\n                for a in range(c, n + 1):\n                    dp[a] += dp[a - c]\n            return dp[1:]\n        for r in range(0, n + 1):\n            for combo in combinations(range(1, n + 1), r):\n                if ways(combo) == numWays:\n                    return sorted(combo)\n        return []\n",
+  "solutions": {
+    "python": "class Solution:\n    def findCoins(self, numWays):\n        n = len(numWays)\n        dp = [0] * (n + 1)\n        dp[0] = 1\n        coins = []\n        for a in range(1, n + 1):\n            if dp[a] < numWays[a - 1]:\n                coins.append(a)\n                for b in range(a, n + 1):\n                    dp[b] += dp[b - a]\n            if dp[a] != numWays[a - 1]:\n                return []\n        return coins\n",
+    "javascript": "var findCoins = function(numWays) {\n    const n = numWays.length;\n    const dp = new Array(n + 1).fill(0);\n    dp[0] = 1;\n    const coins = [];\n    for (let a = 1; a <= n; a++) {\n        if (dp[a] < numWays[a - 1]) {\n            coins.push(a);\n            for (let b = a; b <= n; b++) dp[b] += dp[b - a];\n        }\n        if (dp[a] !== numWays[a - 1]) return [];\n    }\n    return coins;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

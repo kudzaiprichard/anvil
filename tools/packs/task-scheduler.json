@@ -1,0 +1,37 @@
+{
+  "slug": "task-scheduler",
+  "judge": "exact",
+  "pattern": "The schedule length is forced by the most frequent task: build slots around its repetitions, fill gaps with other tasks, and the answer is the larger of that framed length and the raw task count.",
+  "hints": [
+    "Only the highest task frequency drives idling; spreading the busiest task fixes a skeleton of intervals.",
+    "With the max frequency f and k tasks tied at f, a lower bound is (f-1)*(n+1)+k.",
+    "If there are enough distinct tasks to fill every cooldown gap, no idling is needed and the answer is simply the total number of tasks; take the max of the two."
+  ],
+  "constraints": [
+    { "param": "tasks", "kind": "char[]", "len": [1, 10000] },
+    { "param": "n", "kind": "int", "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two tasks each thrice with cooldown two", "input": [["A", "A", "A", "B", "B", "B"], 2] },
+    { "kind": "edge", "description": "enough variety to avoid idling", "input": [["A", "C", "A", "B", "D", "B"], 1] },
+    { "kind": "trap", "description": "large cooldown forces many idles", "input": [["A", "A", "A", "B", "B", "B"], 3] },
+    { "kind": "boundary", "description": "no cooldown, answer equals task count", "input": [["A", "A", "A", "B", "C"], 0] },
+    { "kind": "edge", "description": "single task repeated", "input": [["A", "A", "A", "A"], 2] },
+    { "kind": "trap", "description": "many distinct tasks tied at max frequency", "input": [["A", "A", "B", "B", "C", "C", "D"], 2] },
+    { "kind": "boundary", "description": "single task instance", "input": [["A"], 100] }
+  ],
+  "stress": [
+    {
+      "description": "many tasks drawn from a limited alphabet with a moderate cooldown",
+      "seed": 47,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 10000))\n    alpha = 'ABCDEFGHIJ'\n    tasks = [rng.choice(alpha) for _ in range(n)]\n    cool = rng.randint(0, 100)\n    return [tasks, cool]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def leastInterval(self, tasks, n):\n        # Independent simulation: repeatedly pick the available task with the most\n        # remaining count, respecting the cooldown window.\n        from collections import Counter, deque\n        import heapq\n        cnt = Counter(tasks)\n        heap = [-c for c in cnt.values()]\n        heapq.heapify(heap)\n        time = 0\n        cooldown = deque()  # (ready_time, remaining)\n        while heap or cooldown:\n            time += 1\n            if cooldown and cooldown[0][0] == time:\n                heapq.heappush(heap, cooldown.popleft()[1])\n            if heap:\n                rem = heapq.heappop(heap) + 1\n                if rem < 0:\n                    cooldown.append((time + n + 1, rem))\n        return time\n",
+  "solutions": {
+    "python": "class Solution:\n    def leastInterval(self, tasks, n):\n        from collections import Counter\n        counts = Counter(tasks).values()\n        f = max(counts)\n        k = sum(1 for c in counts if c == f)\n        return max(len(tasks), (f - 1) * (n + 1) + k)\n",
+    "javascript": "var leastInterval = function(tasks, n) {\n    const counts = {};\n    for (const t of tasks) counts[t] = (counts[t] || 0) + 1;\n    let f = 0;\n    for (const t in counts) f = Math.max(f, counts[t]);\n    let k = 0;\n    for (const t in counts) if (counts[t] === f) k++;\n    return Math.max(tasks.length, (f - 1) * (n + 1) + k);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

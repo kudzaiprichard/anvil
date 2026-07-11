@@ -1,0 +1,74 @@
+{
+  "slug": "disconnect-path-in-a-binary-matrix-by-at-most-one-flip",
+  "judge": "exact",
+  "pattern": "Every top-left-to-bottom-right path must cross each anti-diagonal exactly once, so a diagonal where at most one cell lies on some path is a single-flip bottleneck that severs every path at once.",
+  "hints": [
+    "Every right/down path from the top-left to the bottom-right corner must pass through exactly one cell of each anti-diagonal (cells where row+col is constant).",
+    "Compute, from the start, which cells are reachable through 1s, and separately, from the end, which cells can still reach the finish through 1s; a cell lying on some full path is reachable in both directions.",
+    "If any interior diagonal (excluding the corners themselves) has zero or one such on-path cell, flipping it (or nothing, if already zero) disconnects everything; if every interior diagonal has two or more, no single flip can ever work."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "rows": [1, 1000],
+      "cols": [1, 1000],
+      "value": [0, 1],
+      "note": "1 <= rows * cols <= 100000; grid[0][0] == grid[rows-1][cols-1] == 1"
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "single cell grid, start equals end, no flip can disconnect it from itself",
+      "input": [[[1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "grid already disconnected, zero flips needed",
+      "input": [[[1, 0], [0, 1]]]
+    },
+    {
+      "kind": "trap",
+      "description": "single row, every interior cell is a one-cell bottleneck",
+      "input": [[[1, 1, 1, 1, 1]]]
+    },
+    {
+      "kind": "trap",
+      "description": "single column, every interior cell is a one-cell bottleneck",
+      "input": [[[1], [1], [1], [1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "fully open small grid where every diagonal has multiple crossing cells",
+      "input": [[[1, 1, 1], [1, 1, 1], [1, 1, 1]]]
+    },
+    {
+      "kind": "trap",
+      "description": "two parallel routes around a hole, exactly two on-path cells at the tightest diagonal",
+      "input": [[[1, 1, 1], [1, 0, 1], [1, 1, 1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "a narrow corridor forces a single-cell bottleneck partway through a larger grid",
+      "input": [[[1, 1, 0, 0], [0, 1, 0, 0], [0, 1, 1, 1], [0, 0, 0, 1]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random square-ish grid of 0/1 cells with the two corners forced to 1",
+      "seed": 31,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    dim = max(2, min(size, 60))\n    rows = dim\n    cols = dim\n    grid = [[1 if rng.random() < 0.75 else 0 for _ in range(cols)] for _ in range(rows)]\n    grid[0][0] = 1\n    grid[rows - 1][cols - 1] = 1\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isPossibleToCutPath(self, grid):\n        m, n = len(grid), len(grid[0])\n        def connected(g):\n            from collections import deque\n            if g[0][0] == 0 or g[m - 1][n - 1] == 0:\n                return False\n            seen = [[False] * n for _ in range(m)]\n            seen[0][0] = True\n            q = deque([(0, 0)])\n            while q:\n                r, c = q.popleft()\n                for nr, nc in ((r + 1, c), (r, c + 1)):\n                    if nr < m and nc < n and not seen[nr][nc] and g[nr][nc] == 1:\n                        seen[nr][nc] = True\n                        q.append((nr, nc))\n            return seen[m - 1][n - 1]\n        if not connected(grid):\n            return True\n        for i in range(m):\n            for j in range(n):\n                if (i, j) in ((0, 0), (m - 1, n - 1)):\n                    continue\n                flipped = [row[:] for row in grid]\n                flipped[i][j] = 1 - flipped[i][j]\n                if not connected(flipped):\n                    return True\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def isPossibleToCutPath(self, grid):\n        m, n = len(grid), len(grid[0])\n        reach1 = [[False] * n for _ in range(m)]\n        reach1[0][0] = grid[0][0] == 1\n        for i in range(m):\n            for j in range(n):\n                if i == 0 and j == 0:\n                    continue\n                if grid[i][j] == 0:\n                    continue\n                up = reach1[i - 1][j] if i > 0 else False\n                left = reach1[i][j - 1] if j > 0 else False\n                reach1[i][j] = up or left\n        if not reach1[m - 1][n - 1]:\n            return True\n        reach2 = [[False] * n for _ in range(m)]\n        reach2[m - 1][n - 1] = True\n        for i in range(m - 1, -1, -1):\n            for j in range(n - 1, -1, -1):\n                if i == m - 1 and j == n - 1:\n                    continue\n                if grid[i][j] == 0:\n                    continue\n                down = reach2[i + 1][j] if i + 1 < m else False\n                right = reach2[i][j + 1] if j + 1 < n else False\n                reach2[i][j] = down or right\n        for d in range(1, m + n - 2):\n            cnt = 0\n            lo = max(0, d - (n - 1))\n            hi = min(m - 1, d)\n            for i in range(lo, hi + 1):\n                j = d - i\n                if reach1[i][j] and reach2[i][j]:\n                    cnt += 1\n                    if cnt > 1:\n                        break\n            if cnt <= 1:\n                return True\n        return False\n",
+    "javascript": "var isPossibleToCutPath = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const reach1 = Array.from({length: m}, () => new Array(n).fill(false));\n    reach1[0][0] = grid[0][0] === 1;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (i === 0 && j === 0) continue;\n            if (grid[i][j] === 0) continue;\n            const up = i > 0 ? reach1[i - 1][j] : false;\n            const left = j > 0 ? reach1[i][j - 1] : false;\n            reach1[i][j] = up || left;\n        }\n    }\n    if (!reach1[m - 1][n - 1]) return true;\n    const reach2 = Array.from({length: m}, () => new Array(n).fill(false));\n    reach2[m - 1][n - 1] = true;\n    for (let i = m - 1; i >= 0; i--) {\n        for (let j = n - 1; j >= 0; j--) {\n            if (i === m - 1 && j === n - 1) continue;\n            if (grid[i][j] === 0) continue;\n            const down = i + 1 < m ? reach2[i + 1][j] : false;\n            const right = j + 1 < n ? reach2[i][j + 1] : false;\n            reach2[i][j] = down || right;\n        }\n    }\n    for (let d = 1; d <= m + n - 3; d++) {\n        let cnt = 0;\n        const lo = Math.max(0, d - (n - 1));\n        const hi = Math.min(m - 1, d);\n        for (let i = lo; i <= hi; i++) {\n            const j = d - i;\n            if (reach1[i][j] && reach2[i][j]) {\n                cnt++;\n                if (cnt > 1) break;\n            }\n        }\n        if (cnt <= 1) return true;\n    }\n    return false;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m*n)",
+    "space": "O(m*n)"
+  }
+}

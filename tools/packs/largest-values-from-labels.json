@@ -1,0 +1,40 @@
+{
+  "slug": "largest-values-from-labels",
+  "judge": "exact",
+  "pattern": "A greedy selection that takes the highest values first while a per-label counter enforces the usage cap, teaching constrained top-k picking.",
+  "hints": [
+    "You always want the biggest values, but each label can only contribute a limited number of items.",
+    "Sort items by value descending and walk them, skipping any whose label has already hit its limit.",
+    "Maintain a count per label; add a value only if its label count is below useLimit and you have taken fewer than numWanted items overall, then stop once you reach numWanted."
+  ],
+  "constraints": [
+    { "param": "values", "kind": "int[]", "len": [1, 20000], "value": [0, 20000] },
+    { "param": "labels", "kind": "int[]", "len": [1, 20000], "value": [0, 20000] },
+    { "param": "numWanted", "kind": "int", "value": [1, 20000] },
+    { "param": "useLimit", "kind": "int", "value": [1, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example, one item per label allowed", "input": [[5, 4, 3, 2, 1], [1, 1, 2, 2, 3], 3, 1] },
+    { "kind": "edge", "description": "second example, two of the same label allowed", "input": [[5, 4, 3, 2, 1], [1, 3, 3, 3, 2], 3, 2] },
+    { "kind": "edge", "description": "third example skips a capped label", "input": [[9, 8, 8, 7, 6], [0, 0, 0, 1, 1], 3, 1] },
+    { "kind": "boundary", "description": "single item", "input": [[7], [0], 1, 1] },
+    { "kind": "trap", "description": "useLimit forces skipping a higher value", "input": [[10, 9, 1], [5, 5, 6], 2, 1] },
+    { "kind": "trap", "description": "numWanted larger than usable items", "input": [[3, 2, 1], [0, 0, 0], 10, 1] },
+    { "kind": "trap", "description": "zero-valued items still count toward limits but add nothing", "input": [[0, 0, 5], [1, 1, 2], 3, 1] }
+  ],
+  "stress": [
+    {
+      "description": "many items across a small label space to exercise the per-label cap",
+      "seed": 51,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    values = [rng.randrange(0, 20001) for _ in range(n)]\n    labels = [rng.randrange(0, 20) for _ in range(n)]\n    numWanted = rng.randrange(1, n + 1)\n    useLimit = rng.randrange(1, n + 1)\n    return [values, labels, numWanted, useLimit]\n",
+      "note": "narrow label range makes the limit frequently bind"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestValsFromLabels(self, values, labels, numWanted, useLimit):\n        items = sorted(zip(values, labels), reverse=True)\n        used = {}\n        total = 0\n        taken = 0\n        for v, lab in items:\n            if taken >= numWanted:\n                break\n            if used.get(lab, 0) < useLimit:\n                total += v\n                used[lab] = used.get(lab, 0) + 1\n                taken += 1\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestValsFromLabels(self, values, labels, numWanted, useLimit):\n        order = sorted(range(len(values)), key=lambda i: values[i], reverse=True)\n        count = {}\n        total = 0\n        picked = 0\n        for i in order:\n            if picked == numWanted:\n                break\n            lab = labels[i]\n            c = count.get(lab, 0)\n            if c < useLimit:\n                total += values[i]\n                count[lab] = c + 1\n                picked += 1\n        return total\n",
+    "javascript": "var largestValsFromLabels = function(values, labels, numWanted, useLimit) {\n    const idx = values.map((_, i) => i);\n    idx.sort((a, b) => values[b] - values[a]);\n    const count = new Map();\n    let total = 0, picked = 0;\n    for (const i of idx) {\n        if (picked === numWanted) break;\n        const lab = labels[i];\n        const c = count.get(lab) || 0;\n        if (c < useLimit) {\n            total += values[i];\n            count.set(lab, c + 1);\n            picked += 1;\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

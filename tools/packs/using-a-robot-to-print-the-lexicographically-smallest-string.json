@@ -1,0 +1,37 @@
+{
+  "slug": "using-a-robot-to-print-the-lexicographically-smallest-string",
+  "judge": "exact",
+  "pattern": "A stack models the robot's holding string; pop a held character to paper only while nothing smaller remains to come, using a suffix-minimum to decide.",
+  "hints": [
+    "The robot's temporary string behaves like a stack: characters go in from the front of s and come out from the top to paper.",
+    "You should only write the top of the stack when no smaller character is still waiting in the unread part of s.",
+    "Precompute, for each position, the minimum character in the remaining suffix; push s left to right, and whenever the stack top is <= that suffix minimum, pop it to the output."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "hold everything then unwind", "input": ["zza"] },
+    { "kind": "edge", "description": "interleave reads and writes", "input": ["bac"] },
+    { "kind": "trap", "description": "smallest must wait under larger held letters", "input": ["bdda"] },
+    { "kind": "boundary", "description": "single character", "input": ["a"] },
+    { "kind": "edge", "description": "already sorted ascending writes immediately", "input": ["abcde"] },
+    { "kind": "trap", "description": "descending must reverse via the stack", "input": ["edcba"] },
+    { "kind": "trap", "description": "duplicates of the minimum scattered through s", "input": ["cabcab"] }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase strings over a small alphabet to force frequent stack decisions",
+      "seed": 16,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    alpha = 'abcde'\n    s = ''.join(rng.choice(alpha) for _ in range(n))\n    return [s]\n",
+      "note": "narrow alphabet creates many ties so suffix-minimum logic is exercised"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def robotWithString(self, s):\n        # Simulate the stack with an explicit recompute of the suffix minimum each pop\n        # (slower but obviously correct), independent of any precomputed array.\n        n = len(s)\n        stack = []\n        out = []\n        i = 0\n        while i < n or stack:\n            if not stack:\n                stack.append(s[i])\n                i += 1\n                continue\n            # minimum character still unread\n            suffix_min = None\n            for j in range(i, n):\n                if suffix_min is None or s[j] < suffix_min:\n                    suffix_min = s[j]\n            if suffix_min is not None and stack[-1] > suffix_min:\n                stack.append(s[i])\n                i += 1\n            else:\n                out.append(stack.pop())\n        return ''.join(out)\n",
+  "solutions": {
+    "python": "class Solution:\n    def robotWithString(self, s):\n        n = len(s)\n        suffix_min = [chr(127)] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            suffix_min[i] = min(suffix_min[i + 1], s[i])\n        stack = []\n        out = []\n        for i in range(n):\n            stack.append(s[i])\n            while stack and stack[-1] <= suffix_min[i + 1]:\n                out.append(stack.pop())\n        while stack:\n            out.append(stack.pop())\n        return ''.join(out)\n",
+    "javascript": "var robotWithString = function(s) {\n    const n = s.length;\n    const suffixMin = new Array(n + 1);\n    suffixMin[n] = String.fromCharCode(127);\n    for (let i = n - 1; i >= 0; i--) {\n        suffixMin[i] = s[i] < suffixMin[i + 1] ? s[i] : suffixMin[i + 1];\n    }\n    const stack = [];\n    const out = [];\n    for (let i = 0; i < n; i++) {\n        stack.push(s[i]);\n        while (stack.length && stack[stack.length - 1] <= suffixMin[i + 1]) {\n            out.push(stack.pop());\n        }\n    }\n    while (stack.length) out.push(stack.pop());\n    return out.join('');\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,151 @@
+{
+  "slug": "count-the-number-of-powerful-integers",
+  "judge": "exact",
+  "pattern": "Once the trailing digits are pinned to a fixed suffix, only the leading digits are free, so counting powerful integers up to a bound reduces to counting digit-limited prefixes up to a derived prefix bound.",
+  "hints": [
+    "Any powerful integer is built from a free leading part followed by the fixed suffix, so split counting-up-to-a-bound into counting valid leading parts.",
+    "For a bound with the same number of digits as the suffix, a leading part is valid whenever it is strictly smaller than the bound's own leading part, plus possibly one more if the leading part matches exactly and the suffix itself does not exceed the bound.",
+    "Count digit-limited numbers up to a string bound by scanning digit by digit: once a digit position where the bound's digit exceeds the limit is found, every combination of at-most-limit digits fills the remaining positions freely."
+  ],
+  "constraints": [
+    {
+      "param": "start",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000000000
+      ]
+    },
+    {
+      "param": "finish",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000000000
+      ]
+    },
+    {
+      "param": "limit",
+      "kind": "int",
+      "value": [
+        1,
+        9
+      ]
+    },
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        16
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several powerful integers share a three-digit suffix",
+      "input": [
+        1,
+        6000,
+        4,
+        "124"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a two-digit suffix with a wide digit limit",
+      "input": [
+        15,
+        215,
+        6,
+        "10"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "the suffix itself never fits inside the range",
+      "input": [
+        1000,
+        2000,
+        4,
+        "3000"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "start equals the suffix value exactly",
+      "input": [
+        124,
+        124,
+        9,
+        "124"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-digit suffix at the tightest limit",
+      "input": [
+        1,
+        9,
+        1,
+        "1"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "range and suffix pushed to the top of the constraint space",
+      "input": [
+        1,
+        1000000000000000,
+        9,
+        "9"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "finish shares every leading digit with the suffix boundary, forcing the exact-match branch",
+      "input": [
+        1,
+        124,
+        9,
+        "124"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a tight digit limit that rules out most leading-digit combinations",
+      "input": [
+        1,
+        999999,
+        3,
+        "13"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random ranges with random suffixes respecting the digit limit",
+      "seed": 21,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    limit = rng.randint(1, 9)\n    slen = rng.randint(1, 6)\n    digits = [str(rng.randint(0, limit)) for _ in range(slen)]\n    if digits[0] == '0':\n        digits[0] = str(rng.randint(1, limit))\n    s = ''.join(digits)\n    start = rng.randint(1, 10**12)\n    finish = start + rng.randint(0, 10**12)\n    return [start, finish, limit, s]\n",
+      "note": "wide random coverage of prefix/suffix boundary interactions"
+    },
+    {
+      "description": "ranges pushed toward the full 10^15 boundary",
+      "seed": 22,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    limit = rng.randint(1, 9)\n    slen = rng.randint(1, 4)\n    digits = [str(rng.randint(0, limit)) for _ in range(slen)]\n    if digits[0] == '0':\n        digits[0] = str(rng.randint(1, limit))\n    s = ''.join(digits)\n    finish = rng.randint(10**14, 10**15)\n    start = rng.randint(1, finish)\n    return [start, finish, limit, s]\n",
+      "note": "exercises the largest prefix lengths the count_le scan can see"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfPowerfulInt(self, start, finish, limit, s):\n        # Independent digit-DP (position + tight-bound recursion) rather than\n        # the closed-form prefix-count arithmetic used by the main solution.\n        from functools import lru_cache\n\n        def count_upto(x):\n            if x <= 0:\n                return 0\n            xs = str(x)\n            n = len(xs)\n            sl = len(s)\n            if n < sl:\n                return 0\n            suffix_start = n - sl\n\n            @lru_cache(maxsize=None)\n            def rec(pos, tight):\n                if pos == n:\n                    return 1\n                hi = int(xs[pos]) if tight else 9\n                total = 0\n                for d in range(0, min(hi, limit) + 1):\n                    if pos >= suffix_start:\n                        req = int(s[pos - suffix_start])\n                        if d != req:\n                            continue\n                    total += rec(pos + 1, tight and d == hi)\n                return total\n\n            result = rec(0, True)\n            rec.cache_clear()\n            return result\n\n        return count_upto(finish) - count_upto(start - 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfPowerfulInt(self, start, finish, limit, s):\n        def count_le(bound_str):\n            res = 0\n            n = len(bound_str)\n            for i, ch in enumerate(bound_str):\n                d = int(ch)\n                if d > limit:\n                    res += (limit + 1) ** (n - i)\n                    return res\n                res += d * (limit + 1) ** (n - i - 1)\n            return res + 1\n\n        def count_upto(x):\n            if x <= 0 or x < int(s):\n                return 0\n            xs = str(x)\n            n = len(xs)\n            sl = len(s)\n            if n < sl:\n                return 0\n            prefix_len = n - sl\n            if prefix_len == 0:\n                return 1 if int(s) <= x else 0\n            bound_prefix = xs[:prefix_len]\n            bound_qualifies = all(int(ch) <= limit for ch in bound_prefix)\n            cnt_le_including = count_le(bound_prefix)\n            cnt_less = cnt_le_including - (1 if bound_qualifies else 0)\n            suffix_of_x = int(xs[prefix_len:])\n            total = cnt_less\n            if bound_qualifies and int(s) <= suffix_of_x:\n                total += 1\n            return total\n\n        return count_upto(finish) - count_upto(start - 1)\n",
+    "javascript": "function countLe(boundStr, limit) {\n    let res = 0n;\n    const n = boundStr.length;\n    const L = BigInt(limit + 1);\n    for (let i = 0; i < n; i++) {\n        const d = boundStr.charCodeAt(i) - 48;\n        if (d > limit) {\n            res += L ** BigInt(n - i);\n            return res;\n        }\n        res += BigInt(d) * (L ** BigInt(n - i - 1));\n    }\n    return res + 1n;\n}\n\nfunction countUpto(x, limit, s) {\n    if (x <= 0) return 0n;\n    const sNum = BigInt(s);\n    if (BigInt(x) < sNum) return 0n;\n    const xs = String(x);\n    const n = xs.length;\n    const sl = s.length;\n    if (n < sl) return 0n;\n    const prefixLen = n - sl;\n    if (prefixLen === 0) {\n        return sNum <= BigInt(x) ? 1n : 0n;\n    }\n    const boundPrefix = xs.slice(0, prefixLen);\n    let boundQualifies = true;\n    for (const ch of boundPrefix) {\n        if (ch.charCodeAt(0) - 48 > limit) { boundQualifies = false; break; }\n    }\n    const cntLeIncluding = countLe(boundPrefix, limit);\n    let cntLess = cntLeIncluding - (boundQualifies ? 1n : 0n);\n    const suffixOfX = BigInt(xs.slice(prefixLen));\n    let total = cntLess;\n    if (boundQualifies && sNum <= suffixOfX) total += 1n;\n    return total;\n}\n\nvar numberOfPowerfulInt = function(start, finish, limit, s) {\n    const result = countUpto(finish, limit, s) - countUpto(start - 1, limit, s);\n    return Number(result);\n};\n"
+  },
+  "complexity": {
+    "time": "O(log(finish))",
+    "space": "O(log(finish))"
+  }
+}

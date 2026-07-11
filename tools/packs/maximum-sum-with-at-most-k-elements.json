@@ -1,0 +1,211 @@
+{
+  "slug": "maximum-sum-with-at-most-k-elements",
+  "judge": "exact",
+  "pattern": "A row can only ever contribute its own largest few values, so shrink each row to its best limits[i] candidates first, then pick the overall best k from that combined pool.",
+  "hints": [
+    "Within a single row, if you were only allowed elements from that row, you would obviously take its largest ones first.",
+    "That means any value outside a row's top limits[i] entries can never belong to an optimal selection -- discard the rest before combining rows.",
+    "Merge every row's surviving candidates into one list, sort it, and sum the largest k of them."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [
+        1,
+        500
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "limits",
+      "kind": "int[]",
+      "len": [
+        1,
+        500
+      ],
+      "value": [
+        0,
+        500
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        250000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single row, single element allowed",
+      "input": [
+        [
+          [
+            5,
+            9,
+            2
+          ]
+        ],
+        [
+          1
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single column, every row allows one pick",
+      "input": [
+        [
+          [
+            4
+          ],
+          [
+            8
+          ],
+          [
+            1
+          ]
+        ],
+        [
+          1,
+          1,
+          1
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k is zero, sum must be zero regardless of grid",
+      "input": [
+        [
+          [
+            10,
+            20
+          ],
+          [
+            30,
+            40
+          ]
+        ],
+        [
+          2,
+          2
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a row limit of zero excludes that row entirely",
+      "input": [
+        [
+          [
+            100,
+            100
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        [
+          0,
+          2
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one row has the largest single value but a tiny limit, so the top overall values still come from elsewhere",
+      "input": [
+        [
+          [
+            1000
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ]
+        ],
+        [
+          1,
+          4
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all zeros, sum stays zero even with a full budget",
+      "input": [
+        [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        [
+          2,
+          2
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "k equal to the full sum of all limits, taking everything each row allows",
+      "input": [
+        [
+          [
+            3,
+            1,
+            2
+          ],
+          [
+            6,
+            5,
+            4
+          ]
+        ],
+        [
+          2,
+          2
+        ],
+        4
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "moderately sized grid with random per-row limits and a random overall budget",
+      "seed": 202,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    dim = max(1, min(60, size // 6 or 1))\n    n = dim\n    m = dim\n    grid = [[rng.randint(0, 100000) for _ in range(m)] for _ in range(n)]\n    limits = [rng.randint(0, m) for _ in range(n)]\n    total = sum(limits)\n    k = rng.randint(0, min(n * m, total)) if total > 0 else 0\n    return [grid, limits, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSum(self, grid, limits, k):\n        # independent re-derivation: explore how much budget to spend per row via\n        # a small knapsack over rows, still only ever needing each row's sorted prefix\n        n = len(grid)\n        row_prefix = []\n        for i in range(n):\n            row = sorted(grid[i], reverse=True)[:limits[i]]\n            prefix = [0]\n            for v in row:\n                prefix.append(prefix[-1] + v)\n            row_prefix.append(prefix)\n        # dp[b] = best sum using exactly b picks so far across processed rows\n        dp = [float('-inf')] * (k + 1)\n        dp[0] = 0\n        for prefix in row_prefix:\n            ndp = [float('-inf')] * (k + 1)\n            maxtake = len(prefix) - 1\n            for b in range(k + 1):\n                if dp[b] == float('-inf'):\n                    continue\n                for t in range(0, min(maxtake, k - b) + 1):\n                    val = dp[b] + prefix[t]\n                    if val > ndp[b + t]:\n                        ndp[b + t] = val\n            dp = ndp\n        return max(dp)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSum(self, grid, limits, k):\n        candidates = []\n        for row, lim in zip(grid, limits):\n            top = sorted(row, reverse=True)[:lim]\n            candidates.extend(top)\n        candidates.sort(reverse=True)\n        return sum(candidates[:k])\n",
+    "javascript": "var maxSum = function(grid, limits, k) {\n    const candidates = [];\n    for (let i = 0; i < grid.length; i++) {\n        const row = grid[i].slice().sort((a, b) => b - a);\n        for (let j = 0; j < limits[i]; j++) candidates.push(row[j]);\n    }\n    candidates.sort((a, b) => b - a);\n    let total = 0;\n    for (let i = 0; i < k; i++) total += candidates[i];\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n*m*log(n*m))",
+    "space": "O(n*m)"
+  }
+}

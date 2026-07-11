@@ -1,0 +1,45 @@
+{
+  "slug": "find-array-given-subset-sums",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    n, sums = args[0], args[1]\n    if not isinstance(output, list) or len(output) != n:\n        return False\n    from collections import Counter\n    m = len(output)\n    computed = []\n    for mask in range(1 << m):\n        s = 0\n        for i in range(m):\n            if mask & (1 << i):\n                s += output[i]\n        computed.append(s)\n    return Counter(computed) == Counter(sums)\n",
+    "validator_javascript": "function validate(args, output) {\n    const n = args[0];\n    const sums = args[1];\n    if (!Array.isArray(output) || output.length !== n) return false;\n    const m = output.length;\n    const computed = [];\n    for (let mask = 0; mask < (1 << m); mask++) {\n        let s = 0;\n        for (let i = 0; i < m; i++) {\n            if (mask & (1 << i)) s += output[i];\n        }\n        computed.push(s);\n    }\n    const cnt = new Map();\n    for (const v of computed) cnt.set(v, (cnt.get(v) || 0) + 1);\n    for (const v of sums) {\n        if (!cnt.has(v) || cnt.get(v) === 0) return false;\n        cnt.set(v, cnt.get(v) - 1);\n    }\n    for (const v of cnt.values()) {\n        if (v !== 0) return false;\n    }\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "The two smallest subset sums must differ by exactly one array element's absolute value, and splitting the whole multiset into 'includes that element' versus 'doesn't' by matching each sum to a partner exactly that far away peels the elements off one at a time.",
+  "hints": [
+    "Sort all the subset sums. The gap between the two smallest ones is exactly the magnitude of some element of the hidden array -- work with that one number at a time.",
+    "Every subset sum either used that element or it didn't, so the whole multiset should split into two equal halves that are shifted copies of each other, offset by exactly that magnitude; pair up sums greedily from smallest to find that split.",
+    "The empty subset always sums to zero, and zero must land in whichever half represents 'did not use this element'. If zero falls in the smaller-valued half, the element is positive; if it only shows up in the shifted-up half, the element is negative. Recurse on the half that excludes the element you just determined, one element fewer each time."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 15] },
+    { "param": "sums", "kind": "int[]", "len": [2, 32768], "value": [-10000, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three-element array with mixed signs", "input": [3, [-3, -2, -1, 0, 0, 1, 2, 3]] },
+    { "kind": "edge", "description": "statement example, all-zero array", "input": [2, [0, 0, 0, 0]] },
+    { "kind": "edge", "description": "statement example, four-element array", "input": [4, [0, 0, 5, 5, 4, -1, 4, 9, 9, -1, 4, 3, 4, 8, 3, 8]] },
+    { "kind": "boundary", "description": "single positive element", "input": [1, [0, 5]] },
+    { "kind": "boundary", "description": "single negative element", "input": [1, [-3, 0]] },
+    { "kind": "trap", "description": "three elements including a zero and a mirrored positive/negative pair", "input": [3, [-2, -2, 0, 0, 0, 0, 2, 2]] },
+    { "kind": "trap", "description": "three elements with a zero placed differently among the sums", "input": [3, [-3, -3, 0, 0, 0, 0, 3, 3]] },
+    { "kind": "trap", "description": "four identical positive elements produce many repeated sums", "input": [4, [0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4]] },
+    { "kind": "edge", "description": "six elements spanning a wider range of magnitudes", "input": [6, [-9, -8, -7, -6, -6, -5, -5, -4, -4, -4, -3, -3, -3, -3, -2, -2, -2, -2, -1, -1, -1, -1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 9, 9, 10, 11, 12]] },
+    { "kind": "boundary", "description": "extreme magnitude values near the constraint limits", "input": [2, [-10000, 0, 0, 10000]] }
+  ],
+  "stress": [
+    {
+      "description": "random hidden arrays up to the maximum element count, with all of their true subset sums supplied",
+      "seed": 41,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 15))\n    arr = [rng.randint(-10000, 10000) for _ in range(n)]\n    sums = []\n    for mask in range(1 << n):\n        s = 0\n        for i in range(n):\n            if mask & (1 << i):\n                s += arr[i]\n        sums.append(s)\n    return [n, sums]\n",
+      "note": "sums are the genuine subset sums of a random hidden array, so a valid reconstruction always exists"
+    }
+  ],
+  "solutions": {
+    "python": "from collections import Counter\n\nclass Solution:\n    def recoverArray(self, n, sums):\n        sums = sorted(sums)\n        result = []\n        for _ in range(n):\n            diff = sums[1] - sums[0]\n            cnt = Counter(sums)\n            group0 = []\n            group1 = []\n            for s in sums:\n                if cnt[s] <= 0:\n                    continue\n                if cnt.get(s + diff, 0) > 0:\n                    cnt[s] -= 1\n                    cnt[s + diff] -= 1\n                    group0.append(s)\n                    group1.append(s + diff)\n            if 0 in group0:\n                result.append(diff)\n                sums = group0\n            else:\n                result.append(-diff)\n                sums = group1\n        return result\n",
+    "javascript": "var recoverArray = function(n, sums) {\n    sums = sums.slice().sort((a, b) => a - b);\n    const result = [];\n    for (let iter = 0; iter < n; iter++) {\n        const diff = sums[1] - sums[0];\n        const cnt = new Map();\n        for (const s of sums) cnt.set(s, (cnt.get(s) || 0) + 1);\n        const group0 = [];\n        const group1 = [];\n        for (const s of sums) {\n            if ((cnt.get(s) || 0) <= 0) continue;\n            const partner = s + diff;\n            if ((cnt.get(partner) || 0) > 0) {\n                cnt.set(s, cnt.get(s) - 1);\n                cnt.set(partner, cnt.get(partner) - 1);\n                group0.push(s);\n                group1.push(partner);\n            }\n        }\n        if (group0.includes(0)) {\n            result.push(diff);\n            sums = group0;\n        } else {\n            result.push(-diff);\n            sums = group1;\n        }\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n * 2^n)", "space": "O(2^n)" }
+}

@@ -1,0 +1,267 @@
+{
+  "slug": "maximum-sum-queries",
+  "judge": "exact",
+  "pattern": "Offline sweep by decreasing threshold: process (index, query) pairs from the largest first-coordinate requirement down, maintaining a Pareto frontier of undominated candidates that can answer a second-coordinate threshold with binary search.",
+  "hints": [
+    "Both the pairs and the queries only care about elements at or above some threshold, so try processing everything sorted by the first threshold in decreasing order, adding candidate pairs to a pool as you go.",
+    "Among pairs already added, many are useless: if pair A has both a smaller-or-equal second value and a smaller-or-equal sum than pair B, A can never beat B for any future query, so it can be discarded permanently.",
+    "Keep the surviving pairs in a structure sorted by their second value, with sums that strictly increase alongside it (a Pareto frontier). Answer each query by binary-searching that frontier for the first entry whose second value meets the query's second threshold."
+  ],
+  "constraints": [
+    {
+      "param": "nums1",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "nums2",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single index, single query",
+      "input": [
+        [
+          5
+        ],
+        [
+          10
+        ],
+        [
+          [
+            5,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "no index satisfies the query thresholds",
+      "input": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          [
+            10,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "every index ties on both coordinates",
+      "input": [
+        [
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3
+        ],
+        [
+          [
+            3,
+            3
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "queries sit exactly on an index's coordinates, exercising the inclusive >= boundary",
+      "input": [
+        [
+          5,
+          1,
+          9
+        ],
+        [
+          1,
+          5,
+          2
+        ],
+        [
+          [
+            5,
+            1
+          ],
+          [
+            9,
+            2
+          ],
+          [
+            1,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "queries arrive out of sorted order with a repeated query",
+      "input": [
+        [
+          10,
+          20,
+          30
+        ],
+        [
+          30,
+          20,
+          10
+        ],
+        [
+          [
+            20,
+            20
+          ],
+          [
+            20,
+            20
+          ],
+          [
+            5,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum-value single index and query",
+      "input": [
+        [
+          1
+        ],
+        [
+          1
+        ],
+        [
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum-value coordinates split across two indices that cannot jointly satisfy an extreme query",
+      "input": [
+        [
+          1000000000,
+          1
+        ],
+        [
+          1,
+          1000000000
+        ],
+        [
+          [
+            1000000000,
+            1000000000
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "one index dominates every query",
+      "input": [
+        [
+          100,
+          100
+        ],
+        [
+          100,
+          100
+        ],
+        [
+          [
+            50,
+            50
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large random arrays and queries at full scale",
+      "seed": 11,
+      "size": 60000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums1 = [rng.randint(1, 1_000_000_000) for _ in range(n)]\n    nums2 = [rng.randint(1, 1_000_000_000) for _ in range(n)]\n    q = max(1, min(size, 100000))\n    queries = [[rng.randint(1, 1_000_000_000), rng.randint(1, 1_000_000_000)] for _ in range(q)]\n    return [nums1, nums2, queries]\n"
+    },
+    {
+      "description": "clustered low-cardinality values to stress ties on the frontier",
+      "seed": 5,
+      "size": 40000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums1 = [rng.randint(1, 50) for _ in range(n)]\n    nums2 = [rng.randint(1, 50) for _ in range(n)]\n    q = max(1, min(size, 100000))\n    queries = [[rng.randint(1, 50), rng.randint(1, 50)] for _ in range(q)]\n    return [nums1, nums2, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumSumQueries(self, nums1, nums2, queries):\n        n = len(nums1)\n        ans = []\n        for x, y in queries:\n            best = -1\n            for j in range(n):\n                if nums1[j] >= x and nums2[j] >= y:\n                    s = nums1[j] + nums2[j]\n                    if s > best:\n                        best = s\n            ans.append(best)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumSumQueries(self, nums1, nums2, queries):\n        n = len(nums1)\n        pairs = sorted(zip(nums1, nums2), key=lambda p: -p[0])\n        order = sorted(range(len(queries)), key=lambda i: -queries[i][0])\n        ans = [-1] * len(queries)\n        stack = []  # (b, sum) with b increasing and sum increasing bottom to top\n        j = 0\n        for qi in order:\n            x, y = queries[qi]\n            while j < n and pairs[j][0] >= x:\n                b = pairs[j][1]\n                s = pairs[j][0] + pairs[j][1]\n                while stack and stack[-1][1] <= s:\n                    stack.pop()\n                if not stack or stack[-1][0] < b:\n                    stack.append((b, s))\n                j += 1\n            lo, hi, best = 0, len(stack) - 1, -1\n            while lo <= hi:\n                mid = (lo + hi) // 2\n                if stack[mid][0] >= y:\n                    best = stack[mid][1]\n                    hi = mid - 1\n                else:\n                    lo = mid + 1\n            ans[qi] = best\n        return ans\n",
+    "javascript": "var maximumSumQueries = function(nums1, nums2, queries) {\n    const n = nums1.length;\n    const pairs = nums1.map((v, i) => [v, nums2[i]]).sort((a, b) => b[0] - a[0]);\n    const order = queries.map((_, i) => i).sort((a, b) => queries[b][0] - queries[a][0]);\n    const ans = new Array(queries.length).fill(-1);\n    const stack = []; // [b, sum] with b increasing and sum increasing bottom to top\n    let j = 0;\n    for (const qi of order) {\n        const x = queries[qi][0], y = queries[qi][1];\n        while (j < n && pairs[j][0] >= x) {\n            const b = pairs[j][1];\n            const s = pairs[j][0] + pairs[j][1];\n            while (stack.length && stack[stack.length - 1][1] <= s) stack.pop();\n            if (!stack.length || stack[stack.length - 1][0] < b) stack.push([b, s]);\n            j++;\n        }\n        let lo = 0, hi = stack.length - 1, best = -1;\n        while (lo <= hi) {\n            const mid = (lo + hi) >> 1;\n            if (stack[mid][0] >= y) {\n                best = stack[mid][1];\n                hi = mid - 1;\n            } else {\n                lo = mid + 1;\n            }\n        }\n        ans[qi] = best;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + q) log (n + q))",
+    "space": "O(n + q)"
+  }
+}

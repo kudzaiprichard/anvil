@@ -1,0 +1,40 @@
+{
+  "slug": "validate-ip-address",
+  "judge": "exact",
+  "pattern": "Validation is a strict tokenization: split on the format's delimiter, require the exact group count, and check every group against the per-format rules, returning the family name only when no rule is violated.",
+  "hints": [
+    "Decide the candidate family from the delimiter present (a dot suggests IPv4, a colon suggests IPv6), then validate strictly against only that family's rules.",
+    "IPv4 needs exactly four dot-separated groups, each a decimal 0..255 with no leading zeros and no stray characters; IPv6 needs exactly eight colon-separated groups, each 1 to 4 hexadecimal digits.",
+    "Reject anything that fails the group count, an empty group, a leading zero where forbidden, an out-of-range or non-numeric IPv4 byte, or a non-hex or wrong-length IPv6 group; otherwise return the matching family."
+  ],
+  "constraints": [],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a plain valid IPv4 address", "input": ["172.16.254.1"] },
+    { "kind": "edge", "description": "a valid IPv6 address with mixed case and zero groups", "input": ["2001:0db8:85a3:0:0:8A2E:0370:7334"] },
+    { "kind": "edge", "description": "IPv4 bytes out of range", "input": ["256.256.256.256"] },
+    { "kind": "trap", "description": "IPv4 group with a forbidden leading zero", "input": ["192.168.01.1"] },
+    { "kind": "trap", "description": "IPv4 trailing dot creates an empty group", "input": ["1.2.3.4."] },
+    { "kind": "trap", "description": "IPv6 group longer than four hex digits", "input": ["02001:0db8:85a3:0000:0000:8a2e:0370:7334"] },
+    { "kind": "trap", "description": "IPv6 with a non-hex letter", "input": ["2001:0db8:85a3:0000:0000:8a2e:037j:7334"] },
+    { "kind": "trap", "description": "IPv6 empty group from a double colon", "input": ["2001:0db8:85a3::8A2E:0370:7334"] },
+    { "kind": "boundary", "description": "IPv4 all-zero groups are valid", "input": ["0.0.0.0"] },
+    { "kind": "boundary", "description": "IPv6 minimal single-digit groups", "input": ["1:2:3:4:5:6:7:8"] },
+    { "kind": "trap", "description": "too few IPv4 groups", "input": ["1.1.1"] },
+    { "kind": "trap", "description": "lone zero with a plus sign is not numeric", "input": ["+1.2.3.4"] }
+  ],
+  "stress": [
+    {
+      "description": "randomly assembled IPv4-like and IPv6-like strings, some valid, many subtly broken",
+      "seed": 25,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    kind = rng.random()\n    if kind < 0.4:\n        parts = [str(rng.randint(0, 300)) for _ in range(rng.randint(3, 5))]\n        return ['.'.join(parts)]\n    elif kind < 0.8:\n        hexd = '0123456789abcdefABCDEF'\n        groups = []\n        for _ in range(rng.randint(7, 9)):\n            ln = rng.randint(0, 5)\n            groups.append(''.join(rng.choice(hexd) for _ in range(ln)))\n        return [':'.join(groups)]\n    else:\n        chars = '0123456789abcdef.:gG'\n        n = rng.randint(1, 25)\n        return [''.join(rng.choice(chars) for _ in range(n))]\n",
+      "note": "mix of near-valid IPv4, near-valid IPv6, and garbage to exercise every rejection path"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def validIPAddress(self, queryIP):\n        def is_v4(q):\n            parts = q.split('.')\n            if len(parts) != 4:\n                return False\n            for p in parts:\n                if not p.isdigit():\n                    return False\n                if len(p) > 1 and p[0] == '0':\n                    return False\n                if len(p) == 0 or len(p) > 3:\n                    return False\n                if int(p) > 255:\n                    return False\n            return True\n        def is_v6(q):\n            parts = q.split(':')\n            if len(parts) != 8:\n                return False\n            hexd = set('0123456789abcdefABCDEF')\n            for p in parts:\n                if not (1 <= len(p) <= 4):\n                    return False\n                for c in p:\n                    if c not in hexd:\n                        return False\n            return True\n        if is_v4(queryIP):\n            return 'IPv4'\n        if is_v6(queryIP):\n            return 'IPv6'\n        return 'Neither'\n",
+  "solutions": {
+    "python": "import re\n\n\nclass Solution:\n    def validIPAddress(self, queryIP):\n        v4 = re.compile(r'^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}$')\n        v6 = re.compile(r'^[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4}){7}$')\n        if v4.match(queryIP):\n            return 'IPv4'\n        if v6.match(queryIP):\n            return 'IPv6'\n        return 'Neither'\n",
+    "javascript": "var validIPAddress = function(queryIP) {\n    const v4 = /^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}$/;\n    const v6 = /^[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4}){7}$/;\n    if (v4.test(queryIP)) return 'IPv4';\n    if (v6.test(queryIP)) return 'IPv6';\n    return 'Neither';\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "shortest-subarray-with-or-at-least-k-ii",
+  "judge": "exact",
+  "pattern": "Sliding window tracking per-bit counts lets you efficiently remove the leftmost element's OR contribution and shrink the window once the OR reaches k.",
+  "hints": [
+    "OR of a subarray only gains bits as you extend right; to shrink from the left you need to know which bits were contributed by the element being removed.",
+    "Keep a 30-element array counting how many elements in the current window have each bit set; the current OR is the set of bits with count > 0.",
+    "Expand right freely, then while current OR >= k shrink from the left: decrement each bit count for the removed element, update OR, and record the window length."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 200000], "value": [0, 1000000000] },
+    { "param": "k", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "k=0, any single element satisfies it", "input": [[5, 0, 3], 0] },
+    { "kind": "edge", "description": "single large element meets k", "input": [[1000000000], 500000000] },
+    { "kind": "edge", "description": "single element smaller than k, no answer", "input": [[3], 8] },
+    { "kind": "edge", "description": "need all bits from all elements combined", "input": [[1, 2, 4, 8], 15] },
+    { "kind": "boundary", "description": "large n with answer at the start", "input": [[1000000000, 1, 1, 1, 1], 999999999] },
+    { "kind": "trap", "description": "earliest pair gives OR >= k but a later single element also qualifies", "input": [[2, 9, 1], 8] },
+    { "kind": "trap", "description": "k=0 but all elements are 0; OR still satisfies", "input": [[0, 0, 0], 0] },
+    { "kind": "trap", "description": "no subarray can ever reach k because max OR is below k", "input": [[1, 2, 4], 8] }
+  ],
+  "stress": [
+    {
+      "description": "large random array to verify sliding window correctness",
+      "seed": 13,
+      "size": 200000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(0, 10**9) for _ in range(n)]\n    k = rng.randint(0, 10**9)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumSubarrayLength(self, nums, k):\n        n = len(nums)\n        best = float('inf')\n        for i in range(n):\n            cur = 0\n            for j in range(i, n):\n                cur |= nums[j]\n                if cur >= k:\n                    best = min(best, j - i + 1)\n                    break\n        return best if best < float('inf') else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumSubarrayLength(self, nums, k):\n        BITS = 30\n        bit_count = [0] * BITS\n        cur_or = 0\n        left = 0\n        best = float('inf')\n        for right, val in enumerate(nums):\n            for b in range(BITS):\n                if val >> b & 1:\n                    bit_count[b] += 1\n                    if bit_count[b] == 1:\n                        cur_or |= (1 << b)\n            while left <= right and cur_or >= k:\n                best = min(best, right - left + 1)\n                rem = nums[left]\n                for b in range(BITS):\n                    if rem >> b & 1:\n                        bit_count[b] -= 1\n                        if bit_count[b] == 0:\n                            cur_or ^= (1 << b)\n                left += 1\n        return best if best < float('inf') else -1\n",
+    "javascript": "var minimumSubarrayLength = function(nums, k) {\n    const BITS = 30;\n    const bitCount = new Array(BITS).fill(0);\n    let curOr = 0, left = 0, best = Infinity;\n    for (let right = 0; right < nums.length; right++) {\n        const val = nums[right];\n        for (let b = 0; b < BITS; b++) {\n            if ((val >> b) & 1) {\n                bitCount[b]++;\n                if (bitCount[b] === 1) curOr |= (1 << b);\n            }\n        }\n        while (left <= right && curOr >= k) {\n            best = Math.min(best, right - left + 1);\n            const rem = nums[left];\n            for (let b = 0; b < BITS; b++) {\n                if ((rem >> b) & 1) {\n                    bitCount[b]--;\n                    if (bitCount[b] === 0) curOr ^= (1 << b);\n                }\n            }\n            left++;\n        }\n    }\n    return best === Infinity ? -1 : best;\n};\n"
+  },
+  "complexity": { "time": "O(n * 30)", "space": "O(30)" }
+}

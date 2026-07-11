@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-sum-of-values-by-dividing-array",
+  "judge": "exact",
+  "pattern": "DP where the state encodes the current position in nums, the current segment index in andValues, and the running AND of the current segment; use memoization and observe that the AND can only stay or decrease.",
+  "hints": [
+    "Define dp(i, j, cur_and) = minimum sum to partition nums[i:] into m-j more segments where the current running AND so far is cur_and; transition by extending the current segment or closing it.",
+    "The running AND is monotonically non-increasing as you extend a segment; you can close a segment at position i only if cur_and == andValues[j], contributing nums[i] to the cost.",
+    "The number of distinct running AND values at any position is O(log(max_val)), so the state space is manageable with memoization."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10000], "value": [1, 100000] },
+    { "param": "andValues", "kind": "int[]", "len": [1, 10], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single segment with exact AND match", "input": [[3], [3]] },
+    { "kind": "edge", "description": "impossible — AND cannot equal target", "input": [[1,2,3,4], [2]] },
+    { "kind": "edge", "description": "must split into exact segments", "input": [[1,4,3,3,2], [0,3,3,2]] },
+    { "kind": "trap", "description": "AND can reach target only at specific split point", "input": [[2,3,5,7,7,7,5], [0,7,5]] },
+    { "kind": "trap", "description": "no valid partition", "input": [[1,2,3,4], [2]] },
+    { "kind": "boundary", "description": "m equals n — each element is its own segment", "input": [[3,5,6,7], [3,1,4,6]] },
+    { "kind": "edge", "description": "repeated equal values", "input": [[7,7,7], [7,7]] }
+  ],
+  "stress": [
+    {
+      "description": "small nums and andValues for feasible brute force",
+      "seed": 37,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    # small values to make the problem solvable\n    nums = [rng.randint(1, 15) for _ in range(size)]\n    m = rng.randint(1, min(size, 3))\n    # compute a valid andValues by picking a partition\n    # do a random partition and compute ANDs\n    import random\n    cuts = sorted(rng.sample(range(1, size), m - 1)) if m > 1 else []\n    cuts = [0] + cuts + [size]\n    andValues = []\n    for k in range(m):\n        seg = nums[cuts[k]:cuts[k+1]]\n        a = seg[0]\n        for v in seg[1:]: a &= v\n        andValues.append(a)\n    return [nums, andValues]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumValueSum(self, nums, andValues) -> int:\n        from functools import lru_cache\n        n, m = len(nums), len(andValues)\n        INF = float('inf')\n        @lru_cache(maxsize=None)\n        def dp(i, j, cur_and):\n            # place nums[i:] into segments j..m-1, current segment AND so far is cur_and\n            if j == m:\n                return 0 if i == n else INF\n            if i == n:\n                return INF\n            new_and = cur_and & nums[i]\n            res = INF\n            # extend current segment\n            if new_and >= andValues[j]:  # still possible to reach target\n                ext = dp(i + 1, j, new_and)\n                if ext < INF:\n                    res = min(res, ext)\n            # close segment here if AND matches\n            if new_and == andValues[j]:\n                close = dp(i + 1, j + 1, (1 << 20) - 1)\n                if close < INF:\n                    res = min(res, nums[i] + close)\n            return res\n        result = dp(0, 0, (1 << 20) - 1)\n        return -1 if result == INF else result\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumValueSum(self, nums, andValues) -> int:\n        from functools import lru_cache\n        n, m = len(nums), len(andValues)\n        INF = float('inf')\n        FULL = (1 << 17) - 1  # all bits, bigger than max value 10^5\n        @lru_cache(maxsize=None)\n        def dp(i, j, cur_and):\n            if j == m:\n                return 0 if i == n else INF\n            if i == n:\n                return INF\n            new_and = cur_and & nums[i]\n            target = andValues[j]\n            if new_and < target:\n                return INF  # AND can never increase\n            res = dp(i + 1, j, new_and)  # extend segment\n            if new_and == target:  # close segment\n                nxt = dp(i + 1, j + 1, FULL)\n                if nxt < INF:\n                    res = min(res, nums[i] + nxt)\n            return res\n        result = dp(0, 0, FULL)\n        return -1 if result == INF else result\n",
+    "javascript": "var minimumValueSum = function(nums, andValues) {\n    const n = nums.length, m = andValues.length;\n    const FULL = (1 << 17) - 1;\n    const INF = Infinity;\n    const memo = new Map();\n    function dp(i, j, curAnd) {\n        if (j === m) return i === n ? 0 : INF;\n        if (i === n) return INF;\n        const key = `${i},${j},${curAnd}`;\n        if (memo.has(key)) return memo.get(key);\n        const newAnd = curAnd & nums[i];\n        const target = andValues[j];\n        if (newAnd < target) { memo.set(key, INF); return INF; }\n        let res = dp(i + 1, j, newAnd);\n        if (newAnd === target) {\n            const nxt = dp(i + 1, j + 1, FULL);\n            if (nxt < INF) res = Math.min(res, nums[i] + nxt);\n        }\n        memo.set(key, res);\n        return res;\n    }\n    const result = dp(0, 0, FULL);\n    return result === INF ? -1 : result;\n};"
+  },
+  "complexity": { "time": "O(n * m * log(max_val))", "space": "O(n * m * log(max_val))" }
+}

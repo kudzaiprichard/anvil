@@ -1,0 +1,37 @@
+{
+  "slug": "the-skyline-problem",
+  "judge": "exact",
+  "pattern": "Sweep events at building edges using a max-heap to track the tallest active building; emit a key point whenever the current maximum height changes.",
+  "hints": [
+    "Convert each building into two events: a start event at the left edge and an end event at the right edge, then process all events in sorted order.",
+    "Use a max-heap (or sorted multiset) of active building heights. At each event x, add or remove the corresponding height, then compare the new maximum to the previous maximum — a change signals a key point.",
+    "Sort events by x-coordinate, breaking ties so that left edges come before right edges at the same x (and among left edges, taller wins first). The key point list must have no consecutive equal heights."
+  ],
+  "constraints": [
+    { "param": "buildings", "kind": "int[][]", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single building produces two key points", "input": [[[1, 4, 5]]] },
+    { "kind": "edge", "description": "two non-overlapping buildings", "input": [[[1, 3, 4], [5, 8, 3]]] },
+    { "kind": "edge", "description": "two fully nested buildings, inner shorter", "input": [[[1, 10, 8], [3, 7, 5]]] },
+    { "kind": "trap", "description": "two buildings sharing the same left edge — taller should dominate", "input": [[[2, 5, 10], [2, 8, 6]]] },
+    { "kind": "trap", "description": "two buildings sharing the same right edge — should collapse to one drop", "input": [[[1, 5, 7], [3, 5, 4]]] },
+    { "kind": "boundary", "description": "adjacent buildings of equal height merge into one flat segment", "input": [[[0, 2, 3], [2, 5, 3]]] },
+    { "kind": "trap", "description": "many overlapping buildings of decreasing height stepping down", "input": [[[1, 10, 10], [2, 9, 9], [3, 8, 8], [4, 7, 7]]] },
+    { "kind": "edge", "description": "classic multi-overlap example from the problem description", "input": [[[2, 9, 10], [3, 7, 15], [5, 12, 12], [15, 20, 10], [19, 24, 8]]] }
+  ],
+  "stress": [
+    {
+      "description": "many overlapping random buildings to stress heap correctness",
+      "seed": 7,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    buildings = []\n    for _ in range(size):\n        l = rng.randint(0, 10000)\n        r = l + rng.randint(1, 200)\n        h = rng.randint(1, 500)\n        buildings.append([l, r, h])\n    buildings.sort(key=lambda b: b[0])\n    return [buildings]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getSkyline(self, buildings):\n        # Collect all x-coordinates\n        xs = set()\n        for l, r, h in buildings:\n            xs.add(l)\n            xs.add(r)\n        result = []\n        prev_h = 0\n        for x in sorted(xs):\n            # current max height at x\n            cur_h = 0\n            for l, r, h in buildings:\n                if l <= x < r:\n                    cur_h = max(cur_h, h)\n            if cur_h != prev_h:\n                result.append([x, cur_h])\n                prev_h = cur_h\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def getSkyline(self, buildings):\n        import heapq\n        events = []\n        for l, r, h in buildings:\n            events.append((l, -h, r))\n            events.append((r, 0, 0))\n        events.sort()\n        result = []\n        # max-heap: store (-height, end_x)\n        heap = [(0, float('inf'))]\n        prev_max = 0\n        for x, neg_h, end in events:\n            if neg_h != 0:\n                heapq.heappush(heap, (neg_h, end))\n            # remove expired buildings\n            while heap[0][1] <= x:\n                heapq.heappop(heap)\n            cur_max = -heap[0][0]\n            if cur_max != prev_max:\n                result.append([x, cur_max])\n                prev_max = cur_max\n        return result\n",
+    "javascript": "var getSkyline = function(buildings) {\n    const events = [];\n    for (const [l, r, h] of buildings) {\n        events.push([l, -h, r]);\n        events.push([r, 0, 0]);\n    }\n    events.sort((a, b) => a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]);\n    // Use a sorted map to simulate max-heap by height\n    // heights map: height -> count of active buildings\n    const active = new Map();\n    active.set(0, 1);\n    let prevMax = 0;\n    const result = [];\n    for (const [x, negH, end] of events) {\n        if (negH !== 0) {\n            const h = -negH;\n            active.set(h, (active.get(h) || 0) + 1);\n            active.set(end, active.get(end) || 0);  // will remove at end event\n        }\n        // remove ended buildings — but we need to track by end coordinate\n        // Rewrite: use height-count map approach\n        // Actually let's redo with a proper sorted structure\n        // For simplicity, use array-based approach\n        (function(){})()\n    }\n    // Proper implementation using sorted set simulation\n    const events2 = [];\n    for (const [l, r, h] of buildings) {\n        events2.push([l, h, 'start']);\n        events2.push([r, h, 'end']);\n    }\n    events2.sort((a, b) => {\n        if (a[0] !== b[0]) return a[0] - b[0];\n        if (a[2] === 'start' && b[2] === 'end') return -1;\n        if (a[2] === 'end' && b[2] === 'start') return 1;\n        if (a[2] === 'start') return b[1] - a[1];\n        return a[1] - b[1];\n    });\n    const heightCount = new Map();\n    heightCount.set(0, 1);\n    let curMax = 0;\n    const res = [];\n    for (const [x, h, type] of events2) {\n        if (type === 'start') {\n            heightCount.set(h, (heightCount.get(h) || 0) + 1);\n        } else {\n            const cnt = heightCount.get(h);\n            if (cnt === 1) heightCount.delete(h);\n            else heightCount.set(h, cnt - 1);\n        }\n        const newMax = Math.max(...heightCount.keys());\n        if (newMax !== curMax) {\n            res.push([x, newMax]);\n            curMax = newMax;\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

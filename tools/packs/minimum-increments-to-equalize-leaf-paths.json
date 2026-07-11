@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-increments-to-equalize-leaf-paths",
+  "judge": "exact",
+  "pattern": "A bottom-up tree pass balances each node's children to their deepest path sum, charging one increment per shorter child because a single bump on an already-balanced subtree lifts all its leaf paths at once.",
+  "hints": [
+    "Since cost can only go up, the longest existing root-to-leaf path through any node fixes the target every sibling subtree must reach.",
+    "If a child's subtree is already internally balanced, raising just that child by the right amount lifts all of its leaf paths uniformly, costing a single increased node.",
+    "Depth-first, return each node's balanced path sum (its cost plus the max child sum) and add one to a counter for every child whose returned sum is below that max."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000], "value": [0, 100000] },
+    { "param": "cost", "kind": "int[]", "len": [2, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two leaves, raise the shorter", "input": [3, [[0, 1], [0, 2]], [2, 1, 3]] },
+    { "kind": "edge", "description": "single path needs nothing", "input": [3, [[0, 1], [1, 2]], [5, 1, 4]] },
+    { "kind": "edge", "description": "balance an inner node", "input": [5, [[0, 4], [0, 1], [1, 2], [1, 3]], [3, 4, 1, 1, 7]] },
+    { "kind": "boundary", "description": "two nodes form one path", "input": [2, [[0, 1]], [3, 9]] },
+    { "kind": "trap", "description": "already equal siblings cost nothing", "input": [3, [[0, 1], [0, 2]], [1, 5, 5]] },
+    { "kind": "trap", "description": "deep mismatch on one branch", "input": [4, [[0, 1], [1, 2], [0, 3]], [1, 1, 1, 9]] }
+  ],
+  "stress": [
+    {
+      "description": "random rooted tree with varied costs",
+      "seed": 81,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    edges = []\n    for v in range(1, n):\n        u = rng.randrange(0, v)\n        edges.append([u, v])\n    cost = [rng.randrange(1, 10**9) for _ in range(n)]\n    return [n, edges, cost]\n",
+      "note": "parent < child keeps node 0 as root; iterative DFS handles depth"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minIncrease(self, n, edges, cost):\n        from collections import defaultdict\n        children = defaultdict(list)\n        adj = defaultdict(list)\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        # root at 0, build children via BFS to avoid recursion-depth issues\n        from collections import deque\n        parent = [-1] * n\n        order = []\n        seen = [False] * n\n        dq = deque([0]); seen[0] = True\n        while dq:\n            u = dq.popleft(); order.append(u)\n            for w in adj[u]:\n                if not seen[w]:\n                    seen[w] = True; parent[w] = u; children[u].append(w); dq.append(w)\n        # process in reverse BFS order (leaves first)\n        path = [0] * n  # balanced path sum from node down to leaves\n        count = 0\n        for u in reversed(order):\n            ch = children[u]\n            if not ch:\n                path[u] = cost[u]\n            else:\n                mx = max(path[c] for c in ch)\n                for c in ch:\n                    if path[c] < mx:\n                        count += 1\n                path[u] = cost[u] + mx\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def minIncrease(self, n, edges, cost):\n        from collections import deque\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        parent = [-1] * n\n        order = []\n        seen = [False] * n\n        dq = deque([0]); seen[0] = True\n        while dq:\n            u = dq.popleft(); order.append(u)\n            for w in adj[u]:\n                if not seen[w]:\n                    seen[w] = True; parent[w] = u; dq.append(w)\n        path = [0] * n\n        count = 0\n        children = [[] for _ in range(n)]\n        for v in range(n):\n            if parent[v] != -1:\n                children[parent[v]].append(v)\n        for u in reversed(order):\n            ch = children[u]\n            if not ch:\n                path[u] = cost[u]\n            else:\n                mx = 0\n                for c in ch:\n                    if path[c] > mx:\n                        mx = path[c]\n                for c in ch:\n                    if path[c] < mx:\n                        count += 1\n                path[u] = cost[u] + mx\n        return count\n",
+    "javascript": "var minIncrease = function(n, edges, cost) {\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v] of edges) { adj[u].push(v); adj[v].push(u); }\n    const parent = new Array(n).fill(-1);\n    const order = [];\n    const seen = new Array(n).fill(false);\n    const queue = [0]; seen[0] = true;\n    let qh = 0;\n    while (qh < queue.length) {\n        const u = queue[qh++]; order.push(u);\n        for (const w of adj[u]) {\n            if (!seen[w]) { seen[w] = true; parent[w] = u; queue.push(w); }\n        }\n    }\n    const children = Array.from({length: n}, () => []);\n    for (let v = 0; v < n; v++) if (parent[v] !== -1) children[parent[v]].push(v);\n    const path = new Array(n).fill(0);\n    let count = 0;\n    for (let i = order.length - 1; i >= 0; i--) {\n        const u = order[i];\n        const ch = children[u];\n        if (ch.length === 0) {\n            path[u] = cost[u];\n        } else {\n            let mx = 0;\n            for (const c of ch) if (path[c] > mx) mx = path[c];\n            for (const c of ch) if (path[c] < mx) count++;\n            path[u] = cost[u] + mx;\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

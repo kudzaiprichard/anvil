@@ -1,0 +1,168 @@
+{
+  "slug": "number-of-recent-calls",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Because every request arrives at a strictly later time than the one before it, older requests always fall out of the trailing window from the front, so a simple queue that evicts from the front as time advances is enough.",
+  "hints": [
+    "Keep every request time in the order it arrived; since times are strictly increasing, the queue is always naturally sorted.",
+    "On each new ping, first add its time, then remove times from the front of the queue that are now older than the window's lower edge.",
+    "The window is inclusive on both ends: a request exactly at the lower edge still counts, and the count returned is simply how many requests remain."
+  ],
+  "constraints": [
+    {
+      "param": "t",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "four pings with the window catching up as time advances",
+      "input": [
+        [
+          "RecentCounter",
+          "ping",
+          "ping",
+          "ping",
+          "ping"
+        ],
+        [
+          [],
+          [
+            1
+          ],
+          [
+            100
+          ],
+          [
+            3001
+          ],
+          [
+            3002
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single ping at the smallest allowed time",
+      "input": [
+        [
+          "RecentCounter",
+          "ping"
+        ],
+        [
+          [],
+          [
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a prior request exactly at the inclusive lower edge of the window still counts",
+      "input": [
+        [
+          "RecentCounter",
+          "ping",
+          "ping"
+        ],
+        [
+          [],
+          [
+            5
+          ],
+          [
+            3005
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a prior request just one millisecond outside the window is excluded",
+      "input": [
+        [
+          "RecentCounter",
+          "ping",
+          "ping"
+        ],
+        [
+          [],
+          [
+            5
+          ],
+          [
+            3006
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several close pings followed by a large time jump that clears the window",
+      "input": [
+        [
+          "RecentCounter",
+          "ping",
+          "ping",
+          "ping",
+          "ping"
+        ],
+        [
+          [],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ],
+          [
+            10000
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a ping at the largest allowed time",
+      "input": [
+        [
+          "RecentCounter",
+          "ping"
+        ],
+        [
+          [],
+          [
+            1000000000
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long strictly increasing sequence of ping times with varied gaps",
+      "seed": 12,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = min(max(1, size), 4000)\n    ops = ['RecentCounter']\n    args = [[]]\n    t = 0\n    for _ in range(n):\n        t += rng.randint(1, 5000)\n        if t > 1000000000:\n            break\n        ops.append('ping')\n        args.append([t])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "class RecentCounter:\n    def __init__(self):\n        self.times = []\n    def ping(self, t):\n        import bisect\n        self.times.append(t)\n        idx = bisect.bisect_left(self.times, t - 3000)\n        return len(self.times) - idx\n",
+  "solutions": {
+    "python": "from collections import deque\nclass RecentCounter:\n    def __init__(self):\n        self.q = deque()\n    def ping(self, t: int) -> int:\n        self.q.append(t)\n        while self.q[0] < t - 3000:\n            self.q.popleft()\n        return len(self.q)\n",
+    "javascript": "var RecentCounter = function() {\n    this.q = [];\n    this.head = 0;\n};\nRecentCounter.prototype.ping = function(t) {\n    this.q.push(t);\n    while (this.q[this.head] < t - 3000) {\n        this.head++;\n    }\n    return this.q.length - this.head;\n};\n"
+  },
+  "complexity": {
+    "time": "O(1) amortized per call",
+    "space": "O(n)"
+  }
+}

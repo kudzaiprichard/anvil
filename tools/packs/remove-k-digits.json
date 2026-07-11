@@ -1,0 +1,39 @@
+{
+  "slug": "remove-k-digits",
+  "judge": "exact",
+  "pattern": "Scanning left to right and popping any earlier digit that is larger than the current one greedily removes the most significant high digits first, which is exactly what minimizes the resulting number; a monotonic stack realizes this in one pass.",
+  "hints": [
+    "To make the number small, you want the leftmost digits as small as possible, so a larger digit immediately followed by a smaller one should be dropped.",
+    "Keep a stack of kept digits; before pushing a new digit, pop the top while it is larger than the new digit and you still have removals left.",
+    "If removals remain after the pass, trim them from the end; finally strip leading zeros and treat an empty result as the string zero."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "str", "len": [1, 100000], "charset": "0123456789" },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "remove three to leave the smallest", "input": ["1432219", 3] },
+    { "kind": "trap", "description": "removing a leading digit exposes leading zeros that must be stripped", "input": ["10200", 1] },
+    { "kind": "boundary", "description": "removing every digit leaves zero", "input": ["10", 2] },
+    { "kind": "trap", "description": "already ascending, so removals come from the end", "input": ["12345", 2] },
+    { "kind": "trap", "description": "strictly descending, so removals come from the front", "input": ["54321", 2] },
+    { "kind": "edge", "description": "all identical digits", "input": ["11111", 3] },
+    { "kind": "trap", "description": "interior zeros pulled to the front collapse to a single zero", "input": ["100001", 4] },
+    { "kind": "boundary", "description": "single digit removed entirely is zero", "input": ["9", 1] }
+  ],
+  "stress": [
+    {
+      "description": "long random digit strings with a random removal count never exceeding the length",
+      "seed": 31,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    digits = [rng.choice('0123456789') for _ in range(n)]\n    if digits[0] == '0' and n > 1:\n        digits[0] = rng.choice('123456789')\n    num = ''.join(digits)\n    k = rng.randint(1, n)\n    return [num, k]\n",
+      "note": "k ranges over the whole valid span so both pop-driven and tail-trim paths trigger"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def removeKdigits(self, num, k):\n        # independent brute force over which positions to keep, for small inputs:\n        # choose len(num)-k positions in order forming the smallest number.\n        keep = len(num) - k\n        if keep <= 0:\n            return '0'\n        res = []\n        start = 0\n        for i in range(keep):\n            # pick the smallest digit in the window that still leaves enough room\n            end = len(num) - (keep - i - 1)\n            best = start\n            for j in range(start, end):\n                if num[j] < num[best]:\n                    best = j\n            res.append(num[best])\n            start = best + 1\n        s = ''.join(res).lstrip('0')\n        return s if s else '0'\n",
+  "solutions": {
+    "python": "class Solution:\n    def removeKdigits(self, num, k):\n        stack = []\n        for c in num:\n            while k > 0 and stack and stack[-1] > c:\n                stack.pop()\n                k -= 1\n            stack.append(c)\n        if k > 0:\n            stack = stack[:-k]\n        s = ''.join(stack).lstrip('0')\n        return s if s else '0'\n",
+    "javascript": "var removeKdigits = function(num, k) {\n    const stack = [];\n    for (const c of num) {\n        while (k > 0 && stack.length && stack[stack.length - 1] > c) {\n            stack.pop();\n            k -= 1;\n        }\n        stack.push(c);\n    }\n    if (k > 0) stack.length -= k;\n    const s = stack.join('').replace(/^0+/, '');\n    return s.length ? s : '0';\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

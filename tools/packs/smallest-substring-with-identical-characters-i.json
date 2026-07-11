@@ -1,0 +1,41 @@
+{
+  "slug": "smallest-substring-with-identical-characters-i",
+  "judge": "exact",
+  "pattern": "Treat each maximal block of one repeated character independently, then binary-search the smallest run length every block can be shrunk to within a shared flip budget.",
+  "hints": [
+    "A flip breaks whatever block it lands in into two shorter pieces of the same character, so separate blocks never need to coordinate with each other over the flip budget.",
+    "For a fixed target run length L, work out exactly how many flips one block of length m needs: place a flip every L+1 characters, giving floor(m / (L+1)) flips for that block alone.",
+    "Summing that per-block cost over every block gives the total flips needed for a candidate L, and that total only shrinks as L grows, so binary search on L against numOps finds the smallest feasible run length directly."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 1000] },
+    { "param": "numOps", "kind": "int", "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: a single flip splits one long run of zeros", "input": ["000001", 1] },
+    { "kind": "edge", "description": "statement example: two flips fully alternate a short run", "input": ["0000", 2] },
+    { "kind": "edge", "description": "statement example: already alternating, no flips available", "input": ["0101", 0] },
+    { "kind": "boundary", "description": "single character, nothing to do", "input": ["0", 0] },
+    { "kind": "boundary", "description": "single character with a spare flip budget that can't help further", "input": ["1", 5] },
+    { "kind": "edge", "description": "several mixed-length runs with a modest shared flip budget", "input": ["0001110001111000", 3] },
+    { "kind": "trap", "description": "one long uniform run with no flips allowed at all", "input": ["1111111111", 0] },
+    { "kind": "trap", "description": "one long uniform run with more flips available than are ever useful", "input": ["1111111111", 9] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings up to the full length with a random flip budget",
+      "seed": 7,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    num_ops = rng.randint(0, n)\n    return [s, num_ops]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\nclass Solution:\n    def minLength(self, s, numOps):\n        n = len(s)\n        best = n\n        for r in range(0, numOps + 1):\n            for combo in combinations(range(n), r):\n                t = list(s)\n                for i in combo:\n                    t[i] = '1' if t[i] == '0' else '0'\n                mx = 1\n                cur = 1\n                for k in range(1, n):\n                    if t[k] == t[k - 1]:\n                        cur += 1\n                        if cur > mx:\n                            mx = cur\n                    else:\n                        cur = 1\n                if mx < best:\n                    best = mx\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minLength(self, s: str, numOps: int) -> int:\n        n = len(s)\n        runs = []\n        i = 0\n        while i < n:\n            j = i\n            while j < n and s[j] == s[i]:\n                j += 1\n            runs.append(j - i)\n            i = j\n\n        def feasible(L):\n            total = 0\n            for r in runs:\n                total += r // (L + 1)\n                if total > numOps:\n                    return False\n            return True\n\n        lo, hi = 1, n\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var minLength = function(s, numOps) {\n    const n = s.length;\n    const runs = [];\n    let i = 0;\n    while (i < n) {\n        let j = i;\n        while (j < n && s[j] === s[i]) j++;\n        runs.push(j - i);\n        i = j;\n    }\n    const feasible = (L) => {\n        let total = 0;\n        for (const r of runs) {\n            total += Math.floor(r / (L + 1));\n            if (total > numOps) return false;\n        }\n        return true;\n    };\n    let lo = 1, hi = n;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (feasible(mid)) hi = mid; else lo = mid + 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

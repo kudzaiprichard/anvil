@@ -1,0 +1,119 @@
+{
+  "slug": "maximum-strong-pair-xor-ii",
+  "judge": "exact",
+  "pattern": "Sorting turns the strong-pair condition into a sliding window over a prefix, so a binary trie that only ever holds the currently-valid window of candidates can answer 'best xor partner' for each number in turn.",
+  "hints": [
+    "Sort the array; the strong-pair condition |x - y| <= min(x, y) becomes simply 'the larger value is at most twice the smaller' once you fix which one is smaller.",
+    "Walk the sorted array left to right as the larger element of each pair, maintaining a sliding window (via a moving left pointer) of the earlier elements that are still within a factor of two.",
+    "Keep the current window's elements in a binary trie over their bits, so for each new number you can greedily find the window element that maximizes the xor in time proportional to the bit width."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        50000
+      ],
+      "value": [
+        1,
+        1048575
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example one",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example two, only self-pairs qualify",
+      "input": [
+        [
+          10,
+          100
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example three, larger values",
+      "input": [
+        [
+          500,
+          520,
+          2500,
+          3000
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element",
+      "input": [
+        [
+          999999
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "values at the top of the allowed range",
+      "input": [
+        [
+          1048575,
+          1048574
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all identical values, best xor is zero",
+      "input": [
+        [
+          42,
+          42,
+          42
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one value more than double every other, isolated",
+      "input": [
+        [
+          1,
+          2,
+          100
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random moderate-size arrays spanning the 20-bit value range",
+      "seed": 18,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    nums = [rng.randint(1, (1 << 20) - 1) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumStrongPairXor(self, nums):\n        arr = sorted(nums)\n        n = len(arr)\n        best = 0\n        for i in range(n):\n            for j in range(i, n):\n                if arr[j] <= 2 * arr[i]:\n                    best = max(best, arr[i] ^ arr[j])\n                else:\n                    break\n        return best\n",
+  "solutions": {
+    "python": "class _TrieNode:\n    __slots__ = ('child', 'count')\n\n    def __init__(self):\n        self.child = [None, None]\n        self.count = 0\n\nclass Solution:\n    def maximumStrongPairXor(self, nums):\n        arr = sorted(nums)\n        n = len(arr)\n        bits = 19\n        root = _TrieNode()\n        size = 0\n\n        def insert(x):\n            node = root\n            for b in range(bits, -1, -1):\n                bit = (x >> b) & 1\n                if node.child[bit] is None:\n                    node.child[bit] = _TrieNode()\n                node = node.child[bit]\n                node.count += 1\n\n        def remove(x):\n            node = root\n            for b in range(bits, -1, -1):\n                bit = (x >> b) & 1\n                node = node.child[bit]\n                node.count -= 1\n\n        def query(x):\n            node = root\n            best = 0\n            for b in range(bits, -1, -1):\n                bit = (x >> b) & 1\n                want = 1 - bit\n                if node.child[want] is not None and node.child[want].count > 0:\n                    best |= (1 << b)\n                    node = node.child[want]\n                else:\n                    node = node.child[bit]\n            return best\n\n        left = 0\n        best = 0\n        for right in range(n):\n            while arr[left] * 2 < arr[right]:\n                remove(arr[left])\n                left += 1\n                size -= 1\n            insert(arr[right])\n            size += 1\n            if size > 0:\n                best = max(best, query(arr[right]))\n        return best\n",
+    "javascript": "class TrieNode {\n    constructor() { this.child = [null, null]; this.count = 0; }\n}\n\nvar maximumStrongPairXor = function(nums) {\n    const arr = nums.slice().sort((a, b) => a - b);\n    const n = arr.length;\n    const bits = 19;\n    const root = new TrieNode();\n    let size = 0;\n\n    const insert = (x) => {\n        let node = root;\n        for (let b = bits; b >= 0; b--) {\n            const bit = (x >> b) & 1;\n            if (!node.child[bit]) node.child[bit] = new TrieNode();\n            node = node.child[bit];\n            node.count += 1;\n        }\n    };\n    const remove = (x) => {\n        let node = root;\n        for (let b = bits; b >= 0; b--) {\n            const bit = (x >> b) & 1;\n            node = node.child[bit];\n            node.count -= 1;\n        }\n    };\n    const query = (x) => {\n        let node = root;\n        let best = 0;\n        for (let b = bits; b >= 0; b--) {\n            const bit = (x >> b) & 1;\n            const want = 1 - bit;\n            if (node.child[want] && node.child[want].count > 0) {\n                best |= (1 << b);\n                node = node.child[want];\n            } else {\n                node = node.child[bit];\n            }\n        }\n        return best;\n    };\n\n    let left = 0, best = 0;\n    for (let right = 0; right < n; right++) {\n        while (arr[left] * 2 < arr[right]) {\n            remove(arr[left]);\n            left++;\n            size--;\n        }\n        insert(arr[right]);\n        size++;\n        if (size > 0) {\n            best = Math.max(best, query(arr[right]));\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n + n * 20)",
+    "space": "O(n * 20)"
+  }
+}

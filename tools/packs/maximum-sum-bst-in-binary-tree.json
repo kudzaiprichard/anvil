@@ -1,0 +1,151 @@
+{
+  "slug": "maximum-sum-bst-in-binary-tree",
+  "judge": "exact",
+  "io_types": {
+    "params": [
+      "tree"
+    ],
+    "returns": "json"
+  },
+  "pattern": "Whether a subtree qualifies as a search tree, and what it sums to, can both be determined bottom-up from its children's own qualification, minimum, maximum and sum, without ever re-scanning nodes already visited.",
+  "hints": [
+    "Process the tree from the leaves upward, and for every subtree track four things: whether it is a valid search tree, its minimum value, its maximum value, and its total sum.",
+    "A subtree rooted at a node is a valid search tree only if both children are themselves valid search trees and the node's own value sits strictly between the left side's maximum and the right side's minimum.",
+    "Whenever a subtree does qualify, its sum is a candidate for the running best answer; if the whole tree contains no qualifying subtree, the answer defaults to zero rather than nothing at all."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        1,
+        40000
+      ],
+      "value": [
+        -40000,
+        40000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "the best valid search subtree is rooted partway down the tree",
+      "input": [
+        [
+          1,
+          4,
+          3,
+          2,
+          4,
+          2,
+          5,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          4,
+          6
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "the best valid search subtree is a single node",
+      "input": [
+        [
+          4,
+          3,
+          null,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every value is negative, so the best answer is the empty search tree with sum zero",
+      "input": [
+        [
+          -4,
+          -2,
+          -5
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node tree at value zero",
+      "input": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node tree at the maximum value bound",
+      "input": [
+        [
+          40000
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the entire tree is itself a valid search tree, so the whole tree's sum is the answer",
+      "input": [
+        [
+          5,
+          3,
+          8,
+          1,
+          4,
+          7,
+          9
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a value deep on the right side violates the global search-tree property while a left-side subtree remains independently valid",
+      "input": [
+        [
+          5,
+          3,
+          8,
+          1,
+          4,
+          7,
+          20,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          3
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random general binary tree, not necessarily a search tree anywhere, exercising the bottom-up validity check at scale",
+      "seed": 37,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 40000)))\n    nodes = {0: [rng.randint(-40000, 40000), None, None]}\n    open_slots = [(0, 'left'), (0, 'right')]\n    next_id = 1\n    for _ in range(1, n):\n        idx = rng.randrange(len(open_slots))\n        parent_id, side = open_slots.pop(idx)\n        nid = next_id\n        next_id += 1\n        nodes[nid] = [rng.randint(-40000, 40000), None, None]\n        if side == 'left':\n            nodes[parent_id][1] = nid\n        else:\n            nodes[parent_id][2] = nid\n        open_slots.append((nid, 'left'))\n        open_slots.append((nid, 'right'))\n    from collections import deque\n    out = []\n    q = deque([0])\n    while q:\n        cur = q.popleft()\n        if cur is None:\n            out.append(None)\n            continue\n        val, l, r = nodes[cur]\n        out.append(val)\n        q.append(l)\n        q.append(r)\n    while out and out[-1] is None:\n        out.pop()\n    return [out]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSumBST(self, root):\n        if root is None:\n            return 0\n        info = {}\n        best = [0]\n        stack = [(root, False)]\n        NEG_INF = float('-inf')\n        POS_INF = float('inf')\n        while stack:\n            node, visited = stack.pop()\n            if visited:\n                l = info.get(node.left, (True, POS_INF, NEG_INF, 0))\n                r = info.get(node.right, (True, POS_INF, NEG_INF, 0))\n                l_ok, l_min, l_max, l_sum = l\n                r_ok, r_min, r_max, r_sum = r\n                if l_ok and r_ok and l_max < node.val < r_min:\n                    total = l_sum + r_sum + node.val\n                    if total > best[0]:\n                        best[0] = total\n                    info[node] = (True, min(l_min, node.val), max(r_max, node.val), total)\n                else:\n                    info[node] = (False, 0, 0, 0)\n            else:\n                stack.append((node, True))\n                if node.left:\n                    stack.append((node.left, False))\n                if node.right:\n                    stack.append((node.right, False))\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSumBST(self, root):\n        self.best = 0\n        def dfs(node):\n            if not node:\n                return True, float('inf'), float('-inf'), 0\n            l_ok, l_min, l_max, l_sum = dfs(node.left)\n            r_ok, r_min, r_max, r_sum = dfs(node.right)\n            if l_ok and r_ok and l_max < node.val < r_min:\n                total = l_sum + r_sum + node.val\n                if total > self.best:\n                    self.best = total\n                return True, min(l_min, node.val), max(r_max, node.val), total\n            return False, 0, 0, 0\n        dfs(root)\n        return self.best\n",
+    "javascript": "var maxSumBST = function(root) {\n    let best = 0;\n    function dfs(node) {\n        if (!node) return [true, Infinity, -Infinity, 0];\n        const [lOk, lMin, lMax, lSum] = dfs(node.left);\n        const [rOk, rMin, rMax, rSum] = dfs(node.right);\n        if (lOk && rOk && lMax < node.val && node.val < rMin) {\n            const total = lSum + rSum + node.val;\n            if (total > best) best = total;\n            return [true, Math.min(lMin, node.val), Math.max(rMax, node.val), total];\n        }\n        return [false, 0, 0, 0];\n    }\n    dfs(root);\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(h)"
+  }
+}

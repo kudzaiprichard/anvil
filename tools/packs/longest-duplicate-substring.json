@@ -1,0 +1,41 @@
+{
+  "slug": "longest-duplicate-substring",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    s = args[0]\n    if not isinstance(output, str):\n        return False\n    def has_dup(length):\n        if length == 0:\n            return True\n        seen = set()\n        for i in range(len(s) - length + 1):\n            sub = s[i:i + length]\n            if sub in seen:\n                return True\n            seen.add(sub)\n        return False\n    # find the true maximum duplicate length\n    lo, hi = 0, len(s) - 1\n    best = 0\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if has_dup(mid):\n            best = mid\n            lo = mid + 1\n        else:\n            hi = mid - 1\n    if len(output) != best:\n        return False\n    if best == 0:\n        return output == ''\n    # output must actually be a substring of s that occurs at least twice\n    count = 0\n    idx = s.find(output)\n    while idx != -1:\n        count += 1\n        if count >= 2:\n            return True\n        idx = s.find(output, idx + 1)\n    return False\n",
+    "validator_javascript": "function validate(args, output) {\n    const s = args[0];\n    if (typeof output !== 'string') return false;\n    const hasDup = (length) => {\n        if (length === 0) return true;\n        const seen = new Set();\n        for (let i = 0; i + length <= s.length; i++) {\n            const sub = s.substring(i, i + length);\n            if (seen.has(sub)) return true;\n            seen.add(sub);\n        }\n        return false;\n    };\n    let lo = 0, hi = s.length - 1, best = 0;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (hasDup(mid)) { best = mid; lo = mid + 1; }\n        else hi = mid - 1;\n    }\n    if (output.length !== best) return false;\n    if (best === 0) return output === '';\n    let count = 0;\n    let idx = s.indexOf(output);\n    while (idx !== -1) {\n        count++;\n        if (count >= 2) return true;\n        idx = s.indexOf(output, idx + 1);\n    }\n    return false;\n}\n"
+  },
+  "pattern": "Binary search the answer length and test each candidate length with a rolling hash, since a duplicate of length L guarantees one of every shorter length exists.",
+  "hints": [
+    "If some duplicated substring of length L exists, a duplicated substring of every length below L exists too — that monotonicity invites binary search on the length.",
+    "For a fixed length, you need to detect whether any window repeats; hashing every window lets you check that in near-linear time.",
+    "Binary search L; for each L roll a polynomial hash over all length-L windows and report a repeat, keeping the actual matching substring when one is found."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [2, 30000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "overlapping duplicate substring", "input": ["banana"] },
+    { "kind": "trap", "description": "no repeated substring at all", "input": ["abcd"] },
+    { "kind": "boundary", "description": "minimum length, two same characters", "input": ["aa"] },
+    { "kind": "boundary", "description": "minimum length, two different characters", "input": ["ab"] },
+    { "kind": "edge", "description": "whole string is a doubled block", "input": ["abcabc"] },
+    { "kind": "trap", "description": "all identical characters", "input": ["aaaaa"] },
+    { "kind": "edge", "description": "two competing duplicates, lexicographic tie-break", "input": ["zzabab"] }
+  ],
+  "stress": [
+    {
+      "description": "moderate strings over a tiny alphabet so long duplicates appear",
+      "seed": 171,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    return [''.join(rng.choice('abc') for _ in range(n))]\n",
+      "note": "three-letter alphabet forces frequent long repeats; size kept modest for the quadratic oracle"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestDupSubstring(self, s):\n        n = len(s)\n        def has(length):\n            seen = {}\n            for i in range(n - length + 1):\n                sub = s[i:i + length]\n                if sub in seen:\n                    return True\n                seen[sub] = i\n            return False\n        lo, hi, best_len = 0, n - 1, 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if has(mid):\n                best_len = mid\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        if best_len == 0:\n            return ''\n        best = None\n        seen = set()\n        for i in range(n - best_len + 1):\n            sub = s[i:i + best_len]\n            if sub in seen:\n                if best is None or sub < best:\n                    best = sub\n            else:\n                seen.add(sub)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestDupSubstring(self, s):\n        n = len(s)\n        nums = [ord(c) - 97 for c in s]\n        MOD = (1 << 61) - 1\n        BASE = 131\n        def search(length):\n            if length == 0:\n                return 0\n            h = 0\n            for i in range(length):\n                h = (h * BASE + nums[i]) % MOD\n            power = pow(BASE, length, MOD)\n            seen = {h: [0]}\n            for i in range(1, n - length + 1):\n                h = (h * BASE - nums[i - 1] * power + nums[i + length - 1]) % MOD\n                if h in seen:\n                    cur = s[i:i + length]\n                    for j in seen[h]:\n                        if s[j:j + length] == cur:\n                            return i\n                    seen[h].append(i)\n                else:\n                    seen[h] = [i]\n            return -1\n        lo, hi, best_len = 0, n - 1, 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if search(mid) != -1:\n                best_len = mid\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        if best_len == 0:\n            return ''\n        best = None\n        seen = set()\n        for i in range(n - best_len + 1):\n            sub = s[i:i + best_len]\n            if sub in seen:\n                if best is None or sub < best:\n                    best = sub\n            else:\n                seen.add(sub)\n        return best\n",
+    "javascript": "var longestDupSubstring = function(s) {\n    const n = s.length;\n    const hasDup = (length) => {\n        if (length === 0) return true;\n        const seen = new Set();\n        for (let i = 0; i + length <= n; i++) {\n            const sub = s.substring(i, i + length);\n            if (seen.has(sub)) return true;\n            seen.add(sub);\n        }\n        return false;\n    };\n    let lo = 0, hi = n - 1, bestLen = 0;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (hasDup(mid)) { bestLen = mid; lo = mid + 1; }\n        else hi = mid - 1;\n    }\n    if (bestLen === 0) return '';\n    let best = null;\n    const seen = new Set();\n    for (let i = 0; i + bestLen <= n; i++) {\n        const sub = s.substring(i, i + bestLen);\n        if (seen.has(sub)) {\n            if (best === null || sub < best) best = sub;\n        } else {\n            seen.add(sub);\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n) average", "space": "O(n)" }
+}

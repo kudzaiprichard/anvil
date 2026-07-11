@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-cost-path-with-edge-reversals",
+  "judge": "exact",
+  "pattern": "Allowing each original edge to be walked backwards at double its weight turns the puzzle into an ordinary shortest path on an augmented graph solvable with Dijkstra.",
+  "hints": [
+    "Reversing an incoming edge to leave a node is really just another way to leave it, so model both directions of every edge up front.",
+    "For an edge u to v with weight w, you can always traverse u to v at cost w, and you can traverse v to u at cost 2w by reversing it on arrival at v.",
+    "Build that doubled adjacency list and run Dijkstra from node 0; the distance to node n-1 is the answer, or -1 if it stays unreachable."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 50000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000], "value": [0, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "reversal needed to reach the target", "input": [4, [[0, 1, 3], [3, 1, 1], [2, 3, 4], [0, 2, 2]]] },
+    { "kind": "edge", "description": "no reversal needed", "input": [4, [[0, 2, 1], [2, 1, 1], [1, 3, 1], [2, 3, 3]]] },
+    { "kind": "trap", "description": "only a reversed edge connects start to end", "input": [2, [[1, 0, 5]]] },
+    { "kind": "edge", "description": "direct forward edge is cheapest", "input": [2, [[0, 1, 7]]] },
+    { "kind": "trap", "description": "target unreachable in any direction", "input": [3, [[0, 1, 4]]] },
+    { "kind": "edge", "description": "parallel edges of differing weight", "input": [3, [[0, 1, 10], [0, 1, 2], [1, 2, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse directed graph guaranteed to connect 0 to n-1",
+      "seed": 31,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size // 4)\n    edges = []\n    # backbone forward path so n-1 is reachable\n    for i in range(n - 1):\n        edges.append([i, i + 1, rng.randrange(1, 1001)])\n    extra = size\n    for _ in range(extra):\n        u = rng.randrange(0, n)\n        v = rng.randrange(0, n)\n        if u == v:\n            continue\n        edges.append([u, v, rng.randrange(1, 1001)])\n    return [n, edges]\n",
+      "note": "backbone keeps target reachable; extra edges create reversal opportunities"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCost(self, n, edges):\n        # Bellman-Ford-style relaxation on the doubled graph (independent of Dijkstra)\n        INF = float('inf')\n        adj = [[] for _ in range(n)]\n        for u, v, w in edges:\n            adj[u].append((v, w))\n            adj[v].append((u, 2 * w))\n        dist = [INF] * n\n        dist[0] = 0\n        # SPFA queue relaxation\n        from collections import deque\n        inq = [False] * n\n        dq = deque([0])\n        inq[0] = True\n        while dq:\n            u = dq.popleft()\n            inq[u] = False\n            du = dist[u]\n            for v, w in adj[u]:\n                if du + w < dist[v]:\n                    dist[v] = du + w\n                    if not inq[v]:\n                        inq[v] = True\n                        dq.append(v)\n        return -1 if dist[n - 1] == INF else dist[n - 1]\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def minCost(self, n, edges):\n        adj = [[] for _ in range(n)]\n        for u, v, w in edges:\n            adj[u].append((v, w))\n            adj[v].append((u, 2 * w))\n        INF = float('inf')\n        dist = [INF] * n\n        dist[0] = 0\n        pq = [(0, 0)]\n        while pq:\n            d, u = heapq.heappop(pq)\n            if d > dist[u]:\n                continue\n            if u == n - 1:\n                return d\n            for v, w in adj[u]:\n                nd = d + w\n                if nd < dist[v]:\n                    dist[v] = nd\n                    heapq.heappush(pq, (nd, v))\n        return -1 if dist[n - 1] == INF else dist[n - 1]\n",
+    "javascript": "var minCost = function(n, edges) {\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v, w] of edges) {\n        adj[u].push([v, w]);\n        adj[v].push([u, 2 * w]);\n    }\n    const INF = Infinity;\n    const dist = new Array(n).fill(INF);\n    dist[0] = 0;\n    // binary heap\n    const heap = [[0, 0]];\n    const swap = (i, j) => { const t = heap[i]; heap[i] = heap[j]; heap[j] = t; };\n    const push = (item) => {\n        heap.push(item);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p][0] <= heap[i][0]) break;\n            swap(p, i); i = p;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            const len = heap.length;\n            while (true) {\n                let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                if (l < len && heap[l][0] < heap[s][0]) s = l;\n                if (r < len && heap[r][0] < heap[s][0]) s = r;\n                if (s === i) break;\n                swap(s, i); i = s;\n            }\n        }\n        return top;\n    };\n    while (heap.length) {\n        const [d, u] = pop();\n        if (d > dist[u]) continue;\n        if (u === n - 1) return d;\n        for (const [v, w] of adj[u]) {\n            const nd = d + w;\n            if (nd < dist[v]) { dist[v] = nd; push([nd, v]); }\n        }\n    }\n    return dist[n - 1] === INF ? -1 : dist[n - 1];\n};\n"
+  },
+  "complexity": { "time": "O((V+E) log V)", "space": "O(V+E)" }
+}

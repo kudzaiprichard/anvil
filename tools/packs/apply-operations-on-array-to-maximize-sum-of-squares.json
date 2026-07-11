@@ -1,0 +1,44 @@
+{
+  "slug": "apply-operations-on-array-to-maximize-sum-of-squares",
+  "judge": "exact",
+  "pattern": "The AND/OR pairing lets you freely redistribute, for each bit position independently, which elements end up holding that bit, so the achievable final arrays are exactly those matching the original per-bit population counts -- and squares are maximized by piling as many high bits as possible onto as few numbers as possible.",
+  "hints": [
+    "Only the count of numbers carrying each bit position matters -- the AND/OR trade lets you move a bit from one element to another at will, so think column by column across the binary representations rather than element by element.",
+    "To build the k values you'll square and add, decide bit by bit (from most to least significant) how many of the k slots that bit's count can cover, and always fill in the same k slots first -- concentration beats spreading out because squaring rewards larger single numbers.",
+    "Construct k numbers one at a time: for the next number, greedily take one occurrence of every bit position that still has any occurrences left, then move to the next number -- sum their squares modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small mixed array, choosing fewer than all elements", "input": [[2, 6, 5, 8], 2] },
+    { "kind": "edge", "description": "choosing every element, no rearrangement needed to beat the trivial sum", "input": [[4, 5, 4, 7], 3] },
+    { "kind": "boundary", "description": "single element array with k equal to the array length", "input": [[9], 1] },
+    { "kind": "boundary", "description": "k equal to the full array length with several duplicate values", "input": [[1, 1, 1, 1], 4] },
+    { "kind": "boundary", "description": "a value at the top of the allowed range paired with all-zero-bit partners", "input": [[1000000000, 1, 1], 1] },
+    { "kind": "trap", "description": "k is 1, so every bit should be concentrated into the single chosen number", "input": [[3, 5, 6, 12], 1] },
+    { "kind": "trap", "description": "all elements identical, redistribution changes nothing", "input": [[7, 7, 7, 7], 2] },
+    { "kind": "trap", "description": "powers of two with no overlapping bits, testing that bits still get concentrated correctly", "input": [[1, 2, 4, 8, 16], 2] }
+  ],
+  "stress": [
+    {
+      "description": "large random array with random 30-bit values and a random k",
+      "seed": 11,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n"
+    },
+    {
+      "description": "smaller array with heavily overlapping low bits to stress the concentration logic",
+      "seed": 23,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 500))\n    nums = [rng.randint(1, 15) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSum(self, nums, k):\n        MOD = 10 ** 9 + 7\n        cnt = [0] * 31\n        for x in nums:\n            for b in range(31):\n                if (x >> b) & 1:\n                    cnt[b] += 1\n        res = [0] * k\n        for b in reversed(range(31)):\n            c = cnt[b]\n            take = c if c < k else k\n            for i in range(take):\n                res[i] |= (1 << b)\n        total = 0\n        for v in res:\n            total = (total + v * v) % MOD\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSum(self, nums, k):\n        MOD = 10 ** 9 + 7\n        cnt = [0] * 31\n        for x in nums:\n            for b in range(31):\n                if x & (1 << b):\n                    cnt[b] += 1\n        total = 0\n        for _ in range(k):\n            num = 0\n            for b in range(31):\n                if cnt[b] > 0:\n                    num |= (1 << b)\n                    cnt[b] -= 1\n            total = (total + num * num) % MOD\n        return total\n",
+    "javascript": "var maxSum = function(nums, k) {\n    const MOD = 1000000007n;\n    const cnt = new Array(31).fill(0);\n    for (const x of nums) {\n        for (let b = 0; b < 31; b++) {\n            if (x & (1 << b)) cnt[b]++;\n        }\n    }\n    let total = 0n;\n    for (let t = 0; t < k; t++) {\n        let num = 0;\n        for (let b = 0; b < 31; b++) {\n            if (cnt[b] > 0) {\n                num |= (1 << b);\n                cnt[b]--;\n            }\n        }\n        const bn = BigInt(num);\n        total = (total + bn * bn) % MOD;\n    }\n    return Number(total);\n};\n"
+  },
+  "complexity": { "time": "O(n log(max value) + k log(max value))", "space": "O(log(max value))" }
+}

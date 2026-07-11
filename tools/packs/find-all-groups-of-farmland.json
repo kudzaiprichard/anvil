@@ -1,0 +1,39 @@
+{
+  "slug": "find-all-groups-of-farmland",
+  "judge": "unordered",
+  "pattern": "Every solid block of ones forms its own rectangle, so scanning for a cell that is a rectangle's top-left corner - no filled neighbor directly above or to the left - and then walking right and down from there recovers the whole block in one pass.",
+  "hints": [
+    "Every block of filled cells is guaranteed to form a solid rectangle, never an irregular shape.",
+    "A cell only needs to be treated as the start of a new block when the cell above it and the cell to its left are both empty (or off the grid).",
+    "From a detected top-left cell, extend straight down while the column stays filled to find the bottom row, and extend straight right while the row stays filled to find the last column; that pins down the whole rectangle in one pass, order of the rectangles found does not matter."
+  ],
+  "constraints": [
+    { "param": "land", "kind": "int[][]", "len": [1, 300], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two separate rectangular blocks", "input": [[[1, 0, 0], [0, 1, 1], [0, 1, 1]]] },
+    { "kind": "edge", "description": "the whole grid is a single block", "input": [[[1, 1], [1, 1]]] },
+    { "kind": "boundary", "description": "single empty cell, no blocks at all", "input": [[[0]]] },
+    { "kind": "boundary", "description": "single filled cell", "input": [[[1]]] },
+    { "kind": "boundary", "description": "one filled row", "input": [[[1, 1, 1, 1]]] },
+    { "kind": "boundary", "description": "one filled column", "input": [[[1], [1], [1]]] },
+    { "kind": "trap", "description": "two single-cell blocks touching only at a corner, not an edge", "input": [[[1, 0], [0, 1]]] },
+    { "kind": "trap", "description": "several differently shaped blocks separated by empty buffer rows and columns", "input": [[[1, 1, 0, 1], [1, 1, 0, 1], [0, 0, 0, 0], [1, 0, 0, 1]]] },
+    { "kind": "trap", "description": "no farmland anywhere in a larger grid", "input": [[[0, 0], [0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "grid built from a layout of block rows and columns, each block a solid rectangle or empty, always separated by an empty buffer so blocks never merge",
+      "seed": 4,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    k = max(1, min(size, 8))\n    heights = [rng.randint(1, 4) for _ in range(k)]\n    widths = [rng.randint(1, 4) for _ in range(k)]\n    is_farm = [[rng.random() < 0.55 for _ in range(k)] for _ in range(k)]\n    grid = []\n    for bi in range(k):\n        block_rows = [[] for _ in range(heights[bi])]\n        for bj in range(k):\n            fill = 1 if is_farm[bi][bj] else 0\n            for r in range(heights[bi]):\n                block_rows[r].extend([fill] * widths[bj])\n            if bj < k - 1:\n                for r in range(heights[bi]):\n                    block_rows[r].append(0)\n        grid.extend(block_rows)\n        if bi < k - 1:\n            sep_len = sum(widths) + (k - 1)\n            grid.append([0] * sep_len)\n    return [grid]\n",
+      "note": "buffer rows/cols between every block guarantee the rectangle invariant the problem promises"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findFarmland(self, land):\n        rows = len(land)\n        cols = len(land[0])\n        visited = [[False] * cols for _ in range(rows)]\n        res = []\n        for r in range(rows):\n            for c in range(cols):\n                if land[r][c] == 1 and not visited[r][c]:\n                    stack = [(r, c)]\n                    visited[r][c] = True\n                    minr = maxr = r\n                    minc = maxc = c\n                    while stack:\n                        cr, cc = stack.pop()\n                        minr = min(minr, cr)\n                        maxr = max(maxr, cr)\n                        minc = min(minc, cc)\n                        maxc = max(maxc, cc)\n                        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                            nr, nc = cr + dr, cc + dc\n                            if 0 <= nr < rows and 0 <= nc < cols and land[nr][nc] == 1 and not visited[nr][nc]:\n                                visited[nr][nc] = True\n                                stack.append((nr, nc))\n                    res.append([minr, minc, maxr, maxc])\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def findFarmland(self, land):\n        rows = len(land)\n        cols = len(land[0])\n        res = []\n        for r in range(rows):\n            for c in range(cols):\n                if land[r][c] == 1 and (r == 0 or land[r - 1][c] == 0) and (c == 0 or land[r][c - 1] == 0):\n                    r2 = r\n                    while r2 + 1 < rows and land[r2 + 1][c] == 1:\n                        r2 += 1\n                    c2 = c\n                    while c2 + 1 < cols and land[r][c2 + 1] == 1:\n                        c2 += 1\n                    res.append([r, c, r2, c2])\n        return res\n",
+    "javascript": "var findFarmland = function(land) {\n    const rows = land.length, cols = land[0].length;\n    const res = [];\n    for (let r = 0; r < rows; r++) {\n        for (let c = 0; c < cols; c++) {\n            if (land[r][c] === 1 && (r === 0 || land[r - 1][c] === 0) && (c === 0 || land[r][c - 1] === 0)) {\n                let r2 = r;\n                while (r2 + 1 < rows && land[r2 + 1][c] === 1) r2++;\n                let c2 = c;\n                while (c2 + 1 < cols && land[r][c2 + 1] === 1) c2++;\n                res.push([r, c, r2, c2]);\n            }\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(1)" }
+}

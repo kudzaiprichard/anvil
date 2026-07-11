@@ -1,0 +1,43 @@
+{
+  "slug": "maximum-score-with-co-prime-element",
+  "judge": "exact",
+  "pattern": "For any candidate final value v, the modification cost is just a count of how many array entries share a factor with v, discounted by one if some entry already equals v, so a Mobius-style inclusion-exclusion over v's own prime factors turns checking every candidate into a fast sieve.",
+  "hints": [
+    "For a fixed target value v at the chosen index, every OTHER entry that isn't already coprime with v must be changed (one operation each) -- so the total cost only depends on how many entries conflict with v, plus possibly one extra operation to actually create v somewhere.",
+    "If some entry already equals v exactly, use that entry as the chosen index for free; if not but at least one entry conflicts with v, redirect one of those already-needed changes straight to v instead of a generic fix; only when neither applies does creating v cost a full extra operation.",
+    "To count how many array entries are NOT coprime with v quickly for every v up to maxVal, precompute how many entries are divisible by each d via a sieve, then for each v use inclusion-exclusion over v's (at most a handful of) distinct prime factors to get the coprime count in one shot -- v itself does not have to be capped at maxVal if it is an existing untouched value."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "maxVal", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one element must be raised to reach a value coprime with the rest", "input": [[3, 4, 6], 5] },
+    { "kind": "edge", "description": "no modification needed since a coprime element already exists", "input": [[1, 2, 3], 4] },
+    { "kind": "trap", "description": "the best selected value can exceed maxVal by leaving an untouched element alone while fixing the rest", "input": [[2, 2], 1] },
+    { "kind": "boundary", "description": "a single element array needs no changes at all", "input": [[7], 1] },
+    { "kind": "trap", "description": "every element shares a common factor, forcing at least one change even though maxVal is small", "input": [[6, 10, 15], 1] },
+    { "kind": "boundary", "description": "maxVal equal to 1 forces every changed element down to the value 1", "input": [[4, 4, 4, 4], 1] },
+    { "kind": "trap", "description": "duplicates of the same large prime value are already pairwise non-coprime with each other", "input": [[97, 97, 5], 100] }
+  ],
+  "stress": [
+    {
+      "description": "random small array and maxVal to cross-check against the brute-force oracle",
+      "seed": 33,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    nums = [rng.randint(1, 300) for _ in range(n)]\n    maxVal = rng.randint(1, 300)\n    return [nums, maxVal]\n"
+    },
+    {
+      "description": "larger array and maxVal, still small enough for the brute oracle to finish quickly",
+      "seed": 34,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1500))\n    nums = [rng.randint(1, 1500) for _ in range(n)]\n    maxVal = rng.randint(1, 1500)\n    return [nums, maxVal]\n"
+    }
+  ],
+  "oracle_python": "from math import gcd\nclass Solution:\n    def maxScore(self, nums, maxVal):\n        n = len(nums)\n        valset = set(nums)\n        candidates = set(range(1, maxVal + 1))\n        for x in nums:\n            if x > maxVal:\n                candidates.add(x)\n        best = -10**18\n        for v in candidates:\n            conflict = sum(1 for x in nums if gcd(x, v) != 1)\n            has_v = v in valset\n            if v > maxVal or has_v:\n                cost = conflict - 1\n            elif conflict >= 1:\n                cost = conflict\n            else:\n                cost = 1\n            score = v - cost\n            if score > best:\n                best = score\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxScore(self, nums, maxVal: int) -> int:\n        n = len(nums)\n        V = max([maxVal] + nums)\n        freq = [0] * (V + 2)\n        for x in nums:\n            freq[x] += 1\n        divCount = [0] * (V + 1)\n        for d in range(1, V + 1):\n            s = 0\n            m = d\n            while m <= V:\n                s += freq[m]\n                m += d\n            divCount[d] = s\n        spf = list(range(V + 1))\n        i = 2\n        while i * i <= V:\n            if spf[i] == i:\n                for j in range(i * i, V + 1, i):\n                    if spf[j] == j:\n                        spf[j] = i\n            i += 1\n\n        def prime_factors(x):\n            ps = []\n            while x > 1:\n                p = spf[x]\n                ps.append(p)\n                while x % p == 0:\n                    x //= p\n            return ps\n\n        def conflict_of(v):\n            if v == 1:\n                return 0\n            pf = prime_factors(v)\n            k = len(pf)\n            coprimeCount = 0\n            for mask in range(1 << k):\n                prod = 1\n                bits = 0\n                b = 0\n                mm = mask\n                while mm:\n                    if mm & 1:\n                        prod *= pf[b]\n                        bits += 1\n                    mm >>= 1\n                    b += 1\n                sign = -1 if bits % 2 else 1\n                coprimeCount += sign * divCount[prod]\n            return n - coprimeCount\n\n        valset = set(nums)\n        candidates = set(range(1, maxVal + 1))\n        for x in nums:\n            if x > maxVal:\n                candidates.add(x)\n        best = -10**18\n        for v in candidates:\n            conflict = conflict_of(v)\n            has_v = v in valset\n            if v > maxVal or has_v:\n                cost = conflict - 1\n            elif conflict >= 1:\n                cost = conflict\n            else:\n                cost = 1\n            score = v - cost\n            if score > best:\n                best = score\n        return best\n",
+    "javascript": "var maxScore = function(nums, maxVal) {\n    const n = nums.length;\n    const V = Math.max(maxVal, ...nums);\n    const freq = new Array(V + 2).fill(0);\n    for (const x of nums) freq[x]++;\n    const divCount = new Array(V + 1).fill(0);\n    for (let d = 1; d <= V; d++) {\n        let s = 0;\n        for (let m = d; m <= V; m += d) s += freq[m];\n        divCount[d] = s;\n    }\n    const spf = new Array(V + 1);\n    for (let i = 0; i <= V; i++) spf[i] = i;\n    for (let i = 2; i * i <= V; i++) {\n        if (spf[i] === i) {\n            for (let j = i * i; j <= V; j += i) {\n                if (spf[j] === j) spf[j] = i;\n            }\n        }\n    }\n    function primeFactors(x) {\n        const ps = [];\n        while (x > 1) {\n            const p = spf[x];\n            ps.push(p);\n            while (x % p === 0) x = Math.floor(x / p);\n        }\n        return ps;\n    }\n    function conflictOf(v) {\n        if (v === 1) return 0;\n        const pf = primeFactors(v);\n        const k = pf.length;\n        let coprimeCount = 0;\n        for (let mask = 0; mask < (1 << k); mask++) {\n            let prod = 1;\n            let bits = 0;\n            for (let b = 0; b < k; b++) {\n                if (mask & (1 << b)) {\n                    prod *= pf[b];\n                    bits++;\n                }\n            }\n            const sign = (bits % 2) ? -1 : 1;\n            coprimeCount += sign * divCount[prod];\n        }\n        return n - coprimeCount;\n    }\n    const valset = new Set(nums);\n    const candidates = new Set();\n    for (let v = 1; v <= maxVal; v++) candidates.add(v);\n    for (const x of nums) {\n        if (x > maxVal) candidates.add(x);\n    }\n    let best = -Infinity;\n    for (const v of candidates) {\n        const conflict = conflictOf(v);\n        const hasV = valset.has(v);\n        let cost;\n        if (v > maxVal || hasV) cost = conflict - 1;\n        else if (conflict >= 1) cost = conflict;\n        else cost = 1;\n        const score = v - cost;\n        if (score > best) best = score;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O((n + maxVal) log(maxVal) * 2^k)", "space": "O(maxVal)" }
+}

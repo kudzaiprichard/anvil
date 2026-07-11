@@ -1,0 +1,174 @@
+{
+  "slug": "block-placement-queries",
+  "judge": "exact",
+  "pattern": "Obstacles only ever matter through the gaps they leave, so keeping obstacle positions in sorted order and scanning the consecutive gaps up to the query boundary answers every placement check directly.",
+  "hints": [
+    "A block of size sz fits in [0, x] exactly when some gap between two consecutive fixed points (0, the obstacles at or before x, and x itself) is at least sz long.",
+    "Keep the obstacle positions in a sorted structure; for a type-2 query, only obstacles at or before x are relevant, and 0 and x act as the two outer boundaries of the search.",
+    "Walk the sorted obstacles up to x, tracking the previous boundary and the largest gap seen so far (including the final gap up to x itself); the query answer is just whether that largest gap reaches sz."
+  ],
+  "constraints": [
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        150000
+      ],
+      "value": [
+        1,
+        50000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example with a tight fit",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3,
+            3
+          ],
+          [
+            2,
+            3,
+            1
+          ],
+          [
+            2,
+            2,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example with two obstacles",
+      "input": [
+        [
+          [
+            1,
+            7
+          ],
+          [
+            2,
+            7,
+            6
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            7,
+            5
+          ],
+          [
+            2,
+            7,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "no obstacles placed yet, whole range is open",
+      "input": [
+        [
+          [
+            2,
+            10,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "block exactly fills the gap up to the query boundary, touching is allowed",
+      "input": [
+        [
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            5,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "query boundary itself is not an obstacle, only obstacles strictly before it count",
+      "input": [
+        [
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several obstacles then a query needing the widest interior gap",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            1,
+            20
+          ],
+          [
+            2,
+            20,
+            14
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random interleaving of obstacle placements and size checks",
+      "seed": 9,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    max_x = min(50000, max(3 * n, 10))\n    used = set()\n    queries = []\n    for _ in range(n):\n        if rng.random() < 0.45:\n            placed = False\n            for _try in range(50):\n                x = rng.randint(1, max_x)\n                if x not in used:\n                    used.add(x)\n                    queries.append([1, x])\n                    placed = True\n                    break\n            if not placed:\n                x = rng.randint(1, max_x)\n                sz = rng.randint(1, max_x)\n                queries.append([2, x, sz])\n        else:\n            x = rng.randint(1, max_x)\n            sz = rng.randint(1, max_x)\n            queries.append([2, x, sz])\n    if not any(q[0] == 2 for q in queries):\n        queries.append([2, max_x, 1])\n    return [queries]\n",
+      "note": "obstacle x values kept unique per the constraint; at least one type-2 query guaranteed"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getResults(self, queries):\n        obstacle_set = set()\n        res = []\n        for q in queries:\n            if q[0] == 1:\n                obstacle_set.add(q[1])\n            else:\n                x, sz = q[1], q[2]\n                pts = sorted(p for p in obstacle_set if p <= x)\n                prev = 0\n                maxgap = 0\n                for p in pts:\n                    if p - prev > maxgap:\n                        maxgap = p - prev\n                    prev = p\n                if x - prev > maxgap:\n                    maxgap = x - prev\n                res.append(maxgap >= sz)\n        return res\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def getResults(self, queries):\n        obs = []\n        res = []\n        for q in queries:\n            if q[0] == 1:\n                bisect.insort(obs, q[1])\n            else:\n                x, sz = q[1], q[2]\n                idx = bisect.bisect_right(obs, x)\n                prev = 0\n                maxgap = 0\n                for i in range(idx):\n                    gap = obs[i] - prev\n                    if gap > maxgap:\n                        maxgap = gap\n                    prev = obs[i]\n                gap = x - prev\n                if gap > maxgap:\n                    maxgap = gap\n                res.append(maxgap >= sz)\n        return res\n",
+    "javascript": "var getResults = function(queries) {\n    const obs = [];\n    function insort(x) {\n        let lo = 0, hi = obs.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (obs[mid] < x) lo = mid + 1; else hi = mid;\n        }\n        obs.splice(lo, 0, x);\n    }\n    function bisectRight(x) {\n        let lo = 0, hi = obs.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (obs[mid] <= x) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n    const res = [];\n    for (const q of queries) {\n        if (q[0] === 1) {\n            insort(q[1]);\n        } else {\n            const x = q[1], sz = q[2];\n            const idx = bisectRight(x);\n            let prev = 0;\n            let maxgap = 0;\n            for (let i = 0; i < idx; i++) {\n                const gap = obs[i] - prev;\n                if (gap > maxgap) maxgap = gap;\n                prev = obs[i];\n            }\n            const gap = x - prev;\n            if (gap > maxgap) maxgap = gap;\n            res.push(maxgap >= sz);\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2) worst case (O(n log n) with a balanced structure)",
+    "space": "O(n)"
+  }
+}

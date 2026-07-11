@@ -1,0 +1,36 @@
+{
+  "slug": "merge-similar-items",
+  "judge": "exact",
+  "pattern": "Bucketing weights by their value key collapses two lists into one tally, then a single ordered sweep emits the merged result.",
+  "hints": [
+    "You only ever combine entries that share the same value, so group by that value first.",
+    "A dictionary keyed on the value lets you accumulate weights from both lists in one pass each.",
+    "After summing weights into the map, walk the keys in ascending order to build each [value, totalWeight] row."
+  ],
+  "constraints": [
+    { "param": "items1", "kind": "int[][]", "len": [1, 1000], "value": [1, 1000] },
+    { "param": "items2", "kind": "int[][]", "len": [1, 1000], "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single item in each list, distinct values", "input": [[[1, 5]], [[2, 3]]] },
+    { "kind": "edge", "description": "same value in both lists merges weights", "input": [[[1, 1]], [[1, 5]]] },
+    { "kind": "boundary", "description": "minimum weight values", "input": [[[3, 1], [1, 1]], [[2, 1]]] },
+    { "kind": "boundary", "description": "maximum weight and value bounds", "input": [[[1000, 1000]], [[1000, 1000]]] },
+    { "kind": "trap", "description": "inputs given out of order must come back sorted by value", "input": [[[5, 2], [2, 2]], [[7, 1], [2, 2], [1, 4]]] },
+    { "kind": "trap", "description": "values present in only one list still appear", "input": [[[1, 3], [2, 2]], [[7, 1], [9, 9]]] }
+  ],
+  "stress": [
+    {
+      "description": "two lists of distinct values with heavy overlap to stress the merge tally",
+      "seed": 7,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    vals = rng.sample(range(1, 1001), min(n, 1000))\n    half = max(1, len(vals) // 2)\n    pool1 = vals[:half + len(vals) // 4]\n    pool2 = vals[half - len(vals) // 4:]\n    items1 = [[v, rng.randint(1, 1000)] for v in pool1]\n    items2 = [[v, rng.randint(1, 1000)] for v in pool2]\n    rng.shuffle(items1)\n    rng.shuffle(items2)\n    if not items1:\n        items1 = [[1, 1]]\n    if not items2:\n        items2 = [[1, 1]]\n    return [items1, items2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mergeSimilarItems(self, items1, items2):\n        vals = set()\n        for v, w in items1:\n            vals.add(v)\n        for v, w in items2:\n            vals.add(v)\n        res = []\n        for v in sorted(vals):\n            total = 0\n            for vv, w in items1:\n                if vv == v:\n                    total += w\n            for vv, w in items2:\n                if vv == v:\n                    total += w\n            res.append([v, total])\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def mergeSimilarItems(self, items1, items2):\n        from collections import defaultdict\n        acc = defaultdict(int)\n        for v, w in items1:\n            acc[v] += w\n        for v, w in items2:\n            acc[v] += w\n        return [[v, acc[v]] for v in sorted(acc)]\n",
+    "javascript": "var mergeSimilarItems = function(items1, items2) {\n    const acc = new Map();\n    for (const [v, w] of items1) acc.set(v, (acc.get(v) || 0) + w);\n    for (const [v, w] of items2) acc.set(v, (acc.get(v) || 0) + w);\n    return [...acc.keys()].sort((a, b) => a - b).map(v => [v, acc.get(v)]);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

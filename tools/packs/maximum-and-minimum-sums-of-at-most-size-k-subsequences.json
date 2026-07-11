@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-and-minimum-sums-of-at-most-size-k-subsequences",
+  "judge": "exact",
+  "pattern": "Once the array is sorted, every element is the maximum of a subsequence exactly when its companions are drawn from the smaller elements before it, and the minimum of a subsequence exactly when its companions are drawn from the larger elements after it, so counting those companion choices with binomial coefficients turns an exponential enumeration into a linear scan.",
+  "hints": [
+    "Sort the array first. In sorted order, an element can only be the maximum of a subsequence if every other member of that subsequence sits to its left, and only be the minimum if every other member sits to its right.",
+    "For the element at sorted position i, the number of at-most-k-sized subsequences where it is the maximum equals the number of ways to pick 0, 1, ..., up to k-1 companions from the i elements before it -- a sum of binomial coefficients. The minimum case is the mirror image using the elements after it.",
+    "Precompute factorials and modular inverse factorials so each binomial coefficient is O(1), then sum each element times (its max-count plus its min-count) over the whole array, modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 70] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element, only one subsequence exists", "input": [[42], 1] },
+    { "kind": "edge", "description": "two elements with k covering both", "input": [[8, 3], 2] },
+    { "kind": "edge", "description": "several repeated values", "input": [[4, 4, 4, 4], 2] },
+    { "kind": "boundary", "description": "k equal to 1, every subsequence is a single element", "input": [[9, 1, 5, 7], 1] },
+    { "kind": "boundary", "description": "k equal to the array length, covers every subsequence up to the full array", "input": [[2, 6, 1, 9], 4] },
+    { "kind": "boundary", "description": "all zero values at the minimum bound", "input": [[0, 0, 0], 2] },
+    { "kind": "trap", "description": "already-sorted input so max/min positions are not shuffled by the sort step", "input": [[1, 2, 3, 4, 5], 3] },
+    { "kind": "trap", "description": "reverse-sorted input to exercise the sort step", "input": [[5, 4, 3, 2, 1], 3] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays with a random k bounded by 70 and the array length",
+      "seed": 19,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 20000)))\n    nums = [rng.randint(0, 1000000000) for _ in range(n)]\n    k = rng.randint(1, min(70, n))\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minMaxSums(self, nums, k):\n        n = len(nums)\n        MOD = 10 ** 9 + 7\n        total = 0\n        for mask in range(1, 1 << n):\n            size = bin(mask).count('1')\n            if size > k:\n                continue\n            vals = [nums[i] for i in range(n) if mask & (1 << i)]\n            total += max(vals) + min(vals)\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def minMaxSums(self, nums, k):\n        MOD = 10 ** 9 + 7\n        nums = sorted(nums)\n        n = len(nums)\n        fact = [1] * (n + 1)\n        for i in range(1, n + 1):\n            fact[i] = fact[i - 1] * i % MOD\n        invfact = [1] * (n + 1)\n        invfact[n] = pow(fact[n], MOD - 2, MOD)\n        for i in range(n - 1, -1, -1):\n            invfact[i] = invfact[i + 1] * (i + 1) % MOD\n\n        def comb(a, b):\n            if b < 0 or b > a:\n                return 0\n            return fact[a] * invfact[b] % MOD * invfact[a - b] % MOD\n\n        ans = 0\n        for i in range(n):\n            max_count = 0\n            for j in range(min(k - 1, i) + 1):\n                max_count = (max_count + comb(i, j)) % MOD\n            larger = n - 1 - i\n            min_count = 0\n            for j in range(min(k - 1, larger) + 1):\n                min_count = (min_count + comb(larger, j)) % MOD\n            ans = (ans + nums[i] * (max_count + min_count)) % MOD\n        return ans\n",
+    "javascript": "var minMaxSums = function(nums, k) {\n    const MOD = 1000000007n;\n    const sorted = nums.slice().sort((a, b) => a - b);\n    const n = sorted.length;\n    const fact = new Array(n + 1);\n    fact[0] = 1n;\n    for (let i = 1; i <= n; i++) fact[i] = (fact[i - 1] * BigInt(i)) % MOD;\n    function power(a, b, m) {\n        a %= m;\n        let r = 1n;\n        while (b > 0n) {\n            if (b & 1n) r = (r * a) % m;\n            a = (a * a) % m;\n            b >>= 1n;\n        }\n        return r;\n    }\n    const invfact = new Array(n + 1);\n    invfact[n] = power(fact[n], MOD - 2n, MOD);\n    for (let i = n - 1; i >= 0; i--) invfact[i] = (invfact[i + 1] * BigInt(i + 1)) % MOD;\n    function comb(a, b) {\n        if (b < 0 || b > a) return 0n;\n        return (fact[a] * invfact[b] % MOD) * invfact[a - b] % MOD;\n    }\n    let ans = 0n;\n    for (let i = 0; i < n; i++) {\n        let maxCount = 0n;\n        const lim1 = Math.min(k - 1, i);\n        for (let j = 0; j <= lim1; j++) maxCount = (maxCount + comb(i, j)) % MOD;\n        const larger = n - 1 - i;\n        let minCount = 0n;\n        const lim2 = Math.min(k - 1, larger);\n        for (let j = 0; j <= lim2; j++) minCount = (minCount + comb(larger, j)) % MOD;\n        ans = (ans + BigInt(sorted[i]) * (maxCount + minCount)) % MOD;\n    }\n    return Number(ans);\n};\n"
+  },
+  "complexity": { "time": "O(n log n + n k)", "space": "O(n)" }
+}

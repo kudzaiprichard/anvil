@@ -1,0 +1,229 @@
+{
+  "slug": "minimum-operations-to-equalize-subarrays",
+  "judge": "exact",
+  "pattern": "Stepping by exactly k only ever changes an element's quotient when divided by k, so a range can be equalized at all only if every element shares one remainder, and once it can, the cheapest common target is the median of those quotients.",
+  "hints": [
+    "Changing a number by +-k over and over never touches its remainder mod k, only its quotient -- so a range can only ever be made equal if every element in it shares the same remainder.",
+    "Once a range is remainder-compatible, the problem reduces to a classic one: given the quotients nums[i] // k for i in the range, what single target minimizes the total number of +-1 steps to reach it from every quotient? That minimizer is the median.",
+    "Precompute, for every starting index, how far a run of equal remainders extends so each query's feasibility check is O(1); then answer the median-distance part of each feasible query with a data structure that supports range order-statistics (for example, an offline sweep with a Fenwick tree over compressed quotient values, or Mo's algorithm)."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        40000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        40000
+      ],
+      "value": [
+        0,
+        39999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example 1",
+      "input": [
+        [
+          1,
+          4,
+          7
+        ],
+        3,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example 2, mixes an impossible query, a trivial one, and a feasible one",
+      "input": [
+        [
+          1,
+          2,
+          4
+        ],
+        2,
+        [
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element query is always already equal",
+      "input": [
+        [
+          9
+        ],
+        5,
+        [
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the whole array shares a remainder but one query range straddles a remainder change",
+      "input": [
+        [
+          2,
+          5,
+          8,
+          3,
+          6
+        ],
+        3,
+        [
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an even-length range needs the lower of the two middle quotients as median",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          10
+        ],
+        1,
+        [
+          [
+            0,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k larger than every element still divides evenly by remainder",
+      "input": [
+        [
+          5,
+          5,
+          5
+        ],
+        1000000000,
+        [
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "many small overlapping queries over the same array",
+      "input": [
+        [
+          3,
+          3,
+          3,
+          6,
+          6,
+          9
+        ],
+        3,
+        [
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            5
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "moderate array with many random range queries, mixing feasible and infeasible ranges",
+      "seed": 707,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 40000))\n    k = rng.randint(1, 1000000000)\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    qn = max(1, min(size, 40000))\n    queries = []\n    for _ in range(qn):\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        queries.append([l, r])\n    return [nums, k, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minOperations(self, nums, k, queries):\n        ans = []\n        for l, r in queries:\n            rems = [nums[i] % k for i in range(l, r + 1)]\n            if len(set(rems)) != 1:\n                ans.append(-1)\n                continue\n            quots = sorted(nums[i] // k for i in range(l, r + 1))\n            med = quots[len(quots) // 2]\n            ans.append(sum(abs(q - med) for q in quots))\n        return ans\n",
+  "solutions": {
+    "python": "import math\n\nclass Solution:\n    def minOperations(self, nums: List[int], k: int, queries: List[List[int]]) -> List[int]:\n        n = len(nums)\n        rem = [x % k for x in nums]\n        quot = [x // k for x in nums]\n\n        same_until = [0] * n\n        i = 0\n        while i < n:\n            j = i\n            while j + 1 < n and rem[j + 1] == rem[i]:\n                j += 1\n            for t in range(i, j + 1):\n                same_until[t] = j\n            i = j + 1\n\n        sorted_vals = sorted(set(quot))\n        comp = {v: idx + 1 for idx, v in enumerate(sorted_vals)}\n        m = len(sorted_vals)\n        cnt_bit = [0] * (m + 1)\n        sum_bit = [0] * (m + 1)\n\n        def bit_update(bit, idx, delta):\n            while idx <= m:\n                bit[idx] += delta\n                idx += idx & (-idx)\n\n        def bit_prefix(bit, idx):\n            s = 0\n            while idx > 0:\n                s += bit[idx]\n                idx -= idx & (-idx)\n            return s\n\n        log = m.bit_length()\n\n        def find_kth(k_):\n            pos = 0\n            remaining = k_\n            for p in range(log, -1, -1):\n                nxt = pos + (1 << p)\n                if nxt <= m and cnt_bit[nxt] < remaining:\n                    pos = nxt\n                    remaining -= cnt_bit[nxt]\n            return pos + 1\n\n        def add(v):\n            c = comp[v]\n            bit_update(cnt_bit, c, 1)\n            bit_update(sum_bit, c, v)\n\n        def remove(v):\n            c = comp[v]\n            bit_update(cnt_bit, c, -1)\n            bit_update(sum_bit, c, -v)\n\n        ans = [-1] * len(queries)\n        valid_queries = []\n        for qi, (l, r) in enumerate(queries):\n            if same_until[l] >= r:\n                valid_queries.append((l, r, qi))\n            else:\n                ans[qi] = -1\n\n        block = max(1, int(math.sqrt(max(1, n))))\n\n        def sort_key(q):\n            l, r, qi = q\n            b = l // block\n            return (b, r if b % 2 == 0 else -r)\n\n        valid_queries.sort(key=sort_key)\n\n        cur_l, cur_r = 0, -1\n        for l, r, qi in valid_queries:\n            while cur_r < r:\n                cur_r += 1\n                add(quot[cur_r])\n            while cur_l > l:\n                cur_l -= 1\n                add(quot[cur_l])\n            while cur_r > r:\n                remove(quot[cur_r])\n                cur_r -= 1\n            while cur_l < l:\n                remove(quot[cur_l])\n                cur_l += 1\n            window = r - l + 1\n            kth = (window + 1) // 2\n            comp_pos = find_kth(kth)\n            med_val = sorted_vals[comp_pos - 1]\n            cnt_le = bit_prefix(cnt_bit, comp_pos)\n            sum_le = bit_prefix(sum_bit, comp_pos)\n            cnt_gt = window - cnt_le\n            sum_gt = bit_prefix(sum_bit, m) - sum_le\n            cost = (med_val * cnt_le - sum_le) + (sum_gt - med_val * cnt_gt)\n            ans[qi] = cost\n        return ans\n",
+    "javascript": "var minOperations = function(nums, k, queries) {\n    const n = nums.length;\n    const rem = nums.map(x => x % k);\n    const quot = nums.map(x => Math.floor(x / k));\n\n    const sameUntil = new Array(n).fill(0);\n    let i = 0;\n    while (i < n) {\n        let j = i;\n        while (j + 1 < n && rem[j + 1] === rem[i]) j++;\n        for (let t = i; t <= j; t++) sameUntil[t] = j;\n        i = j + 1;\n    }\n\n    const sortedVals = Array.from(new Set(quot)).sort((a, b) => a - b);\n    const comp = new Map();\n    sortedVals.forEach((v, idx) => comp.set(v, idx + 1));\n    const m = sortedVals.length;\n    const cntBit = new Array(m + 1).fill(0);\n    const sumBit = new Array(m + 1).fill(0);\n\n    function bitUpdate(bit, idx, delta) {\n        while (idx <= m) { bit[idx] += delta; idx += idx & (-idx); }\n    }\n    function bitPrefix(bit, idx) {\n        let s = 0;\n        while (idx > 0) { s += bit[idx]; idx -= idx & (-idx); }\n        return s;\n    }\n    const log = 32 - Math.clz32(m);\n\n    function findKth(k_) {\n        let pos = 0, remaining = k_;\n        for (let p = log; p >= 0; p--) {\n            const nxt = pos + (1 << p);\n            if (nxt <= m && cntBit[nxt] < remaining) {\n                pos = nxt;\n                remaining -= cntBit[nxt];\n            }\n        }\n        return pos + 1;\n    }\n\n    function add(v) {\n        const c = comp.get(v);\n        bitUpdate(cntBit, c, 1);\n        bitUpdate(sumBit, c, v);\n    }\n    function remove(v) {\n        const c = comp.get(v);\n        bitUpdate(cntBit, c, -1);\n        bitUpdate(sumBit, c, -v);\n    }\n\n    const ans = new Array(queries.length).fill(-1);\n    const validQueries = [];\n    for (let qi = 0; qi < queries.length; qi++) {\n        const [l, r] = queries[qi];\n        if (sameUntil[l] >= r) validQueries.push([l, r, qi]);\n        else ans[qi] = -1;\n    }\n\n    const block = Math.max(1, Math.floor(Math.sqrt(Math.max(1, n))));\n    validQueries.sort((a, b) => {\n        const ba = Math.floor(a[0] / block), bb = Math.floor(b[0] / block);\n        if (ba !== bb) return ba - bb;\n        return (ba % 2 === 0) ? (a[1] - b[1]) : (b[1] - a[1]);\n    });\n\n    let curL = 0, curR = -1;\n    for (const [l, r, qi] of validQueries) {\n        while (curR < r) { curR++; add(quot[curR]); }\n        while (curL > l) { curL--; add(quot[curL]); }\n        while (curR > r) { remove(quot[curR]); curR--; }\n        while (curL < l) { remove(quot[curL]); curL++; }\n        const window = r - l + 1;\n        const kth = Math.floor((window + 1) / 2);\n        const compPos = findKth(kth);\n        const medVal = sortedVals[compPos - 1];\n        const cntLe = bitPrefix(cntBit, compPos);\n        const sumLe = bitPrefix(sumBit, compPos);\n        const cntGt = window - cntLe;\n        const sumGt = bitPrefix(sumBit, m) - sumLe;\n        const cost = (medVal * cntLe - sumLe) + (sumGt - medVal * cntGt);\n        ans[qi] = cost;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + q) sqrt(n) log n)",
+    "space": "O(n)"
+  }
+}

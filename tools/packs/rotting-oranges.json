@@ -1,0 +1,37 @@
+{
+  "slug": "rotting-oranges",
+  "judge": "exact",
+  "pattern": "A multi-source breadth-first search starting from every rotten orange spreads decay one ring per minute, so the last completed level is the elapsed time, unless a fresh orange is ever unreachable.",
+  "hints": [
+    "Rot spreads outward in waves; all cells already rotten at minute zero start the first wave together.",
+    "This is a shortest-time problem from many sources at once, which a level-by-level BFS captures.",
+    "Seed a queue with every rotten cell, count fresh ones, then process the queue in layers; each layer is one minute and rots adjacent fresh cells. The answer is the number of layers if no fresh oranges remain, else -1."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 10], "value": [0, 2] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all reachable fresh oranges rot", "input": [[[2, 1, 1], [1, 1, 0], [0, 1, 1]]] },
+    { "kind": "trap", "description": "an isolated fresh orange can never rot", "input": [[[2, 1, 1], [0, 1, 1], [1, 0, 1]]] },
+    { "kind": "boundary", "description": "no fresh oranges means zero minutes", "input": [[[0, 2]]] },
+    { "kind": "edge", "description": "single fresh orange with no rot is impossible", "input": [[[1]]] },
+    { "kind": "boundary", "description": "single rotten orange needs no time", "input": [[[2]]] },
+    { "kind": "edge", "description": "single empty cell needs no time", "input": [[[0]]] },
+    { "kind": "trap", "description": "rot starts at a far corner of a full grid", "input": [[[2, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random 10x10 grids of empty, fresh, and rotten cells",
+      "seed": 81,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 10)\n    n = rng.randint(1, 10)\n    grid = [[rng.choices([0, 1, 2], weights=[2, 5, 2])[0] for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "weights favor fresh oranges so both reachable and unreachable cases occur"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def orangesRotting(self, grid):\n        m = len(grid)\n        n = len(grid[0])\n        g = [row[:] for row in grid]\n        def fresh_count():\n            return sum(1 for i in range(m) for j in range(n) if g[i][j] == 1)\n        if fresh_count() == 0:\n            return 0\n        minutes = 0\n        while True:\n            to_rot = []\n            for i in range(m):\n                for j in range(n):\n                    if g[i][j] == 2:\n                        for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                            ni, nj = i + di, j + dj\n                            if 0 <= ni < m and 0 <= nj < n and g[ni][nj] == 1:\n                                to_rot.append((ni, nj))\n            if not to_rot:\n                break\n            for i, j in to_rot:\n                g[i][j] = 2\n            minutes += 1\n        return -1 if fresh_count() > 0 else minutes\n",
+  "solutions": {
+    "python": "class Solution:\n    def orangesRotting(self, grid):\n        from collections import deque\n        m = len(grid)\n        n = len(grid[0])\n        q = deque()\n        fresh = 0\n        for i in range(m):\n            for j in range(n):\n                if grid[i][j] == 2:\n                    q.append((i, j))\n                elif grid[i][j] == 1:\n                    fresh += 1\n        if fresh == 0:\n            return 0\n        minutes = 0\n        rotten = [row[:] for row in grid]\n        while q:\n            minutes += 1\n            for _ in range(len(q)):\n                i, j = q.popleft()\n                for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    ni, nj = i + di, j + dj\n                    if 0 <= ni < m and 0 <= nj < n and rotten[ni][nj] == 1:\n                        rotten[ni][nj] = 2\n                        fresh -= 1\n                        q.append((ni, nj))\n        return -1 if fresh > 0 else minutes - 1\n",
+    "javascript": "var orangesRotting = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    let q = [];\n    let fresh = 0;\n    const rotten = grid.map(row => row.slice());\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (rotten[i][j] === 2) q.push([i, j]);\n            else if (rotten[i][j] === 1) fresh++;\n        }\n    }\n    if (fresh === 0) return 0;\n    let minutes = 0;\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    while (q.length > 0) {\n        minutes++;\n        const next = [];\n        for (const [i, j] of q) {\n            for (const [di, dj] of dirs) {\n                const ni = i + di, nj = j + dj;\n                if (ni >= 0 && ni < m && nj >= 0 && nj < n && rotten[ni][nj] === 1) {\n                    rotten[ni][nj] = 2;\n                    fresh--;\n                    next.push([ni, nj]);\n                }\n            }\n        }\n        q = next;\n    }\n    return fresh > 0 ? -1 : minutes - 1;\n};\n"
+  },
+  "complexity": { "time": "O(m * n)", "space": "O(m * n)" }
+}

@@ -1,0 +1,39 @@
+{
+  "slug": "create-maximum-number",
+  "judge": "exact",
+  "pattern": "Try every split of k between the two arrays; for each split extract the max subsequence from each using a greedy stack, then merge the two subsequences by always picking the lexicographically larger prefix.",
+  "hints": [
+    "For any fixed split (i digits from nums1, k-i from nums2), the problem decomposes into independently finding the maximum subsequence of length i from nums1 and maximum of length k-i from nums2, then merging them.",
+    "To extract the maximum subsequence of length t from an array of length m, use a monotone decreasing stack with a budget of m-t discards: pop the top when it is smaller than the current digit and discards remain.",
+    "When merging two already-maximised sequences, always take from the sequence whose remaining suffix is lexicographically larger — compare element by element to break ties correctly."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 500], "value": [0, 9] },
+    { "param": "nums2", "kind": "int[]", "len": [1, 500], "value": [0, 9] },
+    { "param": "k", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic example mixing two arrays of different lengths", "input": [[3, 4, 6, 5], [9, 1, 2, 5, 8, 3], 5] },
+    { "kind": "edge", "description": "k equals total length — take all digits", "input": [[6, 7], [6, 0, 4], 5] },
+    { "kind": "edge", "description": "repeated leading digits require careful merge tie-breaking", "input": [[3, 9], [8, 9], 3] },
+    { "kind": "boundary", "description": "k equals 1 — just pick the global max digit", "input": [[3, 2], [7, 5], 1] },
+    { "kind": "trap", "description": "all zeros — result is all zeros", "input": [[0, 0], [0, 0], 3] },
+    { "kind": "trap", "description": "one array contributes nothing to the best split", "input": [[9, 9], [1, 1, 1], 2] },
+    { "kind": "trap", "description": "equal digits throughout — merge must still be deterministic", "input": [[5, 5, 5], [5, 5, 5], 4] },
+    { "kind": "boundary", "description": "k equals 1 from a pair of single-element arrays", "input": [[9], [8], 1] }
+  ],
+  "stress": [
+    {
+      "description": "medium-length arrays with digit values to stress merge and extraction",
+      "seed": 17,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    m = size\n    n = size\n    nums1 = [rng.randint(0, 9) for _ in range(m)]\n    nums2 = [rng.randint(0, 9) for _ in range(n)]\n    k = rng.randint(1, m + n)\n    return [nums1, nums2, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxNumber(self, nums1, nums2, k):\n        from itertools import combinations\n        m, n = len(nums1), len(nums2)\n        best = None\n        for i in range(max(0, k - n), min(k, m) + 1):\n            j = k - i\n            # Pick i indices from nums1 and j from nums2, maintaining relative order\n            # For brute force, enumerate all C(m,i)*C(n,j) combinations — cap sizes\n            sub1_best = None\n            for idxs in combinations(range(m), i):\n                s = [nums1[x] for x in idxs]\n                if sub1_best is None or s > sub1_best:\n                    sub1_best = s\n            sub2_best = None\n            for idxs in combinations(range(n), j):\n                s = [nums2[x] for x in idxs]\n                if sub2_best is None or s > sub2_best:\n                    sub2_best = s\n            if sub1_best is None:\n                sub1_best = []\n            if sub2_best is None:\n                sub2_best = []\n            # merge\n            merged = []\n            a, b = list(sub1_best), list(sub2_best)\n            while a or b:\n                if a >= b:\n                    merged.append(a.pop(0))\n                else:\n                    merged.append(b.pop(0))\n            if best is None or merged > best:\n                best = merged\n        return best if best else []\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxNumber(self, nums1, nums2, k):\n        def max_subseq(nums, t):\n            drop = len(nums) - t\n            stack = []\n            for d in nums:\n                while drop and stack and stack[-1] < d:\n                    stack.pop()\n                    drop -= 1\n                stack.append(d)\n            return stack[:t]\n\n        def merge(a, b):\n            result = []\n            i = j = 0\n            while i < len(a) or j < len(b):\n                if a[i:] >= b[j:]:\n                    result.append(a[i]); i += 1\n                else:\n                    result.append(b[j]); j += 1\n            return result\n\n        m, n = len(nums1), len(nums2)\n        best = []\n        for i in range(max(0, k - n), min(k, m) + 1):\n            s1 = max_subseq(nums1, i)\n            s2 = max_subseq(nums2, k - i)\n            candidate = merge(s1, s2)\n            if candidate > best:\n                best = candidate\n        return best\n",
+    "javascript": "var maxNumber = function(nums1, nums2, k) {\n    function maxSubseq(nums, t) {\n        let drop = nums.length - t;\n        const stack = [];\n        for (const d of nums) {\n            while (drop > 0 && stack.length > 0 && stack[stack.length - 1] < d) {\n                stack.pop();\n                drop--;\n            }\n            stack.push(d);\n        }\n        return stack.slice(0, t);\n    }\n    function geq(a, ai, b, bi) {\n        while (ai < a.length && bi < b.length) {\n            if (a[ai] !== b[bi]) return a[ai] > b[bi];\n            ai++; bi++;\n        }\n        return (a.length - ai) >= (b.length - bi);\n    }\n    function merge(a, b) {\n        const result = [];\n        let i = 0, j = 0;\n        while (i < a.length || j < b.length) {\n            if (geq(a, i, b, j)) result.push(a[i++]);\n            else result.push(b[j++]);\n        }\n        return result;\n    }\n    const m = nums1.length, n = nums2.length;\n    let best = [];\n    for (let i = Math.max(0, k - n); i <= Math.min(k, m); i++) {\n        const s1 = maxSubseq(nums1, i);\n        const s2 = maxSubseq(nums2, k - i);\n        const candidate = merge(s1, s2);\n        if (candidate.length > best.length || (candidate.length === best.length && geq(candidate, 0, best, 0) && !geq(best, 0, candidate, 0))) {\n            best = candidate;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O((m+n)^2)", "space": "O(m+n)" }
+}

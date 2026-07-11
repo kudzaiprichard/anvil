@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-number-of-operations-to-make-string-sorted",
+  "judge": "exact",
+  "pattern": "The described operation is exactly the previous-permutation step, so the count of operations equals the lexicographic rank of the string among all distinct arrangements of its multiset of letters.",
+  "hints": [
+    "Each operation turns the string into the permutation immediately before it in lexicographic order, so you are counting how many arrangements come before the given one.",
+    "Counting arrangements of a multiset uses the multinomial coefficient: total factorial divided by the factorial of each letter's remaining count.",
+    "Sweep left to right; at each position add, for every smaller available letter, the number of distinct arrangements of the rest (a multinomial), then consume the current letter. Do all arithmetic modulo 1e9+7 with precomputed factorials and modular inverses."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 3000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "fully reversed three letters", "input": ["cba"] },
+    { "kind": "trap", "description": "repeated letters reduce the rank", "input": ["aabaa"] },
+    { "kind": "boundary", "description": "single letter is already sorted", "input": ["a"] },
+    { "kind": "trap", "description": "already sorted string needs zero operations", "input": ["abc"] },
+    { "kind": "edge", "description": "all identical letters", "input": ["zzzz"] },
+    { "kind": "edge", "description": "two distinct letters, one inversion", "input": ["ba"] },
+    { "kind": "trap", "description": "duplicates spread through a larger word", "input": ["leetcode"] }
+  ],
+  "stress": [
+    {
+      "description": "long random lowercase string",
+      "seed": 55,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, min(size, 3000))\n    return [''.join(rng.choice('abcde') for _ in range(n))]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def makeStringSorted(self, s):\n        # independent rank computation: build the rank from the right using a\n        # running multinomial that is updated incrementally (different bookkeeping\n        # from the optimal). For tiny inputs cross-checks against simulation by hand.\n        MOD = 10**9 + 7\n        n = len(s)\n        fact = [1] * (n + 1)\n        for i in range(1, n + 1):\n            fact[i] = fact[i - 1] * i % MOD\n        def inv(x):\n            return pow(x, MOD - 2, MOD)\n        cnt = [0] * 26\n        ans = 0\n        length = 0           # number of chars processed so far (suffix length)\n        denom = 1            # product of factorials of current suffix counts\n        for i in range(n - 1, -1, -1):\n            c = ord(s[i]) - 97\n            # incorporate s[i] into the suffix\n            cnt[c] += 1\n            length += 1\n            denom = denom * cnt[c] % MOD\n            # permutations of the suffix = length! / denom\n            perms = fact[length] * inv(denom) % MOD\n            # smaller letters available in the suffix (counting current included)\n            smaller = sum(cnt[k] for k in range(c))\n            # arrangements with a strictly smaller letter fixed in front\n            ans = (ans + perms * smaller % MOD * inv(length)) % MOD\n        return ans % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def makeStringSorted(self, s):\n        MOD = 10**9 + 7\n        n = len(s)\n        fact = [1] * (n + 1)\n        for i in range(1, n + 1):\n            fact[i] = fact[i - 1] * i % MOD\n        inv_fact = [1] * (n + 1)\n        inv_fact[n] = pow(fact[n], MOD - 2, MOD)\n        for i in range(n - 1, -1, -1):\n            inv_fact[i] = inv_fact[i + 1] * (i + 1) % MOD\n        cnt = [0] * 26\n        for ch in s:\n            cnt[ord(ch) - 97] += 1\n        ans = 0\n        for i in range(n):\n            c = ord(s[i]) - 97\n            # sum of counts of letters smaller than current\n            for smaller in range(c):\n                if cnt[smaller] == 0:\n                    continue\n                cnt[smaller] -= 1\n                rem = n - i - 1\n                ways = fact[rem]\n                for k in range(26):\n                    ways = ways * inv_fact[cnt[k]] % MOD\n                ans = (ans + ways) % MOD\n                cnt[smaller] += 1\n            cnt[c] -= 1\n        return ans % MOD\n",
+    "javascript": "var makeStringSorted = function(s) {\n    const MOD = 1000000007n;\n    const n = s.length;\n    const fact = new Array(n + 1).fill(1n);\n    for (let i = 1; i <= n; i++) fact[i] = fact[i - 1] * BigInt(i) % MOD;\n    const power = (b, e) => {\n        let r = 1n; b %= MOD;\n        while (e > 0n) {\n            if (e & 1n) r = r * b % MOD;\n            b = b * b % MOD;\n            e >>= 1n;\n        }\n        return r;\n    };\n    const invFact = new Array(n + 1).fill(1n);\n    invFact[n] = power(fact[n], MOD - 2n);\n    for (let i = n - 1; i >= 0; i--) invFact[i] = invFact[i + 1] * BigInt(i + 1) % MOD;\n    const cnt = new Array(26).fill(0);\n    for (const ch of s) cnt[ch.charCodeAt(0) - 97]++;\n    let ans = 0n;\n    for (let i = 0; i < n; i++) {\n        const c = s.charCodeAt(i) - 97;\n        for (let smaller = 0; smaller < c; smaller++) {\n            if (cnt[smaller] === 0) continue;\n            cnt[smaller]--;\n            const rem = n - i - 1;\n            let ways = fact[rem];\n            for (let k = 0; k < 26; k++) ways = ways * invFact[cnt[k]] % MOD;\n            ans = (ans + ways) % MOD;\n            cnt[smaller]++;\n        }\n        cnt[c]--;\n    }\n    return Number(ans % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n * 26)", "space": "O(n)" }
+}

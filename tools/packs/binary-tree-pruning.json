@@ -1,0 +1,38 @@
+{
+  "slug": "binary-tree-pruning",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "tree" },
+  "pattern": "Post-order DFS: prune each child first, then drop the current node when it is a leaf holding zero, so subtrees free of any one collapse from the bottom up.",
+  "hints": [
+    "Decide a node's fate only after both of its children have already been pruned.",
+    "Recurse into the children and reattach the pruned results; a returned null severs that branch entirely.",
+    "After pruning both sides, if the node has become a childless leaf whose value is zero, return null so it too is removed."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 200], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "right spine where a zero subtree is dropped", "input": [[1, null, 0, 0, 1]] },
+    { "kind": "edge", "description": "balanced tree pruned to a thin right path", "input": [[1, 0, 1, 0, 0, 0, 1]] },
+    { "kind": "edge", "description": "larger tree with mixed survivors", "input": [[1, 1, 0, 1, 1, 0, 1, 0]] },
+    { "kind": "boundary", "description": "single zero node prunes to an empty tree", "input": [[0]] },
+    { "kind": "boundary", "description": "single one node survives intact", "input": [[1]] },
+    { "kind": "trap", "description": "internal node retained only because a deep descendant holds a one", "input": [[1, 0, 0, 0, 1]] },
+    { "kind": "trap", "description": "all zeros collapse to nothing", "input": [[0, 0, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "random nearly-complete binary tree of zeros and ones in BFS wire form",
+      "seed": 62,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    # First value must be a real node; rest may be null to vary shape.\n    arr = [rng.randint(0, 1)]\n    for _ in range(n - 1):\n        if rng.random() < 0.25:\n            arr.append(None)\n        else:\n            arr.append(rng.randint(0, 1))\n    return [arr]\n",
+      "note": "BFS level-order array with occasional nulls produces varied prunable shapes"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def pruneTree(self, root):\n        # Independent: explicitly test whether a subtree contains any 1, then\n        # rebuild only the surviving structure.\n        def contains_one(node):\n            if not node:\n                return False\n            return node.val == 1 or contains_one(node.left) or contains_one(node.right)\n        def build(node):\n            if not node or not contains_one(node):\n                return None\n            node.left = build(node.left)\n            node.right = build(node.right)\n            return node\n        return build(root)\n",
+  "solutions": {
+    "python": "class Solution:\n    def pruneTree(self, root):\n        if not root:\n            return None\n        root.left = self.pruneTree(root.left)\n        root.right = self.pruneTree(root.right)\n        if not root.left and not root.right and root.val == 0:\n            return None\n        return root\n",
+    "javascript": "var pruneTree = function(root) {\n    if (!root) return null;\n    root.left = pruneTree(root.left);\n    root.right = pruneTree(root.right);\n    if (!root.left && !root.right && root.val === 0) return null;\n    return root;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

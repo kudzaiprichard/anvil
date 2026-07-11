@@ -1,0 +1,37 @@
+{
+  "slug": "minesweeper",
+  "judge": "exact",
+  "pattern": "Revealing a click on a minesweeper board is a flood fill that stops at numbered squares and only expands through blanks with zero adjacent mines.",
+  "hints": [
+    "A clicked mine ends everything; otherwise you reveal squares.",
+    "Counting the eight neighbouring mines decides whether a square becomes a number or a blank.",
+    "If the count is zero mark it blank and recurse into every unrevealed neighbour; if the count is positive write the digit and stop expanding from there."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "string[][]", "len": [1, 2500] },
+    { "param": "click", "kind": "int[]", "len": [2, 2], "value": [0, 49] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one flood fill", "input": [[["E", "E", "E", "E", "E"], ["E", "E", "M", "E", "E"], ["E", "E", "E", "E", "E"], ["E", "E", "E", "E", "E"]], [3, 0]] },
+    { "kind": "edge", "description": "statement example two clicking a mine", "input": [[["B", "1", "E", "1", "B"], ["B", "1", "M", "1", "B"], ["B", "1", "1", "1", "B"], ["B", "B", "B", "B", "B"]], [1, 2]] },
+    { "kind": "boundary", "description": "single empty cell", "input": [[["E"]], [0, 0]] },
+    { "kind": "boundary", "description": "single mine clicked", "input": [[["M"]], [0, 0]] },
+    { "kind": "trap", "description": "click adjacent to a mine becomes a number not a blank", "input": [[["E", "M"], ["E", "E"]], [1, 1]] },
+    { "kind": "trap", "description": "all empty board reveals everything as blank", "input": [[["E", "E", "E"], ["E", "E", "E"], ["E", "E", "E"]], [0, 0]] },
+    { "kind": "edge", "description": "click on empty cell surrounded by mines", "input": [[["M", "M", "M"], ["M", "E", "M"], ["M", "M", "M"]], [1, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random board with mines and a guaranteed empty click cell",
+      "seed": 19,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    side = max(2, min(15, int(min(225, size) ** 0.5) + 1))\n    board = [['M' if rng.random() < 0.2 else 'E' for _ in range(side)] for _ in range(side)]\n    empties = [(r, c) for r in range(side) for c in range(side) if board[r][c] == 'E']\n    if not empties:\n        board[0][0] = 'E'\n        empties = [(0, 0)]\n    r, c = empties[rng.randrange(len(empties))]\n    return [board, [r, c]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def updateBoard(self, board, click):\n        rows = len(board)\n        cols = len(board[0])\n        cr, cc = click\n        if board[cr][cc] == 'M':\n            board[cr][cc] = 'X'\n            return board\n        dirs = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]\n        def count(r, c):\n            t = 0\n            for dr, dc in dirs:\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < rows and 0 <= nc < cols and board[nr][nc] == 'M':\n                    t += 1\n            return t\n        changed = True\n        reveal = {(cr, cc)}\n        while changed:\n            changed = False\n            for (r, c) in list(reveal):\n                if board[r][c] != 'E':\n                    continue\n                m = count(r, c)\n                if m > 0:\n                    board[r][c] = str(m)\n                else:\n                    board[r][c] = 'B'\n                    for dr, dc in dirs:\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < rows and 0 <= nc < cols and board[nr][nc] == 'E':\n                            reveal.add((nr, nc))\n                            changed = True\n        return board\n",
+  "solutions": {
+    "python": "class Solution:\n    def updateBoard(self, board, click):\n        rows = len(board)\n        cols = len(board[0])\n        cr, cc = click\n        if board[cr][cc] == 'M':\n            board[cr][cc] = 'X'\n            return board\n        dirs = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]\n        stack = [(cr, cc)]\n        while stack:\n            r, c = stack.pop()\n            if board[r][c] != 'E':\n                continue\n            mines = 0\n            nbrs = []\n            for dr, dc in dirs:\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < rows and 0 <= nc < cols:\n                    if board[nr][nc] == 'M':\n                        mines += 1\n                    elif board[nr][nc] == 'E':\n                        nbrs.append((nr, nc))\n            if mines > 0:\n                board[r][c] = str(mines)\n            else:\n                board[r][c] = 'B'\n                for nb in nbrs:\n                    stack.append(nb)\n        return board\n",
+    "javascript": "var updateBoard = function(board, click) {\n    const rows = board.length, cols = board[0].length;\n    const [cr, cc] = click;\n    if (board[cr][cc] === 'M') { board[cr][cc] = 'X'; return board; }\n    const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];\n    const stack = [[cr, cc]];\n    while (stack.length) {\n        const [r, c] = stack.pop();\n        if (board[r][c] !== 'E') continue;\n        let mines = 0;\n        const nbrs = [];\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {\n                if (board[nr][nc] === 'M') mines++;\n                else if (board[nr][nc] === 'E') nbrs.push([nr, nc]);\n            }\n        }\n        if (mines > 0) {\n            board[r][c] = String(mines);\n        } else {\n            board[r][c] = 'B';\n            for (const nb of nbrs) stack.push(nb);\n        }\n    }\n    return board;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

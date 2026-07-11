@@ -1,0 +1,46 @@
+{
+  "slug": "find-elements-in-a-contaminated-binary-tree",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Every node's true value is fully determined by the path taken to reach it (start at 0, go 2x+1 for a left step and 2x+2 for a right step), so recovering a wiped-out tree is just a matter of walking its shape once and recomputing values from the root down.",
+  "hints": [
+    "The tree's shape is given as a level-order array (root first, then children level by level, breadth-first) with null marking a missing child; only the shape is trustworthy, every real value has been wiped to a placeholder.",
+    "Recompute values top-down from the shape alone: the root is always 0, a left child's true value is 2 * parent + 1, and a right child's true value is 2 * parent + 2 — but walk the array breadth-first the same way it was written (a missing child consumes its null slot but never reserves array space for grandchildren), don't assume a node's two children sit at fixed arithmetic offsets in the flat array.",
+    "Do a single queue-driven breadth-first pass over the array carrying along each node's already-recovered value, computing each child's value only when its slot is not null, and collect every recovered value into a set so find(target) is a plain membership check."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 10000] },
+    { "param": "target", "kind": "int", "value": [0, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "root with only a right child; target must recover the right-child formula",
+      "input": [["FindElements", "find", "find"], [[[-1, null, -1]], [1], [2]]] },
+    { "kind": "edge", "description": "root with only a left child; target must miss the never-computed right value",
+      "input": [["FindElements", "find", "find"], [[[-1, -1, null]], [1], [2]]] },
+    { "kind": "boundary", "description": "single contaminated node, only the root value (0) exists",
+      "input": [["FindElements", "find", "find"], [[[-1]], [0], [1]]] },
+    { "kind": "boundary", "description": "a full three-level tree, querying the deepest recovered value and one just out of reach",
+      "input": [["FindElements", "find", "find"], [[[-1, -1, -1, -1, -1, -1, -1]], [6], [7]]] },
+    { "kind": "trap", "description": "a null on the root's left branch shifts every later array slot leftward compared to naive fixed-offset (2i+1/2i+2) indexing on the flat array; a solution that assumes fixed offsets instead of walking the shape breadth-first will miss the grandchild",
+      "input": [["FindElements", "find", "find"], [[[-1, null, -1, -1]], [5], [15]]] },
+    { "kind": "trap", "description": "a lopsided chain of only-left children (root down four levels); nearby values that look plausible but were never on the all-left path must be rejected",
+      "input": [["FindElements", "find", "find", "find"], [[[-1, -1, null, -1, null, -1]], [7], [6], [15]]] },
+    { "kind": "trap", "description": "querying target 0 must succeed only through the root, and a value that was never assigned on any path must fail",
+      "input": [["FindElements", "find", "find"], [[[-1, null, -1, null, -1]], [0], [5]]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree shapes of varying size and depth, queried with a mix of recoverable and bogus targets",
+      "seed": 17,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    def build(depth):\n        if depth <= 0 or rng.random() < 0.35:\n            return None\n        return [build(depth - 1), build(depth - 1)]\n    def to_level_order(node):\n        out = []\n        queue = [node]\n        while queue:\n            cur = queue.pop(0)\n            if cur is None:\n                out.append(None)\n                continue\n            out.append(-1)\n            queue.append(cur[0])\n            queue.append(cur[1])\n        while out and out[-1] is None:\n            out.pop()\n        return out\n    depth = rng.randint(1, 8)\n    rooted = [build(depth - 1), build(depth - 1)]\n    level_order = to_level_order(rooted)\n    queries = max(1, size // 20)\n    ops = ['FindElements']\n    args = [[level_order]]\n    for _ in range(queries):\n        ops.append('find')\n        args.append([rng.randint(0, 2 ** min(depth + 2, 18))])\n    return [ops, args]\n",
+      "note": "the harness never sees a real TreeNode object here — root travels as a plain level-order array of -1/null placeholders built by the same breadth-first serializer the reference deserializes with, guaranteeing every generated shape is well-formed"
+    }
+  ],
+  "oracle_python": "class _Node:\n    __slots__ = (\"val\", \"left\", \"right\")\n\n    def __init__(self, val):\n        self.val = val\n        self.left = None\n        self.right = None\n\n\ndef _build(root_arr):\n    if not root_arr or root_arr[0] is None:\n        return None\n    n = len(root_arr)\n    root = _Node(0)\n    queue = [root]\n    i = 1\n    while queue and i < n:\n        node = queue.pop(0)\n        if i < n:\n            if root_arr[i] is not None:\n                node.left = _Node(2 * node.val + 1)\n                queue.append(node.left)\n            i += 1\n        if i < n:\n            if root_arr[i] is not None:\n                node.right = _Node(2 * node.val + 2)\n                queue.append(node.right)\n            i += 1\n    return root\n\n\ndef _collect(node, out):\n    if node is None:\n        return\n    out.add(node.val)\n    _collect(node.left, out)\n    _collect(node.right, out)\n\n\nclass FindElements:\n    def __init__(self, root):\n        tree = _build(root)\n        vals = set()\n        _collect(tree, vals)\n        self.values = vals\n\n    def find(self, target):\n        return target in self.values\n",
+  "solutions": {
+    "python": "class FindElements:\n    def __init__(self, root):\n        seen = set()\n        if root and root[0] is not None:\n            seen.add(0)\n            queue = [0]\n            i = 1\n            n = len(root)\n            while queue and i < n:\n                val = queue.pop(0)\n                if i < n:\n                    if root[i] is not None:\n                        lv = 2 * val + 1\n                        seen.add(lv)\n                        queue.append(lv)\n                    i += 1\n                if i < n:\n                    if root[i] is not None:\n                        rv = 2 * val + 2\n                        seen.add(rv)\n                        queue.append(rv)\n                    i += 1\n        self.seen = seen\n\n    def find(self, target):\n        return target in self.seen\n",
+    "javascript": "class FindElements {\n    constructor(root) {\n        const seen = new Set();\n        if (root.length && root[0] !== null) {\n            seen.add(0);\n            const queue = [0];\n            let i = 1;\n            const n = root.length;\n            while (queue.length && i < n) {\n                const val = queue.shift();\n                if (i < n) {\n                    if (root[i] !== null) {\n                        const lv = 2 * val + 1;\n                        seen.add(lv);\n                        queue.push(lv);\n                    }\n                    i += 1;\n                }\n                if (i < n) {\n                    if (root[i] !== null) {\n                        const rv = 2 * val + 2;\n                        seen.add(rv);\n                        queue.push(rv);\n                    }\n                    i += 1;\n                }\n            }\n        }\n        this.seen = seen;\n    }\n    find(target) {\n        return this.seen.has(target);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) build, O(1) per find", "space": "O(n)" }
+}

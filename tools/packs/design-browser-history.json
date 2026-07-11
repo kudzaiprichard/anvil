@@ -1,0 +1,45 @@
+{
+  "slug": "design-browser-history",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A single-tab browser's history is just a list with a cursor: visiting a new page truncates everything ahead of the cursor before appending, and back/forward simply clamp the cursor's movement to the list's bounds.",
+  "hints": [
+    "Keep every visited page in one growing list plus an integer cursor pointing at the current page; forward history is just 'everything in the list after the cursor'.",
+    "visit(url) must discard all entries after the cursor before appending url, so any forward history is permanently gone the moment a new page is visited.",
+    "back(steps) and forward(steps) move the cursor by steps but clamp it to stay within [0, list.length - 1]; both return the URL now sitting at the cursor."
+  ],
+  "constraints": [
+    { "param": "homepage", "kind": "string", "len": [1, 20] },
+    { "param": "url", "kind": "string", "len": [1, 20] },
+    { "param": "steps", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "visit a few pages then walk back and forward within range",
+      "input": [["BrowserHistory", "visit", "visit", "back", "forward", "back"], [["home.test"], ["a.test"], ["b.test"], [1], [1], [5]]] },
+    { "kind": "edge", "description": "visiting after going back truncates the forward history entirely",
+      "input": [["BrowserHistory", "visit", "visit", "back", "visit", "forward"], [["home.test"], ["a.test"], ["b.test"], [1], ["c.test"], [1]]] },
+    { "kind": "boundary", "description": "back/forward with steps larger than the entire history clamp to the two ends",
+      "input": [["BrowserHistory", "visit", "back", "forward"], [["home.test"], ["a.test"], [100], [100]]] },
+    { "kind": "boundary", "description": "no visits at all: back and forward from the homepage do nothing",
+      "input": [["BrowserHistory", "back", "forward"], [["home.test"], [3], [3]]] },
+    { "kind": "trap", "description": "forward immediately after a fresh visit (no prior back) must not move at all since there is no forward history",
+      "input": [["BrowserHistory", "visit", "forward", "back"], [["home.test"], ["a.test"], [1], [1]]] },
+    { "kind": "trap", "description": "repeated back calls that overshoot the start must settle on the homepage, not error or wrap",
+      "input": [["BrowserHistory", "visit", "visit", "visit", "back", "back", "back", "back"], [["home.test"], ["a.test"], ["b.test"], ["c.test"], [1], [1], [1], [1]]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of visit, back, and forward with small step counts",
+      "seed": 60,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    ops = ['BrowserHistory']\n    args = [['home.test']]\n    for i in range(max(1, size)):\n        r = rng.random()\n        if r < 0.5:\n            ops.append('visit')\n            args.append(['p%d.test' % i])\n        elif r < 0.75:\n            ops.append('back')\n            args.append([rng.randint(1, 5)])\n        else:\n            ops.append('forward')\n            args.append([rng.randint(1, 5)])\n    return [ops, args]\n",
+      "note": "small step counts keep back/forward frequently landing mid-history rather than always saturating at an end"
+    }
+  ],
+  "oracle_python": "class BrowserHistory:\n    def __init__(self, homepage):\n        self.pages = [homepage]\n        self.cursor = 0\n\n    def visit(self, url):\n        del self.pages[self.cursor + 1:]\n        self.pages.append(url)\n        self.cursor = len(self.pages) - 1\n\n    def back(self, steps):\n        self.cursor = max(0, self.cursor - steps)\n        return self.pages[self.cursor]\n\n    def forward(self, steps):\n        self.cursor = min(len(self.pages) - 1, self.cursor + steps)\n        return self.pages[self.cursor]\n",
+  "solutions": {
+    "python": "class BrowserHistory:\n    def __init__(self, homepage):\n        self.history = [homepage]\n        self.pos = 0\n\n    def visit(self, url):\n        self.history = self.history[:self.pos + 1]\n        self.history.append(url)\n        self.pos += 1\n\n    def back(self, steps):\n        self.pos = max(0, self.pos - steps)\n        return self.history[self.pos]\n\n    def forward(self, steps):\n        self.pos = min(len(self.history) - 1, self.pos + steps)\n        return self.history[self.pos]\n",
+    "javascript": "class BrowserHistory {\n    constructor(homepage) {\n        this.history = [homepage];\n        this.pos = 0;\n    }\n    visit(url) {\n        this.history.length = this.pos + 1;\n        this.history.push(url);\n        this.pos += 1;\n    }\n    back(steps) {\n        this.pos = Math.max(0, this.pos - steps);\n        return this.history[this.pos];\n    }\n    forward(steps) {\n        this.pos = Math.min(this.history.length - 1, this.pos + steps);\n        return this.history[this.pos];\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) amortized per call", "space": "O(number of visits)" }
+}

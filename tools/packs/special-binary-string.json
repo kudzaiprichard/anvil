@@ -1,0 +1,37 @@
+{
+  "slug": "special-binary-string",
+  "judge": "exact",
+  "pattern": "Recursively decompose the string into its top-level balanced special chunks, maximise each chunk's interior the same way, then sort the chunks in descending order and concatenate to get the lexicographically largest arrangement.",
+  "hints": [
+    "Scan with a running balance of ones minus zeros; each time it returns to zero you have isolated one top-level special substring.",
+    "Every such chunk looks like 1 + (inner special string) + 0; recursively maximise that inner part before doing anything else.",
+    "Because swapping adjacent special substrings is allowed, you may reorder the top-level chunks freely; sort the maximised chunks in descending lexicographic order and join them."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "swap rearranges into the largest form", "input": ["11011000"] },
+    { "kind": "boundary", "description": "minimal special string is unchanged", "input": ["10"] },
+    { "kind": "edge", "description": "already maximal nested string", "input": ["1100"] },
+    { "kind": "trap", "description": "two equal chunks need no reordering", "input": ["1010"] },
+    { "kind": "edge", "description": "deeper nesting recurses inside a chunk", "input": ["110100"] },
+    { "kind": "trap", "description": "smaller chunk should move after larger", "input": ["10110100"] },
+    { "kind": "edge", "description": "fully nested staircase stays maximal", "input": ["111000"] }
+  ],
+  "stress": [
+    {
+      "description": "random valid special strings built by balanced construction",
+      "seed": 59,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    # build a random special (balanced, every prefix has >= ones than zeros) string\n    # by recursively wrapping/concatenating, capped at length 50\n    def build(budget):\n        if budget < 2:\n            return ''\n        parts = []\n        remaining = budget\n        while remaining >= 2:\n            inner_budget = rng.randint(0, remaining - 2)\n            inner_budget -= inner_budget % 2\n            chunk = '1' + build(inner_budget) + '0'\n            if len(chunk) > remaining:\n                break\n            parts.append(chunk)\n            remaining -= len(chunk)\n        return ''.join(parts)\n    total = rng.randint(1, 25) * 2\n    s = build(total)\n    if not s:\n        s = '10'\n    return [s]\n",
+      "note": "construction guarantees the string is special (balanced, valid prefixes)"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def makeLargestSpecial(self, s):\n        # independent: generate by recursion but reorder via explicit permutation-free sort with tuple key\n        if len(s) <= 2:\n            return s\n        chunks = []\n        bal = 0\n        start = 0\n        for i, ch in enumerate(s):\n            bal += 1 if ch == '1' else -1\n            if bal == 0:\n                inner = self.makeLargestSpecial(s[start + 1:i])\n                chunks.append('1' + inner + '0')\n                start = i + 1\n        chunks = sorted(chunks, reverse=True)\n        return ''.join(chunks)\n",
+  "solutions": {
+    "python": "class Solution:\n    def makeLargestSpecial(self, s):\n        count = 0\n        i = 0\n        subs = []\n        for j, ch in enumerate(s):\n            count += 1 if ch == '1' else -1\n            if count == 0:\n                subs.append('1' + self.makeLargestSpecial(s[i + 1:j]) + '0')\n                i = j + 1\n        subs.sort(reverse=True)\n        return ''.join(subs)\n",
+    "javascript": "var makeLargestSpecial = function(s) {\n    let count = 0, i = 0;\n    const subs = [];\n    for (let j = 0; j < s.length; j++) {\n        count += s[j] === '1' ? 1 : -1;\n        if (count === 0) {\n            subs.push('1' + makeLargestSpecial(s.slice(i + 1, j)) + '0');\n            i = j + 1;\n        }\n    }\n    subs.sort();\n    subs.reverse();\n    return subs.join('');\n};\n"
+  },
+  "complexity": { "time": "O(n^2 log n)", "space": "O(n)" }
+}

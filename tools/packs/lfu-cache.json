@@ -1,0 +1,50 @@
+{
+  "slug": "lfu-cache",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Bucketing keys by use-frequency, with each bucket kept in recency order, lets you evict the least-frequently-used key (breaking ties by least-recently-used) and promote a key across buckets all in constant time.",
+  "hints": [
+    "Eviction depends on two things at once: how often a key has been used, and among the least-used keys, which was touched longest ago.",
+    "Group keys by their current use count; the bucket holding the smallest count is where eviction happens, and within a bucket the oldest key loses.",
+    "Track the minimum frequency present; on every get or put bump the key into the next frequency bucket as a most-recent entry, and when full drop the oldest key from the minimum-frequency bucket."
+  ],
+  "constraints": [
+    { "param": "capacity", "kind": "int", "value": [1, 10000] },
+    { "param": "key", "kind": "int", "value": [0, 100000] },
+    { "param": "value", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "frequency tiebreak falls back to least-recently-used",
+      "input": [["LFUCache", "put", "put", "get", "put", "get", "get", "put", "get", "get", "get"], [[2], [1, 1], [2, 2], [1], [3, 3], [2], [3], [4, 4], [1], [3], [4]]] },
+    { "kind": "boundary", "description": "capacity one keeps only the most recent key",
+      "input": [["LFUCache", "put", "get", "put", "get", "get"], [[1], [1, 10], [1], [2, 20], [1], [2]]] },
+    { "kind": "trap", "description": "a get raises a key's frequency and protects it from eviction",
+      "input": [["LFUCache", "put", "put", "get", "put", "get", "get"], [[2], [1, 1], [2, 2], [1], [3, 3], [1], [2]]] },
+    { "kind": "trap", "description": "updating an existing key also counts as a use and changes its frequency",
+      "input": [["LFUCache", "put", "put", "put", "get", "put", "get", "get"], [[2], [1, 1], [2, 2], [1, 11], [1], [3, 3], [1], [2]]] },
+    { "kind": "edge", "description": "all keys reach equal frequency so eviction is purely recency-based",
+      "input": [["LFUCache", "put", "put", "get", "get", "put", "get", "get"], [[2], [1, 1], [2, 2], [1], [2], [3, 3], [3], [1]]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized get/put workload against a small capacity and small key space",
+      "seed": 19,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    cap = rng.randint(1, 8)\n    ops = ['LFUCache']\n    args = [[cap]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.5:\n            ops.append('put'); args.append([rng.randint(0, 12), rng.randint(0, 1000)])\n        else:\n            ops.append('get'); args.append([rng.randint(0, 12)])\n    return [ops, args]\n",
+      "note": "small key space forces frequent hits, evictions, and frequency ties"
+    },
+    {
+      "description": "put-heavy workload to stress eviction and tiebreaking paths",
+      "seed": 37,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    cap = rng.randint(1, 5)\n    ops = ['LFUCache']\n    args = [[cap]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.75:\n            ops.append('put'); args.append([rng.randint(0, 8), rng.randint(0, 100)])\n        else:\n            ops.append('get'); args.append([rng.randint(0, 8)])\n    return [ops, args]\n",
+      "note": "heavy puts against a tiny capacity exercise the least-frequently-used eviction order"
+    }
+  ],
+  "oracle_python": "class LFUCache:\n    def __init__(self, capacity):\n        self.cap = capacity\n        self.store = {}\n        self.freq = {}\n        self.tick = 0\n        self.last = {}\n    def _touch(self, key):\n        self.freq[key] = self.freq.get(key, 0) + 1\n        self.tick += 1\n        self.last[key] = self.tick\n    def get(self, key):\n        if key not in self.store:\n            return -1\n        self._touch(key)\n        return self.store[key]\n    def put(self, key, value):\n        if self.cap <= 0:\n            return\n        if key in self.store:\n            self.store[key] = value\n            self._touch(key)\n            return\n        if len(self.store) >= self.cap:\n            victim = min(self.store, key=lambda k: (self.freq[k], self.last[k]))\n            del self.store[victim]\n            del self.freq[victim]\n            del self.last[victim]\n        self.store[key] = value\n        self.freq[key] = 0\n        self._touch(key)\n",
+  "solutions": {
+    "python": "from collections import defaultdict, OrderedDict\n\n\nclass LFUCache:\n    def __init__(self, capacity):\n        self.cap = capacity\n        self.vals = {}\n        self.counts = {}\n        self.buckets = defaultdict(OrderedDict)\n        self.minf = 0\n    def _bump(self, key):\n        c = self.counts[key]\n        del self.buckets[c][key]\n        if not self.buckets[c]:\n            del self.buckets[c]\n            if self.minf == c:\n                self.minf = c + 1\n        self.counts[key] = c + 1\n        self.buckets[c + 1][key] = None\n    def get(self, key):\n        if key not in self.vals:\n            return -1\n        self._bump(key)\n        return self.vals[key]\n    def put(self, key, value):\n        if self.cap <= 0:\n            return\n        if key in self.vals:\n            self.vals[key] = value\n            self._bump(key)\n            return\n        if len(self.vals) >= self.cap:\n            victim, _ = self.buckets[self.minf].popitem(last=False)\n            del self.vals[victim]\n            del self.counts[victim]\n        self.vals[key] = value\n        self.counts[key] = 1\n        self.buckets[1][key] = None\n        self.minf = 1\n",
+    "javascript": "class LFUCache {\n    constructor(capacity) {\n        this.cap = capacity;\n        this.vals = new Map();\n        this.counts = new Map();\n        this.buckets = new Map();\n        this.minf = 0;\n    }\n    _bucket(c) {\n        if (!this.buckets.has(c)) this.buckets.set(c, new Map());\n        return this.buckets.get(c);\n    }\n    _bump(key) {\n        const c = this.counts.get(key);\n        const b = this._bucket(c);\n        b.delete(key);\n        if (b.size === 0) {\n            this.buckets.delete(c);\n            if (this.minf === c) this.minf = c + 1;\n        }\n        this.counts.set(key, c + 1);\n        this._bucket(c + 1).set(key, true);\n    }\n    get(key) {\n        if (!this.vals.has(key)) return -1;\n        this._bump(key);\n        return this.vals.get(key);\n    }\n    put(key, value) {\n        if (this.cap <= 0) return;\n        if (this.vals.has(key)) {\n            this.vals.set(key, value);\n            this._bump(key);\n            return;\n        }\n        if (this.vals.size >= this.cap) {\n            const b = this._bucket(this.minf);\n            const victim = b.keys().next().value;\n            b.delete(victim);\n            this.vals.delete(victim);\n            this.counts.delete(victim);\n        }\n        this.vals.set(key, value);\n        this.counts.set(key, 1);\n        this._bucket(1).set(key, true);\n        this.minf = 1;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(capacity)" }
+}

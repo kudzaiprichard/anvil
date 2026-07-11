@@ -1,0 +1,216 @@
+{
+  "slug": "the-time-when-the-network-becomes-idle",
+  "judge": "exact",
+  "pattern": "The reply for every message follows the unique tree-shortest path back, so once each server's round-trip time is known you can compute, in closed form, the last moment it will still be resending before the whole network falls silent.",
+  "hints": [
+    "Run a single BFS from the master (node 0) to get every server's shortest hop distance -- a message's round-trip time is just twice that hop count.",
+    "A server keeps resending at multiples of its own patience value only while the reply from its very first send hasn't arrived yet; find the last such resend time before round-trip time elapses.",
+    "The network's idle second is one past the LAST message any server ever sends arriving back -- take the maximum, over every server, of (its last send time + its round trip), then add one."
+  ],
+  "constraints": [
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    },
+    {
+      "param": "patience",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single edge, tight patience forces exactly one resend",
+      "input": [
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "star graph, three servers with different patience values",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ]
+        ],
+        [
+          0,
+          3,
+          1,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "patience at its maximum value so the server never resends",
+      "input": [
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          0,
+          100000
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum patience value of 1 on a two-hop chain",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        [
+          0,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "round trip time is an exact multiple of the patience value",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        [
+          0,
+          2,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a cycle exists in the network alongside a longer branch",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        [
+          0,
+          4,
+          4,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a long chain to exercise larger hop distances",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        [
+          0,
+          3,
+          3,
+          3,
+          3
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random tree of servers (guaranteed connected) with random patience per server",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = []\n    for i in range(1, n):\n        parent = rng.randint(0, i - 1)\n        edges.append([parent, i])\n    patience = [0] + [rng.randint(1, 100000) for _ in range(n - 1)]\n    return [edges, patience]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque, defaultdict\n\nclass Solution:\n    def networkBecomesIdle(self, edges, patience):\n        n = len(patience)\n        graph = defaultdict(list)\n        for u, v in edges:\n            graph[u].append(v)\n            graph[v].append(u)\n        dist = [-1] * n\n        dist[0] = 0\n        q = deque([0])\n        while q:\n            u = q.popleft()\n            for v in graph[u]:\n                if dist[v] == -1:\n                    dist[v] = dist[u] + 1\n                    q.append(v)\n        ans = 0\n        for i in range(1, n):\n            rt = 2 * dist[i]\n            p = patience[i]\n            k = 0\n            last_sent = 0\n            while k * p < rt:\n                last_sent = k * p\n                k += 1\n            ans = max(ans, last_sent + rt + 1)\n        return ans\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def networkBecomesIdle(self, edges, patience):\n        n = len(patience)\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        dist = [-1] * n\n        dist[0] = 0\n        q = deque([0])\n        while q:\n            u = q.popleft()\n            for v in adj[u]:\n                if dist[v] == -1:\n                    dist[v] = dist[u] + 1\n                    q.append(v)\n        ans = 0\n        for i in range(1, n):\n            rt = 2 * dist[i]\n            p = patience[i]\n            if rt <= p:\n                last_sent = 0\n            else:\n                cnt = (rt - 1) // p\n                last_sent = cnt * p\n            ans = max(ans, last_sent + rt + 1)\n        return ans\n",
+    "javascript": "var networkBecomesIdle = function(edges, patience) {\n    const n = patience.length;\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v] of edges) {\n        adj[u].push(v);\n        adj[v].push(u);\n    }\n    const dist = new Array(n).fill(-1);\n    dist[0] = 0;\n    const queue = [0];\n    let head = 0;\n    while (head < queue.length) {\n        const u = queue[head++];\n        for (const v of adj[u]) {\n            if (dist[v] === -1) {\n                dist[v] = dist[u] + 1;\n                queue.push(v);\n            }\n        }\n    }\n    let ans = 0;\n    for (let i = 1; i < n; i++) {\n        const rt = 2 * dist[i];\n        const p = patience[i];\n        let lastSent;\n        if (rt <= p) {\n            lastSent = 0;\n        } else {\n            const cnt = Math.floor((rt - 1) / p);\n            lastSent = cnt * p;\n        }\n        ans = Math.max(ans, lastSent + rt + 1);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + m)",
+    "space": "O(n + m)"
+  }
+}

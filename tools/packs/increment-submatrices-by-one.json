@@ -1,0 +1,216 @@
+{
+  "slug": "increment-submatrices-by-one",
+  "judge": "exact",
+  "pattern": "Adding 1 to an entire rectangle is a 2D range update, so marking only the four corners of an (n+1)x(n+1) difference grid and then sweeping a 2D prefix sum over it reconstructs every cell's final count without ever touching a cell more than a constant number of times.",
+  "hints": [
+    "Adding 1 to a whole rectangle for every query, cell by cell, is wasteful -- there's a way to record each rectangle update in constant time and only 'pay' for it once at the end.",
+    "Build a helper grid one row and one column larger than the answer. For a query with corners (r1,c1)-(r2,c2), bump the helper at (r1,c1) by +1, and cancel that bump just past each edge: at (r1,c2+1), at (r2+1,c1), and undo both cancellations together at (r2+1,c2+1).",
+    "After every query has left its four marks, sweep the helper grid with a 2D running sum (each cell adds the running total from the cell above and the cell to the left, minus the overlap) -- the value that lands on each cell is exactly how many queries covered it."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        500
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        10000
+      ],
+      "value": [
+        0,
+        499
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "smallest possible grid, a single query covering its only cell",
+      "input": [
+        1,
+        [
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two overlapping rectangles on a small grid",
+      "input": [
+        4,
+        [
+          [
+            0,
+            0,
+            2,
+            2
+          ],
+          [
+            1,
+            1,
+            3,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the same rectangle requested three times, so overlap counts must stack correctly",
+      "input": [
+        3,
+        [
+          [
+            0,
+            0,
+            2,
+            2
+          ],
+          [
+            0,
+            0,
+            2,
+            2
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "many single-cell queries scattered across the grid rather than one big rectangle",
+      "input": [
+        3,
+        [
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            2,
+            2
+          ],
+          [
+            0,
+            2,
+            0,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a full single row and a full single column update",
+      "input": [
+        4,
+        [
+          [
+            1,
+            0,
+            1,
+            3
+          ],
+          [
+            0,
+            2,
+            3,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "one query covering the entire grid",
+      "input": [
+        5,
+        [
+          [
+            0,
+            0,
+            4,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "non-overlapping tiles that exactly partition a 4x4 grid into four quadrants",
+      "input": [
+        4,
+        [
+          [
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            2,
+            1,
+            3
+          ],
+          [
+            2,
+            0,
+            3,
+            1
+          ],
+          [
+            2,
+            2,
+            3,
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-maximum grid with thousands of random (validly ordered) rectangle queries",
+      "seed": 5,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = 500\n    q = max(1, min(size, 10000))\n    queries = []\n    for _ in range(q):\n        r1 = rng.randint(0, n - 1)\n        r2 = rng.randint(r1, n - 1)\n        c1 = rng.randint(0, n - 1)\n        c2 = rng.randint(c1, n - 1)\n        queries.append([r1, c1, r2, c2])\n    return [n, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def rangeAddQueries(self, n, queries):\n        mat = [[0] * n for _ in range(n)]\n        for r1, c1, r2, c2 in queries:\n            for x in range(r1, r2 + 1):\n                for y in range(c1, c2 + 1):\n                    mat[x][y] += 1\n        return mat\n",
+  "solutions": {
+    "python": "class Solution:\n    def rangeAddQueries(self, n, queries):\n        diff = [[0] * (n + 1) for _ in range(n + 1)]\n        for r1, c1, r2, c2 in queries:\n            diff[r1][c1] += 1\n            diff[r1][c2 + 1] -= 1\n            diff[r2 + 1][c1] -= 1\n            diff[r2 + 1][c2 + 1] += 1\n        mat = [[0] * n for _ in range(n)]\n        for i in range(n):\n            row_running = 0\n            for j in range(n):\n                row_running += diff[i][j]\n                above = mat[i - 1][j] if i > 0 else 0\n                mat[i][j] = row_running + above\n        return mat\n",
+    "javascript": "var rangeAddQueries = function(n, queries) {\n    const diff = Array.from({ length: n + 1 }, () => new Array(n + 1).fill(0));\n    for (const [r1, c1, r2, c2] of queries) {\n        diff[r1][c1] += 1;\n        diff[r1][c2 + 1] -= 1;\n        diff[r2 + 1][c1] -= 1;\n        diff[r2 + 1][c2 + 1] += 1;\n    }\n    const mat = Array.from({ length: n }, () => new Array(n).fill(0));\n    for (let i = 0; i < n; i++) {\n        let rowRunning = 0;\n        for (let j = 0; j < n; j++) {\n            rowRunning += diff[i][j];\n            const above = i > 0 ? mat[i - 1][j] : 0;\n            mat[i][j] = rowRunning + above;\n        }\n    }\n    return mat;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2 + q)",
+    "space": "O(n^2)"
+  }
+}

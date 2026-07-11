@@ -1,0 +1,37 @@
+{
+  "slug": "earliest-second-to-mark-indices-i",
+  "judge": "exact",
+  "pattern": "Binary search on the answer (earliest second), then greedily verify feasibility: work backwards through changeIndices to schedule decrement operations and markings.",
+  "hints": [
+    "Binary search on time T in [1, m]; check if it's possible to mark all indices within T seconds.",
+    "For feasibility at time T: iterate seconds from T down to 1 — greedily use the last occurrence of each index in changeIndices as the marking second, and spend the remaining seconds decrementing.",
+    "Each index i needs nums[i] decrement operations plus 1 marking second; the total must fit within T — track a 'budget' of free decrement seconds as you scan backwards."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 2000], "value": [0, 1000000000] },
+    { "param": "changeIndices", "kind": "int[]", "len": [1, 2000], "value": [1, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all nums already zero — only need marking seconds", "input": [[0, 0, 0], [1, 2, 3]] },
+    { "kind": "edge", "description": "index never appears in changeIndices — impossible", "input": [[0, 1], [2, 2, 2]] },
+    { "kind": "edge", "description": "single element needing no decrements", "input": [[0], [1, 1, 1]] },
+    { "kind": "edge", "description": "single element needing decrements", "input": [[3], [1, 1, 1, 1, 1]] },
+    { "kind": "boundary", "description": "barely enough time — all operations must be perfectly scheduled", "input": [[1, 1], [1, 2, 1, 2]] },
+    { "kind": "trap", "description": "changeIndices lists an index multiple times — use the latest occurrence for marking", "input": [[2, 2, 0], [2, 2, 2, 2, 3, 2, 2, 1]] },
+    { "kind": "trap", "description": "not enough seconds to decrement before marking", "input": [[5], [1, 1, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "small random nums and changeIndices to stress the binary search + feasibility logic",
+      "seed": 9,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, min(size, 20))\n    m = size\n    nums = [rng.randint(0, 5) for _ in range(n)]\n    # ensure every index appears at least once\n    changeIndices = [rng.randint(1, n) for _ in range(m)]\n    for i in range(1, n + 1):\n        changeIndices[rng.randint(0, m - 1)] = i\n    return [nums, changeIndices]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def earliestSecondToMarkIndices(self, nums, changeIndices):\n        n, m = len(nums), len(changeIndices)\n        def feasible(T):\n            last = [-1] * (n + 1)\n            for s in range(T):\n                last[changeIndices[s]] = s\n            if any(last[i] == -1 for i in range(1, n + 1)):\n                return False\n            marking = sorted((last[i], i) for i in range(1, n + 1))\n            free = 0\n            prev = 0\n            for pos, idx in marking:\n                free += pos - prev\n                if free < nums[idx - 1]:\n                    return False\n                free -= nums[idx - 1]\n                prev = pos + 1\n            return True\n        for T in range(1, m + 1):\n            if feasible(T):\n                return T\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def earliestSecondToMarkIndices(self, nums, changeIndices):\n        n, m = len(nums), len(changeIndices)\n        def feasible(T):\n            last = [-1] * (n + 1)\n            for s in range(T):\n                last[changeIndices[s]] = s\n            if any(last[i] == -1 for i in range(1, n + 1)):\n                return False\n            marking = sorted((last[i], i) for i in range(1, n + 1))\n            free = 0\n            prev = 0\n            for pos, idx in marking:\n                free += pos - prev\n                if free < nums[idx - 1]:\n                    return False\n                free -= nums[idx - 1]\n                prev = pos + 1\n            return True\n        lo, hi = 1, m\n        ans = -1\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                ans = mid\n                hi = mid - 1\n            else:\n                lo = mid + 1\n        return ans\n",
+    "javascript": "var earliestSecondToMarkIndices = function(nums, changeIndices) {\n    const n = nums.length, m = changeIndices.length;\n    function feasible(T) {\n        const last = new Array(n + 1).fill(-1);\n        for (let s = 0; s < T; s++) last[changeIndices[s]] = s;\n        for (let i = 1; i <= n; i++) if (last[i] === -1) return false;\n        const marking = [];\n        for (let i = 1; i <= n; i++) marking.push([last[i], i]);\n        marking.sort((a, b) => a[0] - b[0]);\n        let free = 0, prev = 0;\n        for (const [pos, idx] of marking) {\n            free += pos - prev;\n            if (free < nums[idx - 1]) return false;\n            free -= nums[idx - 1];\n            prev = pos + 1;\n        }\n        return true;\n    }\n    let lo = 1, hi = m, ans = -1;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (feasible(mid)) { ans = mid; hi = mid - 1; }\n        else lo = mid + 1;\n    }\n    return ans;\n};"
+  },
+  "complexity": { "time": "O(m log m)", "space": "O(n)" }
+}

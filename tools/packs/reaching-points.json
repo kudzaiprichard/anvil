@@ -1,0 +1,48 @@
+{
+  "slug": "reaching-points",
+  "judge": "exact",
+  "pattern": "Working backwards from the target and using modulo to collapse long chains of repeated subtraction turns an exponential forward search into a near-logarithmic walk.",
+  "hints": [
+    "Searching forward branches in two directions and explodes; the target is reached far more directly by undoing moves from the end.",
+    "From a point the only previous state is obtained by subtracting the smaller coordinate from the larger, and many such subtractions in a row can be done at once with a remainder.",
+    "While both target coordinates exceed the start, reduce the larger one modulo the smaller; once one coordinate matches its start, check whether the other can be reached by subtracting whole multiples of the fixed start coordinate."
+  ],
+  "constraints": [
+    { "param": "sx", "kind": "int", "value": [1, 1000000000] },
+    { "param": "sy", "kind": "int", "value": [1, 1000000000] },
+    { "param": "tx", "kind": "int", "value": [1, 1000000000] },
+    { "param": "ty", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "reachable via a mix of both move types", "input": [1, 1, 3, 5] },
+    { "kind": "trap", "description": "target looks close but is unreachable", "input": [1, 1, 2, 2] },
+    { "kind": "edge", "description": "start already equals target", "input": [1, 1, 1, 1] },
+    { "kind": "boundary", "description": "one axis fixed, reachable by repeated addition", "input": [1, 1, 1, 1000000000] },
+    { "kind": "trap", "description": "one axis fixed but the other is not a reachable multiple", "input": [3, 5, 3, 4] },
+    { "kind": "edge", "description": "single straight chain on the x axis", "input": [2, 3, 11, 3] },
+    { "kind": "trap", "description": "target smaller than start cannot be reached", "input": [5, 5, 3, 4] },
+    { "kind": "edge", "description": "large coprime start reduces via modulo", "input": [9, 5, 12, 8] }
+  ],
+  "stress": [
+    {
+      "description": "construct reachable targets by replaying a bounded number of random forward moves so the answer is genuinely true",
+      "seed": 11,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    sx = rng.randint(1, 20)\n    sy = rng.randint(1, 20)\n    x, y = sx, sy\n    steps = rng.randint(0, min(30, max(1, size)))\n    for _ in range(steps):\n        if rng.random() < 0.5:\n            y = x + y\n        else:\n            x = x + y\n        if x > 5000 or y > 5000:\n            x, y = sx, sy\n            break\n    return [sx, sy, x, y]\n",
+      "note": "bounded moves keep targets small so the one-step-back oracle stays fast while remaining reachable"
+    },
+    {
+      "description": "small random quadruples that are usually unreachable so the bounded oracle stays fast while disagreeing-prone cases are covered",
+      "seed": 12,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    return [rng.randint(1, 40), rng.randint(1, 40), rng.randint(1, 400), rng.randint(1, 400)]\n",
+      "note": "small coordinates keep the one-step-back oracle tractable"
+    }
+  ],
+  "oracle_python": "import sys\n\nclass Solution:\n    def reachingPoints(self, sx, sy, tx, ty):\n        # Independent recursion: a target (x, y) is reachable iff its unique\n        # predecessor is reachable. The predecessor subtracts the smaller axis\n        # from the larger; we recurse on that single parent. A guard handles the\n        # case where one axis already equals its start (then only repeated\n        # addition along the other axis remains).\n        sys.setrecursionlimit(1000000)\n        def rec(x, y):\n            if x < sx or y < sy:\n                return False\n            if x == sx and y == sy:\n                return True\n            if x == sx:\n                return (y - sy) % sx == 0\n            if y == sy:\n                return (x - sx) % sy == 0\n            if x > y:\n                return rec(x - y, y)\n            if y > x:\n                return rec(x, y - x)\n            return False\n        # iterative form of the same recursion to avoid deep stacks\n        x, y = tx, ty\n        while True:\n            if x < sx or y < sy:\n                return False\n            if x == sx and y == sy:\n                return True\n            if x == sx:\n                return (y - sy) % sx == 0\n            if y == sy:\n                return (x - sx) % sy == 0\n            if x > y:\n                x -= y\n            elif y > x:\n                y -= x\n            else:\n                return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def reachingPoints(self, sx, sy, tx, ty):\n        while tx >= sx and ty >= sy:\n            if tx == sx and ty == sy:\n                return True\n            if tx > ty:\n                if ty > sy:\n                    tx %= ty\n                else:\n                    return (tx - sx) % ty == 0\n            elif ty > tx:\n                if tx > sx:\n                    ty %= tx\n                else:\n                    return (ty - sy) % tx == 0\n            else:\n                return False\n        return False\n",
+    "javascript": "var reachingPoints = function(sx, sy, tx, ty) {\n    while (tx >= sx && ty >= sy) {\n        if (tx === sx && ty === sy) return true;\n        if (tx > ty) {\n            if (ty > sy) tx %= ty;\n            else return (tx - sx) % ty === 0;\n        } else if (ty > tx) {\n            if (tx > sx) ty %= tx;\n            else return (ty - sy) % tx === 0;\n        } else {\n            return false;\n        }\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(log(max(tx, ty)))", "space": "O(1)" }
+}

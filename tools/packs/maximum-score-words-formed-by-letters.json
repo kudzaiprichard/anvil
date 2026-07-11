@@ -1,0 +1,67 @@
+{
+  "slug": "maximum-score-words-formed-by-letters",
+  "judge": "exact",
+  "pattern": "Enumerate every subset of the word list with bitmask iteration; for each subset check letter availability by summing character frequencies and comparing against the letter supply; track the maximum valid subset score.",
+  "hints": [
+    "With at most 14 words, there are at most 2^14 = 16384 subsets — enumerate all of them directly rather than searching.",
+    "For each subset, tally the total frequency of every letter needed by the chosen words and compare that against the available supply from the letters list; if any letter is over-budget, the subset is invalid.",
+    "Accumulate the per-letter score for each valid subset using the score array indexed by the character's ordinal, and keep the running maximum across all valid subsets."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 14], "note": "each word has length 1..15, lowercase letters only" },
+    { "param": "letters", "kind": "string[]", "len": [1, 100], "note": "each element is a single lowercase letter" },
+    { "param": "score", "kind": "int[]", "note": "exactly 26 elements, one per lowercase letter a-z", "value": [0, 10] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "overlapping letter demands — only one high-value word can be chosen because both need the same scarce letter",
+      "input": [["ab", "ba"], ["a", "b"], [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+    },
+    {
+      "kind": "edge",
+      "description": "single word that exactly exhausts the supply",
+      "input": [["abc"], ["a","b","c"], [3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+    },
+    {
+      "kind": "trap",
+      "description": "all words are individually affordable but together exceed the supply — greedy by score fails",
+      "input": [["aab","bbc"], ["a","a","b","b","c"], [5,3,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+    },
+    {
+      "kind": "trap",
+      "description": "no letter has a non-zero score, so the answer must be 0 regardless of which subset is chosen",
+      "input": [["cat","dog"], ["c","a","t","d","o","g"], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+    },
+    {
+      "kind": "boundary",
+      "description": "one word, insufficient letters — result is 0",
+      "input": [["zz"], ["z"], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10]]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum word count — 14 words that each need a distinct letter, all affordable",
+      "input": [["a","b","c","d","e","f","g","h","i","j","k","l","m","n"], ["a","b","c","d","e","f","g","h","i","j","k","l","m","n"], [1,2,3,4,5,6,7,8,9,10,9,8,7,6,0,0,0,0,0,0,0,0,0,0,0,0]]
+    },
+    {
+      "kind": "trap",
+      "description": "choosing the subset with individually highest-scoring words is suboptimal compared to a larger subset of lower-scoring words",
+      "input": [["aaa","b","b"], ["a","a","a","b","b"], [3,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "14 words of length 10 drawn from a restricted alphabet — many subsets are valid, stress-tests the full 16384 enumeration",
+      "seed": 53,
+      "size": 14,
+      "generator_python": "def gen(rng, size):\n    import string\n    alpha = 'abcde'\n    words = []\n    for _ in range(14):\n        length = rng.randint(3, 8)\n        words.append(''.join(rng.choice(alpha) for _ in range(length)))\n    supply = {}\n    for w in words:\n        for ch in w:\n            supply[ch] = supply.get(ch, 0) + 1\n    # give exactly the supply of each letter so all words are marginally affordable\n    letters = []\n    for ch, cnt in supply.items():\n        letters.extend([ch] * cnt)\n    score = [rng.randint(0, 10) for _ in range(26)]\n    return [words, letters, score]\n",
+      "note": "all 14 words affordable individually; tight supply forces subset search to find the real maximum"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxScoreWords(self, words, letters, score):\n        from collections import Counter\n        # brute-force: try every subset via recursive enumeration\n        supply = Counter(letters)\n        n = len(words)\n        best = 0\n        def bt(i, avail, current_score):\n            nonlocal best\n            if i == n:\n                best = max(best, current_score)\n                return\n            # skip word i\n            bt(i + 1, avail, current_score)\n            # try to use word i\n            needed = Counter(words[i])\n            for ch, cnt in needed.items():\n                if avail.get(ch, 0) < cnt:\n                    return\n            new_avail = dict(avail)\n            word_score = 0\n            for ch, cnt in needed.items():\n                new_avail[ch] = new_avail[ch] - cnt\n                word_score += score[ord(ch) - ord('a')] * cnt\n            bt(i + 1, new_avail, current_score + word_score)\n        bt(0, dict(supply), 0)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxScoreWords(self, words, letters, score):\n        from collections import Counter\n        supply = Counter(letters)\n        n = len(words)\n        best = 0\n        for mask in range(1 << n):\n            freq = Counter()\n            total = 0\n            valid = True\n            for i in range(n):\n                if mask >> i & 1:\n                    for ch in words[i]:\n                        freq[ch] += 1\n                        total += score[ord(ch) - ord('a')]\n            for ch, cnt in freq.items():\n                if supply[ch] < cnt:\n                    valid = False\n                    break\n            if valid:\n                best = max(best, total)\n        return best\n",
+    "javascript": "var maxScoreWords = function(words, letters, score) {\n    const supply = new Array(26).fill(0);\n    for (const ch of letters) supply[ch.charCodeAt(0) - 97]++;\n    const n = words.length;\n    let best = 0;\n    for (let mask = 0; mask < (1 << n); mask++) {\n        const freq = new Array(26).fill(0);\n        let total = 0;\n        let valid = true;\n        for (let i = 0; i < n; i++) {\n            if ((mask >> i) & 1) {\n                for (const ch of words[i]) {\n                    freq[ch.charCodeAt(0) - 97]++;\n                    total += score[ch.charCodeAt(0) - 97];\n                }\n            }\n        }\n        for (let c = 0; c < 26; c++) {\n            if (freq[c] > supply[c]) { valid = false; break; }\n        }\n        if (valid) best = Math.max(best, total);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(2^n * W)", "space": "O(26)" }
+}

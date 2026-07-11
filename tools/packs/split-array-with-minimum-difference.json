@@ -1,0 +1,46 @@
+{
+  "slug": "split-array-with-minimum-difference",
+  "judge": "exact",
+  "pattern": "Precomputing how far the strictly-increasing prefix and strictly-decreasing suffix extend reduces the valid-split test at each cut to two O(1) lookups.",
+  "hints": [
+    "A cut after index i is valid only if everything up to i is strictly increasing and everything from i+1 on is strictly decreasing.",
+    "Find the longest strictly increasing run from the front and the longest strictly decreasing run from the back; a cut is valid when both runs reach the cut.",
+    "Let inc be the last index of the increasing prefix and dec the first index of the decreasing suffix. For each split point i where i < inc+1 covers the prefix and i+1 >= dec, use a running prefix sum to evaluate |left - right| and keep the minimum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two valid splits, smaller difference wins", "input": [[1, 3, 2]] },
+    { "kind": "edge", "description": "one early split invalid, two valid ones tie", "input": [[1, 2, 4, 3]] },
+    { "kind": "trap", "description": "no valid split exists", "input": [[3, 1, 2]] },
+    { "kind": "boundary", "description": "minimum length, valid", "input": [[1, 2]] },
+    { "kind": "boundary", "description": "minimum length, invalid (right cannot be decreasing of length one? always valid here)", "input": [[5, 1]] },
+    { "kind": "trap", "description": "strictly increasing whole array means only the last cut works", "input": [[1, 2, 3, 4, 5]] },
+    { "kind": "trap", "description": "strictly decreasing whole array means only the first cut works", "input": [[5, 4, 3, 2, 1]] },
+    { "kind": "edge", "description": "equal adjacent values break both monotonic runs", "input": [[2, 2, 2]] },
+    { "kind": "edge", "description": "increase then decrease with a wide valid window", "input": [[1, 3, 5, 4, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays that frequently produce both valid and invalid splits",
+      "seed": 101,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, rng.randrange(2, size + 1))\n    return [[rng.randrange(1, 50) for _ in range(n)]]\n",
+      "note": "small value range makes equal-neighbour traps common"
+    },
+    {
+      "description": "mountain-shaped arrays so many cuts are valid",
+      "seed": 102,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, rng.randrange(2, size + 1))\n    peak = rng.randrange(1, n)\n    left = sorted(rng.sample(range(1, 100001), peak))\n    right = sorted(rng.sample(range(1, 100001), n - peak), reverse=True)\n    return [left + right]\n",
+      "note": "guarantees a long increasing prefix and decreasing suffix"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def splitArray(self, nums):\n        n = len(nums)\n        best = -1\n        for i in range(n - 1):\n            left = nums[:i + 1]\n            right = nums[i + 1:]\n            ok = all(left[j] < left[j + 1] for j in range(len(left) - 1))\n            ok = ok and all(right[j] > right[j + 1] for j in range(len(right) - 1))\n            if ok:\n                d = abs(sum(left) - sum(right))\n                if best == -1 or d < best:\n                    best = d\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def splitArray(self, nums):\n        n = len(nums)\n        inc = 0\n        while inc + 1 < n and nums[inc] < nums[inc + 1]:\n            inc += 1\n        dec = n - 1\n        while dec - 1 >= 0 and nums[dec - 1] > nums[dec]:\n            dec -= 1\n        total = sum(nums)\n        prefix = 0\n        best = -1\n        for i in range(n - 1):\n            prefix += nums[i]\n            if i <= inc and i + 1 >= dec:\n                right = total - prefix\n                d = abs(prefix - right)\n                if best == -1 or d < best:\n                    best = d\n        return best\n",
+    "javascript": "var splitArray = function(nums) {\n    const n = nums.length;\n    let inc = 0;\n    while (inc + 1 < n && nums[inc] < nums[inc + 1]) inc++;\n    let dec = n - 1;\n    while (dec - 1 >= 0 && nums[dec - 1] > nums[dec]) dec--;\n    let total = 0;\n    for (const v of nums) total += v;\n    let prefix = 0, best = -1;\n    for (let i = 0; i < n - 1; i++) {\n        prefix += nums[i];\n        if (i <= inc && i + 1 >= dec) {\n            const right = total - prefix;\n            const d = Math.abs(prefix - right);\n            if (best === -1 || d < best) best = d;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

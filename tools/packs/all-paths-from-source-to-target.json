@@ -1,0 +1,37 @@
+{
+  "slug": "all-paths-from-source-to-target",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Because the graph is acyclic, a depth-first walk that extends the current path along each outgoing edge and records it on reaching the sink enumerates every source-to-sink route without revisiting concerns.",
+  "hints": [
+    "There are no cycles, so you never need a visited set; you can safely follow every outgoing edge as deep as it goes.",
+    "Carry the path built so far; on reaching the final node record a copy of it, otherwise recurse into each neighbor.",
+    "Depth-first from node 0 appending the current node to the path; when the path's last node is n-1 add it to the results, then backtrack to try other branches."
+  ],
+  "constraints": [
+    { "param": "graph", "kind": "int[][]", "len": [2, 15], "value": [0, 14] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two distinct paths to the sink", "input": [[[1, 2], [3], [3], []]] },
+    { "kind": "trap", "description": "branching graph with many paths of different lengths", "input": [[[4, 3, 1], [3, 2, 4], [3], [4], []]] },
+    { "kind": "boundary", "description": "minimum two-node graph with a single direct edge", "input": [[[1], []]] },
+    { "kind": "edge", "description": "linear chain has exactly one path", "input": [[[1], [2], [3], []]] },
+    { "kind": "trap", "description": "source connects directly and indirectly to the sink", "input": [[[1, 2, 3], [3], [3], []]] },
+    { "kind": "edge", "description": "diamond with extra cross edge", "input": [[[1, 2], [3, 4], [4], [5], [5], []]] }
+  ],
+  "stress": [
+    {
+      "description": "random DAGs over a topological numbering with guaranteed reachability of the sink",
+      "seed": 73,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, min(13, max(2, size)))\n    graph = [[] for _ in range(n)]\n    # edges only go from lower to higher index => acyclic\n    for u in range(n):\n        for v in range(u + 1, n):\n            if rng.random() < 0.45:\n                graph[u].append(v)\n    # ensure node 0 reaches n-1 and is not isolated where possible\n    # guarantee a spine path 0 -> ... -> n-1 by linking gaps\n    reachable = set([0])\n    order = list(range(n))\n    for u in order:\n        if u in reachable:\n            for v in graph[u]:\n                reachable.add(v)\n    if (n - 1) not in reachable:\n        graph[0].append(n - 1)\n        graph[0] = sorted(set(graph[0]))\n    return [graph]\n",
+      "note": "lower-to-higher edges keep it a DAG; node 0 to n-1 always has at least one path"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def allPathsSourceTarget(self, graph):\n        n = len(graph)\n        target = n - 1\n        from collections import deque\n        results = []\n        stack = [[0]]\n        while stack:\n            path = stack.pop()\n            node = path[-1]\n            if node == target:\n                results.append(path)\n                continue\n            for nb in graph[node]:\n                stack.append(path + [nb])\n        results.sort()\n        return results\n",
+  "solutions": {
+    "python": "class Solution:\n    def allPathsSourceTarget(self, graph):\n        n = len(graph)\n        target = n - 1\n        res = []\n        path = [0]\n        def dfs(node):\n            if node == target:\n                res.append(path[:])\n                return\n            for nb in graph[node]:\n                path.append(nb)\n                dfs(nb)\n                path.pop()\n        dfs(0)\n        res.sort()\n        return res\n",
+    "javascript": "var allPathsSourceTarget = function(graph) {\n    const n = graph.length;\n    const target = n - 1;\n    const res = [];\n    const path = [0];\n    function dfs(node) {\n        if (node === target) {\n            res.push(path.slice());\n            return;\n        }\n        for (const nb of graph[node]) {\n            path.push(nb);\n            dfs(nb);\n            path.pop();\n        }\n    }\n    dfs(0);\n    res.sort((a, b) => {\n        const m = Math.min(a.length, b.length);\n        for (let i = 0; i < m; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return a.length - b.length;\n    });\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(2^n * n)", "space": "O(2^n * n)" }
+}

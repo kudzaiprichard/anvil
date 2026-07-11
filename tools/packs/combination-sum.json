@@ -1,0 +1,41 @@
+{
+  "slug": "combination-sum",
+  "judge": { "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    candidates, target = args[0], args[1]\n    allowed = set(candidates)\n    cand = sorted(set(candidates))\n    correct = set()\n    def bt(i, remaining, path):\n        if remaining == 0:\n            correct.add(tuple(path)); return\n        if i >= len(cand):\n            return\n        v = cand[i]\n        k = 0\n        while v * k <= remaining:\n            bt(i + 1, remaining - v * k, path + [v] * k)\n            k += 1\n    bt(0, target, [])\n    seen = set()\n    for combo in output:\n        if not isinstance(combo, list):\n            return False\n        if not combo:\n            return False\n        if sum(combo) != target:\n            return False\n        for v in combo:\n            if v not in allowed:\n                return False\n        key = tuple(sorted(combo))\n        if key in seen:\n            return False\n        seen.add(key)\n    return seen == correct\n",
+    "validator_javascript": "function validate(args, output) {\n    const candidates = args[0], target = args[1];\n    const allowed = new Set(candidates);\n    const cand = Array.from(new Set(candidates)).sort((a, b) => a - b);\n    const correct = new Set();\n    function bt(i, remaining, path) {\n        if (remaining === 0) { correct.add(path.join(',')); return; }\n        if (i >= cand.length) return;\n        const v = cand[i];\n        let k = 0;\n        while (v * k <= remaining) {\n            bt(i + 1, remaining - v * k, path.concat(Array(k).fill(v)));\n            k++;\n        }\n    }\n    bt(0, target, []);\n    const seen = new Set();\n    for (const combo of output) {\n        if (!Array.isArray(combo)) return false;\n        if (combo.length === 0) return false;\n        if (combo.reduce((a, b) => a + b, 0) !== target) return false;\n        for (const v of combo) if (!allowed.has(v)) return false;\n        const key = combo.slice().sort((a, b) => a - b).join(',');\n        if (seen.has(key)) return false;\n        seen.add(key);\n    }\n    if (seen.size !== correct.size) return false;\n    for (const k of seen) if (!correct.has(k)) return false;\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Sorting candidates lets a depth-first search reuse the current value (recurse from the same index) and stop a branch once the running value exceeds the target, so each multiset is generated once and in non-decreasing order.",
+  "hints": [
+    "Each candidate may be picked any number of times, so the choice at every step is either to use the current candidate again or to move on to the next one.",
+    "Sort the candidates and search with a start index: never look back before it, which forces every combination to come out in non-decreasing order and prevents reorderings of the same multiset.",
+    "Recurse from index i (not i+1) after adding candidates[i] so it can repeat, subtract it from the remaining target, and break out of the loop as soon as candidates[i] exceeds what is left."
+  ],
+  "constraints": [
+    { "param": "candidates", "kind": "int[]", "len": [1, 30], "value": [2, 40] },
+    { "param": "target", "kind": "int", "value": [1, 40] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small distinct set, one value reused and one taken alone", "input": [[2, 3, 6, 7], 7] },
+    { "kind": "edge", "description": "several combinations including a long all-twos one", "input": [[2, 3, 5], 8] },
+    { "kind": "trap", "description": "single candidate larger than the target yields nothing", "input": [[2], 1] },
+    { "kind": "edge", "description": "one candidate divides the target exactly, reused repeatedly", "input": [[7], 14] },
+    { "kind": "boundary", "description": "the smallest allowed candidate value reused to reach a small target", "input": [[2], 6] },
+    { "kind": "trap", "description": "candidates each exceed the target so no combination exists", "input": [[5, 6, 7], 4] }
+  ],
+  "stress": [
+    {
+      "description": "small distinct candidate set with a small target so the exponential brute oracle stays fast",
+      "seed": 39,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(5, size)))\n    cand = rng.sample(range(2, 11), n)\n    target = rng.randint(2, 14)\n    return [cand, target]\n",
+      "note": "candidate values and target are kept small because the oracle enumerates multisets"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def combinationSum(self, candidates, target):\n        cand = sorted(set(candidates))\n        res = set()\n        def bt(i, remaining, path):\n            if remaining == 0:\n                res.add(tuple(path)); return\n            if i >= len(cand):\n                return\n            v = cand[i]\n            k = 0\n            while v * k <= remaining:\n                bt(i + 1, remaining - v * k, path + [v] * k)\n                k += 1\n        bt(0, target, [])\n        out = [list(t) for t in res]\n        out.sort()\n        return out\n",
+  "solutions": {
+    "python": "class Solution:\n    def combinationSum(self, candidates, target):\n        candidates = sorted(candidates)\n        res = []\n        def bt(start, remaining, path):\n            if remaining == 0:\n                res.append(path[:]); return\n            for i in range(start, len(candidates)):\n                if candidates[i] > remaining:\n                    break\n                path.append(candidates[i])\n                bt(i, remaining - candidates[i], path)\n                path.pop()\n        bt(0, target, [])\n        res.sort()\n        return res\n",
+    "javascript": "var combinationSum = function(candidates, target) {\n    candidates.sort((a, b) => a - b);\n    const res = [];\n    const path = [];\n    function bt(start, remaining) {\n        if (remaining === 0) { res.push(path.slice()); return; }\n        for (let i = start; i < candidates.length; i++) {\n            if (candidates[i] > remaining) break;\n            path.push(candidates[i]);\n            bt(i, remaining - candidates[i]);\n            path.pop();\n        }\n    }\n    bt(0, target);\n    res.sort((a, b) => {\n        const n = Math.min(a.length, b.length);\n        for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return a.length - b.length;\n    });\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n^(target/min))", "space": "O(target/min)" }
+}

@@ -1,0 +1,39 @@
+{
+  "slug": "scramble-string",
+  "judge": "exact",
+  "pattern": "Deciding whether one string is a recursive partition-and-optional-swap of another is a memoized split search over every cut point in both the swapped and unswapped orientation.",
+  "hints": [
+    "The scramble operation recursively splits a string into two pieces and may swap their order, so equality must be checked across every possible split position.",
+    "At each split index, the two halves are either matched directly to the corresponding halves of the other string, or matched crossed over after a swap.",
+    "Memoize on the pair of substrings (or on start indices and length); prune splits early by requiring both candidate halves to share the same character multiset, then recurse on the matched-and the swapped-halves."
+  ],
+  "constraints": [
+    { "param": "s1", "kind": "string", "len": [1, 30] },
+    { "param": "s2", "kind": "string", "len": [1, 30] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a true scramble produced by swapping subtrees", "input": ["great", "rgeat"] },
+    { "kind": "trap", "description": "same letters but not a valid scramble", "input": ["abcde", "caebd"] },
+    { "kind": "boundary", "description": "single identical character", "input": ["a", "a"] },
+    { "kind": "trap", "description": "different multisets can never match", "input": ["abc", "abd"] },
+    { "kind": "edge", "description": "identical strings are trivially scrambles", "input": ["abcd", "abcd"] },
+    { "kind": "edge", "description": "a simple top-level swap", "input": ["ab", "ba"] },
+    { "kind": "trap", "description": "two chars cannot scramble into a non-swap mismatch", "input": ["aa", "ab"] },
+    { "kind": "edge", "description": "longer faithful scramble", "input": ["abcdef", "cadebf"] }
+  ],
+  "stress": [
+    {
+      "description": "build s2 as a genuine random scramble of a short s1 so the answer is true",
+      "seed": 13,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 7)))\n    s1 = ''.join(rng.choice('abc') for _ in range(n))\n    def scramble(s):\n        if len(s) <= 1:\n            return s\n        i = rng.randint(1, len(s) - 1)\n        left = scramble(s[:i])\n        right = scramble(s[i:])\n        if rng.random() < 0.5:\n            return left + right\n        return right + left\n    return [s1, scramble(s1)]\n",
+      "note": "constructed scrambles keep the true-answer path exercised; short length keeps the recursion fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isScramble(self, s1, s2):\n        # naive: enumerate every scramble tree of s1 and test membership, no memo or pruning\n        if len(s1) != len(s2):\n            return False\n        if sorted(s1) != sorted(s2):\n            return False\n        def all_scrambles(s):\n            if len(s) == 1:\n                return {s}\n            out = set()\n            for i in range(1, len(s)):\n                for l in all_scrambles(s[:i]):\n                    for r in all_scrambles(s[i:]):\n                        out.add(l + r)\n                        out.add(r + l)\n            return out\n        return s2 in all_scrambles(s1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def isScramble(self, s1, s2):\n        from functools import lru_cache\n        if len(s1) != len(s2):\n            return False\n        @lru_cache(maxsize=None)\n        def solve(a, b):\n            if a == b:\n                return True\n            from collections import Counter\n            if Counter(a) != Counter(b):\n                return False\n            n = len(a)\n            for i in range(1, n):\n                if solve(a[:i], b[:i]) and solve(a[i:], b[i:]):\n                    return True\n                if solve(a[:i], b[n - i:]) and solve(a[i:], b[:n - i]):\n                    return True\n            return False\n        return solve(s1, s2)\n",
+    "javascript": "var isScramble = function(s1, s2) {\n    if (s1.length !== s2.length) return false;\n    const memo = new Map();\n    const sig = function(s) {\n        const c = new Array(26).fill(0);\n        for (const ch of s) c[ch.charCodeAt(0) - 97]++;\n        return c.join(',');\n    };\n    const solve = function(a, b) {\n        if (a === b) return true;\n        const key = a + '#' + b;\n        if (memo.has(key)) return memo.get(key);\n        if (sig(a) !== sig(b)) { memo.set(key, false); return false; }\n        const n = a.length;\n        let ans = false;\n        for (let i = 1; i < n && !ans; i++) {\n            if (solve(a.slice(0, i), b.slice(0, i)) && solve(a.slice(i), b.slice(i))) ans = true;\n            else if (solve(a.slice(0, i), b.slice(n - i)) && solve(a.slice(i), b.slice(0, n - i))) ans = true;\n        }\n        memo.set(key, ans);\n        return ans;\n    };\n    return solve(s1, s2);\n};\n"
+  },
+  "complexity": { "time": "O(n^4)", "space": "O(n^3)" }
+}

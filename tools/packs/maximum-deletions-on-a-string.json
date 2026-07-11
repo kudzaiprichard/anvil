@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-deletions-on-a-string",
+  "judge": "exact",
+  "pattern": "Dynamic programming over suffixes where each suffix can either be deleted whole or shortened by a prefix that matches the block right after it, using precomputed longest-common-prefix lengths.",
+  "hints": [
+    "Define the answer for each starting index as the best number of operations to clear the suffix from there onward.",
+    "From position i you may always finish in one move, or remove i letters when s[i:i+len] equals s[i+len:i+2*len], jumping to that later position plus one.",
+    "Precompute lcp[i][j] = length of the common prefix of suffixes i and j so the equality check is O(1), then fill dp from the back."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 4000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single character needs one deletion", "input": ["a"] },
+    { "kind": "edge", "description": "all identical letters peel one at a time", "input": ["aaaaa"] },
+    { "kind": "trap", "description": "repeated prefix then no more matches", "input": ["abcabcdabc"] },
+    { "kind": "trap", "description": "mixed run lengths force careful dp choices", "input": ["aaabaab"] },
+    { "kind": "edge", "description": "no removable prefix anywhere, only whole-string deletion", "input": ["abcde"] },
+    { "kind": "edge", "description": "doubled string deletes prefix then whole", "input": ["abab"] },
+    { "kind": "trap", "description": "greedy small-i choice is not always optimal", "input": ["aabaabaab"] }
+  ],
+  "stress": [
+    {
+      "description": "random strings over a tiny alphabet to maximize matching prefixes",
+      "seed": 13,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    alpha = 'ab'\n    s = ''.join(rng.choice(alpha) for _ in range(n))\n    return [s]\n",
+      "note": "two-letter alphabet creates many equal blocks, stressing the dp branches"
+    }
+  ],
+  "oracle_python": "import sys\nfrom functools import lru_cache\nclass Solution:\n    def deleteString(self, s):\n        sys.setrecursionlimit(100000)\n        n = len(s)\n        @lru_cache(maxsize=None)\n        def solve(i):\n            if i >= n:\n                return 0\n            best = 1  # delete the whole remaining string\n            rem = n - i\n            for length in range(1, rem // 2 + 1):\n                if s[i:i + length] == s[i + length:i + 2 * length]:\n                    cand = 1 + solve(i + length)\n                    if cand > best:\n                        best = cand\n            return best\n        ans = solve(0)\n        solve.cache_clear()\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def deleteString(self, s):\n        n = len(s)\n        if n == 0:\n            return 0\n        lcp = [[0] * (n + 1) for _ in range(n + 1)]\n        for i in range(n - 1, -1, -1):\n            for j in range(n - 1, -1, -1):\n                if s[i] == s[j]:\n                    lcp[i][j] = lcp[i + 1][j + 1] + 1\n        dp = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            dp[i] = 1\n            rem = n - i\n            for length in range(1, rem // 2 + 1):\n                if lcp[i][i + length] >= length:\n                    if 1 + dp[i + length] > dp[i]:\n                        dp[i] = 1 + dp[i + length]\n        return dp[0]\n",
+    "javascript": "var deleteString = function(s) {\n    const n = s.length;\n    if (n === 0) return 0;\n    const lcp = Array.from({ length: n + 1 }, () => new Int32Array(n + 1));\n    for (let i = n - 1; i >= 0; i--) {\n        for (let j = n - 1; j >= 0; j--) {\n            if (s[i] === s[j]) lcp[i][j] = lcp[i + 1][j + 1] + 1;\n        }\n    }\n    const dp = new Int32Array(n + 1);\n    for (let i = n - 1; i >= 0; i--) {\n        dp[i] = 1;\n        const rem = n - i;\n        for (let length = 1; length <= Math.floor(rem / 2); length++) {\n            if (lcp[i][i + length] >= length) {\n                if (1 + dp[i + length] > dp[i]) dp[i] = 1 + dp[i + length];\n            }\n        }\n    }\n    return dp[0];\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

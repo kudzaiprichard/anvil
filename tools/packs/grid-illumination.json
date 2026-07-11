@@ -1,0 +1,39 @@
+{
+  "slug": "grid-illumination",
+  "judge": "exact",
+  "pattern": "Counting lit lamps per row, column, and both diagonal keys lets each query answer illumination in constant time, then turning off the queried neighbourhood updates those counters.",
+  "hints": [
+    "A cell is lit if any lamp shares its row, its column, or either diagonal, so track how many lamps cover each of those lines rather than the grid itself.",
+    "Encode the two diagonals by row plus column and by row minus column; a lamp contributes one to its row, column, and both diagonal tallies.",
+    "Keep a set of active lamp coordinates and four counters; a query is illuminated when any of its four line tallies is positive, then for the queried cell and its eight neighbours remove still-active lamps and decrement their lines."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000000000] },
+    { "param": "lamps", "kind": "int[][]", "len": [0, 20000], "value": [0, 1000000000] },
+    { "param": "queries", "kind": "int[][]", "len": [0, 20000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "second query goes dark after neighbours switch off", "input": [5, [[0, 0], [4, 4]], [[1, 1], [1, 0]]] },
+    { "kind": "trap", "description": "querying the same lit cell twice, the lamp itself was turned off", "input": [5, [[0, 0], [4, 4]], [[1, 1], [1, 1]]] },
+    { "kind": "edge", "description": "row sharing keeps a later cell lit", "input": [5, [[0, 0], [0, 4]], [[0, 4], [0, 1], [1, 4]]] },
+    { "kind": "boundary", "description": "single cell grid with one lamp", "input": [1, [[0, 0]], [[0, 0]]] },
+    { "kind": "trap", "description": "duplicate lamp listings count once toward illumination", "input": [3, [[1, 1], [1, 1]], [[0, 0], [1, 1]]] },
+    { "kind": "trap", "description": "no lamps so every query is dark", "input": [4, [], [[0, 0], [2, 3]]] },
+    { "kind": "edge", "description": "diagonal illumination only", "input": [4, [[0, 0]], [[2, 2], [1, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate grid with random lamps and queries that overlap their neighbourhoods",
+      "seed": 85,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 50))\n    nl = rng.randint(0, size)\n    nq = rng.randint(1, size)\n    lamps = [[rng.randint(0, n - 1), rng.randint(0, n - 1)] for _ in range(nl)]\n    queries = [[rng.randint(0, n - 1), rng.randint(0, n - 1)] for _ in range(nq)]\n    return [n, lamps, queries]\n",
+      "note": "small n forces overlapping rows/cols/diagonals so toggling matters"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def gridIllumination(self, n, lamps, queries):\n        on = set()\n        for r, c in lamps:\n            on.add((r, c))\n        ans = []\n        for qr, qc in queries:\n            lit = 0\n            for (lr, lc) in on:\n                if lr == qr or lc == qc or lr + lc == qr + qc or lr - lc == qr - qc:\n                    lit = 1\n                    break\n            ans.append(lit)\n            for dr in (-1, 0, 1):\n                for dc in (-1, 0, 1):\n                    on.discard((qr + dr, qc + dc))\n        return ans\n",
+  "solutions": {
+    "python": "from collections import defaultdict\nclass Solution:\n    def gridIllumination(self, n, lamps, queries):\n        on = set()\n        row = defaultdict(int)\n        col = defaultdict(int)\n        diag = defaultdict(int)\n        anti = defaultdict(int)\n        for r, c in lamps:\n            if (r, c) in on:\n                continue\n            on.add((r, c))\n            row[r] += 1\n            col[c] += 1\n            diag[r - c] += 1\n            anti[r + c] += 1\n        ans = []\n        for qr, qc in queries:\n            if row[qr] or col[qc] or diag[qr - qc] or anti[qr + qc]:\n                ans.append(1)\n            else:\n                ans.append(0)\n            for dr in (-1, 0, 1):\n                for dc in (-1, 0, 1):\n                    rr, cc = qr + dr, qc + dc\n                    if (rr, cc) in on:\n                        on.discard((rr, cc))\n                        row[rr] -= 1\n                        col[cc] -= 1\n                        diag[rr - cc] -= 1\n                        anti[rr + cc] -= 1\n        return ans\n",
+    "javascript": "var gridIllumination = function(n, lamps, queries) {\n    const on = new Set();\n    const row = new Map(), col = new Map(), diag = new Map(), anti = new Map();\n    const inc = (m, k) => m.set(k, (m.get(k) || 0) + 1);\n    const dec = (m, k) => m.set(k, (m.get(k) || 0) - 1);\n    const key = (r, c) => r + ',' + c;\n    for (const [r, c] of lamps) {\n        const k = key(r, c);\n        if (on.has(k)) continue;\n        on.add(k);\n        inc(row, r); inc(col, c); inc(diag, r - c); inc(anti, r + c);\n    }\n    const ans = [];\n    for (const [qr, qc] of queries) {\n        if ((row.get(qr) || 0) > 0 || (col.get(qc) || 0) > 0 || (diag.get(qr - qc) || 0) > 0 || (anti.get(qr + qc) || 0) > 0) {\n            ans.push(1);\n        } else {\n            ans.push(0);\n        }\n        for (let dr = -1; dr <= 1; dr++) {\n            for (let dc = -1; dc <= 1; dc++) {\n                const rr = qr + dr, cc = qc + dc;\n                const k = key(rr, cc);\n                if (on.has(k)) {\n                    on.delete(k);\n                    dec(row, rr); dec(col, cc); dec(diag, rr - cc); dec(anti, rr + cc);\n                }\n            }\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(L + Q)", "space": "O(L)" }
+}

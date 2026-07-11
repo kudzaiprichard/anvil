@@ -1,0 +1,38 @@
+{
+  "slug": "get-watched-videos-by-your-friends",
+  "judge": "exact",
+  "pattern": "BFS from the starting person finds exactly the set of people at the requested distance; count their watched videos then sort by frequency ascending and alphabetically for ties.",
+  "hints": [
+    "Use BFS to discover all people whose shortest-path distance from 'id' equals 'level' — avoid revisiting people at shorter levels.",
+    "Collect every video watched by those level-k people and count occurrences with a frequency map.",
+    "Sort the unique videos by (frequency, title) to produce the required order."
+  ],
+  "constraints": [
+    { "param": "watchedVideos", "kind": "str[][]", "len": [2, 100] },
+    { "param": "friends", "kind": "int[][]", "len": [2, 100] },
+    { "param": "id", "kind": "int", "value": [0, 99] },
+    { "param": "level", "kind": "int", "value": [1, 99] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "level 1 friends watch overlapping videos — frequency sort applies", "input": [[["A", "B"], ["C"], ["B", "C"], ["D"]], [[1, 2], [0, 3], [0, 3], [1, 2]], 0, 1] },
+    { "kind": "edge", "description": "level 2 — friends-of-friends", "input": [[["A", "B"], ["C"], ["B", "C"], ["D"]], [[1, 2], [0, 3], [0, 3], [1, 2]], 0, 2] },
+    { "kind": "trap", "description": "all level-k people watch the same video — single result", "input": [[["X"], ["X"], ["X"], ["Y"]], [[1, 2], [0, 3], [0, 3], [1, 2]], 0, 1] },
+    { "kind": "boundary", "description": "only two people, one is the start, level 1 is the other", "input": [[["A"], ["B", "A"]], [[1], [0]], 0, 1] },
+    { "kind": "trap", "description": "tie in frequency — alphabetical order must break it", "input": [[["B"], ["A"], ["C"], ["D"]], [[1, 2], [0, 3], [0, 3], [1, 2]], 0, 1] },
+    { "kind": "edge", "description": "starting person has no friends at the given level — result is from indirect chain", "input": [[["V1"], ["V2"], ["V3"], ["V4"], ["V5"]], [[1], [0, 2], [1, 3], [2, 4], [3]], 0, 3] }
+  ],
+  "stress": [
+    {
+      "description": "random graph of 30 people each watching 1-5 videos, query at level 2",
+      "seed": 13,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(4, size)\n    video_pool = [s for s in string.ascii_uppercase[:10]]\n    watched = [[rng.choice(video_pool) for _ in range(rng.randint(1, 5))] for _ in range(n)]\n    # build a random connected friend graph (undirected)\n    friends = [set() for _ in range(n)]\n    for i in range(1, n):\n        j = rng.randint(0, i - 1)\n        friends[i].add(j)\n        friends[j].add(i)\n    # add a few extra edges\n    for _ in range(n):\n        a = rng.randint(0, n - 1)\n        b = rng.randint(0, n - 1)\n        if a != b:\n            friends[a].add(b)\n            friends[b].add(a)\n    friends_list = [sorted(f) for f in friends]\n    id_ = 0\n    level = 2\n    return [watched, friends_list, id_, level]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def watchedVideosByFriends(self, watchedVideos, friends, id, level):\n        from collections import deque, Counter\n        visited = {id}\n        q = deque([id])\n        for _ in range(level):\n            nxt = deque()\n            while q:\n                node = q.popleft()\n                for nb in friends[node]:\n                    if nb not in visited:\n                        visited.add(nb)\n                        nxt.append(nb)\n            q = nxt\n        freq = Counter()\n        for person in q:\n            for v in watchedVideos[person]:\n                freq[v] += 1\n        return sorted(freq.keys(), key=lambda v: (freq[v], v))\n",
+  "solutions": {
+    "python": "class Solution:\n    def watchedVideosByFriends(self, watchedVideos, friends, id, level):\n        from collections import deque, Counter\n        visited = {id}\n        q = deque([id])\n        for _ in range(level):\n            nxt = deque()\n            while q:\n                node = q.popleft()\n                for nb in friends[node]:\n                    if nb not in visited:\n                        visited.add(nb)\n                        nxt.append(nb)\n            q = nxt\n        freq = Counter(v for p in q for v in watchedVideos[p])\n        return sorted(freq, key=lambda v: (freq[v], v))\n",
+    "javascript": "var watchedVideosByFriends = function(watchedVideos, friends, id, level) {\n    const visited = new Set([id]);\n    let queue = [id];\n    for (let d = 0; d < level; d++) {\n        const next = [];\n        for (const node of queue) {\n            for (const nb of friends[node]) {\n                if (!visited.has(nb)) {\n                    visited.add(nb);\n                    next.push(nb);\n                }\n            }\n        }\n        queue = next;\n    }\n    const freq = new Map();\n    for (const p of queue) {\n        for (const v of watchedVideos[p]) {\n            freq.set(v, (freq.get(v) || 0) + 1);\n        }\n    }\n    return [...freq.keys()].sort((a, b) => freq.get(a) - freq.get(b) || a.localeCompare(b));\n};\n"
+  },
+  "complexity": { "time": "O(n + V)", "space": "O(n + V)" }
+}

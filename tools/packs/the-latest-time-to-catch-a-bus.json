@@ -1,0 +1,38 @@
+{
+  "slug": "the-latest-time-to-catch-a-bus",
+  "judge": "exact",
+  "pattern": "Simulate boarding with both arrays sorted to find the seat you can take, then walk backward from the latest candidate arrival time skipping any minute already occupied by another passenger.",
+  "hints": [
+    "Sort buses and passengers, then play out the boarding so you know, for the bus you can catch, how full it is and what its departure time is.",
+    "If the last bus leaves with a free seat you may arrive as late as its departure; otherwise you must slip in just before the last passenger who boarded it.",
+    "From that best candidate time step downward one minute at a time, skipping every minute a real passenger already occupies, until you find a free minute."
+  ],
+  "constraints": [
+    { "param": "buses", "kind": "int[]", "len": [1, 100000], "value": [2, 1000000000] },
+    { "param": "passengers", "kind": "int[]", "len": [1, 100000], "value": [2, 1000000000] },
+    { "param": "capacity", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "arrive just before a boarding passenger", "input": [[10, 20], [2, 17, 18, 19], 2] },
+    { "kind": "trap", "description": "buses and passengers unsorted with a contested last seat", "input": [[20, 30, 10], [19, 13, 26, 4, 25, 11, 21], 2] },
+    { "kind": "boundary", "description": "single bus with spare capacity, arrive at departure", "input": [[5], [3], 3] },
+    { "kind": "trap", "description": "departure minute itself is taken by a passenger", "input": [[6], [6], 2] },
+    { "kind": "trap", "description": "bus fills, answer slips just before an early boarder", "input": [[5], [3, 4, 5], 2] },
+    { "kind": "edge", "description": "more passengers than seats across buses", "input": [[3, 6], [2, 4, 5, 7, 8], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random unique departure and arrival times with random capacity",
+      "seed": 31,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    cap_n = max(1, min(size, 200))\n    nb = rng.randint(1, cap_n)\n    npass = rng.randint(1, cap_n)\n    buses = rng.sample(range(2, 2 + 4 * (nb + npass) + 10), nb)\n    passengers = rng.sample(range(2, 2 + 4 * (nb + npass) + 10), npass)\n    capacity = rng.randint(1, max(1, npass))\n    return [buses, passengers, capacity]\n",
+      "note": "rng.sample guarantees uniqueness within each array as required"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def latestTimeCatchTheBus(self, buses, passengers, capacity):\n        bs = sorted(buses)\n        ps = sorted(passengers)\n        pset = set(ps)\n        # brute: try every candidate time from high to low (bounded by max bus time)\n        # determine for a given arrival y whether you can board.\n        def can_board(y):\n            if y in pset:\n                return False\n            arrivals = sorted(ps + [y])\n            j = 0\n            for b in bs:\n                seats = capacity\n                while j < len(arrivals) and seats > 0 and arrivals[j] <= b:\n                    if arrivals[j] == y:\n                        return True\n                    j += 1\n                    seats -= 1\n            return False\n        hi = max(bs)\n        for y in range(hi, -1, -1):\n            if can_board(y):\n                return y\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def latestTimeCatchTheBus(self, buses, passengers, capacity):\n        buses.sort()\n        passengers.sort()\n        pset = set(passengers)\n        j = 0\n        cand = 0\n        n = len(buses)\n        for idx, b in enumerate(buses):\n            seats = capacity\n            last_boarded = None\n            while j < len(passengers) and seats > 0 and passengers[j] <= b:\n                last_boarded = passengers[j]\n                j += 1\n                seats -= 1\n            if idx == n - 1:\n                cand = b if seats > 0 else last_boarded\n        y = cand\n        while y in pset:\n            y -= 1\n        return y\n",
+    "javascript": "var latestTimeCatchTheBus = function(buses, passengers, capacity) {\n    buses.sort((a, b) => a - b);\n    passengers.sort((a, b) => a - b);\n    const pset = new Set(passengers);\n    let j = 0;\n    let cand = 0;\n    for (let idx = 0; idx < buses.length; idx++) {\n        const b = buses[idx];\n        let seats = capacity;\n        const taken = [];\n        while (j < passengers.length && seats > 0 && passengers[j] <= b) {\n            taken.push(passengers[j]);\n            j++;\n            seats--;\n        }\n        if (idx === buses.length - 1) {\n            cand = seats > 0 ? b : taken[taken.length - 1];\n        }\n    }\n    let y = cand;\n    while (pset.has(y)) y--;\n    return y;\n};\n"
+  },
+  "complexity": { "time": "O((n + m) log(n + m))", "space": "O(n + m)" }
+}

@@ -1,0 +1,48 @@
+{
+  "slug": "subrectangle-queries",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "With only a few hundred operations total, there is no need for a fancy range-update structure — just overwrite the actual cells of the matrix on every update and read a cell directly on every query.",
+  "hints": [
+    "Keep the matrix exactly as given, mutating it in place; nothing about the operation counts here demands anything smarter than touching real cells.",
+    "updateSubrectangle iterates every row from row1..row2 and every column from col1..col2 (inclusive on both ends) and overwrites each with newValue.",
+    "getValue is then just a single array lookup at [row][col] — no auxiliary bookkeeping needed since the matrix itself always reflects the latest state."
+  ],
+  "constraints": [
+    { "param": "rectangle", "kind": "int[][]", "len": [1, 100], "value": [1, 1000000000] },
+    { "param": "row1", "kind": "int", "value": [0, 99] },
+    { "param": "col1", "kind": "int", "value": [0, 99] },
+    { "param": "row2", "kind": "int", "value": [0, 99] },
+    { "param": "col2", "kind": "int", "value": [0, 99] },
+    { "param": "newValue", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single full-matrix update overwrites every cell",
+      "input": [["SubrectangleQueries", "getValue", "updateSubrectangle", "getValue", "getValue"], [[[[1, 2], [3, 4]]], [0, 0], [0, 0, 1, 1, 9], [0, 1], [1, 0]]] },
+    { "kind": "edge", "description": "two overlapping updates: the later one wins on the overlap, the earlier one survives outside it",
+      "input": [["SubrectangleQueries", "updateSubrectangle", "updateSubrectangle", "getValue", "getValue"], [[[[1, 1, 1], [1, 1, 1], [1, 1, 1]]], [0, 0, 1, 1, 5], [1, 1, 2, 2, 8], [0, 0], [1, 1]]] },
+    { "kind": "boundary", "description": "1x1 matrix: update and read the only cell",
+      "input": [["SubrectangleQueries", "getValue", "updateSubrectangle", "getValue"], [[[[42]]], [0, 0], [0, 0, 0, 0, 7], [0, 0]]] },
+    { "kind": "boundary", "description": "update a single-cell subrectangle inside a larger matrix leaves every neighbor untouched",
+      "input": [["SubrectangleQueries", "updateSubrectangle", "getValue", "getValue", "getValue"], [[[[1, 1, 1], [1, 1, 1]]], [1, 1, 1, 1, 99], [1, 1], [0, 1], [1, 0]]] },
+    { "kind": "trap", "description": "a tall, narrow subrectangle (many rows, one column) must update the whole column span, not just the corners",
+      "input": [["SubrectangleQueries", "updateSubrectangle", "getValue", "getValue", "getValue"], [[[[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]], [0, 1, 3, 1, 0], [0, 1], [2, 1], [3, 1]]] },
+    { "kind": "trap", "description": "three sequential overlapping updates on the same cell must leave only the most recent value",
+      "input": [["SubrectangleQueries", "updateSubrectangle", "updateSubrectangle", "updateSubrectangle", "getValue"], [[[[5, 5], [5, 5]]], [0, 0, 1, 1, 10], [0, 0, 1, 1, 20], [0, 0, 1, 1, 30], [0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random small matrix with a long sequence of random subrectangle updates and point queries",
+      "seed": 44,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    rows = rng.randint(1, 12)\n    cols = rng.randint(1, 12)\n    rect = [[rng.randint(1, 1000) for _ in range(cols)] for _ in range(rows)]\n    ops = ['SubrectangleQueries']\n    args = [[rect]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.5:\n            r1 = rng.randint(0, rows - 1)\n            r2 = rng.randint(r1, rows - 1)\n            c1 = rng.randint(0, cols - 1)\n            c2 = rng.randint(c1, cols - 1)\n            ops.append('updateSubrectangle')\n            args.append([r1, c1, r2, c2, rng.randint(1, 1000)])\n        else:\n            ops.append('getValue')\n            args.append([rng.randint(0, rows - 1), rng.randint(0, cols - 1)])\n    return [ops, args]\n",
+      "note": "row2/col2 are always sampled >= row1/col1 so every generated update is a valid (non-empty) subrectangle"
+    }
+  ],
+  "oracle_python": "class SubrectangleQueries:\n    def __init__(self, rectangle):\n        self.grid = [row[:] for row in rectangle]\n\n    def updateSubrectangle(self, row1, col1, row2, col2, newValue):\n        for r in range(row1, row2 + 1):\n            for c in range(col1, col2 + 1):\n                self.grid[r][c] = newValue\n\n    def getValue(self, row, col):\n        return self.grid[row][col]\n",
+  "solutions": {
+    "python": "class SubrectangleQueries:\n    def __init__(self, rectangle):\n        self.rect = rectangle\n\n    def updateSubrectangle(self, row1, col1, row2, col2, newValue):\n        for r in range(row1, row2 + 1):\n            row = self.rect[r]\n            for c in range(col1, col2 + 1):\n                row[c] = newValue\n\n    def getValue(self, row, col):\n        return self.rect[row][col]\n",
+    "javascript": "class SubrectangleQueries {\n    constructor(rectangle) {\n        this.rect = rectangle;\n    }\n    updateSubrectangle(row1, col1, row2, col2, newValue) {\n        for (let r = row1; r <= row2; r++) {\n            const row = this.rect[r];\n            for (let c = col1; c <= col2; c++) {\n                row[c] = newValue;\n            }\n        }\n    }\n    getValue(row, col) {\n        return this.rect[row][col];\n    }\n}\n"
+  },
+  "complexity": { "time": "O(rows * cols) per update, O(1) per query", "space": "O(rows * cols)" }
+}

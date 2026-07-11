@@ -1,0 +1,37 @@
+{
+  "slug": "redundant-connection-ii",
+  "judge": "exact",
+  "pattern": "The extra edge either creates a node with two parents, a cycle, or both; identifying the conflicting in-edge and a cycle via union-find lets us decide exactly which edge to drop.",
+  "hints": [
+    "An added edge breaks the rooted-tree property in one of two ways: some node gains a second parent, or a cycle forms.",
+    "First scan for a node that has two incoming edges and remember those two candidate edges.",
+    "Run union-find skipping the second candidate; if a cycle still appears, the answer is the cycle edge (or the first candidate when there is a two-parent node), otherwise it is the second candidate."
+  ],
+  "constraints": [
+    { "param": "edges", "kind": "int[][]", "len": [3, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "node three has two parents, no cycle", "input": [[[1, 2], [1, 3], [2, 3]]] },
+    { "kind": "trap", "description": "cycle present, every node has one parent", "input": [[[1, 2], [2, 3], [3, 4], [4, 1], [1, 5]]] },
+    { "kind": "trap", "description": "two parents and a cycle, must pick the first candidate", "input": [[[2, 1], [3, 1], [4, 2], [1, 4]]] },
+    { "kind": "edge", "description": "simple three node cycle", "input": [[[1, 2], [2, 3], [3, 1]]] },
+    { "kind": "boundary", "description": "minimum size with two-parent conflict", "input": [[[2, 3], [1, 3], [3, 1]]] },
+    { "kind": "trap", "description": "two parents where later candidate is removable", "input": [[[4, 2], [1, 5], [5, 2], [5, 3], [2, 4]]] },
+    { "kind": "edge", "description": "star with one extra cross edge forming a cycle", "input": [[[1, 2], [1, 3], [1, 4], [4, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "build a random rooted tree then add one extra valid directed edge",
+      "seed": 37,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(3, max(4, size) + 1)\n    nodes = list(range(1, n + 1))\n    rng.shuffle(nodes)\n    root = nodes[0]\n    parent = {}\n    edges = []\n    for idx in range(1, n):\n        child = nodes[idx]\n        par = nodes[rng.randrange(0, idx)]\n        parent[child] = par\n        edges.append([par, child])\n    # add one extra edge that is not already present and u != v\n    existing = set((u, v) for u, v in edges)\n    attempts = 0\n    while True:\n        u = rng.randrange(1, n + 1)\n        v = rng.randrange(1, n + 1)\n        attempts += 1\n        if u != v and (u, v) not in existing:\n            edges.append([u, v])\n            break\n        if attempts > 500:\n            edges.append([root, nodes[1]])\n            break\n    # insert the extra edge at a random position to vary 'last occurrence'\n    extra = edges.pop()\n    pos = rng.randrange(0, len(edges) + 1)\n    edges.insert(pos, extra)\n    return [edges]\n",
+      "note": "always a rooted tree plus exactly one added edge, matching the problem premise"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findRedundantDirectedConnection(self, edges):\n        n = len(edges)\n        # brute force: try removing each edge from last to first; pick the last-indexed\n        # removal that yields a valid rooted tree.\n        def is_rooted_tree(es):\n            nodes = set()\n            for u, v in es:\n                nodes.add(u)\n                nodes.add(v)\n            indeg = {}\n            adj = {}\n            for u, v in es:\n                indeg[v] = indeg.get(v, 0) + 1\n                adj.setdefault(u, []).append(v)\n            roots = [x for x in nodes if indeg.get(x, 0) == 0]\n            if len(roots) != 1:\n                return False\n            for x in nodes:\n                if indeg.get(x, 0) > 1:\n                    return False\n            root = roots[0]\n            seen = set()\n            stack = [root]\n            while stack:\n                cur = stack.pop()\n                if cur in seen:\n                    return False\n                seen.add(cur)\n                for nxt in adj.get(cur, []):\n                    stack.append(nxt)\n            return len(seen) == len(nodes)\n        for i in range(n - 1, -1, -1):\n            rest = edges[:i] + edges[i + 1:]\n            if is_rooted_tree(rest):\n                return edges[i]\n        return []\n",
+  "solutions": {
+    "python": "class Solution:\n    def findRedundantDirectedConnection(self, edges):\n        n = len(edges)\n        parent = [0] * (n + 1)\n        cand1 = cand2 = None\n        for i, (u, v) in enumerate(edges):\n            if parent[v] != 0:\n                cand1 = [parent[v], v]\n                cand2 = [u, v]\n            else:\n                parent[v] = u\n        uf = list(range(n + 1))\n        def find(x):\n            while uf[x] != x:\n                uf[x] = uf[uf[x]]\n                x = uf[x]\n            return x\n        for u, v in edges:\n            if cand2 and [u, v] == cand2:\n                continue\n            ru, rv = find(u), find(v)\n            if ru == rv:\n                if cand1:\n                    return cand1\n                return [u, v]\n            uf[rv] = ru\n        return cand2\n",
+    "javascript": "var findRedundantDirectedConnection = function(edges) {\n    const n = edges.length;\n    const parent = new Array(n + 1).fill(0);\n    let cand1 = null, cand2 = null;\n    for (const [u, v] of edges) {\n        if (parent[v] !== 0) {\n            cand1 = [parent[v], v];\n            cand2 = [u, v];\n        } else {\n            parent[v] = u;\n        }\n    }\n    const uf = Array.from({length: n + 1}, (_, i) => i);\n    const find = x => { while (uf[x] !== x) { uf[x] = uf[uf[x]]; x = uf[x]; } return x; };\n    for (const [u, v] of edges) {\n        if (cand2 && u === cand2[0] && v === cand2[1]) continue;\n        const ru = find(u), rv = find(v);\n        if (ru === rv) {\n            if (cand1) return cand1;\n            return [u, v];\n        }\n        uf[rv] = ru;\n    }\n    return cand2;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

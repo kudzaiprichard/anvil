@@ -1,0 +1,41 @@
+{
+  "slug": "restore-the-array-from-adjacent-pairs",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    pairs = args[0]\n    n = len(pairs) + 1\n    if not isinstance(output, list) or len(output) != n:\n        return False\n    if len(set(output)) != n:\n        return False\n    got = {}\n    for i in range(n - 1):\n        a, b = output[i], output[i + 1]\n        key = (a, b) if a <= b else (b, a)\n        got[key] = got.get(key, 0) + 1\n    want = {}\n    for u, v in pairs:\n        key = (u, v) if u <= v else (v, u)\n        want[key] = want.get(key, 0) + 1\n    return got == want\n",
+    "validator_javascript": "function validate(args, output) {\n    const pairs = args[0];\n    const n = pairs.length + 1;\n    if (!Array.isArray(output) || output.length !== n) return false;\n    if (new Set(output).size !== n) return false;\n    const got = new Map();\n    for (let i = 0; i < n - 1; i++) {\n        let a = output[i], b = output[i + 1];\n        if (a > b) { const t = a; a = b; b = t; }\n        const key = a + ',' + b;\n        got.set(key, (got.get(key) || 0) + 1);\n    }\n    const want = new Map();\n    for (const [u0, v0] of pairs) {\n        let u = u0, v = v0;\n        if (u > v) { const t = u; u = v; v = t; }\n        const key = u + ',' + v;\n        want.set(key, (want.get(key) || 0) + 1);\n    }\n    if (got.size !== want.size) return false;\n    for (const [k, c] of got) { if (want.get(k) !== c) return false; }\n    return true;\n}\n"
+  },
+  "pattern": "Treat the pairs as an undirected path graph: the two unique endpoints have degree one, and walking from one endpoint following adjacency reconstructs the line up to direction.",
+  "hints": [
+    "Each value's adjacency list has size one only for the two ends of the array and size two for every interior element.",
+    "Start from a value that appears in exactly one pair; that is an endpoint of the original array.",
+    "Walk the path, at each step moving to the neighbour you did not just come from, recording values until all are placed."
+  ],
+  "constraints": [
+    { "param": "adjacentPairs", "kind": "int[][]", "len": [1, 100000], "value": [-100000, 100000] }
+  ],
+  "no_anchor_ok": true,
+  "edge_inputs": [
+    { "kind": "edge", "description": "small chain given in scrambled order", "input": [[[2, 1], [3, 4], [3, 2]]] },
+    { "kind": "edge", "description": "negative values present", "input": [[[4, -2], [1, 4], [-3, 1]]] },
+    { "kind": "boundary", "description": "minimum size, a single pair", "input": [[[100000, -100000]]] },
+    { "kind": "trap", "description": "pairs listed reversed and out of order", "input": [[[10, 20], [30, 20], [30, 40], [50, 40]]] },
+    { "kind": "edge", "description": "endpoint is the largest value", "input": [[[5, 9], [1, 5], [9, 7]]] },
+    { "kind": "trap", "description": "values include zero and span both signs", "input": [[[0, -1], [0, 1], [1, 2], [-2, -1]]] },
+    { "kind": "edge", "description": "already in natural order", "input": [[[1, 2], [2, 3], [3, 4], [4, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "build a random permutation as the hidden array, emit its adjacent pairs in shuffled, randomly-flipped order",
+      "seed": 7,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 50000))\n    vals = list(range(-n // 2, n - n // 2))\n    rng.shuffle(vals)\n    vals = vals[:n]\n    pairs = []\n    for i in range(n - 1):\n        a, b = vals[i], vals[i + 1]\n        if rng.random() < 0.5:\n            pairs.append([a, b])\n        else:\n            pairs.append([b, a])\n    rng.shuffle(pairs)\n    return [pairs]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def restoreArray(self, adjacentPairs):\n        from collections import defaultdict\n        adj = defaultdict(list)\n        for u, v in adjacentPairs:\n            adj[u].append(v)\n            adj[v].append(u)\n        start = None\n        for k in adj:\n            if len(adj[k]) == 1:\n                start = k\n                break\n        res = [start]\n        prev = None\n        cur = start\n        n = len(adjacentPairs) + 1\n        while len(res) < n:\n            for nxt in adj[cur]:\n                if nxt != prev:\n                    res.append(nxt)\n                    prev, cur = cur, nxt\n                    break\n        if res[0] > res[-1]:\n            res.reverse()\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def restoreArray(self, adjacentPairs):\n        from collections import defaultdict\n        adj = defaultdict(list)\n        for u, v in adjacentPairs:\n            adj[u].append(v)\n            adj[v].append(u)\n        n = len(adjacentPairs) + 1\n        start = next(k for k in adj if len(adj[k]) == 1)\n        res = [start]\n        prev = -10**18\n        cur = start\n        while len(res) < n:\n            a, b = (adj[cur] + [None])[:2] if len(adj[cur]) == 2 else (adj[cur][0], None)\n            nxt = a if a != prev else b\n            res.append(nxt)\n            prev, cur = cur, nxt\n        if res[0] > res[-1]:\n            res.reverse()\n        return res\n",
+    "javascript": "var restoreArray = function(adjacentPairs) {\n    const adj = new Map();\n    const push = (a, b) => { if (!adj.has(a)) adj.set(a, []); adj.get(a).push(b); };\n    for (const [u, v] of adjacentPairs) { push(u, v); push(v, u); }\n    const n = adjacentPairs.length + 1;\n    let start = null;\n    for (const [k, lst] of adj) { if (lst.length === 1) { start = k; break; } }\n    const res = [start];\n    let prev = null, cur = start;\n    while (res.length < n) {\n        const lst = adj.get(cur);\n        const nxt = (lst[0] !== prev) ? lst[0] : lst[1];\n        res.push(nxt);\n        prev = cur; cur = nxt;\n    }\n    if (res[0] > res[res.length - 1]) res.reverse();\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

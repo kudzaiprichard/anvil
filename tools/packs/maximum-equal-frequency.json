@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-equal-frequency",
+  "judge": "exact",
+  "pattern": "Maintaining both value-to-count and count-to-how-many-values maps lets each prefix be tested in O(1) for whether deleting one element equalizes all frequencies.",
+  "hints": [
+    "Walk the prefixes left to right while tracking, for every value, how many times it has appeared, and for every frequency, how many distinct values have that frequency.",
+    "A prefix qualifies only in a few shapes: every value appears once; one value appears once and the rest share a count; or all but one value share count c and a single value has count c+1.",
+    "Keep a frequency-of-frequencies table so each of those shape checks is constant time, and remember the largest qualifying prefix length."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "removing one breaks a near-uniform prefix", "input": [[2, 2, 1, 1, 5, 3, 3, 5]] },
+    { "kind": "edge", "description": "a lone trailing value after balanced triples", "input": [[1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5]] },
+    { "kind": "boundary", "description": "two distinct singletons", "input": [[1, 2]] },
+    { "kind": "boundary", "description": "two equal values form a removable pair", "input": [[5, 5]] },
+    { "kind": "trap", "description": "one value has exactly one extra over the others", "input": [[1, 1, 1, 2, 2, 3, 3]] },
+    { "kind": "trap", "description": "all the same value so removing one keeps it uniform", "input": [[7, 7, 7, 7, 7]] },
+    { "kind": "trap", "description": "all distinct so any single removal leaves all frequencies one", "input": [[3, 1, 4, 1, 5, 9, 2, 6]] }
+  ],
+  "stress": [
+    {
+      "description": "random small-alphabet array so collisions and varied frequencies occur",
+      "seed": 13,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    hi = max(2, n // 3)\n    nums = [rng.randint(1, hi) for _ in range(n)]\n    return [nums]\n",
+      "note": "small value range forces repeated counts that stress the frequency logic"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxEqualFreq(self, nums):\n        from collections import Counter\n        best = 0\n        cnt = Counter()\n        for i, v in enumerate(nums):\n            cnt[v] += 1\n            freqs = list(cnt.values())\n            for j in range(len(freqs)):\n                trial = freqs[:j] + [freqs[j] - 1] + freqs[j + 1:]\n                trial = [f for f in trial if f > 0]\n                if not trial or len(set(trial)) == 1:\n                    best = i + 1\n                    break\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxEqualFreq(self, nums):\n        from collections import defaultdict\n        count = defaultdict(int)\n        freq = defaultdict(int)\n        best = 0\n        for i, v in enumerate(nums):\n            c = count[v]\n            if c > 0:\n                freq[c] -= 1\n                if freq[c] == 0:\n                    del freq[c]\n            count[v] = c + 1\n            freq[c + 1] += 1\n            length = i + 1\n            ok = False\n            if len(freq) == 1:\n                k = next(iter(freq))\n                if k == 1 or freq[k] == 1:\n                    ok = True\n            elif len(freq) == 2:\n                k1, k2 = sorted(freq)\n                if k1 == 1 and freq[k1] == 1:\n                    ok = True\n                elif k2 == k1 + 1 and freq[k2] == 1:\n                    ok = True\n            if ok:\n                best = length\n        return best\n",
+    "javascript": "var maxEqualFreq = function(nums) {\n    const count = new Map();\n    const freq = new Map();\n    let best = 0;\n    for (let i = 0; i < nums.length; i++) {\n        const v = nums[i];\n        const c = count.get(v) || 0;\n        if (c > 0) {\n            freq.set(c, freq.get(c) - 1);\n            if (freq.get(c) === 0) freq.delete(c);\n        }\n        count.set(v, c + 1);\n        freq.set(c + 1, (freq.get(c + 1) || 0) + 1);\n        let ok = false;\n        if (freq.size === 1) {\n            const k = freq.keys().next().value;\n            if (k === 1 || freq.get(k) === 1) ok = true;\n        } else if (freq.size === 2) {\n            const keys = [...freq.keys()].sort((a, b) => a - b);\n            const [k1, k2] = keys;\n            if (k1 === 1 && freq.get(k1) === 1) ok = true;\n            else if (k2 === k1 + 1 && freq.get(k2) === 1) ok = true;\n        }\n        if (ok) best = i + 1;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

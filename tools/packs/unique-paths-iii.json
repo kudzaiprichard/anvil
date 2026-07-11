@@ -1,0 +1,37 @@
+{
+  "slug": "unique-paths-iii",
+  "judge": "exact",
+  "pattern": "Because every walkable cell must be visited exactly once, exhaustively backtrack from the start, marking cells visited, and count completions that reach the end after covering all empty cells.",
+  "hints": [
+    "The grid is tiny (at most 20 cells), so a full depth-first search that tries every direction is fast enough.",
+    "Count the empty cells first; a path is valid only if it ends on the target having stepped on exactly that many cells plus the start.",
+    "Backtrack from the start cell, marking each visited square as an obstacle temporarily and decrementing a remaining-count; when you land on the end with zero non-obstacle squares left, increment the answer, then unmark on the way back."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 20], "value": [-1, 2] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "grid with an obstacle, two valid paths", "input": [[[1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 2, -1]]] },
+    { "kind": "edge", "description": "open grid with four paths", "input": [[[1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 2]]] },
+    { "kind": "trap", "description": "no path covers every empty cell", "input": [[[0, 1], [2, 0]]] },
+    { "kind": "boundary", "description": "start adjacent to end, single cell between", "input": [[[1, 2]]] },
+    { "kind": "trap", "description": "obstacles split the grid so no full-coverage path exists", "input": [[[1, 0, -1, 0, 2]]] },
+    { "kind": "edge", "description": "start and end with one empty cell to cover", "input": [[[1, 0, 2]]] },
+    { "kind": "boundary", "description": "single column path", "input": [[[1], [0], [0], [2]]] }
+  ],
+  "stress": [
+    {
+      "description": "small random grid (<=16 cells) with one start, one end, and a few obstacles",
+      "seed": 47,
+      "size": 16,
+      "generator_python": "def gen(rng, size):\n    total = max(2, min(16, size))\n    # choose dimensions whose product is total-ish\n    rows = rng.randint(1, 4)\n    cols = max(2, (total // rows))\n    cols = min(cols, 6)\n    cells = rows * cols\n    grid = [[0] * cols for _ in range(rows)]\n    positions = [(r, c) for r in range(rows) for c in range(cols)]\n    rng.shuffle(positions)\n    sr, sc = positions[0]\n    er, ec = positions[1]\n    grid[sr][sc] = 1\n    grid[er][ec] = 2\n    # add a few obstacles among the remaining cells\n    nobs = rng.randint(0, max(0, (cells - 2) // 3))\n    for k in range(2, 2 + nobs):\n        r, c = positions[k]\n        grid[r][c] = -1\n    return [grid]\n",
+      "note": "kept small because the search is exponential in empty cells"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def uniquePathsIII(self, grid):\n        # Independent approach: enumerate all simple paths from start to end via\n        # an explicit visited-set DFS, counting those whose visited set equals the\n        # full set of non-obstacle cells.\n        rows = len(grid)\n        cols = len(grid[0])\n        empties = set()\n        start = end = None\n        for r in range(rows):\n            for c in range(cols):\n                if grid[r][c] == -1:\n                    continue\n                empties.add((r, c))\n                if grid[r][c] == 1:\n                    start = (r, c)\n                elif grid[r][c] == 2:\n                    end = (r, c)\n        target = len(empties)\n        count = 0\n        def dfs(cell, visited):\n            nonlocal count\n            if cell == end:\n                if len(visited) == target:\n                    count += 1\n                return\n            r, c = cell\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                nxt = (nr, nc)\n                if 0 <= nr < rows and 0 <= nc < cols and nxt in empties and nxt not in visited:\n                    visited.add(nxt)\n                    dfs(nxt, visited)\n                    visited.remove(nxt)\n        dfs(start, {start})\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def uniquePathsIII(self, grid):\n        rows = len(grid)\n        cols = len(grid[0])\n        empty = 0\n        sr = sc = 0\n        for r in range(rows):\n            for c in range(cols):\n                if grid[r][c] == 0:\n                    empty += 1\n                elif grid[r][c] == 1:\n                    sr, sc = r, c\n        self.count = 0\n        def dfs(r, c, remaining):\n            if grid[r][c] == 2:\n                if remaining == 0:\n                    self.count += 1\n                return\n            tmp = grid[r][c]\n            grid[r][c] = -1\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] != -1:\n                    dfs(nr, nc, remaining - 1)\n            grid[r][c] = tmp\n        dfs(sr, sc, empty + 1)\n        return self.count\n",
+    "javascript": "var uniquePathsIII = function(grid) {\n    const rows = grid.length, cols = grid[0].length;\n    let empty = 0, sr = 0, sc = 0;\n    for (let r = 0; r < rows; r++) {\n        for (let c = 0; c < cols; c++) {\n            if (grid[r][c] === 0) empty++;\n            else if (grid[r][c] === 1) { sr = r; sc = c; }\n        }\n    }\n    let count = 0;\n    function dfs(r, c, remaining) {\n        if (grid[r][c] === 2) {\n            if (remaining === 0) count++;\n            return;\n        }\n        const tmp = grid[r][c];\n        grid[r][c] = -1;\n        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] !== -1) {\n                dfs(nr, nc, remaining - 1);\n            }\n        }\n        grid[r][c] = tmp;\n    }\n    dfs(sr, sc, empty + 1);\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(4^(m*n))", "space": "O(m*n)" }
+}

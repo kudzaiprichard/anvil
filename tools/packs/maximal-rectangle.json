@@ -1,0 +1,38 @@
+{
+  "slug": "maximal-rectangle",
+  "judge": "exact",
+  "pattern": "Treating each row as the base of a histogram of consecutive ones above it reduces the problem to a largest-rectangle-in-histogram scan repeated per row.",
+  "hints": [
+    "For any chosen bottom row, the largest all-ones rectangle resting on it depends only on how tall the column of ones is above each cell.",
+    "Sweep rows top to bottom, maintaining for each column the running count of consecutive ones ending at the current row, which forms a histogram.",
+    "After updating the per-column heights for a row, run the linear monotonic-stack largest-rectangle-in-histogram routine on that height array and keep the maximum area seen across all rows."
+  ],
+  "constraints": [
+    { "param": "matrix", "kind": "string[][]", "len": [1, 200], "value": [1, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed grid with a wide middle band of ones", "input": [[["1","0","1","0","0"],["1","0","1","1","1"],["1","1","1","1","1"],["1","0","0","1","0"]]] },
+    { "kind": "boundary", "description": "single zero cell yields zero area", "input": [[["0"]]] },
+    { "kind": "boundary", "description": "single one cell yields area one", "input": [[["1"]]] },
+    { "kind": "edge", "description": "all ones forms one big rectangle", "input": [[["1","1","1"],["1","1","1"]]] },
+    { "kind": "trap", "description": "tall thin column beats a short wide row", "input": [[["1","0"],["1","0"],["1","0"]]] },
+    { "kind": "trap", "description": "ones split by a row of zeros", "input": [[["1","1","1"],["0","0","0"],["1","1","1"]]] },
+    { "kind": "edge", "description": "all zeros has no rectangle", "input": [[["0","0"],["0","0"]]] },
+    { "kind": "trap", "description": "staircase prevents a large block", "input": [[["1","0","0"],["1","1","0"],["1","1","1"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random 0/1 grid with a bias toward ones to create sizeable rectangles",
+      "seed": 91,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    rows = rng.randint(1, max(1, min(size, 40)))\n    cols = rng.randint(1, max(1, min(size, 40)))\n    return [[['1' if rng.random() < 0.7 else '0' for _ in range(cols)] for _ in range(rows)]]\n",
+      "note": "0.7 fill makes non-trivial rectangles common while still leaving gaps"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximalRectangle(self, matrix):\n        if not matrix or not matrix[0]:\n            return 0\n        rows = len(matrix)\n        cols = len(matrix[0])\n        best = 0\n        for top in range(rows):\n            for left in range(cols):\n                if matrix[top][left] != '1':\n                    continue\n                max_right = cols\n                for bottom in range(top, rows):\n                    right = left\n                    while right < max_right and matrix[bottom][right] == '1':\n                        right += 1\n                    max_right = min(max_right, right)\n                    if max_right <= left:\n                        break\n                    best = max(best, (bottom - top + 1) * (max_right - left))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximalRectangle(self, matrix):\n        if not matrix or not matrix[0]:\n            return 0\n        cols = len(matrix[0])\n        heights = [0] * cols\n        best = 0\n        for row in matrix:\n            for j in range(cols):\n                heights[j] = heights[j] + 1 if row[j] == '1' else 0\n            best = max(best, self._largest(heights))\n        return best\n\n    def _largest(self, heights):\n        stack = []\n        best = 0\n        for i, h in enumerate(heights + [0]):\n            while stack and (heights + [0])[stack[-1]] >= h:\n                height = (heights + [0])[stack.pop()]\n                width = i if not stack else i - stack[-1] - 1\n                best = max(best, height * width)\n            stack.append(i)\n        return best\n",
+    "javascript": "var maximalRectangle = function(matrix) {\n    if (!matrix.length || !matrix[0].length) return 0;\n    const cols = matrix[0].length;\n    const heights = new Array(cols).fill(0);\n    let best = 0;\n    const largest = function(h) {\n        const ext = h.concat([0]);\n        const stack = [];\n        let b = 0;\n        for (let i = 0; i < ext.length; i++) {\n            while (stack.length && ext[stack[stack.length - 1]] >= ext[i]) {\n                const height = ext[stack.pop()];\n                const width = stack.length ? i - stack[stack.length - 1] - 1 : i;\n                b = Math.max(b, height * width);\n            }\n            stack.push(i);\n        }\n        return b;\n    };\n    for (const row of matrix) {\n        for (let j = 0; j < cols; j++) {\n            heights[j] = row[j] === '1' ? heights[j] + 1 : 0;\n        }\n        best = Math.max(best, largest(heights));\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(rows*cols)", "space": "O(cols)" }
+}

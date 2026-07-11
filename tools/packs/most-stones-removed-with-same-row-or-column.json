@@ -1,0 +1,37 @@
+{
+  "slug": "most-stones-removed-with-same-row-or-column",
+  "judge": "exact",
+  "pattern": "Union-Find over rows and columns: merging stones that share a row or column lets you compute connected components, and the answer is stones minus component count.",
+  "hints": [
+    "Two stones are in the same connected component if they share a row or column, even indirectly through a chain of shared rows/columns.",
+    "Use Union-Find with row IDs and column IDs (offset to distinguish them) as nodes; union each stone's row and column together.",
+    "The maximum removable stones equals total stones minus the number of distinct connected components."
+  ],
+  "constraints": [
+    { "param": "stones", "kind": "int[][]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single stone, cannot be removed", "input": [[[0,0]]] },
+    { "kind": "edge", "description": "two stones sharing a row", "input": [[[0,0],[0,1]]] },
+    { "kind": "edge", "description": "two stones sharing a column", "input": [[[0,2],[3,2]]] },
+    { "kind": "edge", "description": "two independent stones, neither removable", "input": [[[0,0],[1,1]]] },
+    { "kind": "edge", "description": "chain: row link then column link connects all three", "input": [[[0,0],[0,1],[1,1]]] },
+    { "kind": "boundary", "description": "all stones on same row", "input": [[[5,0],[5,1],[5,2],[5,3]]] },
+    { "kind": "boundary", "description": "all stones on same column", "input": [[[0,7],[1,7],[2,7],[3,7]]] },
+    { "kind": "trap", "description": "two separate components of equal size", "input": [[[0,0],[0,1],[2,2],[2,3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random stones on 10000x10000 grid, up to 1000 stones",
+      "seed": 42,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = min(1000, max(1, size))\n    seen = set()\n    stones = []\n    while len(stones) < n:\n        r, c = rng.randint(0, 9999), rng.randint(0, 9999)\n        if (r, c) not in seen:\n            seen.add((r, c))\n            stones.append([r, c])\n    return [stones]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def removeStones(self, stones):\n        from collections import defaultdict\n        row_map = defaultdict(list)\n        col_map = defaultdict(list)\n        for i, (r, c) in enumerate(stones):\n            row_map[r].append(i)\n            col_map[c].append(i)\n        n = len(stones)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            a, b = find(a), find(b)\n            if a != b:\n                parent[a] = b\n        for group in row_map.values():\n            for i in range(1, len(group)):\n                union(group[0], group[i])\n        for group in col_map.values():\n            for i in range(1, len(group)):\n                union(group[0], group[i])\n        roots = len({find(i) for i in range(n)})\n        return n - roots\n",
+  "solutions": {
+    "python": "class Solution:\n    def removeStones(self, stones):\n        parent = {}\n        def find(x):\n            if x not in parent:\n                parent[x] = x\n            while parent[x] != x:\n                parent[x] = parent.setdefault(parent[x], parent[x])\n                x = parent[x]\n            return x\n        def union(a, b):\n            a, b = find(a), find(b)\n            if a != b:\n                parent[a] = b\n        for r, c in stones:\n            union(r, ~c)\n        return len(stones) - len({find(r) for r, c in stones})\n",
+    "javascript": "var removeStones = function(stones) {\n    const parent = new Map();\n    function find(x) {\n        if (!parent.has(x)) parent.set(x, x);\n        if (parent.get(x) !== x) parent.set(x, find(parent.get(x)));\n        return parent.get(x);\n    }\n    function union(a, b) {\n        a = find(a); b = find(b);\n        if (a !== b) parent.set(a, b);\n    }\n    for (const [r, c] of stones) union(r, ~c);\n    const roots = new Set(stones.map(([r]) => find(r)));\n    return stones.length - roots.size;\n};\n"
+  },
+  "complexity": { "time": "O(n * alpha(n))", "space": "O(n)" }
+}

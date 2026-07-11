@@ -1,0 +1,45 @@
+{
+  "slug": "minimum-subarray-length-with-distinct-sum-at-least-k",
+  "judge": "exact",
+  "pattern": "A window's total of distinct values only changes when a value's in-window count crosses between zero and one, so tracking per-value counts alongside a running distinct-total lets a two-pointer window shrink and grow correctly even though duplicates don't add anything extra.",
+  "hints": [
+    "The catch is that repeating a value inside the window doesn't add to the target sum a second time, so plain running-sum sliding window logic needs adjusting.",
+    "Keep a count per value that currently appears in the window and a separate running total of the distinct values present; when a value's count goes from 0 to 1 add it to the total, and when it drops back to 0 subtract it — that total is still monotonic enough in each pointer to support a standard grow-then-shrink window.",
+    "Expand the right pointer one step at a time, updating the count/total as above, then while the distinct total is at least the target, record the window length as a candidate answer and advance the left pointer (again updating count/total) until the window is no longer valid."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "sample: distinct pair sum reaches k with a length-2 window", "input": [[2,2,3,1], 4] },
+    { "kind": "edge", "description": "sample: another length-2 window suffices", "input": [[3,2,3,4], 5] },
+    { "kind": "edge", "description": "sample: a single element already meets k", "input": [[5,5,4], 5] },
+    { "kind": "boundary", "description": "single-element array exactly meeting k", "input": [[100000], 100000] },
+    { "kind": "boundary", "description": "single-element array falling one short of k", "input": [[99999], 100000] },
+    { "kind": "trap", "description": "many repeats of one huge value never accumulate past it alone; must combine with a second distinct value", "input": [[100000,100000,100000,100000,1], 100001] },
+    { "kind": "trap", "description": "k is unreachable even using every distinct value in the array", "input": [[1,2,3], 1000000000] },
+    { "kind": "trap", "description": "k is reachable only by taking the entire array as the window", "input": [[1,2,3,4,5], 15] },
+    { "kind": "trap", "description": "all identical values: distinct sum never exceeds the single repeated value", "input": [[7,7,7,7,7,7], 8] }
+  ],
+  "stress": [
+    {
+      "description": "moderate-range random array with a k chosen to be reachable but not trivial, exercising the counted two-pointer logic at scale",
+      "seed": 42,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = size\n    nums = [rng.randint(1, 50) for _ in range(n)]\n    k = rng.randint(1, 400)\n    return [nums, k]\n"
+    },
+    {
+      "description": "heavy-duplicate array (small value pool) crossed with a k near the max possible distinct sum, to stress the unreachable/-1 path and near-boundary windows",
+      "seed": 99,
+      "size": 15000,
+      "generator_python": "def gen(rng, size):\n    n = size\n    pool = [rng.randint(1, 9) for _ in range(9)]\n    nums = [pool[rng.randint(0, len(pool) - 1)] for _ in range(n)]\n    k = rng.randint(1, 60)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minLength(self, nums, k):\n        # Brute force: for every left endpoint, grow the right endpoint while\n        # tracking the exact set of distinct values seen so far, stopping at\n        # the first window that reaches k (further growth only lengthens it).\n        n = len(nums)\n        best = -1\n        for left in range(n):\n            seen = set()\n            total = 0\n            for right in range(left, n):\n                v = nums[right]\n                if v not in seen:\n                    seen.add(v)\n                    total += v\n                if total >= k:\n                    length = right - left + 1\n                    if best == -1 or length < best:\n                        best = length\n                    break\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minLength(self, nums, k):\n        from collections import defaultdict\n        count = defaultdict(int)\n        distinct_sum = 0\n        best = -1\n        left = 0\n        n = len(nums)\n        for right in range(n):\n            v = nums[right]\n            if count[v] == 0:\n                distinct_sum += v\n            count[v] += 1\n            while distinct_sum >= k:\n                length = right - left + 1\n                if best == -1 or length < best:\n                    best = length\n                lv = nums[left]\n                count[lv] -= 1\n                if count[lv] == 0:\n                    distinct_sum -= lv\n                left += 1\n        return best\n",
+    "javascript": "var minLength = function(nums, k) {\n    const count = new Map();\n    let distinctSum = 0;\n    let best = -1;\n    let left = 0;\n    const n = nums.length;\n    for (let right = 0; right < n; right++) {\n        const v = nums[right];\n        const c = count.get(v) || 0;\n        if (c === 0) distinctSum += v;\n        count.set(v, c + 1);\n        while (distinctSum >= k) {\n            const length = right - left + 1;\n            if (best === -1 || length < best) best = length;\n            const lv = nums[left];\n            const lc = count.get(lv) - 1;\n            count.set(lv, lc);\n            if (lc === 0) distinctSum -= lv;\n            left++;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,46 @@
+{
+  "slug": "design-bitset",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "flip() would be O(n) per call if it actually rewrote every bit, so instead track a single 'is the whole set currently inverted' flag and reinterpret every stored raw bit through it; only toString has to ever materialize the real bits.",
+  "hints": [
+    "fix, unfix, all, one, and count all need to be fast even with up to 1e5 calls total, but flip toggles every single bit — if flip() literally rewrites the whole array every time, a long alternating sequence of flips is quadratic.",
+    "Store each bit's 'raw' value and a single global boolean meaning 'everything is currently inverted from its raw value'. The bit a caller actually observes at index i is raw[i] XOR that global flag. flip() then only has to toggle the one flag, O(1).",
+    "fix(idx) wants the OBSERVED bit to become 1, so it sets raw[idx] to (1 XOR flag); unfix(idx) wants it to become 0, so raw[idx] becomes (0 XOR flag). Track a running count of raw ones so count()/all()/one() can derive the observed count in O(1) via the flag (observed ones = flag ? size - rawOnes : rawOnes) instead of rescanning. Only toString must walk every index, since it has to produce the actual string."
+  ],
+  "constraints": [
+    { "param": "size", "kind": "int", "value": [1, 100000] },
+    { "param": "idx", "kind": "int", "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: fix two bits, flip, check all(), unfix, flip again, check one(), unfix, count, then toString",
+      "input": [["Bitset", "fix", "fix", "flip", "all", "unfix", "flip", "one", "unfix", "count", "toString"], [[5], [3], [1], [], [], [0], [], [], [0], [], []]] },
+    { "kind": "boundary", "description": "size 1, the smallest allowed bitset, toggled through fix/unfix/flip",
+      "input": [["Bitset", "toString", "fix", "toString", "flip", "toString", "unfix", "toString"], [[1], [], [0], [], [], [], [0], []]] },
+    { "kind": "trap", "description": "fixing an already-fixed bit, and unfixing an already-unfixed bit, must not change the count",
+      "input": [["Bitset", "fix", "fix", "count", "unfix", "unfix", "count"], [[4], [2], [2], [], [1], [1], []]] },
+    { "kind": "trap", "description": "flipping an all-zero bitset makes every bit 1, satisfying all() and one()",
+      "input": [["Bitset", "all", "one", "flip", "all", "one", "count"], [[6], [], [], [], [], [], []]] },
+    { "kind": "trap", "description": "two flips in a row (a double negation) must return every bit exactly to its pre-flip state",
+      "input": [["Bitset", "fix", "fix", "toString", "flip", "flip", "toString"], [[5], [0], [4], [], [], [], []]] },
+    { "kind": "trap", "description": "fixing then unfixing the same bit after a flip must land on the correct raw value under the active flip flag",
+      "input": [["Bitset", "flip", "fix", "toString", "unfix", "toString"], [[4], [], [2], [], [2], []]] },
+    { "kind": "boundary", "description": "fixing every single bit individually, then checking all/one/count/toString all agree",
+      "input": [["Bitset", "fix", "fix", "fix", "all", "one", "count", "toString"], [[3], [0], [1], [2], [], [], [], []]] }
+  ],
+  "stress": [
+    {
+      "description": "random fix/unfix/flip/all/one/count on a modest bitset, with a small, bounded number of toString calls scattered through",
+      "seed": 43,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = 300\n    ops = ['Bitset']\n    args = [[n]]\n    to_string_budget = 5\n    for i in range(max(1, size)):\n        choices = ['fix', 'unfix', 'flip', 'all', 'one', 'count']\n        if to_string_budget > 0 and i % 80 == 0:\n            choices.append('toString')\n        m = rng.choice(choices)\n        if m == 'toString':\n            to_string_budget -= 1\n            ops.append('toString'); args.append([])\n        elif m in ('fix', 'unfix'):\n            ops.append(m); args.append([rng.randint(0, n - 1)])\n        else:\n            ops.append(m); args.append([])\n    return [ops, args]\n",
+      "note": "toString is offered only occasionally and capped at 5 total calls to respect the constraint on how many times it may be invoked"
+    }
+  ],
+  "oracle_python": "class Bitset:\n    def __init__(self, size):\n        self.bits = [0] * size\n\n    def fix(self, idx):\n        self.bits[idx] = 1\n\n    def unfix(self, idx):\n        self.bits[idx] = 0\n\n    def flip(self):\n        self.bits = [1 - b for b in self.bits]\n\n    def all(self):\n        return all(b == 1 for b in self.bits)\n\n    def one(self):\n        return any(b == 1 for b in self.bits)\n\n    def count(self):\n        return sum(self.bits)\n\n    def toString(self):\n        return ''.join(str(b) for b in self.bits)\n",
+  "solutions": {
+    "python": "class Bitset:\n    def __init__(self, size):\n        self.n = size\n        self.arr = [0] * size\n        self.raw_ones = 0\n        self.flipped = False\n\n    def fix(self, idx):\n        desired = 0 if self.flipped else 1\n        if self.arr[idx] != desired:\n            self.arr[idx] = desired\n            self.raw_ones += 1 if desired == 1 else -1\n\n    def unfix(self, idx):\n        desired = 1 if self.flipped else 0\n        if self.arr[idx] != desired:\n            self.arr[idx] = desired\n            self.raw_ones += 1 if desired == 1 else -1\n\n    def flip(self):\n        self.flipped = not self.flipped\n\n    def _actual_ones(self):\n        return self.n - self.raw_ones if self.flipped else self.raw_ones\n\n    def all(self):\n        return self._actual_ones() == self.n\n\n    def one(self):\n        return self._actual_ones() > 0\n\n    def count(self):\n        return self._actual_ones()\n\n    def toString(self):\n        bit = 1 if self.flipped else 0\n        return ''.join(str(v ^ bit) for v in self.arr)\n",
+    "javascript": "class Bitset {\n    constructor(size) {\n        this.n = size;\n        this.arr = new Array(size).fill(0);\n        this.rawOnes = 0;\n        this.flipped = false;\n    }\n\n    fix(idx) {\n        const desired = this.flipped ? 0 : 1;\n        if (this.arr[idx] !== desired) {\n            this.arr[idx] = desired;\n            this.rawOnes += desired === 1 ? 1 : -1;\n        }\n    }\n\n    unfix(idx) {\n        const desired = this.flipped ? 1 : 0;\n        if (this.arr[idx] !== desired) {\n            this.arr[idx] = desired;\n            this.rawOnes += desired === 1 ? 1 : -1;\n        }\n    }\n\n    flip() {\n        this.flipped = !this.flipped;\n    }\n\n    _actualOnes() {\n        return this.flipped ? this.n - this.rawOnes : this.rawOnes;\n    }\n\n    all() {\n        return this._actualOnes() === this.n;\n    }\n\n    one() {\n        return this._actualOnes() > 0;\n    }\n\n    count() {\n        return this._actualOnes();\n    }\n\n    toString() {\n        const bit = this.flipped ? 1 : 0;\n        let out = '';\n        for (let i = 0; i < this.n; i++) out += (this.arr[i] ^ bit).toString();\n        return out;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op except O(n) toString", "space": "O(n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "minimize-xor",
+  "judge": "exact",
+  "pattern": "To minimize the XOR with num1 under a fixed popcount budget, greedily turn on the highest set bits of num1 first, then fill any remaining ones at the lowest free positions.",
+  "hints": [
+    "The number of bits you may set is fixed: it equals the popcount of num2. You only choose where to place them.",
+    "A bit shared with num1 cancels in the XOR, so spend your budget on num1's set bits from the most significant downward.",
+    "After matching as many of num1's high bits as the budget allows, place any leftover bits on the lowest still-clear positions to keep the result small."
+  ],
+  "constraints": [
+    { "param": "num1", "kind": "int", "value": [1, 1000000000] },
+    { "param": "num2", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "equal popcount lets x match num1 exactly for zero xor", "input": [3, 5] },
+    { "kind": "edge", "description": "leftover bits must spill to low positions", "input": [1, 12] },
+    { "kind": "boundary", "description": "smallest inputs", "input": [1, 1] },
+    { "kind": "trap", "description": "budget larger than num1 popcount needs low fill", "input": [25, 72] },
+    { "kind": "trap", "description": "budget smaller than num1 popcount keeps only high bits", "input": [65535, 1] },
+    { "kind": "boundary", "description": "large num1 with single-bit budget", "input": [1000000000, 1] },
+    { "kind": "edge", "description": "num1 is a power of two", "input": [1024, 7] }
+  ],
+  "stress": [
+    {
+      "description": "random pairs across the full value range",
+      "seed": 12,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    num1 = rng.randint(1, 10**9)\n    num2 = rng.randint(1, 10**9)\n    return [num1, num2]\n",
+      "note": "single-call problem; randomness covers diverse bit layouts"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimizeXor(self, num1, num2):\n        # Independent construction: choose the k bit positions (k = popcount(num2))\n        # that minimize x ^ num1. Each chosen position p contributes 2**p to x; the\n        # xor cost of choosing p is (2**p) if num1 lacks that bit, else it CANCELS a\n        # cost num1 would otherwise carry. Rank every position by the cost delta of\n        # selecting it and take the k cheapest. This mirrors no greedy loop directly.\n        k = bin(num2).count('1')\n        bits = 32\n        # cost delta of x having bit p set, relative to x not having it:\n        #   if num1 has bit p: delta = -2**p (helps, cancels num1's bit in xor)\n        #   else:              delta = +2**p (hurts, adds to xor)\n        deltas = []\n        for p in range(bits):\n            if (num1 >> p) & 1:\n                deltas.append((-(1 << p), p))\n            else:\n                deltas.append(((1 << p), p))\n        deltas.sort()\n        x = 0\n        for _, p in deltas[:k]:\n            x |= (1 << p)\n        return x\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimizeXor(self, num1, num2):\n        k = bin(num2).count('1')\n        x = 0\n        # set shared high bits of num1 first\n        for b in range(30, -1, -1):\n            if k == 0:\n                break\n            if (num1 >> b) & 1:\n                x |= (1 << b)\n                k -= 1\n        # fill remaining from lowest clear bits\n        b = 0\n        while k > 0:\n            if not ((x >> b) & 1):\n                x |= (1 << b)\n                k -= 1\n            b += 1\n        return x\n",
+    "javascript": "var minimizeXor = function(num1, num2) {\n    let k = 0;\n    let t = num2;\n    while (t > 0) { k += t & 1; t = Math.floor(t / 2); }\n    let x = 0;\n    for (let b = 30; b >= 0; b--) {\n        if (k === 0) break;\n        if ((num1 >> b) & 1) {\n            x |= (1 << b);\n            k--;\n        }\n    }\n    let b = 0;\n    while (k > 0) {\n        if (!((x >> b) & 1)) {\n            x |= (1 << b);\n            k--;\n        }\n        b++;\n    }\n    return x >>> 0;\n};\n"
+  },
+  "complexity": { "time": "O(31)", "space": "O(1)" }
+}

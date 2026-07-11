@@ -1,0 +1,36 @@
+{
+  "slug": "regions-cut-by-slashes",
+  "judge": "exact",
+  "pattern": "Split each cell into four triangular quadrants and union them according to the slash, then merge across cell borders; the number of disjoint sets is the region count.",
+  "hints": [
+    "A slash inside a unit cell cuts it into pieces, so think about subdividing each cell rather than the cell as a whole.",
+    "Give each cell four triangles (top, right, bottom, left); a blank joins all four, a slash or backslash joins them in two pairs.",
+    "Union the four triangles per cell by its character, then union each cell's right triangle with the left of its neighbor and bottom with the top below; count remaining components."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "string[]", "len": [1, 30] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two regions from opposing slashes", "input": [[" /", "/ "]] },
+    { "kind": "boundary", "description": "a lone slash leaves one region", "input": [[" /", "  "]] },
+    { "kind": "trap", "description": "diamond pattern creates five regions", "input": [["/\\", "\\/"]] },
+    { "kind": "boundary", "description": "single blank cell is one region", "input": [[" "]] },
+    { "kind": "edge", "description": "single slash cell is one region", "input": [["/"]] },
+    { "kind": "trap", "description": "parallel slashes split into three regions", "input": [["//", "//"]] }
+  ],
+  "stress": [
+    {
+      "description": "random small grids over all three cell characters",
+      "seed": 41,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 10))\n    chars = [' ', '/', '\\\\']\n    grid = [''.join(rng.choice(chars) for _ in range(n)) for _ in range(n)]\n    return [grid]\n",
+      "note": "backslash escaped once for the JSON string literal"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def regionsBySlashes(self, grid):\n        n = len(grid)\n        g = [[0] * (3 * n) for _ in range(3 * n)]\n        for i in range(n):\n            for j in range(n):\n                c = grid[i][j]\n                if c == '/':\n                    g[3 * i][3 * j + 2] = 1\n                    g[3 * i + 1][3 * j + 1] = 1\n                    g[3 * i + 2][3 * j] = 1\n                elif c == '\\\\':\n                    g[3 * i][3 * j] = 1\n                    g[3 * i + 1][3 * j + 1] = 1\n                    g[3 * i + 2][3 * j + 2] = 1\n        seen = [[False] * (3 * n) for _ in range(3 * n)]\n        regions = 0\n        for i in range(3 * n):\n            for j in range(3 * n):\n                if g[i][j] == 0 and not seen[i][j]:\n                    regions += 1\n                    stack = [(i, j)]\n                    seen[i][j] = True\n                    while stack:\n                        x, y = stack.pop()\n                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                            nx, ny = x + dx, y + dy\n                            if 0 <= nx < 3 * n and 0 <= ny < 3 * n and g[nx][ny] == 0 and not seen[nx][ny]:\n                                seen[nx][ny] = True\n                                stack.append((nx, ny))\n        return regions\n",
+  "solutions": {
+    "python": "class Solution:\n    def regionsBySlashes(self, grid):\n        n = len(grid)\n        parent = list(range(4 * n * n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        def idx(i, j, k):\n            return (i * n + j) * 4 + k\n        for i in range(n):\n            for j in range(n):\n                c = grid[i][j]\n                if c == '/':\n                    union(idx(i, j, 0), idx(i, j, 3))\n                    union(idx(i, j, 1), idx(i, j, 2))\n                elif c == '\\\\':\n                    union(idx(i, j, 0), idx(i, j, 1))\n                    union(idx(i, j, 2), idx(i, j, 3))\n                else:\n                    union(idx(i, j, 0), idx(i, j, 1))\n                    union(idx(i, j, 1), idx(i, j, 2))\n                    union(idx(i, j, 2), idx(i, j, 3))\n                if j + 1 < n:\n                    union(idx(i, j, 1), idx(i, j + 1, 3))\n                if i + 1 < n:\n                    union(idx(i, j, 2), idx(i + 1, j, 0))\n        return sum(1 for x in range(4 * n * n) if find(x) == x)\n",
+    "javascript": "var regionsBySlashes = function(grid) {\n    const n = grid.length;\n    const parent = Array.from({length: 4 * n * n}, (_, i) => i);\n    const find = (x) => {\n        while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }\n        return x;\n    };\n    const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };\n    const idx = (i, j, k) => (i * n + j) * 4 + k;\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < n; j++) {\n            const c = grid[i][j];\n            if (c === '/') {\n                union(idx(i, j, 0), idx(i, j, 3));\n                union(idx(i, j, 1), idx(i, j, 2));\n            } else if (c === '\\\\') {\n                union(idx(i, j, 0), idx(i, j, 1));\n                union(idx(i, j, 2), idx(i, j, 3));\n            } else {\n                union(idx(i, j, 0), idx(i, j, 1));\n                union(idx(i, j, 1), idx(i, j, 2));\n                union(idx(i, j, 2), idx(i, j, 3));\n            }\n            if (j + 1 < n) union(idx(i, j, 1), idx(i, j + 1, 3));\n            if (i + 1 < n) union(idx(i, j, 2), idx(i + 1, j, 0));\n        }\n    }\n    let count = 0;\n    for (let x = 0; x < 4 * n * n; x++) if (find(x) === x) count++;\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

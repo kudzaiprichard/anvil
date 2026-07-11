@@ -1,0 +1,43 @@
+{
+  "slug": "maximum-points-activated-with-one-addition",
+  "judge": "exact",
+  "pattern": "Two points already share an activation chain whenever a sequence of shared rows/columns links them, so the existing points split into independent chain-groups; one new point can bridge at most two such groups (one through its row, one through its column) plus itself.",
+  "hints": [
+    "Think of every existing point as sitting on two \"lines\": its row (fixed y) and its column (fixed x). Activation spreads along a line, so points reachable from one another through any sequence of shared rows/columns form one group.",
+    "Compute the size of every such group first (a union-find keyed on row-id and column-id works well, counting how many points end up per merged root).",
+    "A brand-new point can only ever touch one row and one column, so it can connect at most two existing groups (plus itself). The best you can do is add it between the two largest groups -- unless there's only one group, in which case just attach to it."
+  ],
+  "constraints": [
+    { "param": "points", "kind": "int[][]", "len": [1, 100000], "value": [-1000000000, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single point, adding one new point always activates exactly two", "input": [ [[5, 5]] ] },
+    { "kind": "edge", "description": "two points sharing only an x-coordinate", "input": [ [[3, 1], [3, 9]] ] },
+    { "kind": "edge", "description": "two points sharing only a y-coordinate", "input": [ [[1, 4], [9, 4]] ] },
+    { "kind": "trap", "description": "two points sharing neither coordinate -- two singleton groups, the new point bridges both", "input": [ [[0, 0], [1, 1]] ] },
+    { "kind": "edge", "description": "several isolated points, all distinct rows and columns", "input": [ [[0, 0], [10, 10], [20, 20], [30, 30], [40, 40]] ] },
+    { "kind": "trap", "description": "one large already-connected group plus one distant isolated point -- must pick the isolated one as the second group", "input": [ [[1, 1], [1, 2], [2, 2], [2, 3], [100, 100]] ] },
+    { "kind": "boundary", "description": "coordinates at the extreme allowed magnitude, negative and positive", "input": [ [[-1000000000, -1000000000], [-1000000000, 1000000000], [1000000000, -1000000000]] ] },
+    { "kind": "trap", "description": "many points all sharing one column (one big group) -- adding a point elsewhere on that column only extends it by one, not a merge", "input": [ [[5, 1], [5, 2], [5, 3], [5, 4], [5, 5]] ] }
+  ],
+  "stress": [
+    {
+      "description": "large set of random distinct points across a wide coordinate range",
+      "seed": 71,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    pts = []\n    seen = set()\n    while len(pts) < n:\n        x = rng.randint(-1000000000, 1000000000)\n        y = rng.randint(-1000000000, 1000000000)\n        if (x, y) not in seen:\n            seen.add((x, y))\n            pts.append([x, y])\n    return [pts]\n"
+    },
+    {
+      "description": "clustered points along a small number of rows/columns, forcing large groups",
+      "seed": 72,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    lines = max(2, n // 200)\n    pts = []\n    seen = set()\n    while len(pts) < n:\n        if rng.randint(0, 1) == 0:\n            x = rng.randint(0, lines)\n            y = rng.randint(-1000000000, 1000000000)\n        else:\n            x = rng.randint(-1000000000, 1000000000)\n            y = rng.randint(0, lines)\n        if (x, y) not in seen:\n            seen.add((x, y))\n            pts.append([x, y])\n    return [pts]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxActivated(self, points):\n        n = len(points)\n        parent = list(range(n))\n        def find(a):\n            while parent[a] != a:\n                parent[a] = parent[parent[a]]\n                a = parent[a]\n            return a\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for i in range(n):\n            for j in range(i + 1, n):\n                if points[i][0] == points[j][0] or points[i][1] == points[j][1]:\n                    union(i, j)\n        counts = {}\n        for i in range(n):\n            r = find(i)\n            counts[r] = counts.get(r, 0) + 1\n        sizes = sorted(counts.values(), reverse=True)\n        top1 = sizes[0] if sizes else 0\n        top2 = sizes[1] if len(sizes) > 1 else 0\n        return top1 + top2 + 1\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxActivated(self, points):\n        parent = {}\n        size_pts = {}\n        def find(a):\n            parent.setdefault(a, a)\n            root = a\n            while parent[root] != root:\n                root = parent[root]\n            while parent[a] != root:\n                parent[a], a = root, parent[a]\n            return root\n        for x, y in points:\n            xn, yn = ('x', x), ('y', y)\n            parent.setdefault(xn, xn)\n            parent.setdefault(yn, yn)\n            size_pts.setdefault(xn, 0)\n            size_pts.setdefault(yn, 0)\n            rx, ry = find(xn), find(yn)\n            if rx == ry:\n                size_pts[rx] = size_pts.get(rx, 0) + 1\n            else:\n                new_size = size_pts.get(rx, 0) + size_pts.get(ry, 0) + 1\n                parent[rx] = ry\n                size_pts.pop(rx, None)\n                size_pts[ry] = new_size\n        top1 = top2 = 0\n        for v in size_pts.values():\n            if v > top1:\n                top1, top2 = v, top1\n            elif v > top2:\n                top2 = v\n        return top1 + top2 + 1\n",
+    "javascript": "var maxActivated = function(points) {\n    const parent = new Map();\n    const sizePts = new Map();\n    function find(a) {\n        if (!parent.has(a)) parent.set(a, a);\n        let root = a;\n        while (parent.get(root) !== root) root = parent.get(root);\n        while (parent.get(a) !== root) {\n            const next = parent.get(a);\n            parent.set(a, root);\n            a = next;\n        }\n        return root;\n    }\n    for (const [x, y] of points) {\n        const xn = 'x:' + x;\n        const yn = 'y:' + y;\n        if (!parent.has(xn)) parent.set(xn, xn);\n        if (!parent.has(yn)) parent.set(yn, yn);\n        if (!sizePts.has(xn)) sizePts.set(xn, 0);\n        if (!sizePts.has(yn)) sizePts.set(yn, 0);\n        const rx = find(xn);\n        const ry = find(yn);\n        if (rx === ry) {\n            sizePts.set(rx, (sizePts.get(rx) || 0) + 1);\n        } else {\n            const newSize = (sizePts.get(rx) || 0) + (sizePts.get(ry) || 0) + 1;\n            parent.set(rx, ry);\n            sizePts.delete(rx);\n            sizePts.set(ry, newSize);\n        }\n    }\n    let top1 = 0, top2 = 0;\n    for (const v of sizePts.values()) {\n        if (v > top1) { top2 = top1; top1 = v; }\n        else if (v > top2) { top2 = v; }\n    }\n    return top1 + top2 + 1;\n};\n"
+  },
+  "complexity": { "time": "O(n α(n))", "space": "O(n)" }
+}

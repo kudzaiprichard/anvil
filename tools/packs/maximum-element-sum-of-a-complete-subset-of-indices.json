@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-element-sum-of-a-complete-subset-of-indices",
+  "judge": "exact",
+  "pattern": "A pairwise 'product is a perfect square' condition on indices collapses into a plain grouping problem once you strip every squared factor out of each index: two indices are allowed together exactly when what's left over afterward matches.",
+  "hints": [
+    "The compatibility of two indices only depends on the indices themselves, never on the values in nums -- so first work out, using only 1..n, which indices are even allowed to sit in the same subset.",
+    "i * j is a perfect square exactly when i and j reduce to the same value after you repeatedly divide out any factor that appears squared -- try peeling squared factors off an index and see what's left over.",
+    "Bucket every index from 1 to n by that leftover square-free remainder, add up nums within each bucket, and the answer is just the largest bucket total."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single index has no partner to conflict with", "input": [[5]] },
+    { "kind": "edge", "description": "two indices whose product is not a perfect square, so they must land in separate buckets", "input": [[10, 1]] },
+    { "kind": "trap", "description": "index 1 and index 4 are compatible (product 4), but the biggest lone index can still beat their combined bucket", "input": [[1, 100, 100, 1]] },
+    { "kind": "trap", "description": "a large value sits on a non-square-adjacent index and must not get folded into the 1/4/9 bucket", "input": [[1, 1000, 1, 1, 1, 1, 1, 1, 1]] },
+    { "kind": "edge", "description": "indices 1, 4 and 9 are mutually compatible and one of them carries most of the weight", "input": [[5, 5, 5, 100, 5, 5, 5, 5, 5]] },
+    { "kind": "boundary", "description": "extreme low and extreme high values on two incompatible indices", "input": [[1000000000, 1]] },
+    { "kind": "trap", "description": "every value identical, so the answer is decided purely by which bucket has the most indices", "input": [[1, 1, 1, 1, 1, 1]] },
+    { "kind": "boundary", "description": "a moderately large index range to exercise several square-free buckets at once", "input": [[3, 8, 2, 9, 1, 7, 4, 6, 5, 10, 2, 8, 3, 9]] }
+  ],
+  "stress": [
+    {
+      "description": "random values across a large index range",
+      "seed": 23,
+      "size": 8000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 10000))\n    nums = [rng.randint(1, 10**9) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "import math\nclass Solution:\n    def maximumSum(self, nums):\n        n = len(nums)\n        best = 0\n        for mask in range(1, 1 << n):\n            idxs = [i + 1 for i in range(n) if (mask >> i) & 1]\n            ok = True\n            for a in range(len(idxs)):\n                for b in range(a + 1, len(idxs)):\n                    p = idxs[a] * idxs[b]\n                    r = math.isqrt(p)\n                    if r * r != p:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if ok:\n                s = sum(nums[i - 1] for i in idxs)\n                if s > best:\n                    best = s\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumSum(self, nums):\n        n = len(nums)\n        groups = {}\n        for idx in range(1, n + 1):\n            x = idx\n            part = 1\n            d = 2\n            while d * d <= x:\n                cnt = 0\n                while x % d == 0:\n                    x //= d\n                    cnt += 1\n                if cnt % 2 == 1:\n                    part *= d\n                d += 1\n            if x > 1:\n                part *= x\n            groups[part] = groups.get(part, 0) + nums[idx - 1]\n        return max(groups.values())\n",
+    "javascript": "var maximumSum = function(nums) {\n    const n = nums.length;\n    const groups = new Map();\n    for (let idx = 1; idx <= n; idx++) {\n        let x = idx;\n        let part = 1;\n        for (let d = 2; d * d <= x; d++) {\n            let cnt = 0;\n            while (x % d === 0) {\n                x = Math.floor(x / d);\n                cnt++;\n            }\n            if (cnt % 2 === 1) part *= d;\n        }\n        if (x > 1) part *= x;\n        groups.set(part, (groups.get(part) || 0) + nums[idx - 1]);\n    }\n    return Math.max(...groups.values());\n};\n"
+  },
+  "complexity": { "time": "O(n * sqrt(n))", "space": "O(n)" }
+}

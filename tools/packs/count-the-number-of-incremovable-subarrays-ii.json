@@ -1,0 +1,46 @@
+{
+  "slug": "count-the-number-of-incremovable-subarrays-ii",
+  "judge": "exact",
+  "pattern": "A single contiguous cut can only fix a non-increasing array if it removes everything between the longest strictly-increasing run anchored at the start and the longest strictly-increasing run anchored at the end, so sliding a pointer across the surviving suffix while the surviving prefix grows counts every valid cut in linear time.",
+  "hints": [
+    "First find how far a strictly increasing run reaches from the very start, and separately how far one reaches back from the very end; any removal that keeps the array strictly increasing must keep only elements from within those two runs.",
+    "For each amount of prefix you decide to keep, the smallest suffix start that can be glued on without breaking strict order only ever moves forward as the kept prefix grows, so a single forward-moving pointer finds it instead of rechecking from scratch.",
+    "Once you know the earliest valid suffix start for a given kept-prefix length, every later suffix start is also valid, so add one count per surviving suffix start rather than testing them individually; handle the fully-increasing array as its own closed-form triangular-number case."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "already strictly increasing, so the closed-form triangular count applies", "input": [[1, 2, 3, 4]] },
+    { "kind": "edge", "description": "a single dip in the middle that one contiguous removal can patch in several ways", "input": [[6, 5, 7, 8]] },
+    { "kind": "trap", "description": "a repeated value at the tail that a naive strictly-increasing check must not treat as sorted", "input": [[8, 7, 6, 6]] },
+    { "kind": "boundary", "description": "a single-element array, the smallest allowed length", "input": [[5]] },
+    { "kind": "boundary", "description": "the smallest strictly increasing pair", "input": [[1, 2]] },
+    { "kind": "trap", "description": "the smallest strictly decreasing pair, where every possible removal still happens to work", "input": [[2, 1]] },
+    { "kind": "trap", "description": "every element identical, so only removals leaving zero or one element can qualify", "input": [[4, 4, 4, 4]] },
+    { "kind": "boundary", "description": "values pinned to the extreme ends of the allowed range", "input": [[1000000000, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "large fully random array to exercise the general two-pointer sweep",
+      "seed": 11,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 10**9) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "a mostly strictly increasing array with a handful of random dips, stressing the prefix/suffix boundary detection",
+      "seed": 12,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = list(range(1, n + 1))\n    k = max(1, n // 50)\n    for _ in range(k):\n        i = rng.randint(0, n - 1)\n        nums[i] = rng.randint(1, 10**9)\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def incremovableSubarrayCount(self, nums):\n        n = len(nums)\n        count = 0\n        for i in range(n):\n            for j in range(i, n):\n                rest = nums[:i] + nums[j + 1:]\n                ok = True\n                for k in range(len(rest) - 1):\n                    if rest[k] >= rest[k + 1]:\n                        ok = False\n                        break\n                if ok:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def incremovableSubarrayCount(self, nums):\n        n = len(nums)\n        prefixLen = 1\n        while prefixLen < n and nums[prefixLen - 1] < nums[prefixLen]:\n            prefixLen += 1\n        if prefixLen == n:\n            return n * (n + 1) // 2\n        suffixStart = n - 1\n        while suffixStart > 0 and nums[suffixStart - 1] < nums[suffixStart]:\n            suffixStart -= 1\n        count = 0\n        right = suffixStart\n        for left in range(0, prefixLen + 1):\n            if left > 0:\n                while right < n and nums[right] <= nums[left - 1]:\n                    right += 1\n            if right < left:\n                right = left\n            count += n - right + 1\n        return count\n",
+    "javascript": "var incremovableSubarrayCount = function(nums) {\n    const n = nums.length;\n    let prefixLen = 1;\n    while (prefixLen < n && nums[prefixLen - 1] < nums[prefixLen]) {\n        prefixLen += 1;\n    }\n    if (prefixLen === n) {\n        return (n * (n + 1)) / 2;\n    }\n    let suffixStart = n - 1;\n    while (suffixStart > 0 && nums[suffixStart - 1] < nums[suffixStart]) {\n        suffixStart -= 1;\n    }\n    let count = 0;\n    let right = suffixStart;\n    for (let left = 0; left <= prefixLen; left++) {\n        if (left > 0) {\n            while (right < n && nums[right] <= nums[left - 1]) {\n                right += 1;\n            }\n        }\n        if (right < left) {\n            right = left;\n        }\n        count += n - right + 1;\n    }\n    return count;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(1)"
+  }
+}

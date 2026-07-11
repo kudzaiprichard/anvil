@@ -1,0 +1,39 @@
+{
+  "slug": "cousins-in-binary-tree-ii",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "tree" },
+  "pattern": "Rebuilding every node's value from its cousins takes a two-pass level-order sweep: first tally each level's total and each parent's own children sum, then a node's cousins sum is simply the level total minus whatever its own parent contributed.",
+  "hints": [
+    "The root always becomes 0 since it has no cousins at all; think level by level below it.",
+    "For every level, work out the level's grand total value and, separately, how much each parent's own pair of children contributes.",
+    "A node's new value is its level's grand total minus its own parent's children-sum — siblings share this same new value since they share a parent."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 10000], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single node", "input": [[5]] },
+    { "kind": "edge", "description": "small complete tree", "input": [[1, 2, 3, 4, 5, 6, 7]] },
+    { "kind": "edge", "description": "asymmetric depth-2 children counts", "input": [[1, 2, 3, 4, 5, null, 6]] },
+    { "kind": "boundary", "description": "left-skewed chain, every node a lone child", "input": [[1, 2, null, 3, null, 4, null, 5]] },
+    { "kind": "boundary", "description": "right-skewed chain, every node a lone child", "input": [[1, null, 2, null, 3, null, 4]] },
+    { "kind": "trap", "description": "one branch missing entirely at depth 2", "input": [[10, 20, 30, 1, 2]] },
+    { "kind": "trap", "description": "duplicate values across the tree", "input": [[7, 7, 7, 7, 7, 7, 7]] },
+    { "kind": "edge", "description": "root with a single lone left child only", "input": [[9, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random level-order tree with random gaps, values 1..10000",
+      "seed": 71,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 3000))\n    arr = [rng.randint(1, 10000)]\n    for _ in range(n - 1):\n        arr.append(rng.randint(1, 10000) if rng.random() < 0.75 else None)\n    while arr and arr[-1] is None:\n        arr.pop()\n    return [arr]\n",
+      "note": "level-order array with trailing nulls trimmed keeps it a valid wire-form tree"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def replaceValueInTree(self, root):\n        if root is None:\n            return None\n        info = {}\n        def dfs(node, depth, parent):\n            if node is None:\n                return\n            info[id(node)] = (depth, parent)\n            dfs(node.left, depth + 1, node)\n            dfs(node.right, depth + 1, node)\n        dfs(root, 0, None)\n        from collections import defaultdict\n        level_sum = defaultdict(int)\n        parent_children_sum = defaultdict(int)\n        stack = [root]\n        while stack:\n            node = stack.pop()\n            d, p = info[id(node)]\n            level_sum[d] += node.val\n            if p is not None:\n                parent_children_sum[id(p)] += node.val\n            if node.left:\n                stack.append(node.left)\n            if node.right:\n                stack.append(node.right)\n        new_vals = {}\n        stack = [root]\n        while stack:\n            node = stack.pop()\n            d, p = info[id(node)]\n            if p is None:\n                new_vals[id(node)] = 0\n            else:\n                new_vals[id(node)] = level_sum[d] - parent_children_sum[id(p)]\n            if node.left:\n                stack.append(node.left)\n            if node.right:\n                stack.append(node.right)\n        stack = [root]\n        while stack:\n            node = stack.pop()\n            node.val = new_vals[id(node)]\n            if node.left:\n                stack.append(node.left)\n            if node.right:\n                stack.append(node.right)\n        return root\n",
+  "solutions": {
+    "python": "class Solution:\n    def replaceValueInTree(self, root):\n        if root is None:\n            return None\n        root.val = 0\n        level = [root]\n        while level:\n            next_level = []\n            child_sums = []\n            for node in level:\n                cs = (node.left.val if node.left else 0) + (node.right.val if node.right else 0)\n                child_sums.append(cs)\n                if node.left:\n                    next_level.append(node.left)\n                if node.right:\n                    next_level.append(node.right)\n            total_next = sum(child.val for child in next_level)\n            for node, cs in zip(level, child_sums):\n                new_val = total_next - cs\n                if node.left:\n                    node.left.val = new_val\n                if node.right:\n                    node.right.val = new_val\n            level = next_level\n        return root\n",
+    "javascript": "var replaceValueInTree = function(root) {\n    if (!root) return null;\n    root.val = 0;\n    let level = [root];\n    while (level.length) {\n        const nextLevel = [];\n        const childSums = [];\n        for (const node of level) {\n            const cs = (node.left ? node.left.val : 0) + (node.right ? node.right.val : 0);\n            childSums.push(cs);\n            if (node.left) nextLevel.push(node.left);\n            if (node.right) nextLevel.push(node.right);\n        }\n        let totalNext = 0;\n        for (const child of nextLevel) totalNext += child.val;\n        for (let i = 0; i < level.length; i++) {\n            const node = level[i];\n            const newVal = totalNext - childSums[i];\n            if (node.left) node.left.val = newVal;\n            if (node.right) node.right.val = newVal;\n        }\n        level = nextLevel;\n    }\n    return root;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

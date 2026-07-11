@@ -1,0 +1,37 @@
+{
+  "slug": "find-eventual-safe-states",
+  "judge": "exact",
+  "pattern": "Reverse-graph topological elimination: a node is safe exactly when every successor is safe, so peel off terminal nodes and propagate safety backward.",
+  "hints": [
+    "A node is safe when it cannot reach any cycle; terminal nodes with no outgoing edges are trivially safe.",
+    "Color each node white/grey/black with DFS, marking grey while on the current path so revisiting a grey node reveals a cycle.",
+    "Equivalently, reverse every edge and run a queue from nodes of out-degree zero, decrementing successors' out-degree and enqueuing any that reach zero; those reached are the safe nodes, returned sorted."
+  ],
+  "constraints": [
+    { "param": "graph", "kind": "int[][]", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed graph with a small cycle and several safe nodes", "input": [[[1, 2], [2, 3], [5], [0], [5], [], []]] },
+    { "kind": "edge", "description": "only the lone terminal node is safe", "input": [[[1, 2, 3, 4], [1, 2], [3, 4], [0, 4], []]] },
+    { "kind": "boundary", "description": "single node with a self-loop is unsafe", "input": [[[0]]] },
+    { "kind": "boundary", "description": "single terminal node is safe", "input": [[[]]] },
+    { "kind": "trap", "description": "every node sits on one big cycle so none are safe", "input": [[[1], [2], [3], [0]]] },
+    { "kind": "trap", "description": "a chain feeding into a cycle leaves only the cycle-free tail unsafe", "input": [[[1], [2], [0], [4], []]] },
+    { "kind": "edge", "description": "all nodes terminal, all safe", "input": [[[], [], []]] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse directed graph with deliberate forward bias plus occasional back edges to create cycles",
+      "seed": 29,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    graph = []\n    for i in range(n):\n        outs = set()\n        deg = rng.randint(0, 3)\n        for _ in range(deg):\n            j = rng.randrange(n)\n            outs.add(j)\n        graph.append(sorted(outs))\n    return [graph]\n",
+      "note": "random targets create a realistic mix of cycles and safe chains"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def eventualSafeNodes(self, graph):\n        # Independent approach: per-node DFS memo where a node is safe iff every\n        # successor is safe; a node still on the current stack (provisional False)\n        # signals a cycle and stays unsafe.\n        import sys\n        sys.setrecursionlimit(100000)\n        n = len(graph)\n        safe = [None] * n\n        def solve(u):\n            if safe[u] is not None:\n                return safe[u]\n            safe[u] = False\n            ok = True\n            for v in graph[u]:\n                if not solve(v):\n                    ok = False\n                    break\n            safe[u] = ok\n            return ok\n        return [i for i in range(n) if solve(i)]\n",
+  "solutions": {
+    "python": "class Solution:\n    def eventualSafeNodes(self, graph):\n        from collections import deque\n        n = len(graph)\n        rev = [[] for _ in range(n)]\n        outdeg = [0] * n\n        for u in range(n):\n            outdeg[u] = len(graph[u])\n            for v in graph[u]:\n                rev[v].append(u)\n        q = deque(i for i in range(n) if outdeg[i] == 0)\n        safe = [False] * n\n        while q:\n            u = q.popleft()\n            safe[u] = True\n            for w in rev[u]:\n                outdeg[w] -= 1\n                if outdeg[w] == 0:\n                    q.append(w)\n        return [i for i in range(n) if safe[i]]\n",
+    "javascript": "var eventualSafeNodes = function(graph) {\n    const n = graph.length;\n    const rev = Array.from({ length: n }, () => []);\n    const outdeg = new Array(n).fill(0);\n    for (let u = 0; u < n; u++) {\n        outdeg[u] = graph[u].length;\n        for (const v of graph[u]) rev[v].push(u);\n    }\n    const q = [];\n    for (let i = 0; i < n; i++) if (outdeg[i] === 0) q.push(i);\n    const safe = new Array(n).fill(false);\n    let head = 0;\n    while (head < q.length) {\n        const u = q[head++];\n        safe[u] = true;\n        for (const w of rev[u]) {\n            if (--outdeg[w] === 0) q.push(w);\n        }\n    }\n    const res = [];\n    for (let i = 0; i < n; i++) if (safe[i]) res.push(i);\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(V + E)", "space": "O(V + E)" }
+}

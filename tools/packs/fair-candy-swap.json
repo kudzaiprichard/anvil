@@ -1,0 +1,45 @@
+{
+  "slug": "fair-candy-swap",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    aliceSizes, bobSizes = args[0], args[1]\n    if not isinstance(output, list) or len(output) != 2:\n        return False\n    a, b = output[0], output[1]\n    if a not in aliceSizes or b not in bobSizes:\n        return False\n    sumA = sum(aliceSizes)\n    sumB = sum(bobSizes)\n    return sumA - a + b == sumB - b + a\n",
+    "validator_javascript": "function validate(args, output) {\n    const aliceSizes = args[0], bobSizes = args[1];\n    if (!Array.isArray(output) || output.length !== 2) return false;\n    const a = output[0], b = output[1];\n    if (!aliceSizes.includes(a) || !bobSizes.includes(b)) return false;\n    const sumA = aliceSizes.reduce((s, x) => s + x, 0);\n    const sumB = bobSizes.reduce((s, x) => s + x, 0);\n    return sumA - a + b === sumB - b + a;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Compute the size imbalance and use a hash set to find the unique box pair that corrects it in a single linear pass.",
+  "hints": [
+    "After the swap, Alice and Bob must each hold (sumA + sumB) / 2 candies. That means if Alice gives away a box of size a, she needs to receive a box of size b = a - (sumA - sumB) / 2.",
+    "Store Bob's box sizes in a hash set. Iterate through Alice's sizes and for each a check whether b = a - diff is present in the set, where diff = (sumA - sumB) / 2.",
+    "Compute diff = (sumA - sumB) // 2. For each a in aliceSizes: if (a - diff) is in the set of bobSizes, return [a, a - diff]. Both sizes must be positive, which is guaranteed by the constraints."
+  ],
+  "constraints": [
+    { "param": "aliceSizes", "kind": "int[]", "len": [1, 10000], "value": [1, 100000] },
+    { "param": "bobSizes", "kind": "int[]", "len": [1, 10000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "each has two boxes, swapping one of each equalises", "input": [[1, 1], [2, 2]] },
+    { "kind": "edge", "description": "smallest arrays with non-symmetric sizes", "input": [[1, 2], [2, 3]] },
+    { "kind": "edge", "description": "Alice has one box, Bob has two", "input": [[2], [1, 3]] },
+    { "kind": "trap", "description": "equal totals after swapping same-size boxes", "input": [[3, 3], [3, 3]] },
+    { "kind": "trap", "description": "single large discrepancy, unique swap", "input": [[5], [2, 3]] },
+    { "kind": "boundary", "description": "minimum arrays of length 1 each", "input": [[4], [2, 2]] },
+    { "kind": "edge", "description": "Alice has many boxes but one large one must be swapped", "input": [[1, 1, 1, 6], [3, 4]] },
+    { "kind": "trap", "description": "large values where diff is exactly half the imbalance", "input": [[100000], [99999, 1]] },
+    { "kind": "boundary", "description": "both start equal after the specific swap", "input": [[2, 4], [1, 5]] }
+  ],
+  "stress": [
+    {
+      "description": "construct a guaranteed-valid instance: pick target sum, build both sides summing to it, then add an imbalance",
+      "seed": 42,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size // 2)\n    # Build Alice: n random values summing to some amount\n    alice = [rng.randint(1, 100) for _ in range(n)]\n    # Imbalance: difference must be even for a valid swap to exist\n    # Pick a box from each side and ensure the math works out\n    a_box = rng.randint(1, 100)\n    b_box = rng.randint(1, 100)\n    # Add boxes to each list\n    alice.append(a_box)\n    bob = [rng.randint(1, 100) for _ in range(n)]\n    bob.append(b_box)\n    # Compute sums; adjust alice[0] to force (sumA - sumB) == 2*(a_box - b_box)\n    sumA = sum(alice)\n    sumB = sum(bob)\n    # Force sumA - a_box + b_box == sumB - b_box + a_box\n    # => sumA - sumB == 2*(a_box - b_box)\n    # Adjust alice[0] to make this true:\n    needed_diff = 2 * (a_box - b_box)\n    alice[0] = max(1, alice[0] + (needed_diff - (sumA - sumB)))\n    return [alice, bob]\n",
+      "note": "constructs input so a valid swap always exists; iterating aliceSizes in order yields the deterministic first valid pair"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def fairCandySwap(self, aliceSizes, bobSizes):\n        # Brute force: try every pair\n        sumA = sum(aliceSizes)\n        sumB = sum(bobSizes)\n        for a in aliceSizes:\n            for b in bobSizes:\n                if sumA - a + b == sumB - b + a:\n                    return [a, b]\n        return []\n",
+  "solutions": {
+    "python": "class Solution:\n    def fairCandySwap(self, aliceSizes, bobSizes):\n        sumA = sum(aliceSizes)\n        sumB = sum(bobSizes)\n        diff = (sumA - sumB) // 2\n        bob_set = set(bobSizes)\n        for a in aliceSizes:\n            b = a - diff\n            if b in bob_set:\n                return [a, b]\n        return []\n",
+    "javascript": "var fairCandySwap = function(aliceSizes, bobSizes) {\n    const sumA = aliceSizes.reduce((s, x) => s + x, 0);\n    const sumB = bobSizes.reduce((s, x) => s + x, 0);\n    const diff = (sumA - sumB) / 2;\n    const bobSet = new Set(bobSizes);\n    for (const a of aliceSizes) {\n        const b = a - diff;\n        if (bobSet.has(b)) return [a, b];\n    }\n    return [];\n};\n"
+  },
+  "complexity": { "time": "O(m + n)", "space": "O(n)" }
+}

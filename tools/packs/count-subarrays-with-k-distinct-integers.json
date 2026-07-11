@@ -1,0 +1,45 @@
+{
+  "slug": "count-subarrays-with-k-distinct-integers",
+  "judge": "exact",
+  "pattern": "Anchoring each subarray at its left end and sweeping the right end forward while maintaining a live frequency table lets you track, incrementally, both how many distinct values are currently in view and how many of them still haven't reached the minimum-occurrence bar -- so a window only counts once both of those tallies land exactly where they need to.",
+  "hints": [
+    "For each left boundary, extend the right boundary one step at a time, updating a frequency map instead of recomputing it from scratch.",
+    "Keep two running tallies alongside the frequency map: the number of distinct values currently present, and how many of those currently have fewer than the required minimum occurrences.",
+    "A window counts only when the distinct tally equals the target exactly and the under-threshold tally has dropped to zero -- and once the distinct tally exceeds the target for a given left boundary, every further extension will too, so you can stop extending early."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] },
+    { "param": "m", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two subarrays qualify with exactly two distinct values each appearing twice", "input": [[1, 2, 1, 2, 2], 2, 2] },
+    { "kind": "edge", "description": "m relaxed to 1, reduces to counting subarrays with exactly k distinct values", "input": [[3, 1, 2, 4], 2, 1] },
+    { "kind": "boundary", "description": "single element array", "input": [[5], 1, 1] },
+    { "kind": "trap", "description": "k exceeds the total number of distinct values present -- no window can ever qualify", "input": [[1, 1, 1, 1], 2, 1] },
+    { "kind": "trap", "description": "every value distinct so no value can ever reach m=2 occurrences", "input": [[1, 2, 3, 4, 5], 3, 2] },
+    { "kind": "trap", "description": "all identical values -- only k=1 windows can ever qualify, and only once m is satisfied", "input": [[7, 7, 7, 7, 7], 1, 3] },
+    { "kind": "trap", "description": "k equal to array length forces the only candidate window to be the whole array", "input": [[1, 2, 3, 2, 1], 3, 1] },
+    { "kind": "boundary", "description": "m at the array-length ceiling, only the full array (if uniform) could ever qualify", "input": [[9, 9, 9], 1, 3] }
+  ],
+  "stress": [
+    {
+      "description": "moderate-size arrays over a small value alphabet so k and m are frequently satisfiable, keeping the differential brute-force oracle tractable",
+      "seed": 121,
+      "size": 160,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 160))\n    nums = [rng.randint(1, 6) for _ in range(n)]\n    k = rng.randint(1, 4)\n    m = rng.randint(1, 4)\n    return [nums, k, m]\n"
+    },
+    {
+      "description": "wider value range with tighter m to stress the deficient-count bookkeeping",
+      "seed": 122,
+      "size": 140,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 140))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    k = rng.randint(1, n)\n    m = rng.randint(1, 3)\n    return [nums, k, m]\n"
+    }
+  ],
+  "oracle_python": "from collections import Counter\n\nclass Solution:\n    def countSubarrays(self, nums, k, m):\n        # true brute force: recount every subarray's frequency table from scratch with\n        # Counter, independent of the incremental deficient-count bookkeeping below.\n        n = len(nums)\n        total = 0\n        for i in range(n):\n            for j in range(i, n):\n                c = Counter(nums[i:j+1])\n                if len(c) == k and all(v >= m for v in c.values()):\n                    total += 1\n                elif len(c) > k:\n                    break\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def countSubarrays(self, nums, k, m):\n        n = len(nums)\n        total = 0\n        for i in range(n):\n            freq = {}\n            distinct = 0\n            deficient = 0\n            for j in range(i, n):\n                v = nums[j]\n                c = freq.get(v, 0)\n                if c == 0:\n                    distinct += 1\n                    deficient += 1\n                freq[v] = c + 1\n                if c + 1 == m:\n                    deficient -= 1\n                if distinct > k:\n                    break\n                if distinct == k and deficient == 0:\n                    total += 1\n        return total\n",
+    "javascript": "var countSubarrays = function(nums, k, m) {\n    const n = nums.length;\n    let total = 0;\n    for (let i = 0; i < n; i++) {\n        const freq = new Map();\n        let distinct = 0;\n        let deficient = 0;\n        for (let j = i; j < n; j++) {\n            const v = nums[j];\n            const c = freq.get(v) || 0;\n            if (c === 0) {\n                distinct++;\n                deficient++;\n            }\n            freq.set(v, c + 1);\n            if (c + 1 === m) deficient--;\n            if (distinct > k) break;\n            if (distinct === k && deficient === 0) total++;\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

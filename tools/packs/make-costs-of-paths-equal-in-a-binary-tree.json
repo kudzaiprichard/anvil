@@ -1,0 +1,38 @@
+{
+  "slug": "make-costs-of-paths-equal-in-a-binary-tree",
+  "judge": "exact",
+  "pattern": "In a tree where every root-to-leaf path must end with the same total, work bottom-up: each node only needs to know the largest path-sum reachable through either of its two children, and raising the cheaper child's subtree to match the pricier one is always enough, so the answer accumulates as you climb toward the root.",
+  "hints": [
+    "Think about the two children of a single node in isolation first: to make the two paths through them agree, you must raise whichever child currently offers the smaller path-sum until it matches the larger one; there is never a cheaper way to reconcile just those two.",
+    "Process nodes from the deepest internal level up to the root (using the implicit index rule that node i's children are 2*i and 2*i+1), tracking for every node the best path-sum achievable from it down to a leaf after any increments already tallied below it.",
+    "At node i with children left and right, add abs(bestSum[left] - bestSum[right]) to the running total, then set bestSum[i] = cost[i] + max(bestSum[left], bestSum[right]) before moving to the parent; the root's own cost never needs increasing by itself."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [3, 100000] },
+    { "param": "cost", "kind": "int[]", "len": [3, 100000], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a two-level perfect tree needing increments at both internal nodes", "input": [7, [1, 5, 2, 2, 3, 3, 1]] },
+    { "kind": "edge", "description": "the smallest tree, already balanced, needing no increments", "input": [3, [5, 3, 3]] },
+    { "kind": "boundary", "description": "smallest tree with the minimum allowed cost on every node", "input": [3, [1, 1, 1]] },
+    { "kind": "boundary", "description": "smallest tree with the maximum allowed cost on every node", "input": [3, [10000, 10000, 10000]] },
+    { "kind": "trap", "description": "a larger perfect tree where every node already has an identical cost, so no increments are needed despite the deeper structure", "input": [15, [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]] },
+    { "kind": "trap", "description": "one deep leaf has the minimum cost while its sibling subtree is expensive, forcing a large increment to propagate up multiple levels", "input": [15, [1, 1, 1, 1, 1, 1, 1, 1, 10000, 1, 1, 1, 1, 1, 1]] },
+    { "kind": "trap", "description": "the two children of the root are already equal but their own children are wildly unequal, so increments are needed only at the lower level", "input": [7, [1, 1, 1, 1, 1, 10000, 1]] },
+    { "kind": "boundary", "description": "the largest tree height (three levels) with random-looking but fixed costs to exercise multi-level propagation", "input": [15, [3, 7, 2, 9, 1, 4, 6, 5, 8, 2, 3, 10000, 1, 4, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "the largest perfect tree that fits under the size bound, with random costs, exercising the full bottom-up sweep",
+      "seed": 11,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = 3\n    while n * 2 + 1 <= size and n * 2 + 1 <= 100000:\n        n = n * 2 + 1\n    cost = [rng.randint(1, 10000) for _ in range(n)]\n    return [n, cost]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minIncrements(self, n, cost):\n        def solve(node):\n            left = 2 * node\n            if left > n:\n                return cost[node - 1], 0\n            right = left + 1\n            left_sum, left_inc = solve(left)\n            right_sum, right_inc = solve(right)\n            diff = abs(left_sum - right_sum)\n            total_inc = left_inc + right_inc + diff\n            subtree_sum = cost[node - 1] + max(left_sum, right_sum)\n            return subtree_sum, total_inc\n        return solve(1)[1]",
+  "solutions": {
+    "python": "class Solution:\n    def minIncrements(self, n, cost):\n        best = [0] * (n + 1)\n        for i in range(1, n + 1):\n            best[i] = cost[i - 1]\n        total = 0\n        for i in range(n // 2, 0, -1):\n            left = 2 * i\n            right = 2 * i + 1\n            total += abs(best[left] - best[right])\n            best[i] = cost[i - 1] + max(best[left], best[right])\n        return total",
+    "javascript": "var minIncrements = function(n, cost) {\n    const best = new Array(n + 1).fill(0);\n    for (let i = 1; i <= n; i++) best[i] = cost[i - 1];\n    let total = 0;\n    for (let i = Math.floor(n / 2); i >= 1; i--) {\n        const left = 2 * i;\n        const right = 2 * i + 1;\n        total += Math.abs(best[left] - best[right]);\n        best[i] = cost[i - 1] + Math.max(best[left], best[right]);\n    }\n    return total;\n};"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

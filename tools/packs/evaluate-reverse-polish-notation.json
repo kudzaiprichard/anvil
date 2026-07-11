@@ -1,0 +1,37 @@
+{
+  "slug": "evaluate-reverse-polish-notation",
+  "judge": "exact",
+  "pattern": "A stack evaluates postfix expressions by pushing operands and, on each operator, popping the two most recent results and pushing the combined value.",
+  "hints": [
+    "In postfix form an operator always applies to the two values immediately before it, which is exactly what a stack remembers.",
+    "Scan left to right: push numbers; on an operator pop the right operand then the left operand, compute, and push the result back.",
+    "Mind operand order for subtraction and division (left was pushed first), and make division truncate toward zero rather than floor for negatives."
+  ],
+  "constraints": [
+    { "param": "tokens", "kind": "string[]", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "addition then multiplication", "input": [["2", "1", "+", "3", "*"]] },
+    { "kind": "edge", "description": "division truncates a positive quotient", "input": [["4", "13", "5", "/", "+"]] },
+    { "kind": "edge", "description": "deeply nested expression", "input": [["10", "6", "9", "3", "+", "-11", "*", "/", "*", "17", "+", "5", "+"]] },
+    { "kind": "boundary", "description": "single operand", "input": [["42"]] },
+    { "kind": "trap", "description": "negative division truncates toward zero, not floor", "input": [["7", "-3", "/"]] },
+    { "kind": "trap", "description": "subtraction operand order matters", "input": [["3", "5", "-"]] },
+    { "kind": "trap", "description": "negative dividend with positive divisor", "input": [["-7", "2", "/"]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomly built valid postfix expression kept within 32-bit range",
+      "seed": 31,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    ops = ['+', '-', '*']\n    tokens = [str(rng.randrange(-50, 51))]\n    stack_count = 1\n    while len(tokens) < n:\n        if stack_count >= 2 and rng.random() < 0.5:\n            tokens.append(ops[rng.randrange(len(ops))])\n            stack_count -= 1\n        else:\n            tokens.append(str(rng.randrange(-20, 21)))\n            stack_count += 1\n    while stack_count > 1:\n        tokens.append(ops[rng.randrange(len(ops))])\n        stack_count -= 1\n    return [tokens]\n",
+      "note": "avoids division to keep magnitudes bounded and excludes divide-by-zero"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def evalRPN(self, tokens):\n        def apply(a, b, op):\n            if op == '+':\n                return a + b\n            if op == '-':\n                return a - b\n            if op == '*':\n                return a * b\n            q = abs(a) // abs(b)\n            if (a < 0) != (b < 0):\n                q = -q\n            return q\n        stack = []\n        for t in tokens:\n            if t in ('+', '-', '*', '/'):\n                b = stack.pop()\n                a = stack.pop()\n                stack.append(apply(a, b, t))\n            else:\n                stack.append(int(t))\n        return stack[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def evalRPN(self, tokens):\n        ops = {'+', '-', '*', '/'}\n        stack = []\n        for t in tokens:\n            if t in ops:\n                b = stack.pop()\n                a = stack.pop()\n                if t == '+':\n                    stack.append(a + b)\n                elif t == '-':\n                    stack.append(a - b)\n                elif t == '*':\n                    stack.append(a * b)\n                else:\n                    q = abs(a) // abs(b)\n                    if (a < 0) != (b < 0):\n                        q = -q\n                    stack.append(q)\n            else:\n                stack.append(int(t))\n        return stack[0]\n",
+    "javascript": "var evalRPN = function(tokens) {\n    const ops = new Set(['+', '-', '*', '/']);\n    const stack = [];\n    for (const t of tokens) {\n        if (ops.has(t)) {\n            const b = stack.pop();\n            const a = stack.pop();\n            if (t === '+') stack.push(a + b);\n            else if (t === '-') stack.push(a - b);\n            else if (t === '*') stack.push(a * b);\n            else stack.push(Math.trunc(a / b));\n        } else {\n            stack.push(parseInt(t, 10));\n        }\n    }\n    return stack[0];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

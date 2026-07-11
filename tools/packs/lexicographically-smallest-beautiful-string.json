@@ -1,0 +1,112 @@
+{
+  "slug": "lexicographically-smallest-beautiful-string",
+  "judge": "exact",
+  "pattern": "Treat the beautiful-string constraint as digit validity in a positional counter, and find the next valid value by incrementing with carry, then greedily filling the freed suffix.",
+  "hints": [
+    "Think of the string as a k-ary counter where each 'digit' is a letter -- finding the next larger beautiful string is finding the next value of that counter that is still valid.",
+    "Try to bump the last character up to the smallest letter greater than it that doesn't equal either of its two preceding characters; if no such letter exists within the alphabet, that position overflows and you must retry one position to the left.",
+    "Once a position accepts a bump without overflowing, every position to its right is free again -- refill each of them with the smallest letter that avoids its own two preceding characters, greedily left to right."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        4,
+        26
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example 1, a simple single-position bump",
+      "input": [
+        "abcz",
+        26
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example 2, impossible because the alphabet is too small to bump past",
+      "input": [
+        "dc",
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimal length (n=1), smallest letter bumps to the next letter",
+      "input": [
+        "a",
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimal length (n=1), already the largest letter of the alphabet so no answer exists",
+      "input": [
+        "d",
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "s is already the lexicographically maximal beautiful string for this length and k, so the carry cascades through every position and no answer exists",
+      "input": [
+        "dcbd",
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the last position must skip two forbidden candidates before finding a valid one, with no carry needed",
+      "input": [
+        "acba",
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a straightforward last-position increment with no cascade",
+      "input": [
+        "bcda",
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum alphabet size (k=26)",
+      "input": [
+        "ab",
+        26
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random valid beautiful string of a random length is built by greedily excluding the two forbidden preceding letters at each position",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(4, 26)\n    n = max(1, min(size, 100000))\n    letters = [chr(ord('a') + i) for i in range(k)]\n    s = []\n    for i in range(n):\n        choices = [c for c in letters if not (i >= 1 and c == s[i - 1]) and not (i >= 2 and c == s[i - 2])]\n        s.append(rng.choice(choices))\n    return [''.join(s), k]\n",
+      "note": "construction guarantees the generated s is itself beautiful, matching the problem's precondition"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def smallestBeautifulString(self, s, k):\n        def is_beautiful(t):\n            for i in range(len(t)):\n                if i >= 1 and t[i] == t[i - 1]:\n                    return False\n                if i >= 2 and t[i] == t[i - 2]:\n                    return False\n            return True\n\n        n = len(s)\n\n        def to_int(a):\n            v = 0\n            for ch in a:\n                v = v * k + (ord(ch) - ord('a'))\n            return v\n\n        def to_str(v, n):\n            digits = []\n            for _ in range(n):\n                digits.append(chr(ord('a') + v % k))\n                v //= k\n            return ''.join(reversed(digits))\n\n        cur = to_int(list(s)) + 1\n        limit = k ** n\n        while cur < limit:\n            cand = to_str(cur, n)\n            if is_beautiful(cand):\n                return cand\n            cur += 1\n        return ''\n",
+  "solutions": {
+    "python": "class Solution:\n    def smallestBeautifulString(self, s: str, k: int) -> str:\n        arr = list(s)\n        n = len(arr)\n        i = n - 1\n        while i >= 0:\n            c = ord(arr[i]) - ord('a') + 1\n            found = False\n            while c < k:\n                ch = chr(ord('a') + c)\n                if (i >= 1 and arr[i - 1] == ch) or (i >= 2 and arr[i - 2] == ch):\n                    c += 1\n                    continue\n                arr[i] = ch\n                found = True\n                break\n            if found:\n                for j in range(i + 1, n):\n                    for c2 in range(k):\n                        ch2 = chr(ord('a') + c2)\n                        if (j >= 1 and arr[j - 1] == ch2) or (j >= 2 and arr[j - 2] == ch2):\n                            continue\n                        arr[j] = ch2\n                        break\n                return ''.join(arr)\n            i -= 1\n        return ''\n",
+    "javascript": "var smallestBeautifulString = function(s, k) {\n    const arr = s.split('');\n    const n = arr.length;\n    let i = n - 1;\n    while (i >= 0) {\n        let c = arr[i].charCodeAt(0) - 97 + 1;\n        let found = false;\n        while (c < k) {\n            const ch = String.fromCharCode(97 + c);\n            if ((i >= 1 && arr[i - 1] === ch) || (i >= 2 && arr[i - 2] === ch)) {\n                c++;\n                continue;\n            }\n            arr[i] = ch;\n            found = true;\n            break;\n        }\n        if (found) {\n            for (let j = i + 1; j < n; j++) {\n                for (let c2 = 0; c2 < k; c2++) {\n                    const ch2 = String.fromCharCode(97 + c2);\n                    if ((j >= 1 && arr[j - 1] === ch2) || (j >= 2 && arr[j - 2] === ch2)) {\n                        continue;\n                    }\n                    arr[j] = ch2;\n                    break;\n                }\n            }\n            return arr.join('');\n        }\n        i--;\n    }\n    return '';\n};\n"
+  },
+  "complexity": {
+    "time": "O(n*k)",
+    "space": "O(n)"
+  }
+}

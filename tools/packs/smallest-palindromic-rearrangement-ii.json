@@ -1,0 +1,39 @@
+{
+  "slug": "smallest-palindromic-rearrangement-ii",
+  "judge": "exact",
+  "pattern": "Only the left half is free, so the k-th palindrome is the k-th distinct multiset permutation of that half, found by counting completions char by char with a capped multinomial.",
+  "hints": [
+    "A distinct palindrome corresponds one-to-one with a distinct arrangement of its left half (plus the forced middle), so count and index those half-arrangements.",
+    "At each position try letters in ascending order; the number of ways to fill the rest is the multinomial of the remaining half-multiset, which you can cap at k to avoid huge numbers.",
+    "If k exceeds that block of completions, subtract it and try the next letter; otherwise fix this letter and recurse. If k still remains after the whole half, there are fewer than k palindromes so return an empty string."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "second of two arrangements", "input": ["abba", 2] },
+    { "kind": "trap", "description": "k exceeds the single arrangement", "input": ["aa", 2] },
+    { "kind": "edge", "description": "first arrangement with a middle letter", "input": ["bacab", 1] },
+    { "kind": "edge", "description": "single character, k=1", "input": ["z", 1] },
+    { "kind": "trap", "description": "single character, k too large", "input": ["z", 2] },
+    { "kind": "boundary", "description": "first of many arrangements", "input": ["aabbccddee", 1] },
+    { "kind": "trap", "description": "k larger than the total distinct count", "input": ["abccba", 7] },
+    { "kind": "edge", "description": "odd length, middle fixed, second arrangement", "input": ["abcba", 2] }
+  ],
+  "stress": [
+    {
+      "description": "small multisets where k ranges across and beyond the full distinct count",
+      "seed": 511,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    half_len = rng.randrange(1, max(2, size // 2 + 1))\n    half = [chr(ord('a') + rng.randrange(4)) for _ in range(half_len)]\n    mid = chr(ord('a') + rng.randrange(4)) if rng.random() < 0.5 else ''\n    s = ''.join(half) + mid + ''.join(reversed(half))\n    k = rng.randrange(1, 200)\n    return [s, k]\n",
+      "note": "tiny halves so the brute oracle can enumerate all distinct palindromes"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def smallestPalindrome(self, s, k):\n        from itertools import permutations\n        cnt = [0] * 26\n        for ch in s:\n            cnt[ord(ch) - 97] += 1\n        half = []\n        mid = ''\n        for i in range(26):\n            half.append(chr(97 + i) * (cnt[i] // 2))\n            if cnt[i] % 2 == 1:\n                mid = chr(97 + i)\n        half_str = ''.join(half)\n        seen = set()\n        for p in permutations(half_str):\n            h = ''.join(p)\n            seen.add(h + mid + h[::-1])\n        ordered = sorted(seen)\n        if k > len(ordered):\n            return ''\n        return ordered[k - 1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def smallestPalindrome(self, s, k):\n        CAP = 10**6 + 5\n        cnt = [0] * 26\n        for ch in s:\n            cnt[ord(ch) - 97] += 1\n        half = [cnt[i] // 2 for i in range(26)]\n        mid = ''\n        for i in range(26):\n            if cnt[i] % 2 == 1:\n                mid = chr(97 + i)\n        def multinomial(counts, total):\n            # distinct permutations of the multiset, capped at CAP\n            res = 1\n            taken = 0\n            for c in counts:\n                for j in range(1, c + 1):\n                    taken += 1\n                    res = res * taken // j\n                    if res > CAP:\n                        return CAP\n            return res\n        m = sum(half)\n        if k > multinomial(half, m):\n            return ''\n        result = []\n        remaining = half[:]\n        rem_total = m\n        for _ in range(m):\n            for i in range(26):\n                if remaining[i] == 0:\n                    continue\n                remaining[i] -= 1\n                ways = multinomial(remaining, rem_total - 1)\n                if k <= ways:\n                    result.append(chr(97 + i))\n                    rem_total -= 1\n                    break\n                else:\n                    k -= ways\n                    remaining[i] += 1\n            else:\n                return ''\n        h = ''.join(result)\n        return h + mid + h[::-1]\n",
+    "javascript": "var smallestPalindrome = function(s, k) {\n    const CAP = 1000005;\n    const cnt = new Array(26).fill(0);\n    for (const ch of s) cnt[ch.charCodeAt(0) - 97]++;\n    const half = cnt.map(c => Math.floor(c / 2));\n    let mid = '';\n    for (let i = 0; i < 26; i++) if (cnt[i] % 2 === 1) mid = String.fromCharCode(97 + i);\n    const multinomial = (counts) => {\n        let res = 1, taken = 0;\n        for (const c of counts) {\n            for (let j = 1; j <= c; j++) {\n                taken++;\n                res = Math.floor(res * taken / j);\n                if (res > CAP) return CAP;\n            }\n        }\n        return res;\n    };\n    let m = half.reduce((a, b) => a + b, 0);\n    if (k > multinomial(half)) return '';\n    const remaining = half.slice();\n    const result = [];\n    for (let pos = 0; pos < m; pos++) {\n        let placed = false;\n        for (let i = 0; i < 26; i++) {\n            if (remaining[i] === 0) continue;\n            remaining[i]--;\n            const ways = multinomial(remaining);\n            if (k <= ways) {\n                result.push(String.fromCharCode(97 + i));\n                placed = true;\n                break;\n            } else {\n                k -= ways;\n                remaining[i]++;\n            }\n        }\n        if (!placed) return '';\n    }\n    const h = result.join('');\n    return h + mid + h.split('').reverse().join('');\n};\n"
+  },
+  "complexity": { "time": "O(26 * n)", "space": "O(n)" }
+}

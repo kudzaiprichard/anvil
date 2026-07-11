@@ -1,0 +1,46 @@
+{
+  "slug": "minimum-cost-to-partition-a-binary-string",
+  "judge": "exact",
+  "pattern": "Because a segment can only ever be halved into two equal contiguous pieces, the reachable segments form the fixed shape of a balanced binary tree over the string -- so the minimum cost is a memoized recursion (or, equivalently, a build-up over that tree) comparing 'keep this segment whole' against 'split it into its two halves and add their best costs'.",
+  "hints": [
+    "Precompute prefix counts of '1' so the cost of keeping any segment whole is an O(1) lookup: flatCost if it has zero sensitive characters, otherwise length times count times encCost.",
+    "A segment can only be split when its length is even, and only into two equal halves -- so recursively compare the whole-segment cost against the sum of the two halves' best costs.",
+    "Memoize on the segment's (start, end) bounds; because every split is an exact bisection, the total number of distinct segments you ever recurse into is proportional to n log n, not exponential."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] },
+    { "param": "encCost", "kind": "int", "value": [1, 100000] },
+    { "param": "flatCost", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "splitting all the way down to single characters is cheapest", "input": ["1010", 2, 1] },
+    { "kind": "edge", "description": "splitting once into two halves beats going further or not splitting at all", "input": ["1010", 3, 10] },
+    { "kind": "edge", "description": "no sensitive characters at all, single flat segment wins outright", "input": ["00", 1, 2] },
+    { "kind": "boundary", "description": "single character, odd length, cannot split", "input": ["1", 5, 5] },
+    { "kind": "trap", "description": "all sensitive characters -- splitting is still worthwhile since cost scales with length times count", "input": ["1111", 1, 1000] },
+    { "kind": "trap", "description": "odd total length forces the top level segment to stay whole even though it contains sensitive characters", "input": ["101", 10, 1] },
+    { "kind": "trap", "description": "encCost so cheap relative to flatCost that never splitting is optimal", "input": ["110011", 1, 1000] },
+    { "kind": "trap", "description": "flatCost so cheap that keeping the all-zero segment whole is better than splitting it further", "input": ["0000", 5, 1] },
+    { "kind": "boundary", "description": "power-of-two length with sensitive characters spread evenly, forcing recursion all the way down", "input": ["10101010", 4, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings of varied length and costs, including odd lengths that block splitting at the top",
+      "seed": 51,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    encCost = rng.randint(1, 100000)\n    flatCost = rng.randint(1, 100000)\n    return [s, encCost, flatCost]\n"
+    },
+    {
+      "description": "small strings for exhaustive-style cross-checking of every possible partition tree",
+      "seed": 52,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 12)\n    s = ''.join(rng.choice('01') for _ in range(n))\n    encCost = rng.randint(1, 20)\n    flatCost = rng.randint(1, 20)\n    return [s, encCost, flatCost]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCost(self, s, encCost, flatCost):\n        # independent construction: plain recursion over string slices (recomputing counts\n        # with str.count each call) rather than the prefix-sum + index-pair memoization\n        # the optimal solution uses.\n        def rec(sub):\n            length = len(sub)\n            ones = sub.count('1')\n            best = flatCost if ones == 0 else length * ones * encCost\n            if length % 2 == 0 and length > 0:\n                mid = length // 2\n                best = min(best, rec(sub[:mid]) + rec(sub[mid:]))\n            return best\n        return rec(s)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCost(self, s, encCost, flatCost):\n        n = len(s)\n        prefix = [0] * (n + 1)\n        for i, ch in enumerate(s):\n            prefix[i + 1] = prefix[i] + (1 if ch == '1' else 0)\n        memo = {}\n        def cost(l, r):\n            key = (l, r)\n            if key in memo:\n                return memo[key]\n            length = r - l\n            ones = prefix[r] - prefix[l]\n            best = flatCost if ones == 0 else length * ones * encCost\n            if length % 2 == 0:\n                mid = (l + r) // 2\n                best = min(best, cost(l, mid) + cost(mid, r))\n            memo[key] = best\n            return best\n        return cost(0, n)\n",
+    "javascript": "var minCost = function(s, encCost, flatCost) {\n    const n = s.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + (s[i] === '1' ? 1 : 0);\n    const memo = new Map();\n    function cost(l, r) {\n        const key = l * (n + 1) + r;\n        if (memo.has(key)) return memo.get(key);\n        const length = r - l;\n        const ones = prefix[r] - prefix[l];\n        let best = ones === 0 ? flatCost : length * ones * encCost;\n        if (length % 2 === 0) {\n            const mid = (l + r) >> 1;\n            best = Math.min(best, cost(l, mid) + cost(mid, r));\n        }\n        memo.set(key, best);\n        return best;\n    }\n    return cost(0, n);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n log n)" }
+}

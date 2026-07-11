@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-number-of-groups-getting-fresh-donuts",
+  "judge": "exact",
+  "pattern": "Only each group's size modulo the batch matters, so reduce to remainder counts and search the best ordering with memoization over how many of each remainder are left and the carry from the previous batch.",
+  "hints": [
+    "A group is happy exactly when the running total of served customers so far is a multiple of the batch size, so only sizes modulo batchSize matter.",
+    "Groups whose size is already a multiple of the batch are always happy and can be counted up front; remainders that complete each other can be paired greedily.",
+    "Over the remaining remainder counts, do a memoized search: from a current leftover, try placing each available remainder, add one when the leftover is zero, and recurse on the updated counts."
+  ],
+  "constraints": [
+    { "param": "batchSize", "kind": "int", "value": [1, 9] },
+    { "param": "groups", "kind": "int[]", "len": [1, 30], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "batch three with consecutive sizes", "input": [3, [1, 2, 3, 4, 5, 6]] },
+    { "kind": "edge", "description": "batch four mixed sizes", "input": [4, [1, 3, 2, 5, 2, 2, 1, 6]] },
+    { "kind": "boundary", "description": "batch size one makes everyone happy", "input": [1, [4, 7, 2]] },
+    { "kind": "trap", "description": "all groups already multiples of the batch", "input": [3, [3, 6, 9]] },
+    { "kind": "edge", "description": "single group is always happy", "input": [5, [7]] },
+    { "kind": "trap", "description": "remainders that pair perfectly", "input": [4, [1, 3, 1, 3]] },
+    { "kind": "edge", "description": "large values reduced by modulo", "input": [3, [1000000000, 999999999, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "small group count and batch so the exponential search stays fast and unique",
+      "seed": 61,
+      "size": 0,
+      "generator_python": "def gen(rng, size):\n    batch = rng.randrange(2, 7)\n    g = [rng.randrange(1, 30) for _ in range(rng.randrange(1, 11))]\n    return [batch, g]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxHappyGroups(self, batchSize, groups):\n        import sys\n        from functools import lru_cache\n        sys.setrecursionlimit(100000)\n        rems = tuple(g % batchSize for g in groups if g % batchSize != 0)\n        base = len(groups) - len(rems)\n        from collections import Counter\n        cnt = Counter(rems)\n        # state: counts of each remainder 1..batchSize-1, plus current leftover\n        @lru_cache(maxsize=None)\n        def dfs(state, leftover):\n            counts = list(state)\n            best = 0\n            any_left = False\n            for r in range(1, batchSize):\n                if counts[r] > 0:\n                    any_left = True\n                    counts[r] -= 1\n                    add = 1 if leftover == 0 else 0\n                    val = add + dfs(tuple(counts), (leftover + r) % batchSize)\n                    if val > best:\n                        best = val\n                    counts[r] += 1\n            if not any_left:\n                return 0\n            return best\n        init = tuple(cnt.get(r, 0) for r in range(batchSize))\n        return base + dfs(init, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxHappyGroups(self, batchSize, groups):\n        from functools import lru_cache\n        from collections import Counter\n        cnt = Counter(g % batchSize for g in groups)\n        happy = cnt[0]\n        del cnt[0]\n        # pair complementary remainders greedily\n        for r in range(1, batchSize // 2 + 1):\n            c = batchSize - r\n            if r == c:\n                happy += cnt[r] // 2\n                cnt[r] %= 2\n            else:\n                m = min(cnt[r], cnt[c])\n                happy += m\n                cnt[r] -= m\n                cnt[c] -= m\n        state0 = tuple(cnt.get(r, 0) for r in range(batchSize))\n        @lru_cache(maxsize=None)\n        def dfs(state, left):\n            counts = list(state)\n            best = -1\n            for r in range(1, batchSize):\n                if counts[r] > 0:\n                    counts[r] -= 1\n                    add = 1 if left == 0 else 0\n                    v = add + dfs(tuple(counts), (left + r) % batchSize)\n                    counts[r] += 1\n                    if v > best:\n                        best = v\n            return 0 if best < 0 else best\n        return happy + dfs(state0, 0)\n",
+    "javascript": "var maxHappyGroups = function(batchSize, groups) {\n    const cnt = new Array(batchSize).fill(0);\n    for (const g of groups) cnt[g % batchSize]++;\n    let happy = cnt[0];\n    cnt[0] = 0;\n    for (let r = 1; r <= Math.floor(batchSize / 2); r++) {\n        const c = batchSize - r;\n        if (r === c) {\n            happy += Math.floor(cnt[r] / 2);\n            cnt[r] %= 2;\n        } else {\n            const m = Math.min(cnt[r], cnt[c]);\n            happy += m;\n            cnt[r] -= m;\n            cnt[c] -= m;\n        }\n    }\n    const memo = new Map();\n    const dfs = (counts, left) => {\n        const key = counts.join(',') + '|' + left;\n        if (memo.has(key)) return memo.get(key);\n        let best = -1;\n        for (let r = 1; r < batchSize; r++) {\n            if (counts[r] > 0) {\n                counts[r]--;\n                const add = left === 0 ? 1 : 0;\n                const v = add + dfs(counts, (left + r) % batchSize);\n                counts[r]++;\n                if (v > best) best = v;\n            }\n        }\n        const res = best < 0 ? 0 : best;\n        memo.set(key, res);\n        return res;\n    };\n    return happy + dfs(cnt.slice(), 0);\n};\n"
+  },
+  "complexity": { "time": "O(states * batchSize)", "space": "O(states)" }
+}

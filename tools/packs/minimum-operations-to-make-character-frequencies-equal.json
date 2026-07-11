@@ -1,0 +1,101 @@
+{
+  "slug": "minimum-operations-to-make-character-frequencies-equal",
+  "judge": "exact",
+  "pattern": "Trying every possible final frequency and, for each one, letting a leftover count of one letter shift forward into the very next letter (since bumping a letter to its successor is a single move) turns the problem into a cheap two-state chain instead of a search over which letters to keep.",
+  "hints": [
+    "Fix a target frequency that every surviving letter must reach, and separately decide, for each of the 26 letters, whether it ends up completely removed or brought exactly to that target -- then try every possible target from 1 up to the largest original frequency.",
+    "A letter that is going to disappear anyway can offer its whole count to the very next letter for free, because turning a character into its successor accomplishes in one move what a delete-then-insert would take two moves to do -- but only for the immediately following letter, since two moves would be needed to skip past a letter entirely.",
+    "Walk the alphabet in order keeping just two running totals -- the best cost so far assuming the current letter ends absent, and the best cost so far assuming it ends at the target -- updating each from the previous letter's two totals plus whatever saving a direct hand-off from the previous letter provides."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        3,
+        20000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, delete the extra letter",
+      "input": [
+        "acab"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, already good",
+      "input": [
+        "wddw"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, mix a change and an insert",
+      "input": [
+        "aaabc"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "shortest allowed string, three identical letters",
+      "input": [
+        "zzz"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every letter already occurs exactly once",
+      "input": [
+        "abcdef"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one letter is 'z', which cannot be advanced by the successor operation",
+      "input": [
+        "zzzzzaaaaa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a single dominant letter surrounded by rare ones",
+      "input": [
+        "aaaaaaaabc"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two letters with a large frequency gap between them",
+      "input": [
+        "aabbbbbb"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random strings over a small alphabet so frequencies cluster and target scanning matters",
+      "seed": 11,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 400))\n    alphabet = 'abcde'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "random strings over the full lowercase alphabet at larger scale",
+      "seed": 12,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(3, min(size, 5000))\n    s = ''.join(rng.choice(string.ascii_lowercase) for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def makeStringGood(self, s):\n        freq = [0] * 26\n        for ch in s:\n            freq[ord(ch) - 97] += 1\n        start = tuple(freq)\n        cap = len(s) + 2\n        def is_good(state):\n            nz = [c for c in state if c > 0]\n            return len(set(nz)) <= 1\n        if is_good(start):\n            return 0\n        dist = {start: 0}\n        q = deque([start])\n        while q:\n            cur = q.popleft()\n            d = dist[cur]\n            for i in range(26):\n                if cur[i] > 0:\n                    nxt = list(cur)\n                    nxt[i] -= 1\n                    t = tuple(nxt)\n                    if t not in dist:\n                        dist[t] = d + 1\n                        if is_good(t):\n                            return d + 1\n                        q.append(t)\n                if cur[i] < cap:\n                    nxt = list(cur)\n                    nxt[i] += 1\n                    t = tuple(nxt)\n                    if t not in dist:\n                        dist[t] = d + 1\n                        if is_good(t):\n                            return d + 1\n                        q.append(t)\n                if i < 25 and cur[i] > 0:\n                    nxt = list(cur)\n                    nxt[i] -= 1\n                    nxt[i + 1] += 1\n                    t = tuple(nxt)\n                    if t not in dist:\n                        dist[t] = d + 1\n                        if is_good(t):\n                            return d + 1\n                        q.append(t)\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def makeStringGood(self, s):\n        n = len(s)\n        freq = [0] * 26\n        for ch in s:\n            freq[ord(ch) - 97] += 1\n        maxf = max(freq)\n        best = n\n        for T in range(1, maxf + 1):\n            dp0 = freq[0]\n            dp1 = abs(freq[0] - T)\n            for i in range(1, 26):\n                avail0 = freq[i - 1]\n                avail1 = max(0, freq[i - 1] - T)\n                deficit = max(0, T - freq[i])\n                isolated0 = freq[i]\n                isolated1 = abs(freq[i] - T)\n                ndp0 = min(dp0, dp1) + isolated0\n                ndp1 = min(\n                    dp0 + (isolated1 - min(avail0, deficit)),\n                    dp1 + (isolated1 - min(avail1, deficit)),\n                )\n                dp0, dp1 = ndp0, ndp1\n            best = min(best, dp0, dp1)\n        return best\n",
+    "javascript": "var makeStringGood = function(s) {\n    const n = s.length;\n    const freq = new Array(26).fill(0);\n    for (const ch of s) freq[ch.charCodeAt(0) - 97]++;\n    const maxf = Math.max(...freq);\n    let best = n;\n    for (let T = 1; T <= maxf; T++) {\n        let dp0 = freq[0];\n        let dp1 = Math.abs(freq[0] - T);\n        for (let i = 1; i < 26; i++) {\n            const avail0 = freq[i - 1];\n            const avail1 = Math.max(0, freq[i - 1] - T);\n            const deficit = Math.max(0, T - freq[i]);\n            const isolated0 = freq[i];\n            const isolated1 = Math.abs(freq[i] - T);\n            const ndp0 = Math.min(dp0, dp1) + isolated0;\n            const ndp1 = Math.min(\n                dp0 + (isolated1 - Math.min(avail0, deficit)),\n                dp1 + (isolated1 - Math.min(avail1, deficit))\n            );\n            dp0 = ndp0; dp1 = ndp1;\n        }\n        best = Math.min(best, dp0, dp1);\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(26 * maxFrequency)",
+    "space": "O(1)"
+  }
+}

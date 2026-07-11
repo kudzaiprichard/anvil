@@ -1,0 +1,153 @@
+{
+  "judge": "exact",
+  "pattern": "In a postorder traversal that always visits a node's children in increasing order before the node itself, every subtree occupies one contiguous block of that single global sequence, so checking many different subtrees for a palindrome reduces to checking many contiguous ranges of one fixed string.",
+  "hints": [
+    "Run one ordinary postorder DFS from the root (visiting children in increasing id order, then the node), and notice that dfs(x) for any node x produces exactly the substring covering that node's subtree within this one global postorder string.",
+    "Compute, for every node, its position in that global postorder sequence and the size of its subtree; together they pin down exactly which contiguous range of the global string belongs to that node's subtree.",
+    "With every node's range known, all that remains is checking whether that slice of the global string reads the same forwards and backwards -- there is no need to rebuild or re-traverse anything per node."
+  ],
+  "constraints": [
+    {
+      "param": "parent",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, a mix of palindromic and non-palindromic subtrees",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          1,
+          1,
+          2
+        ],
+        "aababa"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a star-like tree where every subtree is a palindrome",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          0,
+          0
+        ],
+        "aabcb"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single root node",
+      "input": [
+        [
+          -1
+        ],
+        "a"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a straight chain forming a palindrome overall",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2
+        ],
+        "abba"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a wide star where every leaf shares the root's character",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "aaaaaa"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a long chain of identical characters",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "aaaaaa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a chain whose full dfs string is a palindrome but an inner subtree is not",
+      "input": [
+        [
+          -1,
+          0,
+          1
+        ],
+        "aba"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a root with three leaf children of distinct letters, root's own dfs is not a palindrome though each leaf is",
+      "input": [
+        [
+          -1,
+          0,
+          0
+        ],
+        "abc"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random attachment tree (parent[i] chosen among earlier nodes) with a small alphabet, giving a mix of subtree shapes",
+      "seed": 5,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 3000))\n    parent = [-1] * n\n    for i in range(1, n):\n        parent[i] = rng.randint(0, i - 1)\n    alphabet = ['a', 'b', 'c']\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    return [parent, s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findAnswer(self, parent, s):\n        n = len(parent)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parent[i]].append(i)\n        for c in children:\n            c.sort()\n        result = [False] * n\n        for i in range(n):\n            buf = []\n\n            def dfs(x):\n                for y in children[x]:\n                    dfs(y)\n                buf.append(s[x])\n\n            dfs(i)\n            st = ''.join(buf)\n            result[i] = st == st[::-1]\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def findAnswer(self, parent: List[int], s: str) -> List[bool]:\n        n = len(parent)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parent[i]].append(i)\n        for c in children:\n            c.sort()\n        # Modified preorder that visits children in decreasing order; its\n        # reverse is a postorder that visits children in increasing order,\n        # and every subtree then occupies one contiguous block of it.\n        pre = []\n        stack = [0]\n        while stack:\n            node = stack.pop()\n            pre.append(node)\n            for ch in children[node]:\n                stack.append(ch)\n        order = pre[::-1]\n        pos = [0] * n\n        for idx, node in enumerate(order):\n            pos[node] = idx\n        size = [1] * n\n        for node in order:\n            if node != 0:\n                size[parent[node]] += size[node]\n        text = ''.join(s[node] for node in order)\n        answer = [False] * n\n        for node in range(n):\n            r = pos[node]\n            l = r - size[node] + 1\n            seg = text[l:r + 1]\n            answer[node] = seg == seg[::-1]\n        return answer\n",
+    "javascript": "var findAnswer = function(parent, s) {\n    const n = parent.length;\n    const children = Array.from({ length: n }, () => []);\n    for (let i = 1; i < n; i++) children[parent[i]].push(i);\n    for (const c of children) c.sort((a, b) => a - b);\n    const pre = [];\n    const stack = [0];\n    while (stack.length) {\n        const node = stack.pop();\n        pre.push(node);\n        for (const ch of children[node]) stack.push(ch);\n    }\n    const order = pre.slice().reverse();\n    const pos = new Array(n).fill(0);\n    order.forEach((node, idx) => { pos[node] = idx; });\n    const size = new Array(n).fill(1);\n    for (const node of order) {\n        if (node !== 0) size[parent[node]] += size[node];\n    }\n    let text = '';\n    for (const node of order) text += s[node];\n    const answer = new Array(n).fill(false);\n    for (let node = 0; node < n; node++) {\n        const r = pos[node];\n        const l = r - size[node] + 1;\n        const seg = text.slice(l, r + 1);\n        let ok = true;\n        for (let a = 0, b = seg.length - 1; a < b; a++, b--) {\n            if (seg[a] !== seg[b]) { ok = false; break; }\n        }\n        answer[node] = ok;\n    }\n    return answer;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n) amortized on typical shapes",
+    "space": "O(n)"
+  },
+  "slug": "check-if-dfs-strings-are-palindromes"
+}

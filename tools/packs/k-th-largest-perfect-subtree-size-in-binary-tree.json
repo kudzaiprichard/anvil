@@ -1,0 +1,41 @@
+{
+  "slug": "k-th-largest-perfect-subtree-size-in-binary-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json"], "returns": "json" },
+  "pattern": "A subtree is perfect exactly when its two halves are perfect and equally deep, so the whole perfect-subtree census falls out of one bottom-up pass.",
+  "hints": [
+    "A subtree can only be perfect if both of its children are themselves perfect and reach exactly the same depth below it.",
+    "Process the tree bottom-up: at each node, combine what you learned about its left and right children to decide if this node roots a perfect subtree, and if so, how big it is.",
+    "Collect every perfect subtree's size as you go, sort them from largest to smallest, and pick out the k-th one -- or report that it doesn't exist."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 2000], "value": [1, 2000] },
+    { "param": "k", "kind": "int", "value": [1, 1024] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, mixed subtree shapes", "input": [[5, 3, 6, 5, 2, 5, 7, 1, 8, null, null, 6, 8], 2] },
+    { "kind": "edge", "description": "statement example, the whole tree is perfect", "input": [[1, 2, 3, 4, 5, 6, 7], 1] },
+    { "kind": "trap", "description": "statement example, k larger than the number of perfect subtrees", "input": [[1, 2, 3, null, 4], 3] },
+    { "kind": "boundary", "description": "a single node: it is trivially its own perfect subtree", "input": [[1], 1] },
+    { "kind": "trap", "description": "one lopsided child breaks perfection at the root but not below", "input": [[2, 2], 2] },
+    { "kind": "edge", "description": "a full depth-4 perfect tree: several perfect subtrees of different sizes coexist", "input": [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], 2] },
+    { "kind": "trap", "description": "left and right subtrees are each perfect but at different depths, so the root itself is not", "input": [[1, 2, 3, 4, 5, null, null, 6, 7], 3] }
+  ],
+  "stress": [
+    {
+      "description": "randomly grown binary trees in LeetCode level-order wire form, with random k",
+      "seed": 5,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    values = [rng.randint(1, 2000) for _ in range(n)]\n    arr = [values[0]]\n    alive = [True]\n    idx = 1\n    i = 0\n    while i < len(alive) and idx < n:\n        if alive[i]:\n            for _ in range(2):\n                if idx < n and rng.random() < 0.7:\n                    arr.append(values[idx])\n                    alive.append(True)\n                    idx += 1\n                else:\n                    arr.append(None)\n                    alive.append(False)\n        i += 1\n    k = rng.randint(1, 1024)\n    return [arr, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def kthLargestPerfectSubtree(self, root, k):\n        def height(node):\n            if node is None:\n                return 0\n            return 1 + max(height(node.left), height(node.right))\n\n        def count(node):\n            if node is None:\n                return 0\n            return 1 + count(node.left) + count(node.right)\n\n        def is_perfect(node):\n            if node is None:\n                return True\n            h = height(node)\n            c = count(node)\n            return c == (1 << h) - 1\n\n        sizes = []\n\n        def collect(node):\n            if node is None:\n                return\n            if is_perfect(node):\n                sizes.append(count(node))\n            collect(node.left)\n            collect(node.right)\n\n        collect(root)\n        sizes.sort(reverse=True)\n        return sizes[k - 1] if k <= len(sizes) else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def kthLargestPerfectSubtree(self, root, k):\n        sizes = []\n\n        def dfs(node):\n            if node is None:\n                return (0, True)\n            ld, lp = dfs(node.left)\n            rd, rp = dfs(node.right)\n            if lp and rp and ld == rd:\n                d = ld + 1\n                size = (1 << d) - 1\n                sizes.append(size)\n                return (d, True)\n            return (0, False)\n\n        dfs(root)\n        sizes.sort(reverse=True)\n        return sizes[k - 1] if k <= len(sizes) else -1\n",
+    "javascript": "var kthLargestPerfectSubtree = function(root, k) {\n    const sizes = [];\n    function dfs(node) {\n        if (node === null) return [0, true];\n        const [ld, lp] = dfs(node.left);\n        const [rd, rp] = dfs(node.right);\n        if (lp && rp && ld === rd) {\n            const d = ld + 1;\n            const size = (1 << d) - 1;\n            sizes.push(size);\n            return [d, true];\n        }\n        return [0, false];\n    }\n    dfs(root);\n    sizes.sort((a, b) => b - a);\n    return k <= sizes.length ? sizes[k - 1] : -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

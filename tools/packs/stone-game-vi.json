@@ -1,0 +1,36 @@
+{
+  "slug": "stone-game-vi",
+  "judge": "exact",
+  "pattern": "When two players value the same items differently but pick in strict alternation, the optimal strategy is to always take the item with the highest combined value to both players, since taking it denies the opponent exactly as much as it gains you.",
+  "hints": [
+    "A stone taken by one player is a stone the other player can never get, so a stone's importance to the turn order is the sum of both players' values for it, not either value alone.",
+    "Sort the stones by (your value + their value) descending, and imagine both players always agreeing to take from the front of that order.",
+    "Simulate the turns: on Alice's turns add her value for the next stone in that sorted order to her total, on Bob's turns add his value to his total, then compare the two totals."
+  ],
+  "constraints": [
+    { "param": "aliceValues", "kind": "int[]", "len": [1, 100000], "value": [1, 100] },
+    { "param": "bobValues", "kind": "int[]", "len": [1, 100000], "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "Alice wins by taking the higher-combined-value stone first", "input": [[1, 3], [2, 1]] },
+    { "kind": "edge", "description": "a draw when both players end up tied", "input": [[1, 2], [3, 1]] },
+    { "kind": "edge", "description": "Bob wins regardless of Alice's choices", "input": [[2, 4, 3], [1, 6, 7]] },
+    { "kind": "boundary", "description": "a single stone, Alice always takes it first", "input": [[7], [3]] },
+    { "kind": "trap", "description": "a tie in combined value between two stones forces a stable tiebreak", "input": [[5, 5], [5, 5]] },
+    { "kind": "trap", "description": "one player values everything much higher, tempting a wrong per-player-only sort", "input": [[100, 1, 1], [1, 100, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "many stones with random values for both players",
+      "seed": 41,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    alice = [rng.randint(1, 100) for _ in range(n)]\n    bob = [rng.randint(1, 100) for _ in range(n)]\n    return [alice, bob]\n"
+    }
+  ],
+  "oracle_python": "from functools import lru_cache\nclass Solution:\n    def stoneGameVI(self, aliceValues, bobValues):\n        n = len(aliceValues)\n\n        @lru_cache(maxsize=None)\n        def solve(mask):\n            if mask == (1 << n) - 1:\n                return 0\n            picked = bin(mask).count('1')\n            alice_turn = picked % 2 == 0\n            best = None\n            for i in range(n):\n                if mask & (1 << i):\n                    continue\n                gain = aliceValues[i] if alice_turn else -bobValues[i]\n                val = gain + solve(mask | (1 << i))\n                if best is None:\n                    best = val\n                elif alice_turn and val > best:\n                    best = val\n                elif not alice_turn and val < best:\n                    best = val\n            return best\n\n        diff = solve(0)\n        if diff > 0:\n            return 1\n        if diff < 0:\n            return -1\n        return 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def stoneGameVI(self, aliceValues, bobValues):\n        n = len(aliceValues)\n        order = sorted(range(n), key=lambda i: -(aliceValues[i] + bobValues[i]))\n        alice = bob = 0\n        for turn, i in enumerate(order):\n            if turn % 2 == 0:\n                alice += aliceValues[i]\n            else:\n                bob += bobValues[i]\n        if alice > bob:\n            return 1\n        if alice < bob:\n            return -1\n        return 0\n",
+    "javascript": "var stoneGameVI = function(aliceValues, bobValues) {\n    const n = aliceValues.length;\n    const order = Array.from({length: n}, (_, i) => i);\n    order.sort((a, b) => (bobValues[b] + aliceValues[b]) - (bobValues[a] + aliceValues[a]));\n    let alice = 0, bob = 0;\n    for (let turn = 0; turn < order.length; turn++) {\n        const i = order[turn];\n        if (turn % 2 === 0) alice += aliceValues[i];\n        else bob += bobValues[i];\n    }\n    if (alice > bob) return 1;\n    if (alice < bob) return -1;\n    return 0;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "longest-path-with-different-adjacent-characters",
+  "judge": "exact",
+  "pattern": "A rooted-tree DP where each node combines the two longest valid downward chains from children whose character differs from its own, tracking the best through-node path globally.",
+  "hints": [
+    "Build the children lists from the parent array, then think about the longest valid chain that goes downward starting at each node.",
+    "A child can extend its parent's chain only when their characters differ; for each node keep the two best extendable child chains.",
+    "The answer is the maximum over all nodes of one plus the sum of its two best differing-child chains (path length is counted in nodes), computed bottom-up."
+  ],
+  "constraints": [
+    { "param": "parent", "kind": "int[]", "len": [1, 100000], "value": [-1, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "path bends through a node", "input": [[-1, 0, 0, 1, 1, 2], "abacbe"] },
+    { "kind": "edge", "description": "star where two differing children straddle the root", "input": [[-1, 0, 0, 0], "aabc"] },
+    { "kind": "boundary", "description": "single node tree", "input": [[-1], "z"] },
+    { "kind": "trap", "description": "all same character so no edge may be used", "input": [[-1, 0, 1, 2, 3], "aaaaa"] },
+    { "kind": "trap", "description": "long chain broken by a repeated character in the middle", "input": [[-1, 0, 1, 2, 3, 4], "abcabc"] },
+    { "kind": "edge", "description": "balanced tree, best path crosses an internal node", "input": [[-1, 0, 0, 1, 1, 2, 2], "abcdefg"] }
+  ],
+  "stress": [
+    {
+      "description": "random rooted tree built by attaching each node to an earlier one, with random letters",
+      "seed": 43,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    parent = [-1]\n    for i in range(1, n):\n        parent.append(rng.randint(0, i - 1))\n    s = ''.join(chr(ord('a') + rng.randint(0, 3)) for _ in range(n))\n    return [parent, s]\n",
+      "note": "attaching node i to a strictly earlier node guarantees a valid acyclic rooted tree"
+    }
+  ],
+  "oracle_python": "import sys\nclass Solution:\n    def longestPath(self, parent, s):\n        n = len(parent)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parent[i]].append(i)\n        sys.setrecursionlimit(300000)\n        best = [0]\n        # returns longest downward chain (in nodes) starting at node using valid edges\n        def dfs(u):\n            top1 = top2 = 0\n            for c in children[u]:\n                cl = dfs(c)\n                if s[c] != s[u]:\n                    if cl > top1:\n                        top2 = top1\n                        top1 = cl\n                    elif cl > top2:\n                        top2 = cl\n            best[0] = max(best[0], 1 + top1 + top2)\n            return 1 + top1\n        # iterative to avoid deep recursion on skewed trees\n        order = []\n        stack = [0]\n        visited = [False] * n\n        while stack:\n            u = stack.pop()\n            order.append(u)\n            for c in children[u]:\n                stack.append(c)\n        down = [0] * n\n        for u in reversed(order):\n            top1 = top2 = 0\n            for c in children[u]:\n                if s[c] != s[u]:\n                    cl = down[c]\n                    if cl > top1:\n                        top2 = top1\n                        top1 = cl\n                    elif cl > top2:\n                        top2 = cl\n            best[0] = max(best[0], 1 + top1 + top2)\n            down[u] = 1 + top1\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestPath(self, parent, s):\n        n = len(parent)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parent[i]].append(i)\n        ans = [1]\n        order = []\n        stack = [0]\n        while stack:\n            u = stack.pop()\n            order.append(u)\n            for c in children[u]:\n                stack.append(c)\n        down = [1] * n\n        for u in reversed(order):\n            best1 = best2 = 0\n            for c in children[u]:\n                if s[c] != s[u]:\n                    d = down[c]\n                    if d > best1:\n                        best2 = best1\n                        best1 = d\n                    elif d > best2:\n                        best2 = d\n            ans[0] = max(ans[0], 1 + best1 + best2)\n            down[u] = 1 + best1\n        return ans[0]\n",
+    "javascript": "var longestPath = function(parent, s) {\n    const n = parent.length;\n    const children = Array.from({ length: n }, () => []);\n    for (let i = 1; i < n; i++) children[parent[i]].push(i);\n    const order = [];\n    const stack = [0];\n    while (stack.length) {\n        const u = stack.pop();\n        order.push(u);\n        for (const c of children[u]) stack.push(c);\n    }\n    const down = new Array(n).fill(1);\n    let ans = 1;\n    for (let k = order.length - 1; k >= 0; k--) {\n        const u = order[k];\n        let best1 = 0, best2 = 0;\n        for (const c of children[u]) {\n            if (s[c] !== s[u]) {\n                const d = down[c];\n                if (d > best1) { best2 = best1; best1 = d; }\n                else if (d > best2) { best2 = d; }\n            }\n        }\n        ans = Math.max(ans, 1 + best1 + best2);\n        down[u] = 1 + best1;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,149 @@
+{
+  "slug": "furthest-building-you-can-reach",
+  "judge": "exact",
+  "pattern": "Greedily reserving your ladders for the largest climbs seen so far, and paying bricks only for the smaller ones, keeps every prefix decision optimal without ever needing to look ahead.",
+  "hints": [
+    "At every uphill step you must spend either a ladder or bricks equal to the height difference -- so as you move forward, keep track of every climb you've paid for with a ladder so far.",
+    "If you're currently holding more ladder-covered climbs than you actually have ladders for, it's always safe to convert your cheapest ladder-covered climb back into bricks, since the biggest climbs are the ones most worth saving a ladder for.",
+    "A min-heap of the climbs currently assigned a ladder lets you always evict the smallest one back to bricks the moment you run out of ladders; the instant the brick total would go negative, the previous building is as far as you can go."
+  ],
+  "constraints": [
+    {
+      "param": "heights",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    },
+    {
+      "param": "bricks",
+      "kind": "int",
+      "value": [
+        0,
+        1000000000
+      ]
+    },
+    {
+      "param": "ladders",
+      "kind": "int",
+      "value": [
+        0,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "heights never increase, so no bricks or ladders are ever needed",
+      "input": [
+        [
+          5,
+          5,
+          5,
+          5
+        ],
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single building, nothing to climb",
+      "input": [
+        [
+          7
+        ],
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "bricks exactly cover the one climb needed",
+      "input": [
+        [
+          1,
+          2
+        ],
+        1,
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "bricks fall one short of the climb needed",
+      "input": [
+        [
+          1,
+          3
+        ],
+        1,
+        0
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "more ladders than climbs, so bricks are never touched",
+      "input": [
+        [
+          1,
+          5,
+          2,
+          9
+        ],
+        0,
+        5
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum possible bricks with no ladders",
+      "input": [
+        [
+          1,
+          1000000
+        ],
+        1000000000,
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "ladders equal to the array length, covering every possible climb",
+      "input": [
+        [
+          3,
+          1,
+          4,
+          1,
+          5
+        ],
+        0,
+        5
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large random skyline with random brick and ladder budgets",
+      "seed": 7,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    heights = [rng.randint(1, 1000000) for _ in range(n)]\n    bricks = rng.randint(0, 1000000000)\n    ladders = rng.randint(0, n)\n    return [heights, bricks, ladders]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def furthestBuilding(self, heights, bricks, ladders):\n        n = len(heights)\n        diffs = [heights[i + 1] - heights[i] for i in range(n - 1)]\n\n        def feasible(k):\n            climbs = sorted((d for d in diffs[:k] if d > 0), reverse=True)\n            paid_with_bricks = climbs[ladders:]\n            return sum(paid_with_bricks) <= bricks\n\n        lo, hi = 0, n - 1\n        while lo < hi:\n            mid = (lo + hi + 1) // 2\n            if feasible(mid):\n                lo = mid\n            else:\n                hi = mid - 1\n        return lo\n",
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def furthestBuilding(self, heights, bricks, ladders):\n        heap = []\n        for i in range(len(heights) - 1):\n            diff = heights[i + 1] - heights[i]\n            if diff <= 0:\n                continue\n            heapq.heappush(heap, diff)\n            if len(heap) > ladders:\n                bricks -= heapq.heappop(heap)\n            if bricks < 0:\n                return i\n        return len(heights) - 1\n",
+    "javascript": "var furthestBuilding = function(heights, bricks, ladders) {\n    const heap = [];\n    function push(v) {\n        heap.push(v);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p] <= heap[i]) break;\n            [heap[p], heap[i]] = [heap[i], heap[p]];\n            i = p;\n        }\n    }\n    function pop() {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length > 0) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                const l = 2 * i + 1, r = 2 * i + 2;\n                let smallest = i;\n                if (l < heap.length && heap[l] < heap[smallest]) smallest = l;\n                if (r < heap.length && heap[r] < heap[smallest]) smallest = r;\n                if (smallest === i) break;\n                [heap[i], heap[smallest]] = [heap[smallest], heap[i]];\n                i = smallest;\n            }\n        }\n        return top;\n    }\n    for (let i = 0; i < heights.length - 1; i++) {\n        const diff = heights[i + 1] - heights[i];\n        if (diff <= 0) continue;\n        push(diff);\n        if (heap.length > ladders) {\n            bricks -= pop();\n        }\n        if (bricks < 0) return i;\n    }\n    return heights.length - 1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log ladders)",
+    "space": "O(ladders)"
+  }
+}

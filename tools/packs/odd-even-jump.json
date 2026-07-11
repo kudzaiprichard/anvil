@@ -1,0 +1,37 @@
+{
+  "slug": "odd-even-jump",
+  "judge": "exact",
+  "pattern": "Work backward with two boolean DP arrays — reachable via an odd jump and via an even jump — where each jump's destination is the next-larger-or-equal (or next-smaller-or-equal) index found by sorting with a monotonic stack.",
+  "hints": [
+    "Whether an index is good depends only on where its next jump lands and whether that landing is good for the opposite parity, so think backward from the last index.",
+    "For odd jumps you always go to the smallest value that is at least the current one (ties to the nearest index); for even jumps, the largest value that is at most the current one.",
+    "Sort indices by value (ascending for odd, descending for even) and use a monotonic stack to precompute each index's odd-jump and even-jump target. Then fill odd[i]/even[i] from the back: the last index is good for both, and i is good (odd) if its odd target is even-good, etc. Count odd-good indices."
+  ],
+  "constraints": [
+    { "param": "arr", "kind": "int[]", "len": [1, 20000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "strictly increasing tail dominates reachability", "input": [[10, 13, 12, 14, 15]] },
+    { "kind": "edge", "description": "mixed values with duplicates", "input": [[2, 3, 1, 1, 4]] },
+    { "kind": "edge", "description": "decreasing then mixed", "input": [[5, 1, 3, 4, 2]] },
+    { "kind": "boundary", "description": "single element is trivially good", "input": [[7]] },
+    { "kind": "trap", "description": "all equal values, every jump lands on the nearest equal", "input": [[3, 3, 3, 3]] },
+    { "kind": "trap", "description": "tie-breaking picks the smallest index among equal targets", "input": [[1, 2, 3, 2, 1, 4, 4, 5]] },
+    { "kind": "edge", "description": "two elements", "input": [[6, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random array with a small value range so ties and both jump types fire",
+      "seed": 23,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randint(0, 50) for _ in range(n)]]\n",
+      "note": "low cardinality stresses tie-breaking between equal targets"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def oddEvenJumps(self, arr):\n        # Independent approach: brute-force each jump target by a direct O(n) scan\n        # (no monotonic stack), then memoized backward reachability.\n        n = len(arr)\n        odd_t = [None] * n\n        even_t = [None] * n\n        for i in range(n):\n            ot = None; ot_val = None\n            et = None; et_val = None\n            for j in range(i + 1, n):\n                if arr[j] >= arr[i] and (ot is None or arr[j] < ot_val):\n                    ot_val = arr[j]; ot = j\n                if arr[j] <= arr[i] and (et is None or arr[j] > et_val):\n                    et_val = arr[j]; et = j\n            odd_t[i] = ot; even_t[i] = et\n        odd = [False] * n\n        even = [False] * n\n        odd[n - 1] = even[n - 1] = True\n        for i in range(n - 2, -1, -1):\n            if odd_t[i] is not None:\n                odd[i] = even[odd_t[i]]\n            if even_t[i] is not None:\n                even[i] = odd[even_t[i]]\n        return sum(1 for v in odd if v)\n",
+  "solutions": {
+    "python": "class Solution:\n    def oddEvenJumps(self, arr):\n        n = len(arr)\n        def make(indices):\n            result = [None] * n\n            stack = []\n            for i in indices:\n                while stack and i > stack[-1]:\n                    result[stack.pop()] = i\n                stack.append(i)\n            return result\n        idx_asc = sorted(range(n), key=lambda i: (arr[i], i))\n        odd_next = make(idx_asc)\n        idx_desc = sorted(range(n), key=lambda i: (-arr[i], i))\n        even_next = make(idx_desc)\n        odd = [False] * n\n        even = [False] * n\n        odd[n - 1] = even[n - 1] = True\n        for i in range(n - 2, -1, -1):\n            if odd_next[i] is not None:\n                odd[i] = even[odd_next[i]]\n            if even_next[i] is not None:\n                even[i] = odd[even_next[i]]\n        return sum(odd)\n",
+    "javascript": "var oddEvenJumps = function(arr) {\n    const n = arr.length;\n    function make(indices) {\n        const result = new Array(n).fill(-1);\n        const stack = [];\n        for (const i of indices) {\n            while (stack.length && i > stack[stack.length - 1]) {\n                result[stack.pop()] = i;\n            }\n            stack.push(i);\n        }\n        return result;\n    }\n    const idxAsc = Array.from({length: n}, (_, i) => i).sort((a, b) => arr[a] - arr[b] || a - b);\n    const oddNext = make(idxAsc);\n    const idxDesc = Array.from({length: n}, (_, i) => i).sort((a, b) => arr[b] - arr[a] || a - b);\n    const evenNext = make(idxDesc);\n    const odd = new Array(n).fill(false);\n    const even = new Array(n).fill(false);\n    odd[n - 1] = true; even[n - 1] = true;\n    for (let i = n - 2; i >= 0; i--) {\n        if (oddNext[i] !== -1) odd[i] = even[oddNext[i]];\n        if (evenNext[i] !== -1) even[i] = odd[evenNext[i]];\n    }\n    return odd.reduce((s, v) => s + (v ? 1 : 0), 0);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

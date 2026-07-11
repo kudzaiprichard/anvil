@@ -1,0 +1,44 @@
+{
+  "slug": "utf-8-validation",
+  "judge": "exact",
+  "pattern": "Scan the bytes left to right, decode each leading byte's length from its high bits, then require exactly that many following bytes to begin with the continuation pattern.",
+  "hints": [
+    "Look at the top bits of each starting byte: they tell you how many bytes the current character should span.",
+    "After reading a leader that announces an n-byte character, the next n minus one bytes must each start with the bits one-zero.",
+    "Track how many continuation bytes you still expect; a leader resets that count, a continuation decrements it, and any mismatch or leftover expectation makes the data invalid."
+  ],
+  "constraints": [
+    { "param": "data", "kind": "int[]", "len": [1, 20000], "value": [0, 255] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two-byte char then one-byte char", "input": [[197, 130, 1]] },
+    { "kind": "trap", "description": "continuation byte without correct prefix", "input": [[235, 140, 4]] },
+    { "kind": "boundary", "description": "single ascii byte", "input": [[0]] },
+    { "kind": "trap", "description": "lone continuation byte is invalid", "input": [[128]] },
+    { "kind": "trap", "description": "leader announces more bytes than remain", "input": [[240, 162, 138]] },
+    { "kind": "edge", "description": "valid four-byte character", "input": [[240, 162, 138, 147]] },
+    { "kind": "trap", "description": "five leading ones is never a valid leader", "input": [[248, 130, 130, 130, 130]] },
+    { "kind": "edge", "description": "max ascii byte", "input": [[127]] }
+  ],
+  "stress": [
+    {
+      "description": "random bytes so most sequences are invalid in varied ways",
+      "seed": 61,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 20000))\n    return [[rng.randrange(0, 256) for _ in range(n)]]\n"
+    },
+    {
+      "description": "constructed valid utf-8 streams of mixed widths",
+      "seed": 62,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 20000))\n    out = []\n    while len(out) < n:\n        w = rng.randrange(1, 5)\n        if len(out) + w > n:\n            break\n        if w == 1:\n            out.append(rng.randrange(0, 128))\n        else:\n            lead_ones = (0xFF << (8 - w)) & 0xFF\n            lead = lead_ones | rng.randrange(0, 1 << (7 - w))\n            out.append(lead)\n            for _ in range(w - 1):\n                out.append(0x80 | rng.randrange(0, 64))\n    if not out:\n        out = [0]\n    return [out]\n",
+      "note": "guarantees genuinely valid encodings reach the true branch"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def validUtf8(self, data):\n        i = 0\n        n = len(data)\n        while i < n:\n            b = data[i] & 0xFF\n            bits = format(b, '08b')\n            if bits[0] == '0':\n                width = 1\n            elif bits[:3] == '110':\n                width = 2\n            elif bits[:4] == '1110':\n                width = 3\n            elif bits[:5] == '11110':\n                width = 4\n            else:\n                return False\n            if i + width > n:\n                return False\n            for j in range(1, width):\n                cb = data[i + j] & 0xFF\n                if format(cb, '08b')[:2] != '10':\n                    return False\n            i += width\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def validUtf8(self, data):\n        remaining = 0\n        for num in data:\n            b = num & 0xFF\n            if remaining == 0:\n                if b >> 7 == 0:\n                    remaining = 0\n                elif b >> 5 == 0b110:\n                    remaining = 1\n                elif b >> 4 == 0b1110:\n                    remaining = 2\n                elif b >> 3 == 0b11110:\n                    remaining = 3\n                else:\n                    return False\n            else:\n                if b >> 6 != 0b10:\n                    return False\n                remaining -= 1\n        return remaining == 0\n",
+    "javascript": "var validUtf8 = function(data) {\n    let remaining = 0;\n    for (let num of data) {\n        const b = num & 0xFF;\n        if (remaining === 0) {\n            if (b >> 7 === 0) remaining = 0;\n            else if (b >> 5 === 0b110) remaining = 1;\n            else if (b >> 4 === 0b1110) remaining = 2;\n            else if (b >> 3 === 0b11110) remaining = 3;\n            else return false;\n        } else {\n            if (b >> 6 !== 0b10) return false;\n            remaining -= 1;\n        }\n    }\n    return remaining === 0;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

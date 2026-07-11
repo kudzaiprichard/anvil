@@ -1,0 +1,39 @@
+{
+  "slug": "double-modular-exponentiation",
+  "judge": "unordered",
+  "pattern": "Two nested modular exponentiations reduce to two independent fast-power computations per entry, so each index can be checked on its own in logarithmic time rather than by ever forming the true (astronomically large) power.",
+  "hints": [
+    "You never need the real value of a number raised to a huge exponent -- only its remainder after a modulus -- so reach for repeated squaring instead of literal exponentiation.",
+    "Compute the inner remainder first (the base raised to its exponent, reduced modulo ten), then feed that small result into a second repeated-squaring step with the outer exponent and modulus.",
+    "Check each entry independently: after both modular exponentiations for an entry, compare the final remainder to the target and collect the entry's own position whenever it matches, in any order."
+  ],
+  "constraints": [
+    { "param": "variables", "kind": "int[][]", "len": [1, 100], "value": [1, 1000] },
+    { "param": "target", "kind": "int", "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three entries where two of them match the target", "input": [[[2, 3, 3, 10], [3, 3, 3, 1], [6, 1, 1, 4]], 2] },
+    { "kind": "edge", "description": "single entry that does not match the target", "input": [[[39, 3, 1000, 1000]], 17] },
+    { "kind": "edge", "description": "modulus of one always reduces to zero, matching a target of zero", "input": [[[7, 7, 7, 1]], 0] },
+    { "kind": "boundary", "description": "every value at its maximum allowed magnitude", "input": [[[1000, 1000, 1000, 1000]], 0] },
+    { "kind": "trap", "description": "target equals the modulus itself, which a remainder can never reach", "input": [[[5, 5, 5, 7]], 7] },
+    { "kind": "trap", "description": "base of one collapses both exponentiations to one, so the match depends only on the modulus", "input": [[[1, 1000, 1000, 7]], 1] },
+    { "kind": "edge", "description": "several entries share the same inputs, so either all or none should be selected", "input": [[[4, 4, 4, 9], [4, 4, 4, 9], [4, 4, 4, 9]], 4] },
+    { "kind": "boundary", "description": "large outer exponent exercising the repeated-squaring loop many times", "input": [[[2, 2, 999, 1000], [3, 3, 999, 1000]], 8] }
+  ],
+  "stress": [
+    {
+      "description": "many entries with random values across the full allowed range",
+      "seed": 21,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    variables = []\n    for _ in range(n):\n        a = rng.randint(1, 1000)\n        b = rng.randint(1, 1000)\n        c = rng.randint(1, 1000)\n        m = rng.randint(1, 1000)\n        variables.append([a, b, c, m])\n    target = rng.randint(0, 1000)\n    return [variables, target]\n",
+      "note": "random entries and target exercise both modular exponentiation steps at scale"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getGoodIndices(self, variables, target):\n        def modpow(base, exp, mod):\n            if mod == 1:\n                return 0\n            result = 1\n            base = base % mod\n            e = exp\n            while e > 0:\n                if e & 1:\n                    result = (result * base) % mod\n                e >>= 1\n                base = (base * base) % mod\n            return result\n        res = []\n        for i in range(len(variables)):\n            a, b, c, m = variables[i]\n            x = modpow(a, b, 10)\n            y = modpow(x, c, m)\n            if y == target:\n                res.append(i)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def getGoodIndices(self, variables, target):\n        res = []\n        for i, (a, b, c, m) in enumerate(variables):\n            x = pow(a, b, 10)\n            y = pow(x, c, m)\n            if y == target:\n                res.append(i)\n        return res\n",
+    "javascript": "var getGoodIndices = function(variables, target) {\n    function modpow(base, exp, mod) {\n        if (mod === 1) return 0;\n        let result = 1;\n        base = base % mod;\n        let e = exp;\n        while (e > 0) {\n            if (e & 1) {\n                result = (result * base) % mod;\n            }\n            e = Math.floor(e / 2);\n            base = (base * base) % mod;\n        }\n        return result;\n    }\n    const res = [];\n    for (let i = 0; i < variables.length; i++) {\n        const [a, b, c, m] = variables[i];\n        const x = modpow(a, b, 10);\n        const y = modpow(x, c, m);\n        if (y === target) res.push(i);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n log(max(b,c)))", "space": "O(1) extra beyond the output" }
+}

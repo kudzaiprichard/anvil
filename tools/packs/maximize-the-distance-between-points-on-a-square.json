@@ -1,0 +1,255 @@
+{
+  "slug": "maximize-the-distance-between-points-on-a-square",
+  "judge": "exact",
+  "pattern": "Since only a handful of points ever get chosen, examining every possible selection directly is simpler and safer than trying to shortcut the underlying geometry.",
+  "hints": [
+    "The number of points you must finally choose is always small, so consider what happens if you just examine every possible group of that size.",
+    "For each candidate group, the only quantity that matters is the smallest Manhattan distance between any two of its members.",
+    "Keep the best (largest) such smallest-distance value across every group you examine; nothing about the square's shape needs to be exploited directly."
+  ],
+  "constraints": [
+    {
+      "param": "side",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "points",
+      "kind": "int[][]",
+      "len": [
+        4,
+        15000
+      ],
+      "value": [
+        0,
+        1000000000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        4,
+        25
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "the four corners of the square, all must be picked",
+      "input": [
+        2,
+        [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one extra point close to a corner forces a different choice of four",
+      "input": [
+        2,
+        [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            1
+          ]
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "picking more points than the square's corners alone can supply",
+      "input": [
+        2,
+        [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            1
+          ]
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "several points clustered tightly on one edge next to well-spaced points elsewhere",
+      "input": [
+        10,
+        [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            10,
+            10
+          ],
+          [
+            10,
+            0
+          ],
+          [
+            0,
+            10
+          ]
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "k equal to the total number of available points, no choice involved",
+      "input": [
+        3,
+        [
+          [
+            0,
+            0
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            0,
+            3
+          ]
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "points spread across all four edges, not just the corners",
+      "input": [
+        6,
+        [
+          [
+            0,
+            0
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            6,
+            0
+          ],
+          [
+            6,
+            3
+          ],
+          [
+            6,
+            6
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            3
+          ]
+        ],
+        4
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a modest random scatter of boundary points (kept small since the reference checks every candidate group explicitly)",
+      "seed": 1301,
+      "size": 14,
+      "generator_python": "def gen(rng, size):\n    side = rng.randint(5, 50)\n    boundary = set()\n    for x in range(side + 1):\n        boundary.add((x, 0))\n        boundary.add((x, side))\n    for y in range(side + 1):\n        boundary.add((0, y))\n        boundary.add((side, y))\n    boundary = list(boundary)\n    n = max(4, min(14, len(boundary)))\n    pts = rng.sample(boundary, n)\n    k = rng.randint(4, min(7, n))\n    return [side, [list(p) for p in pts], k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxDistance(self, side, points, k):\n        # independent re-derivation: same brute-force idea, but built by\n        # incrementally growing subsets and tracking the running minimum\n        # pairwise distance instead of recomputing it from scratch each time\n        n = len(points)\n        best = [0]\n        chosen = []\n        def backtrack(start, cur_min):\n            if len(chosen) == k:\n                if cur_min > best[0]:\n                    best[0] = cur_min\n                return\n            remaining = k - len(chosen)\n            for i in range(start, n - remaining + 1):\n                x1, y1 = points[i]\n                new_min = cur_min\n                for j in chosen:\n                    x2, y2 = points[j]\n                    d = abs(x1 - x2) + abs(y1 - y2)\n                    if d < new_min:\n                        new_min = d\n                chosen.append(i)\n                backtrack(i + 1, new_min)\n                chosen.pop()\n        backtrack(0, float('inf'))\n        return best[0]\n",
+  "solutions": {
+    "python": "from itertools import combinations\nclass Solution:\n    def maxDistance(self, side, points, k):\n        n = len(points)\n        best = 0\n        for combo in combinations(range(n), k):\n            mind = None\n            for i in range(len(combo)):\n                x1, y1 = points[combo[i]]\n                for j in range(i + 1, len(combo)):\n                    x2, y2 = points[combo[j]]\n                    d = abs(x1 - x2) + abs(y1 - y2)\n                    if mind is None or d < mind:\n                        mind = d\n                        if mind == 0:\n                            break\n                if mind == 0:\n                    break\n            if mind is not None and mind > best:\n                best = mind\n        return best\n",
+    "javascript": "var maxDistance = function(side, points, k) {\n    const n = points.length;\n    const idx = new Array(k);\n    let best = 0;\n    function combine(start, chosen) {\n        if (chosen === k) {\n            let mind = Infinity;\n            for (let i = 0; i < k; i++) {\n                const x1 = points[idx[i]][0], y1 = points[idx[i]][1];\n                for (let j = i + 1; j < k; j++) {\n                    const x2 = points[idx[j]][0], y2 = points[idx[j]][1];\n                    const d = Math.abs(x1 - x2) + Math.abs(y1 - y2);\n                    if (d < mind) mind = d;\n                }\n            }\n            if (mind > best) best = mind;\n            return;\n        }\n        for (let i = start; i < n; i++) {\n            if (n - i < k - chosen) break;\n            idx[chosen] = i;\n            combine(i + 1, chosen + 1);\n        }\n    }\n    combine(0, 0);\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(C(n,k) * k^2) -- exact search, kept to small inputs by design",
+    "space": "O(k)"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "dungeon-game",
+  "judge": "exact",
+  "pattern": "Working backwards from the destination reveals the minimum health required at each cell without greedily committing to a path early.",
+  "hints": [
+    "Forward DP is hard because the minimum starting health depends on the whole path, not just the current cell; think about what information you really need at each step.",
+    "If you know the minimum health needed to survive from cell (i,j) onward, you can compute the minimum health needed to enter that cell given the room's value.",
+    "Fill a DP table from bottom-right to top-left: at each cell take the cheaper of the two exits, subtract the room's effect, and clamp to at least 1."
+  ],
+  "constraints": [
+    { "param": "dungeon", "kind": "int[][]", "len": [1, 200], "value": [-1000, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single cell with zero value", "input": [[[0]]] },
+    { "kind": "edge", "description": "single cell with negative value forces health > 1", "input": [[[-5]]] },
+    { "kind": "edge", "description": "single cell with positive value still requires health >= 1", "input": [[[10]]] },
+    { "kind": "edge", "description": "all positive rooms, answer must still be at least 1", "input": [[[1, 2], [3, 4]]] },
+    { "kind": "boundary", "description": "single row path, knight forced right", "input": [[[-2, -3, 3]]] },
+    { "kind": "trap", "description": "large positive room early does not compensate for fatal ending", "input": [[[100, -100, -100], [0, 0, -100]]] },
+    { "kind": "trap", "description": "bottom-right cell is very negative, answer driven by last cell", "input": [[[0, 0], [0, -10]]] },
+    { "kind": "trap", "description": "classic example from problem statement", "input": [[[-2, -3, 3], [-5, -10, 1], [10, 30, -5]]] }
+  ],
+  "stress": [
+    {
+      "description": "random grid up to 20x20 with mixed positive and negative values",
+      "seed": 13,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, size)\n    n = rng.randint(1, size)\n    grid = [[rng.randint(-1000, 1000) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def calculateMinimumHP(self, dungeon) -> int:\n        m, n = len(dungeon), len(dungeon[0])\n        dp = [[0] * n for _ in range(m)]\n        dp[m-1][n-1] = max(1, 1 - dungeon[m-1][n-1])\n        for j in range(n-2, -1, -1):\n            dp[m-1][j] = max(1, dp[m-1][j+1] - dungeon[m-1][j])\n        for i in range(m-2, -1, -1):\n            dp[i][n-1] = max(1, dp[i+1][n-1] - dungeon[i][n-1])\n        for i in range(m-2, -1, -1):\n            for j in range(n-2, -1, -1):\n                best_next = min(dp[i+1][j], dp[i][j+1])\n                dp[i][j] = max(1, best_next - dungeon[i][j])\n        return dp[0][0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def calculateMinimumHP(self, dungeon) -> int:\n        m, n = len(dungeon), len(dungeon[0])\n        dp = [float('inf')] * (n + 1)\n        for j in range(n - 1, -1, -1):\n            if j == n - 1:\n                dp[j] = max(1, 1 - dungeon[m - 1][j])\n            else:\n                dp[j] = max(1, dp[j + 1] - dungeon[m - 1][j])\n        for i in range(m - 2, -1, -1):\n            new_dp = [float('inf')] * (n + 1)\n            for j in range(n - 1, -1, -1):\n                best_next = min(dp[j], new_dp[j + 1])\n                new_dp[j] = max(1, best_next - dungeon[i][j])\n            dp = new_dp\n        return dp[0]\n",
+    "javascript": "var calculateMinimumHP = function(dungeon) {\n    const m = dungeon.length, n = dungeon[0].length;\n    let dp = new Array(n + 1).fill(Infinity);\n    for (let j = n - 1; j >= 0; j--) {\n        dp[j] = j === n - 1 ? Math.max(1, 1 - dungeon[m-1][j]) : Math.max(1, dp[j+1] - dungeon[m-1][j]);\n    }\n    for (let i = m - 2; i >= 0; i--) {\n        const newDp = new Array(n + 1).fill(Infinity);\n        for (let j = n - 1; j >= 0; j--) {\n            const bestNext = Math.min(dp[j], newDp[j + 1]);\n            newDp[j] = Math.max(1, bestNext - dungeon[i][j]);\n        }\n        dp = newDp;\n    }\n    return dp[0];\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(n)" }
+}

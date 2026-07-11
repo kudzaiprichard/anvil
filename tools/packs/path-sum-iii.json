@@ -1,0 +1,38 @@
+{
+  "slug": "path-sum-iii",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json"], "returns": "json" },
+  "pattern": "Carry a running prefix sum down each root-to-node path and count, with a hash map, how many earlier prefixes leave exactly the target behind — turning a quadratic path search into one linear sweep.",
+  "hints": [
+    "A path can start at any node and must go strictly downward, so think about every root-to-current-node prefix and the sums between two points on it.",
+    "If you track the running sum from the root to the current node, a downward path ending here sums to target exactly when an earlier prefix equals (current running sum) minus target.",
+    "Keep a map of prefix-sum -> how many ancestors produced it (seed it with 0 -> 1); at each node add map[runningSum - target] to the count, record this prefix, recurse, then remove it on the way back up."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [0, 1000], "value": [-1000000000, 1000000000] },
+    { "param": "targetSum", "kind": "int", "value": [-1000, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "several downward paths reach the target", "input": [[10, 5, -3, 3, 2, null, 11, 3, -2, null, 1], 8] },
+    { "kind": "edge", "description": "deeper tree with mixed signs", "input": [[5, 4, 8, 11, null, 13, 4, 7, 2, null, null, 5, 1], 22] },
+    { "kind": "boundary", "description": "empty tree has no paths", "input": [[], 0] },
+    { "kind": "edge", "description": "single node equal to target", "input": [[1], 1] },
+    { "kind": "trap", "description": "zero-valued nodes and target zero create multiple distinct counted paths", "input": [[0, 0, 0], 0] },
+    { "kind": "trap", "description": "negative values let a longer path return to the target", "input": [[1, -2, -3, 1, 3, -2, null, -1], 3] }
+  ],
+  "stress": [
+    {
+      "description": "random tree with small values and a small target so many paths qualify, exercising prefix-sum bookkeeping",
+      "seed": 37,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    arr = [rng.randint(-4, 4)]\n    for _ in range(n - 1):\n        arr.append(rng.randint(-4, 4) if rng.random() < 0.85 else None)\n    while arr and arr[-1] is None:\n        arr.pop()\n    target = rng.randint(-3, 3)\n    return [arr, target]\n",
+      "note": "small magnitudes keep many qualifying paths while staying within constraints"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def pathSum(self, root, targetSum):\n        # brute force: for every node, count downward paths starting there\n        def count_from(node, remaining):\n            if not node:\n                return 0\n            total = 1 if node.val == remaining else 0\n            total += count_from(node.left, remaining - node.val)\n            total += count_from(node.right, remaining - node.val)\n            return total\n        def each(node):\n            if not node:\n                return 0\n            return count_from(node, targetSum) + each(node.left) + each(node.right)\n        return each(root)\n",
+  "solutions": {
+    "python": "class Solution:\n    def pathSum(self, root, targetSum):\n        from collections import defaultdict\n        prefix = defaultdict(int)\n        prefix[0] = 1\n        self.count = 0\n        def dfs(node, running):\n            if not node:\n                return\n            running += node.val\n            self.count += prefix[running - targetSum]\n            prefix[running] += 1\n            dfs(node.left, running)\n            dfs(node.right, running)\n            prefix[running] -= 1\n        dfs(root, 0)\n        return self.count\n",
+    "javascript": "var pathSum = function(root, targetSum) {\n    const prefix = new Map();\n    prefix.set(0, 1);\n    let count = 0;\n    function dfs(node, running) {\n        if (!node) return;\n        running += node.val;\n        count += prefix.get(running - targetSum) || 0;\n        prefix.set(running, (prefix.get(running) || 0) + 1);\n        dfs(node.left, running);\n        dfs(node.right, running);\n        prefix.set(running, prefix.get(running) - 1);\n    }\n    dfs(root, 0);\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

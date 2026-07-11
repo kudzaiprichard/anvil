@@ -1,0 +1,144 @@
+{
+  "slug": "find-products-of-elements-of-big-array",
+  "judge": "exact",
+  "pattern": "Since every entry of the big concatenated array is itself a power of two, any range product collapses to a single power of two whose exponent is a prefix sum of bit-positions -- turning a huge multiplication into modular exponentiation once that prefix sum is known.",
+  "hints": [
+    "Every element of the big array is a power of two (it comes from decomposing an integer into its set bits), so a product of a range is just 2 raised to the sum of the involved exponents.",
+    "Counting how many big-array slots the powerful arrays of 1..m occupy is a sum of popcounts, which has a closed form per bit position; binary search on m to locate which original integer a given big-array index falls inside.",
+    "Compute the total exponent-sum of the first idx elements as a function S(idx): sum the bit positions contributed by every complete integer's powerful array, plus the leading bits of the partial integer at the boundary, then answer a query as pow(2, S(to+1) - S(from), mod)."
+  ],
+  "constraints": [
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        500
+      ],
+      "value": [
+        0,
+        1000000000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, single query",
+      "input": [
+        [
+          [
+            1,
+            3,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, two queries",
+      "input": [
+        [
+          [
+            2,
+            5,
+            3
+          ],
+          [
+            7,
+            7,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the very first element of the big array alone",
+      "input": [
+        [
+          [
+            0,
+            0,
+            1000000
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "modulus of 1 always yields 0",
+      "input": [
+        [
+          [
+            0,
+            10,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "single-element range on a later, larger power-of-two entry",
+      "input": [
+        [
+          [
+            12,
+            12,
+            1000000
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several independent queries in one call",
+      "input": [
+        [
+          [
+            0,
+            2,
+            5
+          ],
+          [
+            3,
+            3,
+            2
+          ],
+          [
+            10,
+            20,
+            97
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small-index queries, cross-checkable against direct materialization",
+      "seed": 5,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 200))\n    queries = []\n    for _ in range(m):\n        a = rng.randint(0, 400)\n        b = rng.randint(a, 400)\n        mod = rng.randint(1, 100000)\n        queries.append([a, b, mod])\n    return [queries]\n",
+      "note": "small indices so a direct materialization check stays cheap"
+    },
+    {
+      "description": "large-index queries exercising the closed-form counting at realistic scale",
+      "seed": 6,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 500))\n    queries = []\n    for _ in range(m):\n        a = rng.randint(0, 10 ** 15 - 1)\n        b = rng.randint(a, 10 ** 15 - 1)\n        mod = rng.randint(1, 100000)\n        queries.append([a, b, mod])\n    return [queries]\n",
+      "note": "indices up to 1e15 per the real constraint"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findProductsOfElements(self, queries):\n        max_needed = max(q[1] for q in queries) + 2\n        big = []\n        i = 1\n        while len(big) <= max_needed:\n            x = i\n            b = 0\n            bits = []\n            while x:\n                if x & 1:\n                    bits.append(1 << b)\n                x >>= 1\n                b += 1\n            big.extend(bits)\n            i += 1\n        res = []\n        for f, t, mod in queries:\n            prod = 1\n            for v in big[f:t + 1]:\n                prod = (prod * v) % mod\n            res.append(prod)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def findProductsOfElements(self, queries):\n        def count_total_set_bits(n):\n            if n < 0:\n                return 0\n            total = 0\n            b = 0\n            while (1 << b) <= n:\n                cycle = 1 << (b + 1)\n                half = 1 << b\n                full_cycles = (n + 1) // cycle\n                total += full_cycles * half\n                rem = (n + 1) % cycle\n                total += max(0, rem - half)\n                b += 1\n            return total\n        def count_set_at_bit(n, b):\n            if n < 0:\n                return 0\n            cycle = 1 << (b + 1)\n            half = 1 << b\n            full_cycles = (n + 1) // cycle\n            cnt = full_cycles * half\n            rem = (n + 1) % cycle\n            cnt += max(0, rem - half)\n            return cnt\n        def sum_bit_positions(n):\n            if n <= 0:\n                return 0\n            total = 0\n            b = 0\n            while (1 << b) <= n:\n                total += b * count_set_at_bit(n, b)\n                b += 1\n            return total\n        def prefix_sum(idx):\n            if idx <= 0:\n                return 0\n            lo, hi = 0, idx\n            while lo < hi:\n                mid = (lo + hi + 1) // 2\n                if count_total_set_bits(mid) <= idx:\n                    lo = mid\n                else:\n                    hi = mid - 1\n            n = lo\n            total = sum_bit_positions(n)\n            r = idx - count_total_set_bits(n)\n            if r > 0:\n                m = n + 1\n                bits = []\n                bb = 0\n                while (1 << bb) <= m:\n                    if m & (1 << bb):\n                        bits.append(bb)\n                    bb += 1\n                total += sum(bits[:r])\n            return total\n        res = []\n        for f, t, mod in queries:\n            s2 = prefix_sum(t + 1)\n            s1 = prefix_sum(f)\n            k = s2 - s1\n            res.append(pow(2, k, mod))\n        return res\n",
+    "javascript": "var findProductsOfElements = function(queries) {\n    function countTotalSetBits(n) {\n        if (n < 0) return 0n;\n        let total = 0n;\n        let b = 0n;\n        while ((1n << b) <= n) {\n            const cycle = 1n << (b + 1n);\n            const half = 1n << b;\n            const fullCycles = (n + 1n) / cycle;\n            total += fullCycles * half;\n            const rem = (n + 1n) % cycle;\n            total += rem > half ? rem - half : 0n;\n            b += 1n;\n        }\n        return total;\n    }\n    function countSetAtBit(n, b) {\n        if (n < 0) return 0n;\n        const cycle = 1n << (b + 1n);\n        const half = 1n << b;\n        const fullCycles = (n + 1n) / cycle;\n        let cnt = fullCycles * half;\n        const rem = (n + 1n) % cycle;\n        cnt += rem > half ? rem - half : 0n;\n        return cnt;\n    }\n    function sumBitPositions(n) {\n        if (n <= 0n) return 0n;\n        let total = 0n;\n        let b = 0n;\n        while ((1n << b) <= n) {\n            total += b * countSetAtBit(n, b);\n            b += 1n;\n        }\n        return total;\n    }\n    function prefixSum(idx) {\n        if (idx <= 0n) return 0n;\n        let lo = 0n, hi = idx;\n        while (lo < hi) {\n            const mid = (lo + hi + 1n) / 2n;\n            if (countTotalSetBits(mid) <= idx) lo = mid; else hi = mid - 1n;\n        }\n        const n = lo;\n        let total = sumBitPositions(n);\n        const r = idx - countTotalSetBits(n);\n        if (r > 0n) {\n            const m = n + 1n;\n            const bits = [];\n            let bb = 0n;\n            while ((1n << bb) <= m) {\n                if (m & (1n << bb)) bits.push(bb);\n                bb += 1n;\n            }\n            let rr = Number(r);\n            for (let i = 0; i < rr; i++) total += bits[i];\n        }\n        return total;\n    }\n    function powmod(base, exp, mod) {\n        base = base % mod;\n        let result = 1n;\n        while (exp > 0n) {\n            if (exp & 1n) result = (result * base) % mod;\n            base = (base * base) % mod;\n            exp >>= 1n;\n        }\n        return result;\n    }\n    const res = [];\n    for (const [f, t, mod] of queries) {\n        const s2 = prefixSum(BigInt(t) + 1n);\n        const s1 = prefixSum(BigInt(f));\n        const k = s2 - s1;\n        res.push(Number(powmod(2n, k, BigInt(mod))));\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(q log(max index))",
+    "space": "O(1) per query"
+  }
+}

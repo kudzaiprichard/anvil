@@ -1,0 +1,39 @@
+{
+  "slug": "count-unhappy-friends",
+  "judge": "exact",
+  "pattern": "Once everyone is paired up, a friend's ranked wishlist plus their partner's wishlist is all you need -- turn each wishlist into a lookup of \"how much do I prefer this person\" and unhappiness becomes a simple mutual-preference check between every pair of partners.",
+  "hints": [
+    "For every person, convert their preference list into a lookup that tells you how much they prefer any other given person -- a smaller number means a stronger preference.",
+    "A friend x is unhappy if there is some other pair (u, v) where x prefers u to their own partner, and u also prefers x to their own partner v -- so you only need to compare x against people x ranks above their current partner.",
+    "Because you already have O(1) preference lookups, you can stop scanning x's wishlist as soon as you reach their actual partner: everyone before that point is a candidate u, and for each you just check u's lookup for x versus u's own partner."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 500] },
+    { "param": "preferences", "kind": "int[][]", "len": [2, 500], "value": [0, 499] },
+    { "param": "pairs", "kind": "int[][]", "len": [1, 250], "value": [0, 499] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two unhappy friends among four", "input": [4, [[1, 2, 3], [3, 2, 0], [3, 1, 0], [1, 2, 0]], [[0, 1], [2, 3]]] },
+    { "kind": "edge", "description": "statement example, smallest case, everyone happy", "input": [2, [[1], [0]], [[1, 0]]] },
+    { "kind": "edge", "description": "statement example, all four friends unhappy", "input": [4, [[1, 3, 2], [2, 3, 0], [1, 3, 0], [0, 2, 1]], [[1, 3], [0, 2]]] },
+    { "kind": "boundary", "description": "n=2 with reversed pair order in the pairs list", "input": [2, [[1], [0]], [[1, 0]]] },
+    { "kind": "trap", "description": "everyone's top choice is already their partner, so nobody is unhappy despite full-length wishlists", "input": [6, [[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [3, 0, 1, 4, 5], [2, 0, 1, 4, 5], [5, 0, 1, 2, 3], [4, 0, 1, 2, 3]], [[0, 1], [2, 3], [4, 5]]] },
+    { "kind": "trap", "description": "a chain where x prefers u over their partner but u does not prefer x back, so x stays happy", "input": [4, [[1, 2, 3], [2, 3, 0], [0, 3, 1], [0, 1, 2]], [[0, 1], [2, 3]]] },
+    { "kind": "trap", "description": "pairs listed with the higher index first, must not assume pair ordering", "input": [4, [[3, 1, 2], [3, 2, 0], [1, 3, 0], [0, 2, 1]], [[3, 1], [2, 0]]] },
+    { "kind": "boundary", "description": "eight friends, symmetric mutual crush spanning two different pairs", "input": [8, [[1,2,3,4,5,6,7],[0,2,3,4,5,6,7],[3,0,1,4,5,6,7],[2,0,1,4,5,6,7],[5,0,1,2,3,6,7],[4,0,1,2,3,6,7],[7,0,1,2,3,4,5],[6,0,1,2,3,4,5]], [[0,1],[2,3],[4,5],[6,7]]] }
+  ],
+  "stress": [
+    {
+      "description": "random even n with shuffled preference lists and randomized pairing",
+      "seed": 7,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = size if size % 2 == 0 else size - 1\n    n = max(n, 2)\n    prefs = []\n    for i in range(n):\n        others = [j for j in range(n) if j != i]\n        rng.shuffle(others)\n        prefs.append(others)\n    people = list(range(n))\n    rng.shuffle(people)\n    pairs = [[people[k], people[k + 1]] for k in range(0, n, 2)]\n    return [n, prefs, pairs]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def unhappyFriends(self, n, preferences, pairs):\n        partner = {}\n        for x, y in pairs:\n            partner[x] = y\n            partner[y] = x\n        pref_index = [dict() for _ in range(n)]\n        for i in range(n):\n            for pos, p in enumerate(preferences[i]):\n                pref_index[i][p] = pos\n        unhappy_people = set()\n        for x in range(n):\n            y = partner[x]\n            for u in range(n):\n                if u == x or u == y:\n                    continue\n                v = partner[u]\n                if pref_index[x][u] < pref_index[x][y] and pref_index[u][x] < pref_index[u][v]:\n                    unhappy_people.add(x)\n                    break\n        return len(unhappy_people)\n",
+  "solutions": {
+    "python": "class Solution:\n    def unhappyFriends(self, n: int, preferences: List[List[int]], pairs: List[List[int]]) -> int:\n        partner = [0] * n\n        for x, y in pairs:\n            partner[x] = y\n            partner[y] = x\n        rank = [[0] * n for _ in range(n)]\n        for i in range(n):\n            for pos, p in enumerate(preferences[i]):\n                rank[i][p] = pos\n        unhappy = 0\n        for x in range(n):\n            y = partner[x]\n            for u in preferences[x]:\n                if rank[x][u] >= rank[x][y]:\n                    break\n                v = partner[u]\n                if rank[u][x] < rank[u][v]:\n                    unhappy += 1\n                    break\n        return unhappy\n",
+    "javascript": "var unhappyFriends = function(n, preferences, pairs) {\n    const partner = new Array(n);\n    for (const [x, y] of pairs) {\n        partner[x] = y;\n        partner[y] = x;\n    }\n    const rank = Array.from({ length: n }, () => new Array(n).fill(0));\n    for (let i = 0; i < n; i++) {\n        for (let pos = 0; pos < preferences[i].length; pos++) {\n            rank[i][preferences[i][pos]] = pos;\n        }\n    }\n    let unhappy = 0;\n    for (let x = 0; x < n; x++) {\n        const y = partner[x];\n        for (const u of preferences[x]) {\n            if (rank[x][u] >= rank[x][y]) break;\n            const v = partner[u];\n            if (rank[u][x] < rank[u][v]) {\n                unhappy++;\n                break;\n            }\n        }\n    }\n    return unhappy;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

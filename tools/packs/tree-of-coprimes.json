@@ -1,0 +1,36 @@
+{
+  "slug": "tree-of-coprimes",
+  "judge": "exact",
+  "pattern": "Values are tiny (<=50), so keep one ancestor stack per possible value and, at each node, pick the deepest ancestor whose value is coprime with the current node.",
+  "hints": [
+    "Node values are bounded by 50, so there are only a handful of distinct values to reason about.",
+    "During a DFS from the root, remember for every value the most recent (deepest) ancestor that carried it.",
+    "At each node, among the values coprime with it, choose the ancestor sitting at the greatest depth; track depths to break ties toward the closest ancestor."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 50] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small tree from the statement", "input": [[2, 3, 3, 2], [[0, 1], [1, 2], [1, 3]]] },
+    { "kind": "edge", "description": "wider tree", "input": [[5, 6, 10, 2, 3, 6, 15], [[0, 1], [0, 2], [1, 3], [1, 4], [2, 5], [2, 6]]] },
+    { "kind": "boundary", "description": "single node, no ancestors", "input": [[7], []] },
+    { "kind": "trap", "description": "root value 1 is coprime with everything below", "input": [[1, 2, 4, 6], [[0, 1], [1, 2], [2, 3]]] },
+    { "kind": "trap", "description": "chain where no pair is coprime", "input": [[6, 12, 18, 24], [[0, 1], [1, 2], [2, 3]]] },
+    { "kind": "edge", "description": "star rooted at 0", "input": [[2, 3, 5, 7], [[0, 1], [0, 2], [0, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree by attaching each new node to an earlier one",
+      "seed": 59,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randrange(1, 51) for _ in range(n)]\n    edges = []\n    for v in range(1, n):\n        u = rng.randrange(0, v)\n        edges.append([u, v])\n    return [nums, edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getCoprimes(self, nums, edges):\n        from math import gcd\n        n = len(nums)\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        parent = [-1] * n\n        depth = [0] * n\n        order = []\n        visited = [False] * n\n        stack = [0]\n        visited[0] = True\n        while stack:\n            node = stack.pop()\n            order.append(node)\n            for nb in adj[node]:\n                if not visited[nb]:\n                    visited[nb] = True\n                    parent[nb] = node\n                    depth[nb] = depth[node] + 1\n                    stack.append(nb)\n        ans = [-1] * n\n        for node in order:\n            cur = parent[node]\n            best = -1\n            bestdepth = -1\n            while cur != -1:\n                if gcd(nums[node], nums[cur]) == 1 and depth[cur] > bestdepth:\n                    best = cur\n                    bestdepth = depth[cur]\n                    break\n                cur = parent[cur]\n            ans[node] = best\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def getCoprimes(self, nums, edges):\n        from math import gcd\n        n = len(nums)\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        coprime = [[] for _ in range(51)]\n        for a in range(1, 51):\n            for b in range(1, 51):\n                if gcd(a, b) == 1:\n                    coprime[a].append(b)\n        last = [(-1, -1)] * 51\n        ans = [-1] * n\n        st = [(0, -1, 0, False)]\n        saved = []\n        while st:\n            node, par, dep, processed = st.pop()\n            if not processed:\n                best = -1\n                bd = -1\n                for val in coprime[nums[node]]:\n                    d, idx = last[val]\n                    if d > bd:\n                        bd = d\n                        best = idx\n                ans[node] = best\n                v = nums[node]\n                saved.append((v, last[v]))\n                last[v] = (dep, node)\n                st.append((node, par, dep, True))\n                for nb in adj[node]:\n                    if nb != par:\n                        st.append((nb, node, dep + 1, False))\n            else:\n                v, prev = saved.pop()\n                last[v] = prev\n        return ans\n",
+    "javascript": "var getCoprimes = function(nums, edges) {\n    const gcd = (a, b) => { while (b) { [a, b] = [b, a % b]; } return a; };\n    const n = nums.length;\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v] of edges) { adj[u].push(v); adj[v].push(u); }\n    const coprime = Array.from({length: 51}, () => []);\n    for (let a = 1; a <= 50; a++) for (let b = 1; b <= 50; b++) if (gcd(a, b) === 1) coprime[a].push(b);\n    const last = new Array(51).fill(null).map(() => [-1, -1]);\n    const ans = new Array(n).fill(-1);\n    const saved = {};\n    const st = [[0, -1, 0, false]];\n    while (st.length) {\n        const frame = st.pop();\n        const [node, par, dep, processed] = frame;\n        if (!processed) {\n            let best = -1, bd = -1;\n            for (const val of coprime[nums[node]]) {\n                const [d, idx] = last[val];\n                if (d > bd) { bd = d; best = idx; }\n            }\n            ans[node] = best;\n            saved[node + ',' + dep] = last[nums[node]];\n            last[nums[node]] = [dep, node];\n            st.push([node, par, dep, true]);\n            for (const nb of adj[node]) if (nb !== par) st.push([nb, node, dep + 1, false]);\n        } else {\n            last[nums[node]] = saved[node + ',' + dep];\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n * 50)", "space": "O(n)" }
+}

@@ -1,0 +1,44 @@
+{
+  "slug": "good-subsequence-queries",
+  "judge": "exact",
+  "pattern": "A subsequence with gcd exactly p can only be built from elements that are themselves multiples of p, and since taking every such multiple always achieves the smallest gcd any subset of them can reach, existence collapses to a gcd check over that subset -- with one extra removal check only in the rare case every element qualifies.",
+  "hints": [
+    "Only elements divisible by p can ever belong to a subsequence whose gcd is exactly p, so first collect that subset; if it is empty, no good subsequence exists.",
+    "Using every element of that subset always achieves the smallest gcd any subset of it can reach, so if the subset is shorter than the whole array, the answer is simply whether that subset's overall gcd equals p exactly.",
+    "If every single element qualifies, using all of them is too long (the subsequence must be strictly shorter than the array), so instead check whether the gcd of all elements is p AND removing at least one specific element still leaves the remaining gcd at exactly p."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 50000], "value": [1, 50000] },
+    { "param": "p", "kind": "int", "value": [1, 50000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 50000], "value": [0, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a good subsequence appears only after the second update", "input": [[4, 8, 12, 16], 2, [[0, 3], [2, 6]]] },
+    { "kind": "edge", "description": "two of three updates produce a good subsequence", "input": [[4, 5, 7, 8], 3, [[0, 6], [1, 9], [2, 3]]] },
+    { "kind": "edge", "description": "no update ever produces a good subsequence", "input": [[5, 7, 9], 2, [[1, 4], [2, 8]]] },
+    { "kind": "boundary", "description": "the smallest possible array of two elements", "input": [[2, 4], 2, [[0, 3]]] },
+    { "kind": "trap", "description": "every element becomes a multiple of p, so the full array cannot be used and only a proper subset can qualify", "input": [[6, 9, 15], 3, [[0, 12]]] },
+    { "kind": "trap", "description": "the whole array shares a common factor larger than p, making p unreachable by any subset", "input": [[6, 12, 18], 3, [[1, 12]]] },
+    { "kind": "trap", "description": "removing exactly one particular element restores a gcd of exactly p even though the full array's gcd is larger", "input": [[2, 4, 3], 1, [[2, 9]]] }
+  ],
+  "stress": [
+    {
+      "description": "random array and queries with a random p, mostly not all sharing a common factor",
+      "seed": 81,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 2000))\n    nums = [rng.randint(1, 50000) for _ in range(n)]\n    p = rng.randint(1, 50000)\n    qn = max(1, min(size, 2000))\n    queries = [[rng.randint(0, n - 1), rng.randint(1, 50000)] for _ in range(qn)]\n    return [nums, p, queries]\n"
+    },
+    {
+      "description": "array where every element is a multiple of p, exercising the remove-one-element check heavily",
+      "seed": 82,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 1500))\n    p = rng.randint(2, 30)\n    nums = [p * rng.randint(1, 500) for _ in range(n)]\n    qn = max(1, min(size, 1500))\n    queries = [[rng.randint(0, n - 1), p * rng.randint(1, 500)] for _ in range(qn)]\n    return [nums, p, queries]\n"
+    }
+  ],
+  "oracle_python": "from math import gcd\nfrom functools import reduce\nclass Solution:\n    def countGoodSubseq(self, nums, p, queries):\n        arr = list(nums)\n        n = len(arr)\n        cnt = 0\n        for ind, val in queries:\n            arr[ind] = val\n            S = [x for x in arr if x % p == 0]\n            good = False\n            if S:\n                g = reduce(gcd, S)\n                if len(S) < n:\n                    good = (g == p)\n                elif g == p:\n                    prefix = [0] * (n + 1)\n                    suffix = [0] * (n + 1)\n                    for i in range(n):\n                        prefix[i + 1] = gcd(prefix[i], arr[i])\n                    for i in range(n - 1, -1, -1):\n                        suffix[i] = gcd(suffix[i + 1], arr[i])\n                    for i in range(n):\n                        if gcd(prefix[i], suffix[i + 1]) == p:\n                            good = True\n                            break\n            if good:\n                cnt += 1\n        return cnt\n",
+  "solutions": {
+    "python": "from math import gcd\nfrom functools import reduce\nclass Solution:\n    def countGoodSubseq(self, nums, p: int, queries) -> int:\n        arr = list(nums)\n        n = len(arr)\n        cnt = 0\n        for ind, val in queries:\n            arr[ind] = val\n            S = [x for x in arr if x % p == 0]\n            good = False\n            if S:\n                g = reduce(gcd, S)\n                if len(S) < n:\n                    good = (g == p)\n                elif g == p:\n                    prefix = [0] * (n + 1)\n                    suffix = [0] * (n + 1)\n                    for i in range(n):\n                        prefix[i + 1] = gcd(prefix[i], arr[i])\n                    for i in range(n - 1, -1, -1):\n                        suffix[i] = gcd(suffix[i + 1], arr[i])\n                    for i in range(n):\n                        if gcd(prefix[i], suffix[i + 1]) == p:\n                            good = True\n                            break\n            if good:\n                cnt += 1\n        return cnt\n",
+    "javascript": "function gcdJS(a, b) {\n    a = Math.abs(a); b = Math.abs(b);\n    while (b) { [a, b] = [b, a % b]; }\n    return a;\n}\nvar countGoodSubseq = function(nums, p, queries) {\n    const arr = nums.slice();\n    const n = arr.length;\n    let cnt = 0;\n    for (const [ind, val] of queries) {\n        arr[ind] = val;\n        const S = arr.filter(x => x % p === 0);\n        let good = false;\n        if (S.length > 0) {\n            let g = S.reduce((a, b) => gcdJS(a, b));\n            if (S.length < n) {\n                good = (g === p);\n            } else if (g === p) {\n                const prefix = new Array(n + 1).fill(0);\n                const suffix = new Array(n + 1).fill(0);\n                for (let i = 0; i < n; i++) prefix[i + 1] = gcdJS(prefix[i], arr[i]);\n                for (let i = n - 1; i >= 0; i--) suffix[i] = gcdJS(suffix[i + 1], arr[i]);\n                for (let i = 0; i < n; i++) {\n                    if (gcdJS(prefix[i], suffix[i + 1]) === p) {\n                        good = true;\n                        break;\n                    }\n                }\n            }\n        }\n        if (good) cnt++;\n    }\n    return cnt;\n};\n"
+  },
+  "complexity": { "time": "O(n * q) worst case, fast in practice since the expensive path only triggers when every element is currently a multiple of p", "space": "O(n)" }
+}

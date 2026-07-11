@@ -1,0 +1,190 @@
+{
+  "slug": "leaf-similar-trees",
+  "judge": "exact",
+  "io_types": {
+    "params": [
+      "tree",
+      "tree"
+    ],
+    "returns": "json"
+  },
+  "pattern": "Only the left-to-right sequence of leaf values matters, so collapsing each tree down to just its leaves reduces the comparison to a simple sequence equality.",
+  "hints": [
+    "Walk each tree and record only the values of nodes that have no children, in left-to-right order.",
+    "The internal shape of either tree is irrelevant; two very differently shaped trees can still produce the same leaf sequence.",
+    "Compare the two collected sequences directly for equality, including their lengths."
+  ],
+  "constraints": [
+    {
+      "param": "root1",
+      "kind": "tree",
+      "len": [
+        1,
+        200
+      ],
+      "value": [
+        0,
+        200
+      ]
+    },
+    {
+      "param": "root2",
+      "kind": "tree",
+      "len": [
+        1,
+        200
+      ],
+      "value": [
+        0,
+        200
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "differently shaped trees with the same leaf sequence",
+      "input": [
+        [
+          3,
+          5,
+          1,
+          6,
+          2,
+          9,
+          8,
+          null,
+          null,
+          7,
+          4
+        ],
+        [
+          3,
+          5,
+          1,
+          6,
+          7,
+          4,
+          2,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          9,
+          8
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "same values arranged so the leaf order differs",
+      "input": [
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          1,
+          3,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two single-node trees with equal value",
+      "input": [
+        [
+          7
+        ],
+        [
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one tree is a skewed chain collapsing to one leaf, the other is that same single leaf, matching despite very different depth",
+      "input": [
+        [
+          1,
+          null,
+          2,
+          null,
+          3
+        ],
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "same two leaf values but reversed left-to-right order",
+      "input": [
+        [
+          10,
+          1,
+          2
+        ],
+        [
+          10,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "leaf count matches but one tree's rightmost leaf value differs because of where a node's children attach",
+      "input": [
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          1,
+          2,
+          3,
+          null,
+          null,
+          null,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-node trees at opposite ends of the value range",
+      "input": [
+        [
+          0
+        ],
+        [
+          200
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "two independently built random general binary trees, comparison outcome not constrained",
+      "seed": 44,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    def rand_tree(n, root_val):\n        nodes = {0: [root_val, None, None]}\n        open_slots = [(0, 'left'), (0, 'right')]\n        next_id = 1\n        for _ in range(1, n):\n            idx = rng.randrange(len(open_slots))\n            parent_id, side = open_slots.pop(idx)\n            nid = next_id\n            next_id += 1\n            nodes[nid] = [rng.randint(0, 200), None, None]\n            if side == 'left':\n                nodes[parent_id][1] = nid\n            else:\n                nodes[parent_id][2] = nid\n            open_slots.append((nid, 'left'))\n            open_slots.append((nid, 'right'))\n        from collections import deque\n        out = []\n        q = deque([0])\n        while q:\n            cur = q.popleft()\n            if cur is None:\n                out.append(None)\n                continue\n            val, l, r = nodes[cur]\n            out.append(val)\n            q.append(l)\n            q.append(r)\n        while out and out[-1] is None:\n            out.pop()\n        return out\n    n1 = rng.randint(1, max(1, min(size, 200)))\n    n2 = rng.randint(1, max(1, min(size, 200)))\n    t1 = rand_tree(n1, rng.randint(0, 200))\n    t2 = rand_tree(n2, rng.randint(0, 200))\n    return [t1, t2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def leafSimilar(self, root1, root2):\n        def leaves_iter(node):\n            out = []\n            stack = [node] if node else []\n            while stack:\n                n = stack.pop()\n                if n is None:\n                    continue\n                if n.left is None and n.right is None:\n                    out.append(n.val)\n                    continue\n                if n.right:\n                    stack.append(n.right)\n                if n.left:\n                    stack.append(n.left)\n            return out\n        return leaves_iter(root1) == leaves_iter(root2)\n",
+  "solutions": {
+    "python": "class Solution:\n    def leafSimilar(self, root1, root2):\n        def leaves(node):\n            if not node:\n                return []\n            if not node.left and not node.right:\n                return [node.val]\n            return leaves(node.left) + leaves(node.right)\n        return leaves(root1) == leaves(root2)\n",
+    "javascript": "var leafSimilar = function(root1, root2) {\n    function leaves(node) {\n        if (!node) return [];\n        if (!node.left && !node.right) return [node.val];\n        return leaves(node.left).concat(leaves(node.right));\n    }\n    const a = leaves(root1), b = leaves(root2);\n    if (a.length !== b.length) return false;\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;\n    return true;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + m)",
+    "space": "O(n + m)"
+  }
+}

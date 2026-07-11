@@ -1,0 +1,39 @@
+{
+  "slug": "find-maximum-value-in-a-constrained-sequence",
+  "judge": "exact",
+  "pattern": "The reachable ceiling at every position is bounded both by how far it can climb from its left neighbor and how far it can climb from its right neighbor, so one forward sweep and one backward sweep of step-limited relaxation converge on the tightest ceiling everywhere, and the answer is the tallest ceiling reached.",
+  "hints": [
+    "Ignoring the extra caps for a moment, the biggest value position i could ever reach is bounded by how much the step limits allow it to grow away from the fixed starting value at position 0.",
+    "First compute that unconstrained forward ceiling from the start, then clamp the ceiling at each capped position down to its cap — but a cap doesn't only affect its own position, since neighbors can't jump further than the per-step limit either.",
+    "After applying the caps, run one left-to-right pass tightening each ceiling to at most the previous position's (already tightened) ceiling plus that step's limit, then run one right-to-left pass doing the mirror image using the following position's ceiling; the answer is the largest value left in the ceiling array."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "restrictions", "kind": "int[][]", "len": [1, 99999], "value": [1, 1000000] },
+    { "param": "diff", "kind": "int[]", "len": [1, 99999], "value": [1, 10] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "sample: two separated caps, best peak sits between them", "input": [10, [[3,1],[8,1]], [2,2,3,1,4,5,1,1,2]] },
+    { "kind": "edge", "description": "sample: one cap near the middle, growth resumes strongly after it", "input": [8, [[3,2]], [3,5,2,4,2,3,1]] },
+    { "kind": "boundary", "description": "smallest possible n with the single mandatory restriction on the only non-zero index", "input": [2, [[1,1000000]], [10]] },
+    { "kind": "trap", "description": "a very tight cap right after the start forces the whole sequence low despite generous diffs afterward", "input": [5, [[1,0]], [10,10,10,10]] },
+    { "kind": "trap", "description": "cap on the last index only — must propagate backward through the whole chain", "input": [6, [[5,0]], [10,10,10,10,10]] },
+    { "kind": "trap", "description": "cap on the first non-zero index only — must propagate forward through the whole chain", "input": [6, [[1,0]], [10,10,10,10,10]] },
+    { "kind": "edge", "description": "every index restricted to the same small cap, growth is impossible anywhere", "input": [4, [[1,2],[2,2],[3,2]], [10,10,10]] },
+    { "kind": "trap", "description": "restrictions listed out of index order in the input array", "input": [6, [[4,5],[2,3]], [1,1,1,1,1]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate-size chain with several scattered restrictions and small diffs, exercising forward/backward propagation across many caps",
+      "seed": 5,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = size\n    diff = [rng.randint(1, 10) for _ in range(n - 1)]\n    idxs = list(range(1, n))\n    rng.shuffle(idxs)\n    num_restrictions = max(1, n // 20)\n    chosen = sorted(idxs[:num_restrictions])\n    restrictions = [[i, rng.randint(1, 1000000)] for i in chosen]\n    return [n, restrictions, diff]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMaxVal(self, n, restrictions, diff):\n        # Independent check via explicit reachable-value-set enumeration (BFS over\n        # actual integers) rather than the closed-form bound-propagation formula.\n        # Only used at small n by the harness's stress/edge sizing.\n        cap = {}\n        for idx, maxVal in restrictions:\n            cap[idx] = maxVal\n        reach = [set() for _ in range(n)]\n        reach[0] = {0}\n        for i in range(1, n):\n            prev = reach[i - 1]\n            d = diff[i - 1]\n            nxt = set()\n            for v in prev:\n                for delta in range(-d, d + 1):\n                    nv = v + delta\n                    if nv >= 0:\n                        nxt.add(nv)\n            if i in cap:\n                nxt = {v for v in nxt if v <= cap[i]}\n            reach[i] = nxt\n        # Backward feasibility filter: keep only values from which every later\n        # step can still be legally completed to the end of the sequence.\n        feasible = [None] * n\n        feasible[n - 1] = reach[n - 1]\n        for i in range(n - 2, -1, -1):\n            d = diff[i]\n            nxt_feasible = feasible[i + 1]\n            kept = set()\n            for v in reach[i]:\n                for nv in nxt_feasible:\n                    if abs(v - nv) <= d:\n                        kept.add(v)\n                        break\n            feasible[i] = kept\n        best = 0\n        for s in feasible:\n            if s:\n                best = max(best, max(s))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMaxVal(self, n, restrictions, diff):\n        bound = [0] * n\n        for i in range(1, n):\n            bound[i] = bound[i - 1] + diff[i - 1]\n        for idx, maxVal in restrictions:\n            if maxVal < bound[idx]:\n                bound[idx] = maxVal\n        for i in range(1, n):\n            candidate = bound[i - 1] + diff[i - 1]\n            if candidate < bound[i]:\n                bound[i] = candidate\n        for i in range(n - 2, -1, -1):\n            candidate = bound[i + 1] + diff[i]\n            if candidate < bound[i]:\n                bound[i] = candidate\n        return max(bound)\n",
+    "javascript": "var findMaxVal = function(n, restrictions, diff) {\n    const bound = new Array(n).fill(0);\n    for (let i = 1; i < n; i++) {\n        bound[i] = bound[i - 1] + diff[i - 1];\n    }\n    for (const [idx, maxVal] of restrictions) {\n        if (maxVal < bound[idx]) bound[idx] = maxVal;\n    }\n    for (let i = 1; i < n; i++) {\n        const candidate = bound[i - 1] + diff[i - 1];\n        if (candidate < bound[i]) bound[i] = candidate;\n    }\n    for (let i = n - 2; i >= 0; i--) {\n        const candidate = bound[i + 1] + diff[i];\n        if (candidate < bound[i]) bound[i] = candidate;\n    }\n    let best = 0;\n    for (let i = 0; i < n; i++) {\n        if (bound[i] > best) best = bound[i];\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

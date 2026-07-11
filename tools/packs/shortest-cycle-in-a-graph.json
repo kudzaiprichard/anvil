@@ -1,0 +1,39 @@
+{
+  "slug": "shortest-cycle-in-a-graph",
+  "judge": "exact",
+  "pattern": "Rooting a BFS tree at every vertex and watching for a non-tree edge that links two nodes already at known depths turns 'find the shortest cycle' into a depth-sum computation.",
+  "hints": [
+    "A cycle through a vertex can be found by exploring outward from it layer by layer and noticing when the search meets itself.",
+    "Run a BFS from each vertex; whenever an edge connects two nodes that are both already reached in that BFS (and it is not the edge you just walked in on), you have found a cycle candidate.",
+    "The candidate cycle length is depth[u] + depth[v] + 1 for the two endpoints of that extra edge; take the minimum such value over every BFS root and every extra edge."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 1000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single triangle among otherwise isolated vertices", "input": [7, [[0, 1], [1, 2], [2, 0], [3, 4], [4, 5], [5, 6], [6, 3]]] },
+    { "kind": "edge", "description": "a tree only, no cycle exists", "input": [4, [[0, 1], [0, 2]]] },
+    { "kind": "boundary", "description": "smallest possible n with a single edge, no cycle", "input": [2, [[0, 1]]] },
+    { "kind": "edge", "description": "disconnected graph, one component has a square cycle", "input": [8, [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [6, 7]]] },
+    { "kind": "trap", "description": "two overlapping cycles of different lengths, must return the shorter one", "input": [6, [[0, 1], [1, 2], [2, 0], [2, 3], [3, 4], [4, 5], [5, 2]]] },
+    { "kind": "trap", "description": "a long cycle plus a chord that creates a much shorter inner cycle", "input": [6, [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [0, 3]]] },
+    { "kind": "boundary", "description": "fully isolated vertices, no edges beyond a lone connecting pair, no cycle", "input": [5, [[0, 1], [2, 3]]] },
+    { "kind": "edge", "description": "self-contained 4-cycle equal in length to a competing 5-cycle sharing a vertex", "input": [8, [[0, 1], [1, 2], [2, 3], [3, 0], [0, 4], [4, 5], [5, 6], [6, 7], [7, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse graph on up to 60 vertices with roughly as many edges as vertices, seeded so cycles may or may not appear",
+      "seed": 17,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 60))\n    all_pairs = [(u, v) for u in range(n) for v in range(u + 1, n)]\n    rng.shuffle(all_pairs)\n    m = min(len(all_pairs), n + rng.randrange(0, n // 2 + 1))\n    edges = [list(p) for p in all_pairs[:m]]\n    return [n, edges]\n",
+      "note": "edge count kept close to vertex count so both cyclic and acyclic components show up across seeds"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findShortestCycle(self, n, edges):\n        from collections import deque\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        best = -1\n        for src in range(n):\n            dist = [-1] * n\n            parent_edge_used = [False] * n\n            dist[src] = 0\n            q = deque([src])\n            used_parent = [-1] * n\n            while q:\n                u = q.popleft()\n                for v in adj[u]:\n                    if dist[v] == -1:\n                        dist[v] = dist[u] + 1\n                        used_parent[v] = u\n                        q.append(v)\n                    elif used_parent[u] != v:\n                        cand = dist[u] + dist[v] + 1\n                        if best == -1 or cand < best:\n                            best = cand\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def findShortestCycle(self, n, edges):\n        from collections import deque\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        best = -1\n        for root in range(n):\n            dist = [-1] * n\n            parent = [-1] * n\n            dist[root] = 0\n            q = deque([root])\n            while q:\n                u = q.popleft()\n                for v in adj[u]:\n                    if dist[v] == -1:\n                        dist[v] = dist[u] + 1\n                        parent[v] = u\n                        q.append(v)\n                    elif parent[u] != v:\n                        cand = dist[u] + dist[v] + 1\n                        if best == -1 or cand < best:\n                            best = cand\n        return best\n",
+    "javascript": "var findShortestCycle = function(n, edges) {\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v] of edges) {\n        adj[u].push(v);\n        adj[v].push(u);\n    }\n    let best = -1;\n    for (let root = 0; root < n; root++) {\n        const dist = new Array(n).fill(-1);\n        const parent = new Array(n).fill(-1);\n        dist[root] = 0;\n        const q = [root];\n        let head = 0;\n        while (head < q.length) {\n            const u = q[head++];\n            for (const v of adj[u]) {\n                if (dist[v] === -1) {\n                    dist[v] = dist[u] + 1;\n                    parent[v] = u;\n                    q.push(v);\n                } else if (parent[u] !== v) {\n                    const cand = dist[u] + dist[v] + 1;\n                    if (best === -1 || cand < best) best = cand;\n                }\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n * (n + m))", "space": "O(n + m)" }
+}

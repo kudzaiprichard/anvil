@@ -1,0 +1,95 @@
+{
+  "slug": "count-of-substrings-containing-every-vowel-and-k-consonants-ii",
+  "judge": "exact",
+  "pattern": "Count substrings with consonant-count <= k that also contain all five vowels using two independent, forward-only pointers -- one bounding how far left you can shrink before losing a vowel, the other bounding how far left you can extend before exceeding the consonant budget -- then take the exactly-k answer as atMost(k) - atMost(k-1). The much larger word bound here is what forces the two-pointer O(n) version instead of the quadratic scan.",
+  "hints": [
+    "\"Exactly k consonants\" is the difference of two easier counts: (substrings with all vowels and at most k consonants) minus (substrings with all vowels and at most k-1 consonants).",
+    "For a fixed right endpoint, the set of valid left endpoints for 'at most k consonants, all vowels present' is a contiguous range -- one pointer finds how far left you must go to have all 5 vowels, another finds how far left you can go before consonants exceed k.",
+    "Maintain both pointers as monotonic, forward-only sliding windows as the right endpoint advances -- that keeps the whole count computation linear in the length of word."
+  ],
+  "constraints": [
+    {
+      "param": "word",
+      "kind": "str",
+      "len": [
+        5,
+        200000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        199995
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "exactly the five vowels, zero consonants allowed",
+      "input": [
+        "uoiea",
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "word never contains all five vowels",
+      "input": [
+        "aeiaeiaei",
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum word length, exactly the vowels",
+      "input": [
+        "aeiou",
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k = 0 but there are stray consonants everywhere",
+      "input": [
+        "qaeiouq",
+        0
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "repeated vowels with a variable run of consonants between qualifying windows",
+      "input": [
+        "aeiouqqaeiou",
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k at its maximum allowed value for this word",
+      "input": [
+        "aeiouqqqqq",
+        5
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-linear-limit random word, proving the O(n) two-pointer scales",
+      "seed": 910,
+      "size": 150000,
+      "generator_python": "def gen(rng, size):\n    n = max(5, min(size, 150000))\n    word = ''.join(rng.choice('aeiouqr') for _ in range(n))\n    k = rng.randint(0, n - 5)\n    return [word, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countOfSubstrings(self, word, k):\n        VOWELS = set('aeiou')\n        n = len(word)\n        total = 0\n        for i in range(n):\n            cons = 0\n            seen = set()\n            for j in range(i, n):\n                c = word[j]\n                if c in VOWELS:\n                    seen.add(c)\n                else:\n                    cons += 1\n                if len(seen) == 5 and cons == k:\n                    total += 1\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def countOfSubstrings(self, word, k):\n        VOWELS = set('aeiou')\n\n        def at_most(limit):\n            if limit < 0:\n                return 0\n            n = len(word)\n            left1 = 0\n            cons1 = 0\n            left2 = 0\n            vcount = {v: 0 for v in VOWELS}\n            distinct = 0\n            total = 0\n            for right in range(n):\n                c = word[right]\n                if c not in VOWELS:\n                    cons1 += 1\n                while cons1 > limit:\n                    if word[left1] not in VOWELS:\n                        cons1 -= 1\n                    left1 += 1\n                if c in VOWELS:\n                    vcount[c] += 1\n                    if vcount[c] == 1:\n                        distinct += 1\n                while distinct == 5:\n                    lc = word[left2]\n                    if lc in VOWELS:\n                        if vcount[lc] == 1:\n                            break\n                        vcount[lc] -= 1\n                    left2 += 1\n                if distinct == 5 and left2 >= left1:\n                    total += left2 - left1 + 1\n            return total\n\n        return at_most(k) - at_most(k - 1)\n",
+    "javascript": "var countOfSubstrings = function(word, k) {\n    const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);\n    function atMost(limit) {\n        if (limit < 0) return 0;\n        const n = word.length;\n        let left1 = 0, cons1 = 0, left2 = 0, distinct = 0, total = 0;\n        const vcount = { a: 0, e: 0, i: 0, o: 0, u: 0 };\n        for (let right = 0; right < n; right++) {\n            const c = word[right];\n            if (!VOWELS.has(c)) cons1++;\n            while (cons1 > limit) {\n                if (!VOWELS.has(word[left1])) cons1--;\n                left1++;\n            }\n            if (VOWELS.has(c)) {\n                vcount[c]++;\n                if (vcount[c] === 1) distinct++;\n            }\n            while (distinct === 5) {\n                const lc = word[left2];\n                if (VOWELS.has(lc)) {\n                    if (vcount[lc] === 1) break;\n                    vcount[lc]--;\n                }\n                left2++;\n            }\n            if (distinct === 5 && left2 >= left1) {\n                total += left2 - left1 + 1;\n            }\n        }\n        return total;\n    }\n    return atMost(k) - atMost(k - 1);\n};\n"
+  },
+  "complexity": {
+    "time": "O(word.length)",
+    "space": "O(1)"
+  }
+}

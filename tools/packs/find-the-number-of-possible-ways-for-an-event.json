@@ -1,0 +1,118 @@
+{
+  "slug": "find-the-number-of-possible-ways-for-an-event",
+  "judge": "exact",
+  "pattern": "Splitting the count by exactly how many of the stages end up occupied turns the problem into choosing which stages are used, counting the surjective assignments onto exactly that many, and multiplying by every band's independent score choice.",
+  "hints": [
+    "Group every possible outcome by how many of the stages actually end up with at least one performer -- for a fixed count of occupied stages, the number of scoring choices is simply that count raised to the power of the score range.",
+    "For a fixed number of occupied stages, choosing which specific stages are used and then counting the onto-assignments of performers to exactly those stages is a classic inclusion-exclusion over the number of stages deliberately left empty.",
+    "Summing the product of (ways to choose which stages are used) times (surjective assignments onto them) times (score choices raised to that count) over every possible occupied-stage count from 1 up to the smaller of performers and stages gives the total, all reduced modulo one billion and seven."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "x",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "y",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, one performer with a choice of stage and score",
+      "input": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, several performers with a single possible score",
+      "input": [
+        5,
+        2,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, equal performers and stages with a wider score range",
+      "input": [
+        3,
+        3,
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible values everywhere",
+      "input": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "only one stage available for many performers",
+      "input": [
+        10,
+        1,
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "far more stages than performers, so most stages stay empty",
+      "input": [
+        2,
+        100,
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "score range of exactly one, so score choice never differentiates outcomes",
+      "input": [
+        4,
+        3,
+        1
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random moderate n, x, y across the full allowed range",
+      "seed": 61,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    hi = max(1, min(size, 1000))\n    n = rng.randint(1, hi)\n    x = rng.randint(1, hi)\n    y = rng.randint(1, hi)\n    return [n, x, y]\n"
+    }
+  ],
+  "oracle_python": "MOD = 10 ** 9 + 7\nclass Solution:\n    def numberOfWays(self, n, x, y):\n        dp = [0] * (x + 1)\n        dp[0] = 1\n        for i in range(1, n + 1):\n            ndp = [0] * (x + 1)\n            for s in range(x + 1):\n                if dp[s] == 0:\n                    continue\n                ndp[s] = (ndp[s] + dp[s] * s) % MOD\n                if s + 1 <= x:\n                    ndp[s + 1] = (ndp[s + 1] + dp[s] * (x - s)) % MOD\n            dp = ndp\n        total = 0\n        for s in range(1, x + 1):\n            total = (total + dp[s] * pow(y, s, MOD)) % MOD\n        return total % MOD\n",
+  "solutions": {
+    "python": "MOD = 10 ** 9 + 7\nclass Solution:\n    def numberOfWays(self, n, x, y):\n        maxk = min(n, x)\n        N = max(n, x) + 2\n        fact = [1] * N\n        for i in range(1, N):\n            fact[i] = fact[i - 1] * i % MOD\n        inv_fact = [1] * N\n        inv_fact[N - 1] = pow(fact[N - 1], MOD - 2, MOD)\n        for i in range(N - 2, -1, -1):\n            inv_fact[i] = inv_fact[i + 1] * (i + 1) % MOD\n        def C(a, b):\n            if b < 0 or b > a:\n                return 0\n            return fact[a] * inv_fact[b] % MOD * inv_fact[a - b] % MOD\n        total = 0\n        for k in range(1, maxk + 1):\n            s = 0\n            for i in range(k + 1):\n                term = C(k, i) * pow(k - i, n, MOD) % MOD\n                if i % 2 == 0:\n                    s = (s + term) % MOD\n                else:\n                    s = (s - term) % MOD\n            s %= MOD\n            contrib = C(x, k) * s % MOD * pow(y, k, MOD) % MOD\n            total = (total + contrib) % MOD\n        return total % MOD\n",
+    "javascript": "var numberOfWays = function(n, x, y) {\n    const MOD = 1000000007n;\n    const maxk = Math.min(n, x);\n    const N = Math.max(n, x) + 2;\n    const fact = new Array(N).fill(1n);\n    for (let i = 1; i < N; i++) fact[i] = fact[i - 1] * BigInt(i) % MOD;\n    function power(a, b, m) {\n        a %= m; if (a < 0n) a += m;\n        let res = 1n;\n        while (b > 0n) {\n            if (b & 1n) res = res * a % m;\n            a = a * a % m;\n            b >>= 1n;\n        }\n        return res;\n    }\n    const invFact = new Array(N).fill(1n);\n    invFact[N - 1] = power(fact[N - 1], MOD - 2n, MOD);\n    for (let i = N - 2; i >= 0; i--) invFact[i] = invFact[i + 1] * BigInt(i + 1) % MOD;\n    function C(a, b) {\n        if (b < 0 || b > a) return 0n;\n        return fact[a] * invFact[b] % MOD * invFact[a - b] % MOD;\n    }\n    let total = 0n;\n    for (let k = 1; k <= maxk; k++) {\n        let s = 0n;\n        for (let i = 0; i <= k; i++) {\n            const term = C(k, i) * power(BigInt(k - i), BigInt(n), MOD) % MOD;\n            if (i % 2 === 0) s = (s + term) % MOD;\n            else s = (s - term + MOD) % MOD;\n        }\n        s = ((s % MOD) + MOD) % MOD;\n        const contrib = C(x, k) * s % MOD * power(BigInt(y), BigInt(k), MOD) % MOD;\n        total = (total + contrib) % MOD;\n    }\n    return Number(((total % MOD) + MOD) % MOD);\n};\n"
+  },
+  "complexity": {
+    "time": "O(min(n, x)^2)",
+    "space": "O(n + x)"
+  }
+}

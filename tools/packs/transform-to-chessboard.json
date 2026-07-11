@@ -1,0 +1,44 @@
+{
+  "slug": "transform-to-chessboard",
+  "judge": "exact",
+  "pattern": "Every row is either a base pattern or its exact complement, so the whole grid reduces to two binary signatures whose feasibility and minimal swap count can be read off directly.",
+  "hints": [
+    "A valid chessboard has only two kinds of rows: one pattern and its bitwise complement; the same is true of columns.",
+    "Check the corners-XOR consistency and that each row and column has a near-balanced count of ones, then the rows and columns can be solved independently.",
+    "For a dimension, compare its first line against the ideal alternating pattern, count mismatched positions, and for odd n the parity forces one target while for even n you take the cheaper of the two; each swap fixes two misplaced lines so divide the mismatch count by two."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "int[][]", "len": [2, 30], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "4x4 needing one row swap and one column swap", "input": [[[0, 1, 1, 0], [0, 1, 1, 0], [1, 0, 0, 1], [1, 0, 0, 1]]] },
+    { "kind": "boundary", "description": "already a chessboard, no moves", "input": [[[0, 1], [1, 0]]] },
+    { "kind": "trap", "description": "impossible to ever form a chessboard", "input": [[[1, 0], [1, 0]]] },
+    { "kind": "edge", "description": "complementary chessboard with top-left one, still zero moves", "input": [[[1, 0], [0, 1]]] },
+    { "kind": "trap", "description": "all ones can never become a chessboard", "input": [[[1, 1], [1, 1]]] },
+    { "kind": "edge", "description": "3x3 valid alternating board needs no moves", "input": [[[1, 0, 1], [0, 1, 0], [1, 0, 1]]] },
+    { "kind": "trap", "description": "rows are valid complements but columns are unbalanced and impossible", "input": [[[0, 1, 1], [1, 0, 0], [0, 1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "build a genuine chessboard then apply random row and column swaps so a solution always exists",
+      "seed": 31,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, 30)\n    base = [[(i + j) % 2 for j in range(n)] for i in range(n)]\n    if rng.random() < 0.5:\n        base = [[1 - v for v in row] for row in base]\n    for _ in range(rng.randint(0, 40)):\n        a, b = rng.randrange(n), rng.randrange(n)\n        base[a], base[b] = base[b], base[a]\n    for _ in range(rng.randint(0, 40)):\n        a, b = rng.randrange(n), rng.randrange(n)\n        for row in base:\n            row[a], row[b] = row[b], row[a]\n    return [base]\n",
+      "note": "guaranteed solvable boards via random swaps of a real chessboard"
+    },
+    {
+      "description": "fully random binary boards that are usually impossible, stressing the feasibility checks",
+      "seed": 32,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, 30)\n    return [[[rng.randint(0, 1) for _ in range(n)] for _ in range(n)]]\n",
+      "note": "most random boards return -1"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def movesToChessboard(self, board):\n        n = len(board)\n        # Two reference rows: a base and its complement must cover all rows.\n        base = board[0]\n        comp = [1 - v for v in base]\n        for row in board:\n            if row != base and row != comp:\n                return -1\n        basec = board[0]\n        compc = [1 - v for v in basec]\n        for j in range(n):\n            col = [board[i][j] for i in range(n)]\n            colbase = [board[i][0] for i in range(n)]\n            colcomp = [1 - v for v in colbase]\n            if col != colbase and col != colcomp:\n                return -1\n        # Balance checks.\n        rowsum = sum(board[0])\n        if not (n // 2 <= rowsum <= (n + 1) // 2):\n            return -1\n        colsum = sum(board[i][0] for i in range(n))\n        if not (n // 2 <= colsum <= (n + 1) // 2):\n            return -1\n        # Count rows equal to base; complement count is the rest.\n        rowEqualBase = sum(1 for row in board if row == base)\n        colEqualBase = sum(1 for i in range(n) if [board[i][k] for k in range(n)][0] == board[0][0] and all(board[i][k] == board[0][k] for k in range(n)))\n        def cost(line, n):\n            # mismatches against pattern starting with 0\n            m0 = sum(1 for i, v in enumerate(line) if v != i % 2)\n            if n % 2 == 0:\n                m1 = n - m0\n                return min(m0, m1) // 2\n            else:\n                # parity forces a specific target\n                if m0 % 2 == 0:\n                    return m0 // 2\n                return (n - m0) // 2\n        rowMoves = cost(board[0], n)\n        colMoves = cost([board[i][0] for i in range(n)], n)\n        return rowMoves + colMoves\n",
+  "solutions": {
+    "python": "class Solution:\n    def movesToChessboard(self, board):\n        n = len(board)\n        # Feasibility: corners XOR rule and balanced counts.\n        for i in range(n):\n            for j in range(n):\n                if board[0][0] ^ board[i][0] ^ board[0][j] ^ board[i][j]:\n                    return -1\n        rowSum = sum(board[0])\n        colSum = sum(board[i][0] for i in range(n))\n        if not (n // 2 <= rowSum <= (n + 1) // 2):\n            return -1\n        if not (n // 2 <= colSum <= (n + 1) // 2):\n            return -1\n        rowSwap = sum(1 for i in range(n) if board[i][0] == i % 2)\n        colSwap = sum(1 for j in range(n) if board[0][j] == j % 2)\n        if n % 2:\n            if rowSwap % 2:\n                rowSwap = n - rowSwap\n            if colSwap % 2:\n                colSwap = n - colSwap\n        else:\n            rowSwap = min(rowSwap, n - rowSwap)\n            colSwap = min(colSwap, n - colSwap)\n        return (rowSwap + colSwap) // 2\n",
+    "javascript": "var movesToChessboard = function(board) {\n    const n = board.length;\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < n; j++) {\n            if ((board[0][0] ^ board[i][0] ^ board[0][j] ^ board[i][j]) !== 0) return -1;\n        }\n    }\n    let rowSum = 0, colSum = 0;\n    for (let k = 0; k < n; k++) { rowSum += board[0][k]; colSum += board[k][0]; }\n    if (!(rowSum >= Math.floor(n / 2) && rowSum <= Math.floor((n + 1) / 2))) return -1;\n    if (!(colSum >= Math.floor(n / 2) && colSum <= Math.floor((n + 1) / 2))) return -1;\n    let rowSwap = 0, colSwap = 0;\n    for (let i = 0; i < n; i++) if (board[i][0] === i % 2) rowSwap++;\n    for (let j = 0; j < n; j++) if (board[0][j] === j % 2) colSwap++;\n    if (n % 2) {\n        if (rowSwap % 2) rowSwap = n - rowSwap;\n        if (colSwap % 2) colSwap = n - colSwap;\n    } else {\n        rowSwap = Math.min(rowSwap, n - rowSwap);\n        colSwap = Math.min(colSwap, n - colSwap);\n    }\n    return (rowSwap + colSwap) / 2;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(1)" }
+}

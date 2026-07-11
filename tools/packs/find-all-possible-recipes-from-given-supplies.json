@@ -1,0 +1,233 @@
+{
+  "slug": "find-all-possible-recipes-from-given-supplies",
+  "judge": "unordered",
+  "pattern": "A recipe is craftable once every one of its ingredients is either a base supply or another already-craftable recipe, so this is a dependency graph where you release a recipe once all its ingredient-dependencies have resolved -- classic topological unlocking, and any ingredient that is neither a supply nor any recipe dooms it forever.",
+  "hints": [
+    "Split each recipe's ingredients into two kinds: raw supplies (always available) and other recipes (a dependency that must be resolved first).",
+    "An ingredient that is neither a listed recipe nor a raw supply means that recipe can never be craftable, no matter what else resolves.",
+    "Process recipes whose recipe-ingredients have all resolved, the way you would a topological sort: whenever a recipe becomes craftable, that unlocks any other recipe that was waiting on it."
+  ],
+  "constraints": [
+    {
+      "param": "recipes",
+      "kind": "string[]",
+      "len": [
+        1,
+        100
+      ]
+    },
+    {
+      "param": "ingredients",
+      "kind": "string[][]",
+      "len": [
+        1,
+        100
+      ]
+    },
+    {
+      "param": "supplies",
+      "kind": "string[]",
+      "len": [
+        1,
+        100
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single recipe with all ingredients directly in supply",
+      "input": [
+        [
+          "torch"
+        ],
+        [
+          [
+            "stick",
+            "cloth"
+          ]
+        ],
+        [
+          "stick",
+          "cloth",
+          "flint"
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a recipe that depends on another recipe being made first",
+      "input": [
+        [
+          "torch",
+          "lantern"
+        ],
+        [
+          [
+            "stick",
+            "cloth"
+          ],
+          [
+            "torch",
+            "glass"
+          ]
+        ],
+        [
+          "stick",
+          "cloth",
+          "glass"
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a chain three recipes deep",
+      "input": [
+        [
+          "torch",
+          "lantern",
+          "beacon"
+        ],
+        [
+          [
+            "stick",
+            "cloth"
+          ],
+          [
+            "torch",
+            "glass"
+          ],
+          [
+            "lantern",
+            "metal",
+            "torch"
+          ]
+        ],
+        [
+          "stick",
+          "cloth",
+          "glass",
+          "metal"
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "missing a raw ingredient makes the recipe permanently uncraftable",
+      "input": [
+        [
+          "potion"
+        ],
+        [
+          [
+            "herb",
+            "water"
+          ]
+        ],
+        [
+          "herb"
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two recipes that depend on each other form a cycle and neither can ever be made",
+      "input": [
+        [
+          "gadget",
+          "widget"
+        ],
+        [
+          [
+            "widget"
+          ],
+          [
+            "gadget"
+          ]
+        ],
+        []
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one recipe blocked by a missing supply also blocks a recipe that depends on it",
+      "input": [
+        [
+          "base",
+          "combo"
+        ],
+        [
+          [
+            "missing"
+          ],
+          [
+            "base",
+            "wood"
+          ]
+        ],
+        [
+          "wood"
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "some recipes craftable and some not in the same batch",
+      "input": [
+        [
+          "a",
+          "b",
+          "c"
+        ],
+        [
+          [
+            "x"
+          ],
+          [
+            "a"
+          ],
+          [
+            "y"
+          ]
+        ],
+        [
+          "x"
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single recipe with a single supply ingredient, minimal case",
+      "input": [
+        [
+          "nail"
+        ],
+        [
+          [
+            "metal"
+          ]
+        ],
+        [
+          "metal"
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small recipe/ingredient DAGs mixing craftable chains, missing supplies, and dependency cycles",
+      "seed": 101,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    pool = ['item' + str(i) for i in range(n)]\n    recipes = pool[:n]\n    other_count = rng.randint(0, 30)\n    others = ['supply' + str(i) for i in range(other_count)]\n    supplies = rng.sample(others, k=rng.randint(0, len(others))) if others else []\n    ingredients = []\n    for i, r in enumerate(recipes):\n        cnt = rng.randint(1, 3)\n        candidate_pool = recipes + others\n        chosen = rng.sample(candidate_pool, min(cnt, len(candidate_pool)))\n        chosen = [c for c in chosen if c != r]\n        if not chosen:\n            chosen = [others[0]] if others else ['zzz_missing']\n        ingredients.append(chosen)\n    return [recipes, ingredients, supplies]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findAllRecipes(self, recipes, ingredients, supplies):\n        available = set(supplies)\n        made = set()\n        idx = {r: i for i, r in enumerate(recipes)}\n        changed = True\n        while changed:\n            changed = False\n            for r in recipes:\n                if r in made:\n                    continue\n                ings = ingredients[idx[r]]\n                if all(ing in available or ing in made for ing in ings):\n                    made.add(r)\n                    available.add(r)\n                    changed = True\n        return sorted(made)\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def findAllRecipes(self, recipes, ingredients, supplies):\n        recipe_set = set(recipes)\n        supply_set = set(supplies)\n        indegree = {r: 0 for r in recipes}\n        graph = {r: [] for r in recipes}\n        makeable = {r: True for r in recipes}\n        for i, r in enumerate(recipes):\n            for ing in ingredients[i]:\n                if ing in recipe_set:\n                    indegree[r] += 1\n                    graph[ing].append(r)\n                elif ing not in supply_set:\n                    makeable[r] = False\n        queue = deque(r for r in recipes if indegree[r] == 0 and makeable[r])\n        result = []\n        while queue:\n            r = queue.popleft()\n            result.append(r)\n            for nxt in graph[r]:\n                indegree[nxt] -= 1\n                if indegree[nxt] == 0 and makeable[nxt]:\n                    queue.append(nxt)\n        return sorted(result)\n",
+    "javascript": "var findAllRecipes = function(recipes, ingredients, supplies) {\n    const recipeSet = new Set(recipes);\n    const supplySet = new Set(supplies);\n    const indegree = {};\n    const graph = {};\n    const makeable = {};\n    recipes.forEach(r => { indegree[r] = 0; graph[r] = []; makeable[r] = true; });\n    for (let i = 0; i < recipes.length; i++) {\n        const r = recipes[i];\n        for (const ing of ingredients[i]) {\n            if (recipeSet.has(ing)) {\n                indegree[r]++;\n                graph[ing].push(r);\n            } else if (!supplySet.has(ing)) {\n                makeable[r] = false;\n            }\n        }\n    }\n    const queue = [];\n    for (const r of recipes) {\n        if (indegree[r] === 0 && makeable[r]) queue.push(r);\n    }\n    const result = [];\n    let head = 0;\n    while (head < queue.length) {\n        const r = queue[head++];\n        result.push(r);\n        for (const nxt of graph[r]) {\n            indegree[nxt]--;\n            if (indegree[nxt] === 0 && makeable[nxt]) queue.push(nxt);\n        }\n    }\n    result.sort();\n    return result;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * m)",
+    "space": "O(n * m)"
+  }
+}

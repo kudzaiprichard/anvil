@@ -1,0 +1,37 @@
+{
+  "slug": "string-compression-ii",
+  "judge": "exact",
+  "pattern": "A state of (position, deletions still allowed) captures every choice, and trying every possible run length from that position keeps the search small without ever materializing the compressed string.",
+  "hints": [
+    "Think of scanning left to right deciding, at each position, whether to delete the current character; the state that matters is just (index, deletions remaining).",
+    "From a state, try keeping a run of the current character: scan forward, optionally paying deletions for characters that don't match, and use the encoded-length rule for a run (no digits for a run of 1, one digit for 2-9, two digits for 10-99, and so on).",
+    "Compare that against simply deleting the current character and moving on with one less deletion budget; take the minimum over both choices and memoize on the state so repeated states are computed once."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100] },
+    { "param": "k", "kind": "int", "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "no deletions allowed, plain run-length encode", "input": ["aabbcc", 0] },
+    { "kind": "edge", "description": "one deletion removes a lone middle character", "input": ["aabaa", 1] },
+    { "kind": "boundary", "description": "deletions cover the whole string", "input": ["abcde", 5] },
+    { "kind": "boundary", "description": "single character, zero deletions", "input": ["a", 0] },
+    { "kind": "trap", "description": "deleting to merge two same-letter runs beats deleting individually", "input": ["aabaa", 2] },
+    { "kind": "trap", "description": "run length crosses the single-digit encoding boundary", "input": ["aaaaaaaaaa", 0] },
+    { "kind": "edge", "description": "all distinct characters, deletions only remove letters outright", "input": ["abcdefg", 3] }
+  ],
+  "stress": [
+    {
+      "description": "short strings over a two-letter alphabet with a random deletion budget",
+      "seed": 34,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 12))\n    s = ''.join(rng.choice('ab') for _ in range(n))\n    k = rng.randint(0, n)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getLengthOfOptimalCompression(self, s, k):\n        import itertools\n        n = len(s)\n        def rle_len(t):\n            if not t:\n                return 0\n            length = 0\n            i = 0\n            while i < len(t):\n                j = i\n                while j < len(t) and t[j] == t[i]:\n                    j += 1\n                cnt = j - i\n                length += 1 + (0 if cnt == 1 else len(str(cnt)))\n                i = j\n            return length\n        best = float('inf')\n        idxs = list(range(n))\n        for d in range(0, min(k, n) + 1):\n            for combo in itertools.combinations(idxs, d):\n                remove = set(combo)\n                remaining = ''.join(ch for i, ch in enumerate(s) if i not in remove)\n                best = min(best, rle_len(remaining))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def getLengthOfOptimalCompression(self, s, k):\n        from functools import lru_cache\n        n = len(s)\n        def calc_len(cnt):\n            if cnt == 0:\n                return 0\n            if cnt == 1:\n                return 1\n            if cnt < 10:\n                return 2\n            if cnt < 100:\n                return 3\n            return 4\n        @lru_cache(maxsize=None)\n        def dp(i, k):\n            if k < 0:\n                return float('inf')\n            if n - i <= k:\n                return 0\n            best = dp(i + 1, k - 1)\n            cnt = 0\n            deleted = 0\n            for j in range(i, n):\n                if s[j] == s[i]:\n                    cnt += 1\n                else:\n                    deleted += 1\n                    if deleted > k:\n                        break\n                best = min(best, calc_len(cnt) + dp(j + 1, k - deleted))\n            return best\n        return dp(0, k)\n",
+    "javascript": "var getLengthOfOptimalCompression = function(s, k) {\n    const n = s.length;\n    const memo = new Map();\n    const calcLen = (cnt) => {\n        if (cnt === 0) return 0;\n        if (cnt === 1) return 1;\n        if (cnt < 10) return 2;\n        if (cnt < 100) return 3;\n        return 4;\n    };\n    const dp = (i, k) => {\n        if (k < 0) return Infinity;\n        if (n - i <= k) return 0;\n        const key = i + ',' + k;\n        if (memo.has(key)) return memo.get(key);\n        let best = dp(i + 1, k - 1);\n        let cnt = 0, deleted = 0;\n        for (let j = i; j < n; j++) {\n            if (s[j] === s[i]) {\n                cnt++;\n            } else {\n                deleted++;\n                if (deleted > k) break;\n            }\n            best = Math.min(best, calcLen(cnt) + dp(j + 1, k - deleted));\n        }\n        memo.set(key, best);\n        return best;\n    };\n    return dp(0, k);\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * k)", "space": "O(n * k)" }
+}

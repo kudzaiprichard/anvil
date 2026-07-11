@@ -1,0 +1,38 @@
+{
+  "slug": "find-x-value-of-array-ii",
+  "judge": "exact",
+  "pattern": "Each query reduces to counting prefixes of a tail of the array by product modulo k, which a segment tree of remainder histograms answers under point updates.",
+  "hints": [
+    "After the update and prefix removal, you are counting prefixes of the remaining tail whose product leaves remainder x mod k.",
+    "Store in each segment a histogram of how many of its prefixes give each remainder, plus the product of the whole segment, so two segments merge by shifting the right child's histogram through the left child's product.",
+    "A point update rebuilds one leaf and its ancestors; a query merges the segments covering [start, n-1] and reads off the x-th histogram bucket."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 5] },
+    { "param": "queries", "kind": "int[][]" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three queries, k three", "input": [[1, 2, 3, 4, 5], 3, [[2,2,0,2],[3,3,3,0],[0,1,0,1]]] },
+    { "kind": "trap", "description": "powers of two, k four, repeated update", "input": [[1, 2, 4, 8, 16, 32], 4, [[0,2,0,2],[0,2,0,1]]] },
+    { "kind": "edge", "description": "single query, k two", "input": [[1, 1, 2, 1, 1], 2, [[2,1,0,1]]] },
+    { "kind": "boundary", "description": "start at last index leaves one element", "input": [[3, 6, 9], 5, [[0,4,2,4]]] },
+    { "kind": "boundary", "description": "k equals one", "input": [[2, 4, 6], 1, [[0,7,0,0],[1,1,1,0]]] },
+    { "kind": "trap", "description": "update makes element divisible by k", "input": [[1, 2, 3], 3, [[1,3,0,0],[2,1,1,1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays with random update-and-prefix queries",
+      "seed": 113,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    k = rng.randint(1, 5)\n    q = rng.randint(1, 40)\n    queries = []\n    for _ in range(q):\n        idx = rng.randint(0, n - 1)\n        val = rng.randint(1, 1000000000)\n        start = rng.randint(0, n - 1)\n        x = rng.randint(0, k - 1)\n        queries.append([idx, val, start, x])\n    return [nums, k, queries]\n",
+      "note": "indices and starts kept in range; updates persist across queries"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def resultArray(self, nums, k, queries):\n        arr = list(nums)\n        ans = []\n        for idx, val, start, x in queries:\n            arr[idx] = val\n            count = 0\n            prod = 1\n            for j in range(start, len(arr)):\n                prod = (prod * arr[j]) % k\n                if prod == x:\n                    count += 1\n            ans.append(count)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def resultArray(self, nums, k, queries):\n        n = len(nums)\n        size = 1\n        while size < n:\n            size *= 2\n        # node: (hist list of length k, total product mod k)\n        hist = [[0] * k for _ in range(2 * size)]\n        prod = [1 % k] * (2 * size)\n        def make_leaf(v):\n            r = v % k\n            h = [0] * k\n            h[r] += 1\n            return h, r\n        def merge(lh, lp, rh, rp):\n            h = list(lh)\n            for rem in range(k):\n                if rh[rem]:\n                    h[(lp * rem) % k] += rh[rem]\n            return h, (lp * rp) % k\n        for i in range(n):\n            h, p = make_leaf(nums[i])\n            hist[size + i] = h\n            prod[size + i] = p\n        for i in range(n, size):\n            hist[size + i] = [0] * k\n            prod[size + i] = 1 % k\n        for i in range(size - 1, 0, -1):\n            h, p = merge(hist[2 * i], prod[2 * i], hist[2 * i + 1], prod[2 * i + 1])\n            hist[i] = h\n            prod[i] = p\n        def update(pos, v):\n            i = size + pos\n            h, p = make_leaf(v)\n            hist[i] = h\n            prod[i] = p\n            i //= 2\n            while i >= 1:\n                h, p = merge(hist[2 * i], prod[2 * i], hist[2 * i + 1], prod[2 * i + 1])\n                hist[i] = h\n                prod[i] = p\n                i //= 2\n        def query(start):\n            # merge leaves covering [start, n-1] left to right\n            lo = size + start\n            hi = size + n - 1\n            left_nodes = []\n            right_nodes = []\n            l = lo\n            r = hi + 1\n            while l < r:\n                if l & 1:\n                    left_nodes.append(l)\n                    l += 1\n                if r & 1:\n                    r -= 1\n                    right_nodes.append(r)\n                l //= 2\n                r //= 2\n            ordered = left_nodes + right_nodes[::-1]\n            acc_h = [0] * k\n            acc_p = 1 % k\n            first = True\n            for node in ordered:\n                if first:\n                    acc_h = list(hist[node])\n                    acc_p = prod[node]\n                    first = False\n                else:\n                    acc_h, acc_p = merge(acc_h, acc_p, hist[node], prod[node])\n            return acc_h\n        ans = []\n        for idx, val, start, x in queries:\n            update(idx, val)\n            h = query(start)\n            ans.append(h[x])\n        return ans\n",
+    "javascript": "var resultArray = function(nums, k, queries) {\n    const n = nums.length;\n    let size = 1;\n    while (size < n) size *= 2;\n    const hist = new Array(2 * size);\n    const prod = new Array(2 * size).fill(1 % k);\n    for (let i = 0; i < 2 * size; i++) hist[i] = new Array(k).fill(0);\n    const makeLeaf = (v) => { const r = ((v % k) + k) % k; const h = new Array(k).fill(0); h[r]++; return [h, r]; };\n    const merge = (lh, lp, rh, rp) => {\n        const h = lh.slice();\n        for (let rem = 0; rem < k; rem++) if (rh[rem]) h[(lp * rem) % k] += rh[rem];\n        return [h, (lp * rp) % k];\n    };\n    for (let i = 0; i < n; i++) { const [h, p] = makeLeaf(nums[i]); hist[size + i] = h; prod[size + i] = p; }\n    for (let i = size - 1; i >= 1; i--) { const [h, p] = merge(hist[2*i], prod[2*i], hist[2*i+1], prod[2*i+1]); hist[i] = h; prod[i] = p; }\n    const update = (pos, v) => {\n        let i = size + pos;\n        const [h, p] = makeLeaf(v); hist[i] = h; prod[i] = p; i = Math.floor(i / 2);\n        while (i >= 1) { const [hh, pp] = merge(hist[2*i], prod[2*i], hist[2*i+1], prod[2*i+1]); hist[i] = hh; prod[i] = pp; i = Math.floor(i / 2); }\n    };\n    const query = (start) => {\n        let l = size + start, r = size + n - 1 + 1;\n        const leftNodes = [], rightNodes = [];\n        while (l < r) {\n            if (l & 1) { leftNodes.push(l); l++; }\n            if (r & 1) { r--; rightNodes.push(r); }\n            l = Math.floor(l / 2); r = Math.floor(r / 2);\n        }\n        const ordered = leftNodes.concat(rightNodes.reverse());\n        let accH = new Array(k).fill(0), accP = 1 % k, first = true;\n        for (const node of ordered) {\n            if (first) { accH = hist[node].slice(); accP = prod[node]; first = false; }\n            else { const [hh, pp] = merge(accH, accP, hist[node], prod[node]); accH = hh; accP = pp; }\n        }\n        return accH;\n    };\n    const ans = [];\n    for (const [idx, val, start, x] of queries) { update(idx, val); const h = query(start); ans.push(h[x]); }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + q*k) log n)", "space": "O(n*k)" }
+}

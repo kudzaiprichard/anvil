@@ -1,0 +1,45 @@
+{
+  "slug": "number-of-beautiful-integers-in-the-range",
+  "judge": "exact",
+  "pattern": "Counting integers up to a bound that share a digit-level property is a job for digit DP: recurse over digit positions carrying just enough state — the running even/odd digit balance and the remainder modulo k — and turn a range count into the difference of two prefix counts.",
+  "hints": [
+    "A number can only have an equal count of even and odd digits when it has an even number of digits, so most candidates are ruled out before divisibility even matters.",
+    "Instead of scanning every integer in the range, count how many qualifying integers lie in [1, high] and how many lie in [1, low - 1], and subtract; build each count with a digit-by-digit recursion rather than a loop over values.",
+    "Track (digit position, even-count minus odd-count so far, remainder modulo k, whether the prefix is still capped by the bound's own digits, whether a nonzero digit has appeared yet) and memoize on that state — leading zeros must not count as digits, and the total work only scales with the number of digits, not with high minus low."
+  ],
+  "constraints": [
+    { "param": "low", "kind": "int", "value": [1, 1000000000] },
+    { "param": "high", "kind": "int", "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two qualifying two-digit multiples of 3", "input": [10, 20, 3] },
+    { "kind": "edge", "description": "statement example, only 10 qualifies when every divisor is accepted", "input": [1, 10, 1] },
+    { "kind": "edge", "description": "statement example, single-value range that does not qualify", "input": [5, 5, 2] },
+    { "kind": "edge", "description": "entirely single-digit range, no digit count can ever balance", "input": [1, 9, 5] },
+    { "kind": "boundary", "description": "low and high both at the smallest allowed value, with the loosest divisor", "input": [1, 1, 1] },
+    { "kind": "boundary", "description": "a narrow window pinned at the maximum allowed value", "input": [999999001, 1000000000, 7] },
+    { "kind": "trap", "description": "every value has an odd number of digits, so nothing can ever balance regardless of divisor", "input": [100, 999, 5] },
+    { "kind": "trap", "description": "every two-digit value is 'divisible' by the loosest divisor, isolating the digit-balance condition alone", "input": [10, 99, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random modest-width windows scattered across the full value domain",
+      "seed": 5,
+      "size": 200000,
+      "generator_python": "def gen(rng, size):\n    span = max(0, min(size, 200000))\n    low = rng.randint(1, 1000000000 - span)\n    high = low + rng.randint(0, span)\n    k = rng.randint(1, 20)\n    return [low, high, k]\n"
+    },
+    {
+      "description": "narrow windows pinned near the maximum boundary with a variety of divisors",
+      "seed": 6,
+      "size": 200000,
+      "generator_python": "def gen(rng, size):\n    span = max(0, min(size, 200000))\n    high = 1000000000 - rng.randint(0, span)\n    low = max(1, high - rng.randint(0, span))\n    k = rng.randint(1, 20)\n    return [low, high, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfBeautifulIntegers(self, low: int, high: int, k: int) -> int:\n        def is_beautiful(x):\n            if x % k != 0:\n                return False\n            s = str(x)\n            even = sum(1 for c in s if int(c) % 2 == 0)\n            return even == len(s) - even\n        return sum(1 for x in range(low, high + 1) if is_beautiful(x))\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfBeautifulIntegers(self, low: int, high: int, k: int) -> int:\n        def count_up_to(x):\n            if x <= 0:\n                return 0\n            s = str(x)\n            n = len(s)\n            memo = {}\n            def rec(pos, diff, rem, tight, started):\n                if pos == n:\n                    return 1 if (started and diff == 0 and rem == 0) else 0\n                key = (pos, diff, rem, tight, started)\n                if key in memo:\n                    return memo[key]\n                limit = int(s[pos]) if tight else 9\n                total = 0\n                for d in range(0, limit + 1):\n                    nd_tight = tight and d == limit\n                    nd_started = started or d != 0\n                    if not nd_started:\n                        total += rec(pos + 1, diff, rem, nd_tight, nd_started)\n                    else:\n                        nd_diff = diff + (1 if d % 2 == 0 else -1)\n                        nd_rem = (rem * 10 + d) % k\n                        total += rec(pos + 1, nd_diff, nd_rem, nd_tight, nd_started)\n                memo[key] = total\n                return total\n            return rec(0, 0, 0, True, False)\n        return count_up_to(high) - count_up_to(low - 1)\n",
+    "javascript": "var numberOfBeautifulIntegers = function(low, high, k) {\n    function countUpTo(x) {\n        if (x <= 0) return 0;\n        const s = String(x);\n        const n = s.length;\n        const memo = new Map();\n        function rec(pos, diff, rem, tight, started) {\n            if (pos === n) {\n                return (started && diff === 0 && rem === 0) ? 1 : 0;\n            }\n            const key = pos + '_' + diff + '_' + rem + '_' + (tight ? 1 : 0) + '_' + (started ? 1 : 0);\n            if (memo.has(key)) return memo.get(key);\n            const limit = tight ? Number(s[pos]) : 9;\n            let total = 0;\n            for (let d = 0; d <= limit; d++) {\n                const ndTight = tight && d === limit;\n                const ndStarted = started || d !== 0;\n                if (!ndStarted) {\n                    total += rec(pos + 1, diff, rem, ndTight, ndStarted);\n                } else {\n                    const ndDiff = diff + (d % 2 === 0 ? 1 : -1);\n                    const ndRem = (rem * 10 + d) % k;\n                    total += rec(pos + 1, ndDiff, ndRem, ndTight, ndStarted);\n                }\n            }\n            memo.set(key, total);\n            return total;\n        }\n        return rec(0, 0, 0, true, false);\n    }\n    return countUpTo(high) - countUpTo(low - 1);\n};\n"
+  },
+  "complexity": { "time": "O(log(high))", "space": "O(log(high) * k)" }
+}

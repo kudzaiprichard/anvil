@@ -1,0 +1,143 @@
+{
+  "slug": "smallest-subtree-with-all-the-deepest-nodes",
+  "judge": "exact",
+  "io_types": {
+    "params": [
+      "tree"
+    ],
+    "returns": "tree"
+  },
+  "pattern": "Every node's answer can be derived from comparing how deep its left and right sides reach: whichever side goes deeper carries the deepest nodes, and a tie means this node itself is the meeting point.",
+  "hints": [
+    "For each node, find the depth reached by its left subtree and by its right subtree independently.",
+    "If one side reaches strictly deeper than the other, the answer must live entirely within that deeper side.",
+    "If both sides reach the exact same depth, this node is the smallest subtree containing all deepest nodes; bubble up (depth+1, this node) as you return from recursion."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        1,
+        500
+      ],
+      "value": [
+        0,
+        500
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several branches reach the max depth; answer is an internal node, not the root",
+      "input": [
+        [
+          3,
+          5,
+          1,
+          6,
+          2,
+          0,
+          8,
+          null,
+          null,
+          7,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single node tree",
+      "input": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "one branch strictly deeper than the other",
+      "input": [
+        [
+          0,
+          1,
+          3,
+          null,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "right-only skewed chain, deepest node is unique so the answer is just that leaf",
+      "input": [
+        [
+          1,
+          null,
+          2,
+          null,
+          3,
+          null,
+          4,
+          null,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "perfectly balanced tree, both sides tie at every level so the whole tree is the answer",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node at the maximum value bound",
+      "input": [
+        [
+          500
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "left-only skewed chain of depth two, deepest node is unique",
+      "input": [
+        [
+          1,
+          2,
+          null,
+          3
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random general binary tree built by randomly filling open child slots, unique values",
+      "seed": 71,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 500)))\n    vals = rng.sample(range(0, 501), n)\n    nodes = {0: [vals[0], None, None]}\n    open_slots = [(0, 'left'), (0, 'right')]\n    next_id = 1\n    for v in vals[1:]:\n        idx = rng.randrange(len(open_slots))\n        parent_id, side = open_slots.pop(idx)\n        nid = next_id\n        next_id += 1\n        nodes[nid] = [v, None, None]\n        if side == 'left':\n            nodes[parent_id][1] = nid\n        else:\n            nodes[parent_id][2] = nid\n        open_slots.append((nid, 'left'))\n        open_slots.append((nid, 'right'))\n    from collections import deque\n    out = []\n    q = deque([0])\n    while q:\n        cur = q.popleft()\n        if cur is None:\n            out.append(None)\n            continue\n        val, l, r = nodes[cur]\n        out.append(val)\n        q.append(l)\n        q.append(r)\n    while out and out[-1] is None:\n        out.pop()\n    return [out]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def subtreeWithAllDeepest(self, root):\n        from collections import deque\n        if not root:\n            return None\n        depth = {root: 0}\n        parent = {}\n        q = deque([root])\n        max_depth = 0\n        while q:\n            node = q.popleft()\n            d = depth[node]\n            if d > max_depth:\n                max_depth = d\n            for child in (node.left, node.right):\n                if child:\n                    depth[child] = d + 1\n                    parent[child] = node\n                    q.append(child)\n        deepest = [node for node, d in depth.items() if d == max_depth]\n        def ancestors(node):\n            chain = []\n            while node is not None:\n                chain.append(node)\n                node = parent.get(node)\n            return chain\n        def lca(u, v):\n            au = ancestors(u)\n            av = set(ancestors(v))\n            for node in au:\n                if node in av:\n                    return node\n            return None\n        current = deepest[0]\n        for node in deepest[1:]:\n            current = lca(current, node)\n        return current\n",
+  "solutions": {
+    "python": "class Solution:\n    def subtreeWithAllDeepest(self, root):\n        def dfs(node):\n            if not node:\n                return 0, None\n            ld, lt = dfs(node.left)\n            rd, rt = dfs(node.right)\n            if ld == rd:\n                return ld + 1, node\n            if ld > rd:\n                return ld + 1, lt\n            return rd + 1, rt\n        return dfs(root)[1]\n",
+    "javascript": "var subtreeWithAllDeepest = function(root) {\n    function dfs(node) {\n        if (!node) return [0, null];\n        const [ld, lt] = dfs(node.left);\n        const [rd, rt] = dfs(node.right);\n        if (ld === rd) return [ld + 1, node];\n        if (ld > rd) return [ld + 1, lt];\n        return [rd + 1, rt];\n    }\n    return dfs(root)[1];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

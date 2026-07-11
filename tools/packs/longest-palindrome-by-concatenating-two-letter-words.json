@@ -1,0 +1,39 @@
+{
+  "slug": "longest-palindrome-by-concatenating-two-letter-words",
+  "judge": "exact",
+  "pattern": "Two-letter words only ever help a palindrome by matching against their own mirror-image word, so counting complementary pairs (and one leftover self-mirrored word for the center) is enough.",
+  "hints": [
+    "Only two kinds of words can ever sit symmetrically in the final palindrome: a word paired with its exact reverse on the opposite side, or a word that is its own reverse.",
+    "For every word that isn't its own reverse, count how many complete pairs you can form with its reverse elsewhere in the list -- each such pair contributes four characters to the total length.",
+    "For words that are their own reverse, pairs of two also contribute four characters each, and at most one leftover single copy of such a word may sit alone in the very center, contributing two more."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one complementary pair plus one self-mirrored word for the center", "input": [["lc", "cl", "gg"]] },
+    { "kind": "edge", "description": "two complementary pairs among unrelated words, none self-mirrored", "input": [["ab", "ty", "yt", "lc", "cl", "ab"]] },
+    { "kind": "edge", "description": "three different self-mirrored words but only one may become the center", "input": [["cc", "ll", "xx"]] },
+    { "kind": "edge", "description": "no word has its reverse present anywhere, answer is zero", "input": [["ab", "cd", "ef"]] },
+    { "kind": "boundary", "description": "single word that is not its own reverse, cannot form anything", "input": [["ab"]] },
+    { "kind": "boundary", "description": "single self-mirrored word, becomes the center alone", "input": [["aa"]] },
+    { "kind": "trap", "description": "the same non-self-mirrored word repeated with no reverse ever appearing", "input": [["ab", "ab", "ab"]] },
+    { "kind": "trap", "description": "two different self-mirrored words each with an odd leftover, only one center allowed", "input": [["aa", "bb"]] },
+    { "kind": "boundary", "description": "many copies of one complementary pair", "input": [["qp", "pq", "qp", "pq"]] }
+  ],
+  "stress": [
+    {
+      "description": "random two-letter lowercase words drawn from the full alphabet, at large scale",
+      "seed": 3,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    letters = 'abcdefghijklmnopqrstuvwxyz'\n    n = max(1, min(size, 100000))\n    words = []\n    for _ in range(n):\n        a = rng.choice(letters)\n        b = rng.choice(letters)\n        words.append(a + b)\n    return [words]\n",
+      "note": "drawing both letters from the full alphabet keeps a healthy mix of complementary pairs and self-mirrored words at scale"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestPalindrome(self, words) -> int:\n        counts = [[0] * 26 for _ in range(26)]\n        for w in words:\n            a = ord(w[0]) - ord('a')\n            b = ord(w[1]) - ord('a')\n            counts[a][b] += 1\n        length = 0\n        center_added = False\n        for a in range(26):\n            for b in range(26):\n                if a < b:\n                    m = min(counts[a][b], counts[b][a])\n                    length += m * 4\n                elif a == b:\n                    pairs = counts[a][b] // 2\n                    length += pairs * 4\n                    if counts[a][b] % 2 == 1 and not center_added:\n                        length += 2\n                        center_added = True\n        return length\n",
+  "solutions": {
+    "python": "from collections import Counter\n\nclass Solution:\n    def longestPalindrome(self, words: List[str]) -> int:\n        cnt = Counter(words)\n        length = 0\n        for w in list(cnt.keys()):\n            if cnt[w] <= 0:\n                continue\n            r = w[::-1]\n            if w == r:\n                pairs = cnt[w] // 2\n                length += pairs * 4\n                cnt[w] -= pairs * 2\n            elif r in cnt and w < r:\n                m = min(cnt[w], cnt[r])\n                length += m * 4\n                cnt[w] -= m\n                cnt[r] -= m\n        for w, c in cnt.items():\n            if c > 0 and w == w[::-1]:\n                length += 2\n                break\n        return length\n",
+    "javascript": "var longestPalindrome = function(words) {\n    const cnt = new Map();\n    for (const w of words) {\n        cnt.set(w, (cnt.get(w) || 0) + 1);\n    }\n    let length = 0;\n    const keys = Array.from(cnt.keys());\n    for (const w of keys) {\n        const c = cnt.get(w);\n        if (c <= 0) continue;\n        const r = w.split('').reverse().join('');\n        if (w === r) {\n            const pairs = Math.floor(c / 2);\n            length += pairs * 4;\n            cnt.set(w, c - pairs * 2);\n        } else if (cnt.has(r) && w < r) {\n            const m = Math.min(c, cnt.get(r));\n            length += m * 4;\n            cnt.set(w, c - m);\n            cnt.set(r, cnt.get(r) - m);\n        }\n    }\n    for (const [w, c] of cnt) {\n        if (c > 0 && w === w.split('').reverse().join('')) {\n            length += 2;\n            break;\n        }\n    }\n    return length;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

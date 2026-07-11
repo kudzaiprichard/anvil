@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-difficulty-of-a-job-schedule",
+  "judge": "exact",
+  "pattern": "Partition a contiguous job list into exactly d non-empty days with DP; each day's cost is its maximum job difficulty, and we minimize the total across all valid partitions.",
+  "hints": [
+    "If there are fewer jobs than days, it is impossible — you cannot put at least one job on every day. Return -1 immediately.",
+    "Define dp[i][j] as the minimum schedule cost using exactly i days to schedule the first j jobs. Transition: try all split points k in [i-1, j-1] — assign jobs k..j-1 to day i and carry forward dp[i-1][k].",
+    "The inner transition scans from right to left, tracking the running max of jobDifficulty[k..j-1] as k decreases. This avoids a redundant max-recomputation and keeps the overall complexity at O(n^2 * d)."
+  ],
+  "constraints": [
+    { "param": "jobDifficulty", "kind": "int[]", "len": [1, 300], "value": [0, 1000] },
+    { "param": "d", "kind": "int", "value": [1, 10] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "more days than jobs — impossible", "input": [[9, 9, 9], 4] },
+    { "kind": "edge", "description": "exactly one job per day", "input": [[1, 1, 1], 3] },
+    { "kind": "edge", "description": "one day — cost is the max of all jobs", "input": [[6, 5, 4, 3, 2, 1], 1] },
+    { "kind": "edge", "description": "all jobs in first day except last", "input": [[6, 5, 4, 3, 2, 1], 2] },
+    { "kind": "boundary", "description": "single job, single day", "input": [[7], 1] },
+    { "kind": "trap", "description": "all zeros — minimum cost is 0 per day", "input": [[0, 0, 0, 0], 2] },
+    { "kind": "trap", "description": "identical difficulties — every partition costs d * value", "input": [[5, 5, 5, 5, 5], 3] },
+    { "kind": "trap", "description": "optimal split avoids the largest peak", "input": [[11, 111, 22, 7, 4], 3] }
+  ],
+  "stress": [
+    {
+      "description": "random job list near max length, random d",
+      "seed": 23,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    d = rng.randint(1, min(n, 10))\n    jobs = [rng.randint(0, 1000) for _ in range(n)]\n    return [jobs, d]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minDifficulty(self, jobDifficulty, d):\n        n = len(jobDifficulty)\n        if n < d:\n            return -1\n        INF = float('inf')\n        dp = [[INF] * (n + 1) for _ in range(d + 1)]\n        dp[0][0] = 0\n        for day in range(1, d + 1):\n            for j in range(day, n - d + day + 1):\n                for k in range(day - 1, j):\n                    if dp[day - 1][k] == INF:\n                        continue\n                    cost = max(jobDifficulty[k:j])\n                    dp[day][j] = min(dp[day][j], dp[day - 1][k] + cost)\n        return dp[d][n] if dp[d][n] != INF else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minDifficulty(self, jobDifficulty, d):\n        n = len(jobDifficulty)\n        if n < d:\n            return -1\n        INF = float('inf')\n        prev = [INF] * (n + 1)\n        prev[0] = 0\n        for day in range(1, d + 1):\n            curr = [INF] * (n + 1)\n            for j in range(day, n + 1):\n                max_d = 0\n                for k in range(j - 1, day - 2, -1):\n                    max_d = max(max_d, jobDifficulty[k])\n                    if prev[k] < INF:\n                        curr[j] = min(curr[j], prev[k] + max_d)\n            prev = curr\n        return prev[n] if prev[n] != INF else -1\n",
+    "javascript": "var minDifficulty = function(jobDifficulty, d) {\n    const n = jobDifficulty.length;\n    if (n < d) return -1;\n    const INF = Infinity;\n    let prev = new Array(n + 1).fill(INF);\n    prev[0] = 0;\n    for (let day = 1; day <= d; day++) {\n        const curr = new Array(n + 1).fill(INF);\n        for (let j = day; j <= n; j++) {\n            let maxD = 0;\n            for (let k = j - 1; k >= day - 1; k--) {\n                maxD = Math.max(maxD, jobDifficulty[k]);\n                if (prev[k] < INF) curr[j] = Math.min(curr[j], prev[k] + maxD);\n            }\n        }\n        prev = curr;\n    }\n    return prev[n] === INF ? -1 : prev[n];\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * d)", "space": "O(n)" }
+}

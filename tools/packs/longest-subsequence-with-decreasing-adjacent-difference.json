@@ -1,0 +1,132 @@
+{
+  "slug": "longest-subsequence-with-decreasing-adjacent-difference",
+  "judge": "exact",
+  "pattern": "Because values are small, indexing subsequence state by (ending value, last absolute difference) instead of by position turns the search into a compact table that only grows with the value range, not the array length.",
+  "hints": [
+    "What matters going forward is only the value a subsequence currently ends on and the size of its last step, not which index it came from.",
+    "For every ending value w and every last-difference d, keep the longest subsequence achieving that combination; extending with a new number x of difference d from w requires the subsequence at w to have had a last difference of at least d.",
+    "Maintain, for each value w, a suffix-maximum over its difference table so 'best length with last diff >= d' is an O(1) lookup, then update the two values (x-d and x+d) that could feed into every difference d for the newly seen number."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        2,
+        10000
+      ],
+      "value": [
+        1,
+        300
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "strictly decreasing gaps across three values",
+      "input": [
+        [
+          16,
+          6,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "non-increasing gaps of two and one",
+      "input": [
+        [
+          6,
+          5,
+          3,
+          4,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "repeated values keep the gap sequence valid at zero",
+      "input": [
+        [
+          10,
+          20,
+          10,
+          19,
+          10,
+          20
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length, any pair trivially qualifies",
+      "input": [
+        [
+          1,
+          300
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all identical values, every step has difference zero",
+      "input": [
+        [
+          7,
+          7,
+          7,
+          7,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an increasing run only ever supports length two",
+      "input": [
+        [
+          1,
+          5,
+          2,
+          8,
+          3,
+          12
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme values at both ends of the range",
+      "input": [
+        [
+          300,
+          1,
+          300,
+          1,
+          300
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long random sequence over the full small value range",
+      "seed": 5,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 10000))\n    nums = [rng.randint(1, 300) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestSubsequence(self, nums):\n        n = len(nums)\n        dp = [dict() for _ in range(n)]\n        ans = 1\n        for i in range(n):\n            dp[i][None] = 1\n            for j in range(i):\n                diff = abs(nums[i] - nums[j])\n                best_prev = 0\n                for d, length in dp[j].items():\n                    if d is None or d >= diff:\n                        if length > best_prev:\n                            best_prev = length\n                if best_prev > 0:\n                    cand = best_prev + 1\n                    if cand > dp[i].get(diff, 0):\n                        dp[i][diff] = cand\n            ans = max(ans, max(dp[i].values()))\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestSubsequence(self, nums):\n        V = 300\n        START = V\n        dp = [[0] * (V + 1) for _ in range(V + 1)]\n        sfx = [[0] * (V + 2) for _ in range(V + 1)]\n        ans = 0\n        for x in nums:\n            best_for_x = [0] * (V + 1)\n            best_for_x[START] = 1\n            for d in range(0, V):\n                w1 = x - d\n                w2 = x + d\n                cand = 0\n                if 1 <= w1 <= V:\n                    cand = max(cand, sfx[w1][d] + 1)\n                if w2 != w1 and 1 <= w2 <= V:\n                    cand = max(cand, sfx[w2][d] + 1)\n                if cand > best_for_x[d]:\n                    best_for_x[d] = cand\n            for d in range(0, V + 1):\n                if best_for_x[d] > dp[x][d]:\n                    dp[x][d] = best_for_x[d]\n            running = 0\n            for d in range(V, -1, -1):\n                if dp[x][d] > running:\n                    running = dp[x][d]\n                sfx[x][d] = running\n            ans = max(ans, sfx[x][0])\n        return ans\n",
+    "javascript": "var longestSubsequence = function(nums) {\n    const V = 300;\n    const START = V;\n    const dp = Array.from({ length: V + 1 }, () => new Array(V + 1).fill(0));\n    const sfx = Array.from({ length: V + 1 }, () => new Array(V + 2).fill(0));\n    let ans = 0;\n    for (const x of nums) {\n        const bestForX = new Array(V + 1).fill(0);\n        bestForX[START] = 1;\n        for (let d = 0; d < V; d++) {\n            const w1 = x - d, w2 = x + d;\n            let cand = 0;\n            if (w1 >= 1 && w1 <= V) cand = Math.max(cand, sfx[w1][d] + 1);\n            if (w2 !== w1 && w2 >= 1 && w2 <= V) cand = Math.max(cand, sfx[w2][d] + 1);\n            if (cand > bestForX[d]) bestForX[d] = cand;\n        }\n        for (let d = 0; d <= V; d++) {\n            if (bestForX[d] > dp[x][d]) dp[x][d] = bestForX[d];\n        }\n        let running = 0;\n        for (let d = V; d >= 0; d--) {\n            if (dp[x][d] > running) running = dp[x][d];\n            sfx[x][d] = running;\n        }\n        ans = Math.max(ans, sfx[x][0]);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * V)",
+    "space": "O(V^2)"
+  }
+}

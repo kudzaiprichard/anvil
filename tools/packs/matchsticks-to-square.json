@@ -1,0 +1,39 @@
+{
+  "slug": "matchsticks-to-square",
+  "judge": "exact",
+  "pattern": "Bitmask DP or backtracking with pruning partitions sticks into four equal-sum groups to test whether a square is formable.",
+  "hints": [
+    "Check immediately if the total length is divisible by 4; if not, return false right away.",
+    "Think of it as partitioning the array into four subsets that all have the same target sum — backtracking with pruning (sort descending, skip equal-valued siblings) keeps the search tight.",
+    "Bitmask DP over subsets of size ≤15 is also feasible: precompute all subsets whose sum equals the side length, then cover all n bits using at most four non-overlapping such subsets."
+  ],
+  "constraints": [
+    { "param": "matchsticks", "kind": "int[]", "len": [1, 15], "value": [1, 100000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "canonical example where two sticks of length 1 form one side", "input": [[1, 1, 2, 2, 2]] },
+    { "kind": "edge", "description": "four equal sticks trivially form a square", "input": [[5, 5, 5, 5]] },
+    { "kind": "trap", "description": "sum is divisible by 4 but one stick exceeds the side length", "input": [[3, 3, 3, 3, 4]] },
+    { "kind": "trap", "description": "single stick cannot form a square", "input": [[4]] },
+    { "kind": "trap", "description": "sum not divisible by 4", "input": [[1, 2, 3]] },
+    { "kind": "boundary", "description": "two sticks only — cannot partition into four sides", "input": [[4, 4]] },
+    { "kind": "edge", "description": "large values but they partition cleanly", "input": [[100000000, 100000000, 100000000, 100000000]] },
+    { "kind": "trap", "description": "sticks sum to 4×target but cannot partition", "input": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4]] },
+    { "kind": "boundary", "description": "maximum 15 sticks, valid partition", "input": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random sticks of length 1-20 up to 15 elements",
+      "seed": 7,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 15))\n    sticks = [rng.randint(1, 20) for _ in range(n)]\n    return [sticks]\n",
+      "note": "small value range increases chance of valid partitions for stress coverage"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def makesquare(self, matchsticks):\n        total = sum(matchsticks)\n        if total % 4 != 0:\n            return False\n        side = total // 4\n        n = len(matchsticks)\n        # bitmask DP: dp[mask] = sum of sticks in that subset\n        # find all subsets summing to side, then cover all bits with 4 non-overlapping\n        good = [mask for mask in range(1, 1 << n)\n                if sum(matchsticks[i] for i in range(n) if mask >> i & 1) == side]\n        full = (1 << n) - 1\n        def dfs(remaining, sides_left):\n            if sides_left == 1:\n                return True\n            for mask in good:\n                if mask & remaining == mask:\n                    if dfs(remaining ^ mask, sides_left - 1):\n                        return True\n            return False\n        return dfs(full, 4)\n",
+  "solutions": {
+    "python": "class Solution:\n    def makesquare(self, matchsticks):\n        total = sum(matchsticks)\n        if total % 4 != 0:\n            return False\n        side = total // 4\n        matchsticks.sort(reverse=True)\n        if matchsticks[0] > side:\n            return False\n        buckets = [0] * 4\n        def bt(idx):\n            if idx == len(matchsticks):\n                return buckets[0] == side and buckets[1] == side and buckets[2] == side\n            seen = set()\n            for i in range(4):\n                if buckets[i] in seen:\n                    continue\n                if buckets[i] + matchsticks[idx] <= side:\n                    seen.add(buckets[i])\n                    buckets[i] += matchsticks[idx]\n                    if bt(idx + 1):\n                        return True\n                    buckets[i] -= matchsticks[idx]\n            return False\n        return bt(0)\n",
+    "javascript": "var makesquare = function(matchsticks) {\n    const total = matchsticks.reduce((a, b) => a + b, 0);\n    if (total % 4 !== 0) return false;\n    const side = total / 4;\n    matchsticks.sort((a, b) => b - a);\n    if (matchsticks[0] > side) return false;\n    const buckets = [0, 0, 0, 0];\n    function bt(idx) {\n        if (idx === matchsticks.length) {\n            return buckets[0] === side && buckets[1] === side && buckets[2] === side;\n        }\n        const seen = new Set();\n        for (let i = 0; i < 4; i++) {\n            if (seen.has(buckets[i])) continue;\n            if (buckets[i] + matchsticks[idx] <= side) {\n                seen.add(buckets[i]);\n                buckets[i] += matchsticks[idx];\n                if (bt(idx + 1)) return true;\n                buckets[i] -= matchsticks[idx];\n            }\n        }\n        return false;\n    }\n    return bt(0);\n};\n"
+  },
+  "complexity": { "time": "O(4^n)", "space": "O(n)" }
+}

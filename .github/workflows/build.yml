@@ -1,0 +1,91 @@
+name: Build desktop apps
+
+# On-demand full build of the Anvil desktop app for Linux, macOS (Apple Silicon
+# + Intel), and Windows. Produces the installers as downloadable workflow
+# artifacts — it does NOT create a release (use the Release workflow for that).
+# Trigger it from the Actions tab → "Build desktop apps" → Run workflow.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            platform: ubuntu-22.04
+            args: ""
+          - name: macos-aarch64
+            platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - name: macos-x86_64
+            platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - name: windows-x86_64
+            platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      # Shipping safety gate (COURSE_BLUEPRINT.md §2): never bundle a *leetcode*
+      # catalog. Runs before the bundle step so a tainted tree can't be packaged.
+      - name: Installer boundary check (no *leetcode* bundling)
+        run: python tools/check_release_boundary.py
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # tauri-action runs the configured beforeBuildCommand (npm run build → the
+      # static export in ./out), then bundles the desktop app together with every
+      # resource declared in src-tauri/tauri.conf.json (presets, test-packs.json.gz,
+      # and the pylib runtime). No manual "unpack" step is needed — the bundler
+      # copies resources next to the binary and Tauri resolves them at runtime.
+      - name: Build the app + installers
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ${{ matrix.args }}
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: anvil-${{ matrix.name }}
+          if-no-files-found: warn
+          path: |
+            src-tauri/target/**/release/bundle/**/*.AppImage
+            src-tauri/target/**/release/bundle/**/*.deb
+            src-tauri/target/**/release/bundle/**/*.rpm
+            src-tauri/target/**/release/bundle/**/*.dmg
+            src-tauri/target/**/release/bundle/**/*.msi
+            src-tauri/target/**/release/bundle/**/*.exe

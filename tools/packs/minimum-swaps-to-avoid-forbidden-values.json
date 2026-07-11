@@ -1,0 +1,46 @@
+{
+  "slug": "minimum-swaps-to-avoid-forbidden-values",
+  "judge": "exact",
+  "pattern": "Framing this as choosing a target arrangement and counting swaps as array-length minus number of resulting cycles turns it into pure counting: leave every already-fine position untouched, pair off conflicting positions that hold different stuck values for a free two-for-one fix, and only pay one dedicated swap per unit for whichever stuck value is too dominant to pair away internally -- after first checking whether enough non-conflicting homes even exist for every value.",
+  "hints": [
+    "A swap only ever needs to touch a position whose current value already matches what's forbidden there -- every other position can simply stay exactly as it is.",
+    "Group the currently-conflicting positions by the value they're stuck holding. Swapping two conflicting positions that are stuck on *different* values clears both of them with a single swap, which is the cheapest possible move.",
+    "First check feasibility at all: some value might have more total copies across the array than there are positions willing to accept it, in which case no amount of swapping ever works. Otherwise, if one stuck value accounts for more than half of the conflicting positions, the leftover copies beyond that half can't be paired away among themselves -- each one needs its own separate swap with an untouched position. The answer is the larger of (conflicting positions rounded up to a pair count) and (the size of that dominant stuck-value group)."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "forbidden", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, one pairing swap resolves two conflicts of different values", "input": [[1, 2, 3], [3, 2, 1]] },
+    { "kind": "edge", "description": "statement example, two separate conflicts each with a distinct stuck value", "input": [[4, 6, 6, 5], [4, 6, 5, 5]] },
+    { "kind": "edge", "description": "statement example, infeasible: too many copies of a value chasing too few safe homes", "input": [[7, 7], [8, 7]] },
+    { "kind": "edge", "description": "statement example, already valid everywhere, zero swaps needed", "input": [[1, 2], [2, 1]] },
+    { "kind": "boundary", "description": "n=1 and conflicting: no second index exists to swap with, impossible", "input": [[5], [5]] },
+    { "kind": "boundary", "description": "n=1 and already fine, trivially zero swaps", "input": [[5], [9]] },
+    { "kind": "trap", "description": "a dominant stuck value at the constraint's upper magnitude needs one dedicated swap even though feasible", "input": [[1000000000, 1000000000, 1, 2], [1000000000, 1000000000, 3, 4]] },
+    { "kind": "trap", "description": "alternating stuck values pair off cleanly two at a time", "input": [[1, 2, 1, 2], [1, 2, 1, 2]] },
+    { "kind": "edge", "description": "infeasible: three copies of one value but only one position willing to accept it", "input": [[1, 1, 1, 2], [1, 1, 1, 3]] }
+  ],
+  "stress": [
+    {
+      "description": "random small value universe, mixing feasible and infeasible instances and both dominant and balanced stuck-value groups",
+      "seed": 7,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1500))\n    vocab = list(range(1, 6))\n    nums = [rng.choice(vocab) for _ in range(n)]\n    forbidden = [rng.choice(vocab) for _ in range(n)]\n    return [nums, forbidden]\n"
+    },
+    {
+      "description": "deliberately skewed toward one dominant value to stress the 'more than half of conflicts share a value' code path while staying feasible",
+      "seed": 99,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 1500))\n    nums = []\n    for _ in range(n):\n        if rng.random() < 0.45:\n            nums.append(1)\n        else:\n            nums.append(rng.choice([2, 3, 4, 5, 6]))\n    forbidden = []\n    for i in range(n):\n        if nums[i] == 1 and rng.random() < 0.9:\n            forbidden.append(1)\n        else:\n            forbidden.append(rng.choice([1, 2, 3, 4, 5, 6]))\n    return [nums, forbidden]\n",
+      "note": "value 1 is heavily overrepresented among conflicts by construction, but a wide-enough value spread keeps the instance feasible"
+    }
+  ],
+  "oracle_python": "from collections import Counter\nimport heapq\n\nclass Solution:\n    def minSwaps(self, nums, forbidden):\n        # Independent construction: actually simulate performing the swaps on a\n        # working copy of the array (rather than the closed-form counting the\n        # optimal solution uses), then verify the resulting array for real.\n        n = len(nums)\n        arr = list(nums)\n        cnt = Counter(arr)\n        fcnt = Counter(forbidden)\n        for v in cnt:\n            if cnt[v] + fcnt.get(v, 0) > n:\n                return -1\n\n        groups = {}\n        for i in range(n):\n            if arr[i] == forbidden[i]:\n                groups.setdefault(arr[i], []).append(i)\n        heap = [(-len(idxs), v) for v, idxs in groups.items()]\n        heapq.heapify(heap)\n        swaps = 0\n        while len(heap) >= 2:\n            c1, v1 = heapq.heappop(heap)\n            c2, v2 = heapq.heappop(heap)\n            c1, c2 = -c1, -c2\n            i1 = groups[v1].pop()\n            i2 = groups[v2].pop()\n            arr[i1], arr[i2] = arr[i2], arr[i1]\n            swaps += 1\n            c1 -= 1\n            c2 -= 1\n            if c1 > 0:\n                heapq.heappush(heap, (-c1, v1))\n            if c2 > 0:\n                heapq.heappush(heap, (-c2, v2))\n\n        if heap:\n            _, v1 = heap[0]\n            remaining = list(groups[v1])\n            safe = [j for j in range(n) if arr[j] != v1 and forbidden[j] != v1]\n            used = set()\n            ptr = 0\n            for i1 in remaining:\n                while ptr < len(safe) and (safe[ptr] in used or safe[ptr] == i1 or arr[safe[ptr]] == v1):\n                    ptr += 1\n                if ptr >= len(safe):\n                    return -1\n                helper = safe[ptr]\n                used.add(helper)\n                arr[i1], arr[helper] = arr[helper], arr[i1]\n                swaps += 1\n\n        for i in range(n):\n            if arr[i] == forbidden[i]:\n                return -1\n        return swaps\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSwaps(self, nums, forbidden):\n        n = len(nums)\n        cnt = {}\n        for v in nums:\n            cnt[v] = cnt.get(v, 0) + 1\n        fcnt = {}\n        for v in forbidden:\n            fcnt[v] = fcnt.get(v, 0) + 1\n        for v, c in cnt.items():\n            if c + fcnt.get(v, 0) > n:\n                return -1\n        bad_count = {}\n        b = 0\n        for i in range(n):\n            if nums[i] == forbidden[i]:\n                b += 1\n                bad_count[nums[i]] = bad_count.get(nums[i], 0) + 1\n        if b == 0:\n            return 0\n        m_max = max(bad_count.values())\n        return max((b + 1) // 2, m_max)\n",
+    "javascript": "var minSwaps = function(nums, forbidden) {\n    const n = nums.length;\n    const cnt = new Map();\n    for (const v of nums) cnt.set(v, (cnt.get(v) || 0) + 1);\n    const fcnt = new Map();\n    for (const v of forbidden) fcnt.set(v, (fcnt.get(v) || 0) + 1);\n    for (const [v, c] of cnt) {\n        if (c + (fcnt.get(v) || 0) > n) return -1;\n    }\n    const badCount = new Map();\n    let b = 0;\n    for (let i = 0; i < n; i++) {\n        if (nums[i] === forbidden[i]) {\n            b += 1;\n            badCount.set(nums[i], (badCount.get(nums[i]) || 0) + 1);\n        }\n    }\n    if (b === 0) return 0;\n    let mMax = 0;\n    for (const c of badCount.values()) mMax = Math.max(mMax, c);\n    return Math.max(Math.ceil(b / 2), mMax);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

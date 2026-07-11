@@ -1,0 +1,38 @@
+{
+  "slug": "reschedule-meetings-for-maximum-free-time-ii",
+  "judge": "exact",
+  "pattern": "Moving a single meeting anywhere is only worth it if some OTHER gap in the schedule is already large enough to swallow its duration whole — precomputing the two largest gaps lets every meeting be evaluated in O(1).",
+  "hints": [
+    "For meeting i, its own two neighbouring gaps merge into one free block of size gap[i] + gap[i+1] no matter what (just by squeezing meeting i to one edge of its own slot).",
+    "That merge grows even bigger, by the meeting's own duration, if there is some OTHER gap anywhere in the schedule (not the two touching meeting i) big enough to hide the meeting's duration completely.",
+    "Precompute the largest and second-largest gaps with their indices up front; for each meeting, the best 'other' gap is whichever of those top few has an index different from its own two neighbouring gaps. Take the best result over every meeting (and over doing nothing at all)."
+  ],
+  "constraints": [
+    { "param": "eventTime", "kind": "int", "value": [1, 1000000000] },
+    { "param": "startTime", "kind": "int[]", "len": [2, 100000], "value": [0, 1000000000] },
+    { "param": "endTime", "kind": "int[]", "len": [2, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example 1", "input": [5, [1, 3], [2, 5]] },
+    { "kind": "edge", "description": "statement example 2, hiding a meeting inside a bigger gap elsewhere", "input": [10, [0, 7, 9], [1, 8, 10]] },
+    { "kind": "edge", "description": "statement example 3, order changes after the move", "input": [10, [0, 3, 7, 9], [1, 4, 8, 10]] },
+    { "kind": "edge", "description": "statement example 4, event fully packed", "input": [5, [0, 1, 2, 3, 4], [1, 2, 3, 4, 5]] },
+    { "kind": "boundary", "description": "only two meetings, minimum n", "input": [20, [0, 15], [5, 20]] },
+    { "kind": "trap", "description": "no gap anywhere is big enough to hide any meeting, best is just merging own neighbours", "input": [12, [0, 4, 8], [4, 8, 12]] },
+    { "kind": "trap", "description": "the largest gap in the schedule is itself adjacent to the best candidate meeting, must fall back to the second largest", "input": [50, [0, 1, 40], [1, 2, 41]] }
+  ],
+  "stress": [
+    {
+      "description": "random non-overlapping ordered meetings of varying duration",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 100000)))\n    t = 0\n    starts = []\n    ends = []\n    for _ in range(n):\n        t += rng.randint(0, 6)\n        starts.append(t)\n        t += rng.randint(1, 6)\n        ends.append(t)\n    event_time = t + rng.randint(0, 6)\n    return [event_time, starts, ends]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxFreeTime(self, eventTime, startTime, endTime):\n        n = len(startTime)\n        gaps = [startTime[0]]\n        for i in range(1, n):\n            gaps.append(startTime[i] - endTime[i - 1])\n        gaps.append(eventTime - endTime[-1])\n        durations = [endTime[i] - startTime[i] for i in range(n)]\n        best = max(gaps)\n        for i in range(n):\n            merged = gaps[i] + gaps[i + 1]\n            other_max = 0\n            for j in range(len(gaps)):\n                if j == i or j == i + 1:\n                    continue\n                if gaps[j] > other_max:\n                    other_max = gaps[j]\n            candidate = merged + (durations[i] if other_max >= durations[i] else 0)\n            if candidate > best:\n                best = candidate\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxFreeTime(self, eventTime, startTime, endTime):\n        n = len(startTime)\n        gaps = [startTime[0]]\n        for i in range(1, n):\n            gaps.append(startTime[i] - endTime[i - 1])\n        gaps.append(eventTime - endTime[-1])\n        durations = [endTime[i] - startTime[i] for i in range(n)]\n        ranked = sorted(range(len(gaps)), key=lambda j: -gaps[j])[:3]\n        best = max(gaps)\n        for i in range(n):\n            merged = gaps[i] + gaps[i + 1]\n            other_max = 0\n            for j in ranked:\n                if j != i and j != i + 1:\n                    other_max = gaps[j]\n                    break\n            candidate = merged + (durations[i] if other_max >= durations[i] else 0)\n            if candidate > best:\n                best = candidate\n        return best\n",
+    "javascript": "var maxFreeTime = function(eventTime, startTime, endTime) {\n    const n = startTime.length;\n    const gaps = [startTime[0]];\n    for (let i = 1; i < n; i++) gaps.push(startTime[i] - endTime[i - 1]);\n    gaps.push(eventTime - endTime[n - 1]);\n    const durations = [];\n    for (let i = 0; i < n; i++) durations.push(endTime[i] - startTime[i]);\n    const order = gaps.map((_, j) => j).sort((a, b) => gaps[b] - gaps[a]).slice(0, 3);\n    let best = Math.max(...gaps);\n    for (let i = 0; i < n; i++) {\n        const merged = gaps[i] + gaps[i + 1];\n        let otherMax = 0;\n        for (const j of order) {\n            if (j !== i && j !== i + 1) { otherMax = gaps[j]; break; }\n        }\n        const candidate = merged + (otherMax >= durations[i] ? durations[i] : 0);\n        if (candidate > best) best = candidate;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

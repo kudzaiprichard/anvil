@@ -1,0 +1,124 @@
+{
+  "slug": "balance-a-binary-search-tree",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    orig = args[0]\n    orig_vals = sorted(v for v in orig if v is not None)\n    def deser(a):\n        if not a:\n            return None\n        root = [a[0], None, None]\n        q = [root]; i = 1\n        while q and i < len(a):\n            node = q.pop(0)\n            if i < len(a):\n                if a[i] is not None:\n                    node[1] = [a[i], None, None]; q.append(node[1])\n                i += 1\n            if i < len(a):\n                if a[i] is not None:\n                    node[2] = [a[i], None, None]; q.append(node[2])\n                i += 1\n        return root\n    root = deser(output)\n    ino = []\n    st, node = [], root\n    while st or node:\n        while node:\n            st.append(node); node = node[1]\n        node = st.pop(); ino.append(node[0]); node = node[2]\n    if ino != orig_vals:\n        return False\n    def height(n):\n        if n is None:\n            return 0, True\n        hl, bl = height(n[1])\n        hr, br = height(n[2])\n        return max(hl, hr) + 1, bl and br and abs(hl - hr) <= 1\n    _, balanced = height(root)\n    return balanced\n",
+    "validator_javascript": "function validate(args, output) {\n    const orig = args[0];\n    const origVals = orig.filter(v => v !== null).slice().sort((a, b) => a - b);\n    function deser(a) {\n        if (!a || a.length === 0) return null;\n        const root = [a[0], null, null];\n        const q = [root]; let i = 1;\n        while (q.length && i < a.length) {\n            const node = q.shift();\n            if (i < a.length) { if (a[i] !== null) { node[1] = [a[i], null, null]; q.push(node[1]); } i++; }\n            if (i < a.length) { if (a[i] !== null) { node[2] = [a[i], null, null]; q.push(node[2]); } i++; }\n        }\n        return root;\n    }\n    const root = deser(output);\n    const ino = [];\n    const st = []; let node = root;\n    while (st.length || node) {\n        while (node) { st.push(node); node = node[1]; }\n        node = st.pop(); ino.push(node[0]); node = node[2];\n    }\n    if (ino.length !== origVals.length) return false;\n    for (let k = 0; k < ino.length; k++) if (ino[k] !== origVals[k]) return false;\n    let balanced = true;\n    function height(n) {\n        if (n === null) return 0;\n        const hl = height(n[1]);\n        const hr = height(n[2]);\n        if (Math.abs(hl - hr) > 1) balanced = false;\n        return Math.max(hl, hr) + 1;\n    }\n    height(root);\n    return balanced;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "io_types": {
+    "params": [
+      "tree"
+    ],
+    "returns": "tree"
+  },
+  "pattern": "Reading a BST in-order always yields its values sorted, so rebuilding a height-balanced tree is the same subproblem as turning a sorted array into a balanced BST.",
+  "hints": [
+    "A BST's in-order traversal is already sorted -- collect it and forget the original shape entirely.",
+    "From a sorted list of values, picking the middle element as a subtree's root keeps the two halves close in size.",
+    "Recurse on the left slice and right slice around that middle index to build both subtrees; any consistent middle choice yields a valid balanced BST."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        1,
+        10000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "left-leaning chain of four nodes",
+      "input": [
+        [
+          1,
+          null,
+          2,
+          null,
+          3,
+          null,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "already balanced three-node tree",
+      "input": [
+        [
+          2,
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node",
+      "input": [
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "right-leaning chain",
+      "input": [
+        [
+          1,
+          null,
+          2,
+          null,
+          3,
+          null,
+          4,
+          null,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "zig-zag chain alternating left and right children",
+      "input": [
+        [
+          5,
+          3,
+          null,
+          null,
+          4,
+          2,
+          null,
+          null,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random BST built by inserting a shuffled permutation, serialized level-order",
+      "seed": 15,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 5000))\n    vals = rng.sample(range(1, 100001), n)\n    root = None\n    def ins(node, v):\n        if node is None:\n            return [v, None, None]\n        if v < node[0]:\n            node[1] = ins(node[1], v)\n        else:\n            node[2] = ins(node[2], v)\n        return node\n    for v in vals:\n        root = ins(root, v)\n    out = []\n    q = [root]\n    while q:\n        node = q.pop(0)\n        if node is None:\n            out.append(None)\n            continue\n        out.append(node[0])\n        q.append(node[1])\n        q.append(node[2])\n    while out and out[-1] is None:\n        out.pop()\n    return [out]\n",
+      "note": "distinct values, random insert order produces varied starting shapes"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def balanceBST(self, root):\n        vals = []\n        stack = []\n        node = root\n        while stack or node:\n            while node:\n                stack.append(node)\n                node = node.left\n            node = stack.pop()\n            vals.append(node.val)\n            node = node.right\n        def build(arr):\n            if not arr:\n                return None\n            mid = (len(arr) - 1) // 2\n            n = TreeNode(arr[mid])\n            n.left = build(arr[:mid])\n            n.right = build(arr[mid + 1:])\n            return n\n        return build(vals)\n",
+  "solutions": {
+    "python": "class Solution:\n    def balanceBST(self, root):\n        vals = []\n        def inorder(n):\n            if not n:\n                return\n            inorder(n.left)\n            vals.append(n.val)\n            inorder(n.right)\n        inorder(root)\n        def build(lo, hi):\n            if lo > hi:\n                return None\n            mid = (lo + hi) // 2\n            node = TreeNode(vals[mid])\n            node.left = build(lo, mid - 1)\n            node.right = build(mid + 1, hi)\n            return node\n        return build(0, len(vals) - 1)\n",
+    "javascript": "var balanceBST = function(root) {\n    const vals = [];\n    function inorder(n) {\n        if (!n) return;\n        inorder(n.left);\n        vals.push(n.val);\n        inorder(n.right);\n    }\n    inorder(root);\n    function build(lo, hi) {\n        if (lo > hi) return null;\n        const mid = Math.floor((lo + hi) / 2);\n        const node = new TreeNode(vals[mid]);\n        node.left = build(lo, mid - 1);\n        node.right = build(mid + 1, hi);\n        return node;\n    }\n    return build(0, vals.length - 1);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

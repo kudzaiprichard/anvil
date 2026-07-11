@@ -1,0 +1,37 @@
+{
+  "slug": "largest-sum-of-averages",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "An interval dynamic program over prefixes and remaining groups: the best score for a prefix using g groups is the average of a trailing block plus the best score for the rest using g-1 groups.",
+  "hints": [
+    "Prefix sums let you take the average of any contiguous block in constant time.",
+    "Define the best achievable score for the first i elements split into at most g groups, and let the last group be some suffix of that prefix.",
+    "For each cut point, combine the average of the final block with the optimum of the earlier portion using one fewer group, taking the maximum over all cut points."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100], "value": [1, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "isolating the two large ends maximizes the score", "input": [[9, 1, 2, 3, 9], 3] },
+    { "kind": "edge", "description": "four groups over a sorted run", "input": [[1, 2, 3, 4, 5, 6, 7], 4] },
+    { "kind": "boundary", "description": "k equals one forces a single average over everything", "input": [[4, 1, 7], 1] },
+    { "kind": "boundary", "description": "k equals length puts each element in its own group", "input": [[5, 3, 8], 3] },
+    { "kind": "trap", "description": "extra allowed groups do not help when values are equal", "input": [[6, 6, 6, 6], 3] },
+    { "kind": "edge", "description": "single element with one group", "input": [[10], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays with a valid k between one and the length",
+      "seed": 39,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 100)))\n    nums = [rng.randint(1, 10000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n",
+      "note": "k constrained to the valid range so the partition is always feasible"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestSumOfAverages(self, nums, k):\n        import sys\n        from functools import lru_cache\n        sys.setrecursionlimit(10000)\n        n = len(nums)\n        prefix = [0.0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        @lru_cache(None)\n        def best(start, groups):\n            if groups == 1:\n                return (prefix[n] - prefix[start]) / (n - start)\n            res = 0.0\n            # leave at least groups-1 elements for the remaining groups\n            for end in range(start + 1, n - groups + 2):\n                avg = (prefix[end] - prefix[start]) / (end - start)\n                res = max(res, avg + best(end, groups - 1))\n            return res\n        return best(0, k)\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestSumOfAverages(self, nums, k):\n        n = len(nums)\n        prefix = [0.0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        def avg(i, j):\n            return (prefix[j] - prefix[i]) / (j - i)\n        # dp[i] = best score for nums[i:] with current group budget\n        dp = [avg(i, n) for i in range(n)] + [0.0]\n        for _ in range(k - 1):\n            ndp = dp[:]\n            for i in range(n):\n                for j in range(i + 1, n):\n                    ndp[i] = max(ndp[i], avg(i, j) + dp[j])\n            dp = ndp\n        return dp[0]\n",
+    "javascript": "var largestSumOfAverages = function(nums, k) {\n    const n = nums.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i];\n    const avg = (i, j) => (prefix[j] - prefix[i]) / (j - i);\n    let dp = new Array(n + 1);\n    for (let i = 0; i <= n; i++) dp[i] = i < n ? avg(i, n) : 0;\n    for (let g = 0; g < k - 1; g++) {\n        const ndp = dp.slice();\n        for (let i = 0; i < n; i++) {\n            for (let j = i + 1; j < n; j++) {\n                ndp[i] = Math.max(ndp[i], avg(i, j) + dp[j]);\n            }\n        }\n        dp = ndp;\n    }\n    return dp[0];\n};\n"
+  },
+  "complexity": { "time": "O(k * n^2)", "space": "O(n)" }
+}

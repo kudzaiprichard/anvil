@@ -1,0 +1,43 @@
+{
+  "slug": "minimum-operations-to-achieve-at-least-k-peaks",
+  "judge": "exact",
+  "pattern": "Peaks can never sit next to each other, so the array's own maximum peak count is capped at half its length, and reaching any achievable count as cheaply as possible is a pick-k-non-adjacent-items-to-minimize-cost problem that a circular non-adjacent DP solves directly.",
+  "hints": [
+    "No two peaks can be adjacent (each would need to be strictly greater than the other), so more than half the array's length worth of peaks is never achievable -- if k exceeds that cap, the answer is immediately -1.",
+    "For a candidate peak position, only that position itself is ever worth raising -- raising a neighbor only makes things harder for some other peak, so the cost of turning position i into a peak is a fixed number depending only on its two original neighbor values.",
+    "Choosing which k positions become peaks to minimize total raising cost is exactly 'select k non-adjacent items from a circle to minimize their total weight' -- handle the circle by solving the linear version twice, once forcing position 0 unchosen and once forcing it chosen (which excludes both of its neighbors), and take the cheaper result."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 5000], "value": [-100000, 100000] },
+    { "param": "k", "kind": "int", "value": [0, 5000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one operation creates a single peak at the wraparound boundary", "input": [[2, 1, 2], 1] },
+    { "kind": "edge", "description": "the array already has enough peaks and needs no operations", "input": [[4, 5, 3, 6], 2] },
+    { "kind": "edge", "description": "the requested peak count is impossible for this array length", "input": [[3, 7, 3], 2] },
+    { "kind": "boundary", "description": "k is zero, so no operations are ever required", "input": [[1, 1, 1, 1], 0] },
+    { "kind": "boundary", "description": "k equals the theoretical maximum for this length", "input": [[1, 1, 1, 1], 2] },
+    { "kind": "trap", "description": "k is one more than the achievable maximum, which must report impossible rather than a large finite cost", "input": [[5, 5, 5, 5, 5], 3] },
+    { "kind": "trap", "description": "all values tied means every candidate position costs the same to raise, so the choice among equally-priced positions matters for feasibility, not cost", "input": [[2, 2, 2, 2, 2, 2], 3] }
+  ],
+  "stress": [
+    {
+      "description": "random small circular array with a random peak target, exhaustively cross-checkable",
+      "seed": 61,
+      "size": 16,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 16))\n    nums = [rng.randint(-1000, 1000) for _ in range(n)]\n    k = rng.randint(0, n // 2 + 1)\n    return [nums, k]\n"
+    },
+    {
+      "description": "small array requesting the maximum achievable peak count, exhaustively cross-checkable",
+      "seed": 62,
+      "size": 18,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 18))\n    nums = [rng.randint(-100000, 100000) for _ in range(n)]\n    k = n // 2\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "import itertools\nclass Solution:\n    def minOperations(self, nums, k):\n        n = len(nums)\n        if k == 0:\n            return 0\n        if k > n // 2:\n            return -1\n        best = None\n        for combo in itertools.combinations(range(n), k):\n            s = set(combo)\n            ok = True\n            for i in combo:\n                if (i + 1) % n in s or (i - 1) % n in s:\n                    ok = False\n                    break\n            if not ok:\n                continue\n            cost = 0\n            for i in combo:\n                l = nums[(i - 1) % n]\n                r = nums[(i + 1) % n]\n                need = max(l, r) + 1\n                cost += max(0, need - nums[i])\n            if best is None or cost < best:\n                best = cost\n        return best if best is not None else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minOperations(self, nums, k: int) -> int:\n        n = len(nums)\n        if k == 0:\n            return 0\n        if k > n // 2:\n            return -1\n        costs = [0] * n\n        for i in range(n):\n            l = nums[(i - 1) % n]\n            r = nums[(i + 1) % n]\n            need = max(l, r) + 1\n            costs[i] = max(0, need - nums[i])\n\n        INF = float('inf')\n\n        def linear_min_cost(arr, j):\n            m = len(arr)\n            if j == 0:\n                return 0\n            if j > (m + 1) // 2:\n                return INF\n            prev2 = [INF] * (j + 1)\n            prev1 = [INF] * (j + 1)\n            prev2[0] = 0\n            prev1[0] = 0\n            if m >= 1:\n                prev1[1] = arr[0]\n            for i in range(1, m):\n                cur = [INF] * (j + 1)\n                cur[0] = 0\n                for t in range(1, j + 1):\n                    best = prev1[t]\n                    if prev2[t - 1] != INF:\n                        cand = prev2[t - 1] + arr[i]\n                        if cand < best:\n                            best = cand\n                    cur[t] = best\n                prev2 = prev1\n                prev1 = cur\n            return prev1[j]\n\n        a = linear_min_cost(costs[1:], k)\n        if n >= 3:\n            b_inner = linear_min_cost(costs[2:n - 1], k - 1)\n        else:\n            b_inner = 0 if k - 1 == 0 else INF\n        b = costs[0] + b_inner if b_inner != INF else INF\n        ans = min(a, b)\n        return ans if ans != INF else -1\n",
+    "javascript": "var minOperations = function(nums, k) {\n    const n = nums.length;\n    if (k === 0) return 0;\n    if (k > Math.floor(n / 2)) return -1;\n    const costs = new Array(n).fill(0);\n    for (let i = 0; i < n; i++) {\n        const l = nums[(i - 1 + n) % n];\n        const r = nums[(i + 1) % n];\n        const need = Math.max(l, r) + 1;\n        costs[i] = Math.max(0, need - nums[i]);\n    }\n    const INF = Infinity;\n\n    function linearMinCost(arr, j) {\n        const m = arr.length;\n        if (j === 0) return 0;\n        if (j > Math.floor((m + 1) / 2)) return INF;\n        let prev2 = new Array(j + 1).fill(INF);\n        let prev1 = new Array(j + 1).fill(INF);\n        prev2[0] = 0;\n        prev1[0] = 0;\n        if (m >= 1) prev1[1] = arr[0];\n        for (let i = 1; i < m; i++) {\n            const cur = new Array(j + 1).fill(INF);\n            cur[0] = 0;\n            for (let t = 1; t <= j; t++) {\n                let best = prev1[t];\n                if (prev2[t - 1] !== INF) {\n                    const cand = prev2[t - 1] + arr[i];\n                    if (cand < best) best = cand;\n                }\n                cur[t] = best;\n            }\n            prev2 = prev1;\n            prev1 = cur;\n        }\n        return prev1[j];\n    }\n\n    const a = linearMinCost(costs.slice(1), k);\n    let bInner;\n    if (n >= 3) {\n        bInner = linearMinCost(costs.slice(2, n - 1), k - 1);\n    } else {\n        bInner = (k - 1 === 0) ? 0 : INF;\n    }\n    const b = (bInner !== INF) ? costs[0] + bInner : INF;\n    const ans = Math.min(a, b);\n    return ans !== INF ? ans : -1;\n};\n"
+  },
+  "complexity": { "time": "O(n*k)", "space": "O(k)" }
+}

@@ -1,0 +1,43 @@
+{
+  "slug": "maximum-and-sum-of-array",
+  "judge": "exact",
+  "pattern": "With only a handful of slots and each holding at most two numbers, the state of every slot's remaining capacity can be packed into a single base-3 digit string, turning the search for the best assignment into a bitmask-style dynamic program over that packed state.",
+  "hints": [
+    "Each slot can be in one of three states -- empty, holding one number, or full -- so encode the whole configuration of slots as a base-3 number, one digit per slot.",
+    "Process the input numbers one at a time in order; from a given configuration, the number of numbers already placed tells you exactly which input number comes next.",
+    "For each configuration, try placing the next number into every slot that still has room, add that number's bitwise AND with the slot's index to the running total, and keep the best total seen for any configuration that has placed every number."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 18], "value": [1, 15] },
+    { "param": "numSlots", "kind": "int", "value": [1, 9] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one slot, one number", "input": [[1], 1] },
+    { "kind": "boundary", "description": "one slot filled to capacity with two numbers", "input": [[1, 1], 1] },
+    { "kind": "trap", "description": "identical maximum-value numbers competing for limited slots", "input": [[15, 15, 15, 15], 2] },
+    { "kind": "trap", "description": "identical minimum-value numbers spread across several slots", "input": [[1, 1, 1], 4] },
+    { "kind": "boundary", "description": "maximum slot count with only a single number to place", "input": [[15], 9] },
+    { "kind": "edge", "description": "maximum slot count with a handful of varied numbers", "input": [[8, 4, 2, 1, 15, 7], 9] },
+    { "kind": "trap", "description": "two duplicate pairs forced to share only two slots", "input": [[15, 15, 1, 1], 2] }
+  ],
+  "stress": [
+    {
+      "description": "random numbers filling the maximum number of slots at maximum capacity",
+      "seed": 13,
+      "size": 18,
+      "generator_python": "def gen(rng, size):\n    num_slots = 9\n    n = min(2 * num_slots, max(1, size))\n    nums = [rng.randint(1, 15) for _ in range(n)]\n    return [nums, num_slots]\n"
+    },
+    {
+      "description": "random numbers with a smaller, tighter slot count",
+      "seed": 14,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    num_slots = rng.randint(3, 6)\n    n = min(2 * num_slots, max(1, size))\n    nums = [rng.randint(1, 15) for _ in range(n)]\n    return [nums, num_slots]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumANDSum(self, nums, numSlots):\n        n = len(nums)\n        best = 0\n        caps = [2] * numSlots\n        def rec(idx, total):\n            nonlocal best\n            if idx == n:\n                if total > best:\n                    best = total\n                return\n            for s in range(numSlots):\n                if caps[s] > 0:\n                    caps[s] -= 1\n                    rec(idx + 1, total + (nums[idx] & (s + 1)))\n                    caps[s] += 1\n        rec(0, 0)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumANDSum(self, nums, numSlots):\n        n = len(nums)\n        full = 3 ** numSlots\n        pow3 = [3 ** i for i in range(numSlots)]\n        dp = [-1] * full\n        dp[0] = 0\n        ans = 0\n        for mask in range(full):\n            if dp[mask] < 0:\n                continue\n            cnt = 0\n            for i in range(numSlots):\n                cnt += (mask // pow3[i]) % 3\n            if cnt >= n:\n                if dp[mask] > ans:\n                    ans = dp[mask]\n                continue\n            num = nums[cnt]\n            for slot in range(numSlots):\n                digit = (mask // pow3[slot]) % 3\n                if digit < 2:\n                    nm = mask + pow3[slot]\n                    val = dp[mask] + (num & (slot + 1))\n                    if val > dp[nm]:\n                        dp[nm] = val\n        return ans\n",
+    "javascript": "var maximumANDSum = function(nums, numSlots) {\n    const n = nums.length;\n    const pow3 = new Array(numSlots);\n    pow3[0] = 1;\n    for (let i = 1; i < numSlots; i++) pow3[i] = pow3[i - 1] * 3;\n    const full = pow3[numSlots - 1] * 3;\n    const dp = new Array(full).fill(-1);\n    dp[0] = 0;\n    let ans = 0;\n    for (let mask = 0; mask < full; mask++) {\n        if (dp[mask] < 0) continue;\n        let cnt = 0;\n        for (let i = 0; i < numSlots; i++) {\n            cnt += Math.floor(mask / pow3[i]) % 3;\n        }\n        if (cnt >= n) {\n            if (dp[mask] > ans) ans = dp[mask];\n            continue;\n        }\n        const num = nums[cnt];\n        for (let slot = 0; slot < numSlots; slot++) {\n            const digit = Math.floor(mask / pow3[slot]) % 3;\n            if (digit < 2) {\n                const nm = mask + pow3[slot];\n                const val = dp[mask] + (num & (slot + 1));\n                if (val > dp[nm]) dp[nm] = val;\n            }\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(3^numSlots * numSlots)", "space": "O(3^numSlots)" }
+}

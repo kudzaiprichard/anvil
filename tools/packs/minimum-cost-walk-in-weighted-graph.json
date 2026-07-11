@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-cost-walk-in-weighted-graph",
+  "judge": "exact",
+  "pattern": "Union-Find: within a connected component you can traverse all edges arbitrarily, so the minimum AND walk cost equals the AND of all edge weights in the component.",
+  "hints": [
+    "A walk within a connected component can revisit edges, so you can include every edge weight in the AND; the minimum cost between two nodes in the same component is the AND of all edge weights in that component.",
+    "Use Union-Find to group nodes by connectivity and simultaneously AND all edge weights into the root's accumulated value.",
+    "For each query, if s == t return 0; if they're in different components return -1; otherwise return the component's accumulated AND."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000] },
+    { "param": "query", "kind": "int[][]", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single edge, query within same component", "input": [3, [[0,1,5]], [[0,1]]] },
+    { "kind": "edge", "description": "disconnected nodes", "input": [4, [[0,1,3]], [[0,1],[2,3],[0,3]]] },
+    { "kind": "edge", "description": "s == t in query — cost 0", "input": [3, [[0,1,7],[1,2,3]], [[0,0],[1,1]]] },
+    { "kind": "trap", "description": "multiple edges reduce AND to 0", "input": [3, [[0,1,6],[1,2,3],[0,2,5]], [[0,2]]] },
+    { "kind": "boundary", "description": "no edges at all", "input": [4, [], [[0,1]]] },
+    { "kind": "trap", "description": "parallel edges between same nodes", "input": [2, [[0,1,7],[0,1,3]], [[0,1]]] },
+    { "kind": "boundary", "description": "single edge weight 0", "input": [2, [[0,1,0]], [[0,1]]] },
+    { "kind": "edge", "description": "chain of three nodes, query end to end", "input": [3, [[0,1,6],[1,2,5]], [[0,2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse graph",
+      "seed": 17,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = size\n    edges = []\n    for _ in range(size // 2):\n        u = rng.randint(0, n-1)\n        v = rng.randint(0, n-1)\n        if u != v:\n            w = rng.randint(0, 100000)\n            edges.append([u, v, w])\n    query = []\n    for _ in range(20):\n        s = rng.randint(0, n-1)\n        t = rng.randint(0, n-1)\n        if s != t:\n            query.append([s, t])\n    if not query:\n        query = [[0, 1]]\n    return [n, edges, query]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumCost(self, n: int, edges, query) -> list:\n        parent = list(range(n))\n        comp_and = [(1 << 17) - 1] * n  # all bits set initially\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b, w):\n            ra, rb = find(a), find(b)\n            comp_and[ra] &= w\n            comp_and[rb] &= w\n            if ra != rb:\n                parent[rb] = ra\n                comp_and[ra] &= comp_and[rb]\n        for u, v, w in edges:\n            union(u, v, w)\n        res = []\n        for s, t in query:\n            if s == t:\n                res.append(0)\n            elif find(s) != find(t):\n                res.append(-1)\n            else:\n                res.append(comp_and[find(s)])\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumCost(self, n: int, edges, query) -> list:\n        parent = list(range(n))\n        rank = [0] * n\n        comp_and = [(1 << 17) - 1] * n\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b, w):\n            ra, rb = find(a), find(b)\n            comp_and[ra] &= w\n            comp_and[rb] &= w\n            if ra == rb:\n                return\n            if rank[ra] < rank[rb]:\n                ra, rb = rb, ra\n            parent[rb] = ra\n            comp_and[ra] &= comp_and[rb]\n            if rank[ra] == rank[rb]:\n                rank[ra] += 1\n        for u, v, w in edges:\n            union(u, v, w)\n        res = []\n        for s, t in query:\n            if s == t:\n                res.append(0)\n            elif find(s) != find(t):\n                res.append(-1)\n            else:\n                res.append(comp_and[find(s)])\n        return res\n",
+    "javascript": "var minimumCost = function(n, edges, query) {\n    const parent = Array.from({length: n}, (_, i) => i);\n    const rank = new Array(n).fill(0);\n    const compAnd = new Array(n).fill((1 << 17) - 1);\n    function find(x) {\n        while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }\n        return x;\n    }\n    function union(a, b, w) {\n        let ra = find(a), rb = find(b);\n        compAnd[ra] &= w; compAnd[rb] &= w;\n        if (ra === rb) return;\n        if (rank[ra] < rank[rb]) { let t = ra; ra = rb; rb = t; }\n        parent[rb] = ra;\n        compAnd[ra] &= compAnd[rb];\n        if (rank[ra] === rank[rb]) rank[ra]++;\n    }\n    for (const [u, v, w] of edges) union(u, v, w);\n    return query.map(([s, t]) => {\n        if (s === t) return 0;\n        if (find(s) !== find(t)) return -1;\n        return compAnd[find(s)];\n    });\n};"
+  },
+  "complexity": { "time": "O((E+Q) alpha(N))", "space": "O(N)" }
+}

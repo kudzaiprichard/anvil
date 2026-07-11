@@ -1,0 +1,225 @@
+{
+  "slug": "maximum-number-of-moves-in-a-grid",
+  "judge": "exact",
+  "pattern": "Moves only ever go from column c to column c+1, so this is a longest-path problem on a DAG that can be swept one column at a time with a small reachability array.",
+  "hints": [
+    "You may start from any cell in column 0, so track, for the current column, which rows are reachable at all -- not just one starting cell.",
+    "To reach row r in column c+1, check the three candidate source rows (r-1, r, r+1) in column c and require the destination value to be strictly greater.",
+    "Sweep column by column updating the reachable-rows array; the answer is the index of the last column where at least one row was still reachable."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [
+        2,
+        1000
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "four by four grid with three possible moves",
+      "input": [
+        [
+          [
+            2,
+            4,
+            3,
+            5
+          ],
+          [
+            5,
+            4,
+            9,
+            3
+          ],
+          [
+            3,
+            4,
+            2,
+            11
+          ],
+          [
+            10,
+            9,
+            13,
+            15
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three by three grid with no possible move",
+      "input": [
+        [
+          [
+            3,
+            2,
+            4
+          ],
+          [
+            2,
+            1,
+            9
+          ],
+          [
+            1,
+            1,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest legal grid, two by two",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly increasing across every row",
+      "input": [
+        [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            1,
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every cell equal, no strict increase possible",
+      "input": [
+        [
+          [
+            5,
+            5,
+            5
+          ],
+          [
+            5,
+            5,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "only a diagonal path works, straight-across is blocked",
+      "input": [
+        [
+          [
+            4,
+            1,
+            1
+          ],
+          [
+            1,
+            5,
+            1
+          ],
+          [
+            1,
+            1,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "tall grid with few columns",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            9
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "wide grid with few rows",
+      "input": [
+        [
+          [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          [
+            6,
+            5,
+            4,
+            3,
+            2,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large randomized grid near the cell-count cap",
+      "seed": 13,
+      "size": 90000,
+      "generator_python": "def gen(rng, size):\n    total = max(4, min(size, 100000))\n    m = max(2, int(total ** 0.5))\n    n = max(2, total // m)\n    grid = [[rng.randint(1, 1000000) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "import functools\nclass Solution:\n    def maxMoves(self, grid):\n        m, n = len(grid), len(grid[0])\n        @functools.lru_cache(maxsize=None)\n        def dfs(r, c):\n            best = 0\n            if c + 1 < n:\n                for nr in (r - 1, r, r + 1):\n                    if 0 <= nr < m and grid[nr][c + 1] > grid[r][c]:\n                        cand = 1 + dfs(nr, c + 1)\n                        if cand > best:\n                            best = cand\n            return best\n        ans = max(dfs(r, 0) for r in range(m))\n        dfs.cache_clear()\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxMoves(self, grid):\n        m = len(grid)\n        n = len(grid[0])\n        dp = [True] * m\n        moves = 0\n        for c in range(1, n):\n            new_dp = [False] * m\n            any_reach = False\n            for rp in range(m):\n                for r in (rp - 1, rp, rp + 1):\n                    if 0 <= r < m and dp[r] and grid[rp][c] > grid[r][c - 1]:\n                        new_dp[rp] = True\n                        any_reach = True\n                        break\n            if not any_reach:\n                break\n            dp = new_dp\n            moves = c\n        return moves\n",
+    "javascript": "var maxMoves = function(grid) {\n    const m = grid.length;\n    const n = grid[0].length;\n    let dp = new Array(m).fill(true);\n    let moves = 0;\n    for (let c = 1; c < n; c++) {\n        const newDp = new Array(m).fill(false);\n        let anyReach = false;\n        for (let rp = 0; rp < m; rp++) {\n            for (const r of [rp - 1, rp, rp + 1]) {\n                if (r >= 0 && r < m && dp[r] && grid[rp][c] > grid[r][c - 1]) {\n                    newDp[rp] = true;\n                    anyReach = true;\n                    break;\n                }\n            }\n        }\n        if (!anyReach) break;\n        dp = newDp;\n        moves = c;\n    }\n    return moves;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m * n)",
+    "space": "O(m)"
+  }
+}

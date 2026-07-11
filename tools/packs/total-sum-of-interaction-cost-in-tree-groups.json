@@ -1,0 +1,49 @@
+{
+  "slug": "total-sum-of-interaction-cost-in-tree-groups",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Removing any single edge from a tree splits it into exactly two pieces, so the total distance a same-group pair contributes can be decomposed edge by edge -- each edge counts once for every same-group pair straddling it, and with only a handful of possible group labels that count is cheap to track per subtree.",
+  "hints": [
+    "Instead of computing the distance between every pair directly, think about each edge in isolation: removing it splits the tree into two pieces, and every path between a node in one piece and a node in the other must cross that edge exactly once.",
+    "For one edge, if you know how many nodes of each group label sit in the smaller piece (the subtree below that edge) versus the rest of the tree, the number of same-group pairs whose path crosses this edge is just (count in subtree) times (count outside it), summed over labels -- and every crossing pair contributes exactly 1 to that edge's share of the total answer.",
+    "Root the tree anywhere and do one bottom-up pass (iteratively, not recursively, since the tree can be a long chain) accumulating a small per-group count vector for each subtree; when you finish a subtree, add (inside count) * (total count - inside count) for every group label to a running answer, then merge that subtree's counts up into its parent's vector before moving on."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 99999], "value": [0, 99999] },
+    { "param": "group", "kind": "int[]", "len": [1, 100000], "value": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "path of three nodes, all one group", "input": [3, [[0, 1], [1, 2]], [1, 1, 1]] },
+    { "kind": "edge", "description": "path of three nodes, only the endpoints share a group", "input": [3, [[0, 1], [1, 2]], [3, 2, 3]] },
+    { "kind": "edge", "description": "star of four nodes, two groups of two", "input": [4, [[0, 1], [0, 2], [0, 3]], [1, 1, 4, 4]] },
+    { "kind": "trap", "description": "single edge, two different groups contribute nothing", "input": [2, [[0, 1]], [9, 8]] },
+    { "kind": "boundary", "description": "single node, no edges, no pairs possible", "input": [1, [], [7]] },
+    { "kind": "boundary", "description": "single node, group label at the maximum of twenty", "input": [1, [], [20]] },
+    { "kind": "trap", "description": "long path (linked-list shaped tree) with alternating groups, to catch off-by-one edge counting", "input": [6, [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]], [1, 2, 1, 2, 1, 2]] },
+    { "kind": "trap", "description": "star shape where every leaf shares the same group as the center, all pairs go through the center", "input": [5, [[0, 1], [0, 2], [0, 3], [0, 4]], [1, 1, 1, 1, 1]] },
+    { "kind": "edge", "description": "every node its own distinct group, answer must be zero", "input": [5, [[0, 1], [1, 2], [2, 3], [3, 4]], [1, 2, 3, 4, 5]] },
+    { "kind": "trap", "description": "edges given with endpoints in reverse order from how a naive parent-finder might expect, and root (node 0) is a leaf rather than internal", "input": [4, [[1, 0], [2, 1], [3, 1]], [1, 1, 1, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree built by attaching each new node to a uniformly random earlier node (produces a mix of shapes including skewed ones), with a random relabeling of node ids so the root is not trivially node 0 in structure; group labels drawn from the full 1..20 range; kept at a modest size so the O(n^2) BFS oracle finishes comfortably",
+      "seed": 31,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 400))\n    if n == 1:\n        return [1, [], [rng.randint(1, 20)]]\n    raw_edges = []\n    for i in range(1, n):\n        p = rng.randint(0, i - 1)\n        raw_edges.append([p, i])\n    perm = list(range(n))\n    rng.shuffle(perm)\n    edges = []\n    for u, v in raw_edges:\n        a, b = perm[u], perm[v]\n        if rng.random() < 0.5:\n            a, b = b, a\n        edges.append([a, b])\n    rng.shuffle(edges)\n    group = [rng.randint(1, 20) for _ in range(n)]\n    return [n, edges, group]\n",
+      "note": "n capped at 400 so the O(n^2) all-pairs-BFS oracle stays well under the time budget"
+    },
+    {
+      "description": "long skewed path (worst case for recursion-depth-sensitive implementations), still kept modest for the oracle",
+      "seed": 32,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 400))\n    edges = [[i, i + 1] for i in range(n - 1)]\n    group = [rng.randint(1, 20) for _ in range(n)]\n    return [n, edges, group]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\n\nclass Solution:\n    def interactionCosts(self, n, edges, group):\n        if n <= 1:\n            return 0\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        total = 0\n        for src in range(n):\n            dist = [-1] * n\n            dist[src] = 0\n            q = deque([src])\n            while q:\n                u = q.popleft()\n                for v in adj[u]:\n                    if dist[v] == -1:\n                        dist[v] = dist[u] + 1\n                        q.append(v)\n            for dst in range(src + 1, n):\n                if group[src] == group[dst]:\n                    total += dist[dst]\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def interactionCosts(self, n, edges, group):\n        if n <= 1:\n            return 0\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n\n        total = [0] * 21\n        for g in group:\n            total[g] += 1\n\n        parent = [-1] * n\n        order = []\n        visited = [False] * n\n        stack = [0]\n        visited[0] = True\n        while stack:\n            u = stack.pop()\n            order.append(u)\n            for v in adj[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    parent[v] = u\n                    stack.append(v)\n\n        count = [None] * n\n        for u in order:\n            c = [0] * 21\n            c[group[u]] += 1\n            count[u] = c\n\n        answer = 0\n        for u in reversed(order):\n            p = parent[u]\n            if p == -1:\n                continue\n            cu = count[u]\n            for g in range(1, 21):\n                a = cu[g]\n                b = total[g] - a\n                answer += a * b\n            cp = count[p]\n            for g in range(1, 21):\n                cp[g] += cu[g]\n\n        return answer\n",
+    "javascript": "var interactionCosts = function(n, edges, group) {\n    if (n <= 1) return 0;\n    const adj = Array.from({ length: n }, () => []);\n    for (const [u, v] of edges) {\n        adj[u].push(v);\n        adj[v].push(u);\n    }\n\n    const total = new Array(21).fill(0);\n    for (const g of group) total[g]++;\n\n    const parent = new Array(n).fill(-1);\n    const order = [];\n    const visited = new Array(n).fill(false);\n    const stack = [0];\n    visited[0] = true;\n    while (stack.length) {\n        const u = stack.pop();\n        order.push(u);\n        for (const v of adj[u]) {\n            if (!visited[v]) {\n                visited[v] = true;\n                parent[v] = u;\n                stack.push(v);\n            }\n        }\n    }\n\n    const count = new Array(n);\n    for (const u of order) {\n        const c = new Array(21).fill(0);\n        c[group[u]]++;\n        count[u] = c;\n    }\n\n    let answer = 0;\n    for (let i = order.length - 1; i >= 0; i--) {\n        const u = order[i];\n        const p = parent[u];\n        if (p === -1) continue;\n        const cu = count[u];\n        for (let g = 1; g <= 20; g++) {\n            const a = cu[g];\n            const b = total[g] - a;\n            answer += a * b;\n        }\n        const cp = count[p];\n        for (let g = 1; g <= 20; g++) {\n            cp[g] += cu[g];\n        }\n    }\n    return answer;\n};\n"
+  },
+  "complexity": { "time": "O(n * 20)", "space": "O(n)" }
+}

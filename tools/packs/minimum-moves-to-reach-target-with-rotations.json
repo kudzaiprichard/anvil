@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-moves-to-reach-target-with-rotations",
+  "judge": "exact",
+  "pattern": "The snake's state is its tail cell plus its orientation, so a breadth-first search over those states finds the fewest moves, expanding each state by the legal right, down, and rotation transitions.",
+  "hints": [
+    "A snake is fully described by the position of one end and whether it lies horizontally or vertically.",
+    "Treat each (tail row, tail column, orientation) as a graph node and search for the shortest path to the goal state.",
+    "From a horizontal state try move-right, move-down, and clockwise rotation (needs the two cells below clear); from a vertical state try move-right, move-down, and counterclockwise rotation (needs the two cells to the right clear); BFS gives the minimum move count, or -1 if the goal is unreachable."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [2, 100], "value": [0, 1] }
+  ],
+  "no_anchor_ok": true,
+  "edge_inputs": [
+    { "kind": "edge", "description": "first statement example requiring rotations both ways", "input": [[[0, 0, 0, 0, 0, 1], [1, 1, 0, 0, 1, 0], [0, 0, 0, 0, 1, 1], [0, 0, 1, 0, 1, 0], [0, 1, 1, 0, 0, 0], [0, 1, 1, 0, 0, 0]]] },
+    { "kind": "edge", "description": "second statement example, a tighter corridor", "input": [[[0, 0, 1, 1, 1, 1], [0, 0, 0, 0, 1, 1], [1, 1, 0, 0, 0, 1], [1, 1, 1, 0, 0, 1], [1, 1, 1, 0, 0, 1], [1, 1, 1, 0, 0, 0]]] },
+    { "kind": "boundary", "description": "smallest open grid, two moves straight across", "input": [[[0, 0], [0, 0]]] },
+    { "kind": "trap", "description": "goal blocked so the snake cannot finish", "input": [[[0, 0, 0], [0, 0, 0], [1, 1, 0]]] },
+    { "kind": "edge", "description": "open three-by-three, pure rightward then downward", "input": [[[0, 0, 0], [0, 0, 0], [0, 0, 0]]] },
+    { "kind": "trap", "description": "narrow gap forces a rotate to descend", "input": [[[0, 0, 0, 0], [1, 1, 0, 1], [1, 1, 0, 1], [1, 1, 0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random small grids with a low obstacle density, start and goal kept clear",
+      "seed": 67,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(2, size + 1)\n    grid = [[1 if rng.random() < 0.18 else 0 for _ in range(n)] for _ in range(n)]\n    grid[0][0] = 0\n    grid[0][1] = 0\n    grid[n - 1][n - 2] = 0\n    grid[n - 1][n - 1] = 0\n    return [grid]\n",
+      "note": "low density keeps many instances solvable while some return -1"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumMoves(self, grid):\n        n = len(grid)\n        from collections import deque\n        # state: (r, c, h) tail at (r,c); h=0 horizontal occupies (r,c),(r,c+1)\n        # h=1 vertical occupies (r,c),(r+1,c)\n        start = (0, 0, 0)\n        goal = (n - 1, n - 2, 0)\n        def free(r, c):\n            return 0 <= r < n and 0 <= c < n and grid[r][c] == 0\n        # plain BFS over an explicit visited dict, distinct from the optimal's set\n        dist = {start: 0}\n        q = deque([start])\n        while q:\n            r, c, h = q.popleft()\n            d = dist[(r, c, h)]\n            nbrs = []\n            if h == 0:\n                if free(r, c + 2):\n                    nbrs.append((r, c + 1, 0))\n                if free(r + 1, c) and free(r + 1, c + 1):\n                    nbrs.append((r + 1, c, 0))\n                    nbrs.append((r, c, 1))\n            else:\n                if free(r, c + 1) and free(r + 1, c + 1):\n                    nbrs.append((r, c + 1, 1))\n                    nbrs.append((r, c, 0))\n                if free(r + 2, c):\n                    nbrs.append((r + 1, c, 1))\n            for s in nbrs:\n                if s not in dist:\n                    dist[s] = d + 1\n                    q.append(s)\n        return dist.get(goal, -1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumMoves(self, grid):\n        n = len(grid)\n        from collections import deque\n        def free(r, c):\n            return 0 <= r < n and 0 <= c < n and grid[r][c] == 0\n        start = (0, 0, 0)\n        goal = (n - 1, n - 2, 0)\n        seen = {start}\n        q = deque([(start, 0)])\n        while q:\n            (r, c, h), d = q.popleft()\n            if (r, c, h) == goal:\n                return d\n            cand = []\n            if h == 0:\n                if free(r, c + 2):\n                    cand.append((r, c + 1, 0))\n                if free(r + 1, c) and free(r + 1, c + 1):\n                    cand.append((r + 1, c, 0))\n                    cand.append((r, c, 1))\n            else:\n                if free(r, c + 1) and free(r + 1, c + 1):\n                    cand.append((r, c + 1, 1))\n                    cand.append((r, c, 0))\n                if free(r + 2, c):\n                    cand.append((r + 1, c, 1))\n            for s in cand:\n                if s not in seen:\n                    seen.add(s)\n                    q.append((s, d + 1))\n        return -1\n",
+    "javascript": "var minimumMoves = function(grid) {\n    const n = grid.length;\n    const free = (r, c) => r >= 0 && r < n && c >= 0 && c < n && grid[r][c] === 0;\n    const key = (r, c, h) => r * n * 2 + c * 2 + h;\n    const start = [0, 0, 0];\n    const goalKey = key(n - 1, n - 2, 0);\n    const seen = new Set([key(0, 0, 0)]);\n    let q = [[0, 0, 0, 0]];\n    let head = 0;\n    while (head < q.length) {\n        const [r, c, h, d] = q[head++];\n        if (key(r, c, h) === goalKey) return d;\n        const cand = [];\n        if (h === 0) {\n            if (free(r, c + 2)) cand.push([r, c + 1, 0]);\n            if (free(r + 1, c) && free(r + 1, c + 1)) {\n                cand.push([r + 1, c, 0]);\n                cand.push([r, c, 1]);\n            }\n        } else {\n            if (free(r, c + 1) && free(r + 1, c + 1)) {\n                cand.push([r, c + 1, 1]);\n                cand.push([r, c, 0]);\n            }\n            if (free(r + 2, c)) cand.push([r + 1, c, 1]);\n        }\n        for (const [nr, nc, nh] of cand) {\n            const k = key(nr, nc, nh);\n            if (!seen.has(k)) {\n                seen.add(k);\n                q.push([nr, nc, nh, d + 1]);\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

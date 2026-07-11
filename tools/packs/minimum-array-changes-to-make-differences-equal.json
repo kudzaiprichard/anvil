@@ -1,0 +1,136 @@
+{
+  "slug": "minimum-array-changes-to-make-differences-equal",
+  "judge": "exact",
+  "pattern": "Each mirrored pair contributes independently to any candidate target difference X, and the number of changes it needs for a given X only takes three possible values -- so sweeping X once with a difference array finds the best choice for the whole array at once.",
+  "hints": [
+    "Pair up index i with index n-1-i; for a fixed target difference X, that pair needs 0 changes if it already differs by X, and otherwise needs 1 change whenever a single value in [0, k] can be adjusted to make the difference X, or 2 changes if neither side alone can reach it.",
+    "For a pair (a, b), the largest X for which changing just one of them still works out to max(a, k-a, b, k-b): below or at that threshold one change suffices, above it both must change.",
+    "Use a difference array over X in [0, k]: add a range +1 saving (from 2 down to 1) for every X up to that pair's threshold, add one more point saving exactly at X = |a-b| (0 instead of 1), then scan prefix sums once to find the X with the largest total saving."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, best X is 2",
+      "input": [
+        [
+          1,
+          0,
+          1,
+          2,
+          4,
+          3
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, best X is 4",
+      "input": [
+        [
+          0,
+          1,
+          2,
+          3,
+          3,
+          6,
+          5,
+          4
+        ],
+        6
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest array, already satisfies X=0",
+      "input": [
+        [
+          0,
+          0
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k is zero, every value is pinned to zero",
+      "input": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every pair already shares the same difference",
+      "input": [
+        [
+          5,
+          1,
+          5,
+          1
+        ],
+        10
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "pairs with wildly different natural gaps",
+      "input": [
+        [
+          0,
+          10,
+          5,
+          5,
+          10,
+          0
+        ],
+        10
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random even-length arrays with random k",
+      "seed": 27,
+      "size": 40000,
+      "generator_python": "def gen(rng, size):\n    half = max(1, min(size, 50000) // 2)\n    n = 2 * half\n    k = rng.randint(0, 100000)\n    nums = [rng.randint(0, k) for _ in range(n)]\n    return [nums, k]\n",
+      "note": "n scales up to the real constraint"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minChanges(self, nums, k):\n        n = len(nums)\n        m = n // 2\n        pairs = [(nums[i], nums[n - 1 - i]) for i in range(m)]\n        best = None\n        for X in range(k + 1):\n            total = 0\n            for a, b in pairs:\n                if abs(a - b) == X:\n                    cost = 0\n                elif (0 <= a + X <= k) or (0 <= a - X <= k) or (0 <= b + X <= k) or (0 <= b - X <= k):\n                    cost = 1\n                else:\n                    cost = 2\n                total += cost\n            if best is None or total < best:\n                best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minChanges(self, nums, k):\n        n = len(nums)\n        m = n // 2\n        diff = [0] * (k + 2)\n        delta_cnt = [0] * (k + 1)\n        for i in range(m):\n            a = nums[i]\n            b = nums[n - 1 - i]\n            delta = abs(a - b)\n            M = max(a, k - a, b, k - b)\n            diff[0] += 1\n            diff[min(M, k) + 1] -= 1\n            delta_cnt[delta] += 1\n        best = None\n        acc = 0\n        for x in range(k + 1):\n            acc += diff[x]\n            discount = acc + delta_cnt[x]\n            cost = 2 * m - discount\n            if best is None or cost < best:\n                best = cost\n        return best\n",
+    "javascript": "var minChanges = function(nums, k) {\n    const n = nums.length;\n    const m = Math.floor(n / 2);\n    const diff = new Array(k + 2).fill(0);\n    const deltaCnt = new Array(k + 1).fill(0);\n    for (let i = 0; i < m; i++) {\n        const a = nums[i];\n        const b = nums[n - 1 - i];\n        const delta = Math.abs(a - b);\n        const M = Math.max(a, k - a, b, k - b);\n        diff[0] += 1;\n        diff[Math.min(M, k) + 1] -= 1;\n        deltaCnt[delta] += 1;\n    }\n    let best = Infinity;\n    let acc = 0;\n    for (let x = 0; x <= k; x++) {\n        acc += diff[x];\n        const discount = acc + deltaCnt[x];\n        const cost = 2 * m - discount;\n        if (cost < best) best = cost;\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + k)",
+    "space": "O(k)"
+  }
+}

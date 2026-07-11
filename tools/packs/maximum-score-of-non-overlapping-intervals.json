@@ -1,0 +1,266 @@
+{
+  "slug": "maximum-score-of-non-overlapping-intervals",
+  "judge": "exact",
+  "pattern": "Weighted interval scheduling with a cap of four picks reduces to a small DP over intervals sorted by end point, where skipping or taking each interval is compared first by score and, on a tie, by which choice keeps the eventual index list lexicographically smaller.",
+  "hints": [
+    "Sort intervals by right endpoint; for each interval, binary search for the last earlier interval whose right endpoint is strictly before this one's left endpoint -- that is the only kind of interval it can be combined with.",
+    "Keep a DP over (position, how many of the 4 picks are still available): either skip the current interval and keep the previous best, or take it and add its weight to the best compatible state with one fewer pick remaining.",
+    "When skipping and taking tie on total score, prefer whichever produces the lexicographically smaller sorted list of original indices; taking an interval's best completion is already uniquely determined, so only two candidates ever need to be compared at each step."
+  ],
+  "constraints": [
+    {
+      "param": "intervals",
+      "kind": "int[][]",
+      "rows": [
+        1,
+        50000
+      ],
+      "cols": [
+        3,
+        3
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, six intervals, best pair found",
+      "input": [
+        [
+          [
+            1,
+            3,
+            2
+          ],
+          [
+            4,
+            5,
+            2
+          ],
+          [
+            1,
+            5,
+            5
+          ],
+          [
+            6,
+            9,
+            3
+          ],
+          [
+            6,
+            7,
+            1
+          ],
+          [
+            8,
+            9,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, seven intervals, best group of four",
+      "input": [
+        [
+          [
+            5,
+            8,
+            1
+          ],
+          [
+            6,
+            7,
+            7
+          ],
+          [
+            4,
+            7,
+            3
+          ],
+          [
+            9,
+            10,
+            6
+          ],
+          [
+            7,
+            8,
+            2
+          ],
+          [
+            11,
+            14,
+            3
+          ],
+          [
+            3,
+            5,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single interval, trivially chosen",
+      "input": [
+        [
+          [
+            1,
+            2,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "sharing an endpoint counts as overlapping, so both cannot be chosen",
+      "input": [
+        [
+          [
+            1,
+            3,
+            5
+          ],
+          [
+            3,
+            5,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "five candidates all pairwise disjoint, only four may be kept",
+      "input": [
+        [
+          [
+            1,
+            1,
+            10
+          ],
+          [
+            2,
+            2,
+            10
+          ],
+          [
+            3,
+            3,
+            10
+          ],
+          [
+            4,
+            4,
+            10
+          ],
+          [
+            5,
+            5,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "greedily taking the earliest interval blocks a better later pair",
+      "input": [
+        [
+          [
+            1,
+            10,
+            1
+          ],
+          [
+            2,
+            3,
+            4
+          ],
+          [
+            4,
+            5,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "ties in score must resolve to the lexicographically smallest indices",
+      "input": [
+        [
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            3,
+            4,
+            5
+          ],
+          [
+            10,
+            11,
+            5
+          ],
+          [
+            12,
+            13,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "everything overlaps everything, only the heaviest single interval counts",
+      "input": [
+        [
+          [
+            1,
+            100,
+            1
+          ],
+          [
+            1,
+            100,
+            2
+          ],
+          [
+            1,
+            100,
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "many random small intervals with random weights, encouraging real overlaps",
+      "seed": 37,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 50000))\n    intervals = []\n    for _ in range(n):\n        l = rng.randint(1, 200)\n        r = l + rng.randint(0, 10)\n        w = rng.randint(1, 1000000000)\n        intervals.append([l, r, w])\n    return [intervals]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\n\nclass Solution:\n    def maximumWeight(self, intervals):\n        n = len(intervals)\n        best_score = -1\n        best_idx = None\n        for size in range(0, 5):\n            for combo in combinations(range(n), size):\n                order = sorted(combo, key=lambda i: intervals[i][0])\n                ok = True\n                for a, b in zip(order, order[1:]):\n                    if intervals[a][1] >= intervals[b][0]:\n                        ok = False\n                        break\n                if not ok:\n                    continue\n                score = sum(intervals[i][2] for i in combo)\n                idx_sorted = tuple(sorted(combo))\n                if score > best_score or (score == best_score and (best_idx is None or idx_sorted < best_idx)):\n                    best_score = score\n                    best_idx = idx_sorted\n        return list(best_idx) if best_idx is not None else []\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass Solution:\n    def maximumWeight(self, intervals):\n        n = len(intervals)\n        order = sorted(range(n), key=lambda i: intervals[i][1])\n        L = [intervals[i][0] for i in order]\n        R = [intervals[i][1] for i in order]\n        W = [intervals[i][2] for i in order]\n        orig = order\n\n        NEG = -1\n        dp = [[(0, ())] * 5 for _ in range(n + 1)]\n        for i in range(1, n + 1):\n            p_idx = bisect.bisect_left(R, L[i - 1])\n            for k in range(5):\n                skip = dp[i - 1][k]\n                best = skip\n                if k >= 1:\n                    base_score, base_idx = dp[p_idx][k - 1]\n                    new_score = base_score + W[i - 1]\n                    new_idx = tuple(sorted(base_idx + (orig[i - 1],)))\n                    take = (new_score, new_idx)\n                    if take[0] > best[0] or (take[0] == best[0] and take[1] < best[1]):\n                        best = take\n                dp[i][k] = best\n        return list(dp[n][4][1])\n",
+    "javascript": "var maximumWeight = function(intervals) {\n    const n = intervals.length;\n    const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => intervals[a][1] - intervals[b][1]);\n    const L = order.map(i => intervals[i][0]);\n    const R = order.map(i => intervals[i][1]);\n    const W = order.map(i => intervals[i][2]);\n\n    function lowerBound(arr, target) {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] < target) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n    function cmpIdx(a, b) {\n        const n2 = Math.min(a.length, b.length);\n        for (let i = 0; i < n2; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return a.length - b.length;\n    }\n\n    const dp = [];\n    for (let i = 0; i <= n; i++) {\n        dp.push(new Array(5).fill(null).map(() => [0, []]));\n    }\n    for (let i = 1; i <= n; i++) {\n        const pIdx = lowerBound(R, L[i - 1]);\n        for (let k = 0; k < 5; k++) {\n            let best = dp[i - 1][k];\n            if (k >= 1) {\n                const [baseScore, baseIdx] = dp[pIdx][k - 1];\n                const newScore = baseScore + W[i - 1];\n                const newIdx = baseIdx.concat([order[i - 1]]).sort((a, b) => a - b);\n                if (newScore > best[0] || (newScore === best[0] && cmpIdx(newIdx, best[1]) < 0)) {\n                    best = [newScore, newIdx];\n                }\n            }\n            dp[i][k] = best;\n        }\n    }\n    return dp[n][4][1];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

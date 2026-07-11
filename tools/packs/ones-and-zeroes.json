@@ -1,0 +1,41 @@
+{
+  "slug": "ones-and-zeroes",
+  "judge": "exact",
+  "pattern": "2-D knapsack DP where each string costs (zeros, ones) and you maximize the count of strings packed within capacity (m, n).",
+  "hints": [
+    "Treat m and n as two independent weight dimensions; each binary string has a weight equal to its count of 0s and 1s.",
+    "Define dp[i][j] as the largest subset size achievable using at most i zeros and j ones, and update it for each string.",
+    "Iterate strings and update the DP table from large capacities down to small (like a 1-D knapsack) to prevent counting a string twice."
+  ],
+  "constraints": [
+    { "param": "strs", "kind": "string[]", "len": [1, 600] },
+    { "param": "m", "kind": "int", "value": [1, 100] },
+    { "param": "n", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic mixed example with best subset of size 4", "input": [["10", "0001", "111001", "1", "0"], 5, 3] },
+    { "kind": "edge", "description": "two-string example where both fit under tight budget", "input": [["10", "0", "1"], 1, 1] },
+    { "kind": "boundary", "description": "single string that exactly fits the budget", "input": [["10"], 1, 1] },
+    { "kind": "boundary", "description": "single string that does not fit", "input": [["111"], 1, 1] },
+    { "kind": "trap", "description": "all strings are '0', budget on ones is 0 so all fit", "input": [["0", "0", "0"], 3, 0] },
+    { "kind": "trap", "description": "all strings are '1', budget on zeros is 0 so all fit", "input": [["1", "1", "1"], 0, 3] },
+    { "kind": "trap", "description": "zero budget for both — no string can be selected", "input": [["01", "10"], 0, 0] },
+    { "kind": "boundary", "description": "maximum budget absorbs every string", "input": [["0", "1", "00", "11", "000", "111"], 100, 100] }
+  ],
+  "stress": [
+    {
+      "description": "large random binary string set with moderate budgets",
+      "seed": 42,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n_strs = max(1, size)\n    strs = [''.join(rng.choice('01') for _ in range(rng.randint(1, 20))) for _ in range(n_strs)]\n    m = rng.randint(30, 60)\n    n = rng.randint(30, 60)\n    return [strs, m, n]\n",
+      "note": "sizes within constraint limits for correct DP"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMaxForm(self, strs, m, n):\n        # brute force: try all subsets (only practical for small inputs)\n        from itertools import combinations\n        counts = [(s.count('0'), s.count('1')) for s in strs]\n        best = 0\n        for r in range(len(strs) + 1):\n            for combo in combinations(range(len(strs)), r):\n                z = sum(counts[i][0] for i in combo)\n                o = sum(counts[i][1] for i in combo)\n                if z <= m and o <= n:\n                    best = max(best, r)\n        return best\n",
+  "no_anchor_ok": false,
+  "solutions": {
+    "python": "class Solution:\n    def findMaxForm(self, strs, m, n):\n        dp = [[0] * (n + 1) for _ in range(m + 1)]\n        for s in strs:\n            zeros = s.count('0')\n            ones = s.count('1')\n            for i in range(m, zeros - 1, -1):\n                for j in range(n, ones - 1, -1):\n                    dp[i][j] = max(dp[i][j], dp[i - zeros][j - ones] + 1)\n        return dp[m][n]\n",
+    "javascript": "var findMaxForm = function(strs, m, n) {\n    const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));\n    for (const s of strs) {\n        const zeros = s.split('').filter(c => c === '0').length;\n        const ones = s.length - zeros;\n        for (let i = m; i >= zeros; i--) {\n            for (let j = n; j >= ones; j--) {\n                dp[i][j] = Math.max(dp[i][j], dp[i - zeros][j - ones] + 1);\n            }\n        }\n    }\n    return dp[m][n];\n};\n"
+  },
+  "complexity": { "time": "O(len(strs) * m * n)", "space": "O(m * n)" }
+}

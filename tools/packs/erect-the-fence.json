@@ -1,0 +1,36 @@
+{
+  "slug": "erect-the-fence",
+  "judge": "unordered",
+  "pattern": "Finding the trees on the enclosing fence is a convex-hull problem where points lying exactly on a hull edge must also be kept.",
+  "hints": [
+    "The minimum rope outline is the convex hull of the points.",
+    "Unlike a strict hull, collinear points on the boundary must be included, so do not discard them.",
+    "Use a monotonic-chain hull but keep boundary-collinear points; with the small coordinate range, deduplicate the final set of perimeter points."
+  ],
+  "constraints": [
+    { "param": "trees", "kind": "int[][]", "len": [1, 3000], "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "interior point excluded", "input": [[[1, 1], [2, 2], [2, 0], [2, 4], [3, 3], [4, 2]]] },
+    { "kind": "trap", "description": "all collinear horizontal", "input": [[[1, 2], [2, 2], [4, 2]]] },
+    { "kind": "boundary", "description": "single tree", "input": [[[0, 0]]] },
+    { "kind": "edge", "description": "two trees", "input": [[[0, 0], [3, 3]]] },
+    { "kind": "trap", "description": "collinear with extra interior", "input": [[[0, 0], [1, 1], [2, 2], [3, 3], [1, 0]]] },
+    { "kind": "edge", "description": "square with center", "input": [[[0, 0], [0, 2], [2, 0], [2, 2], [1, 1]]] },
+    { "kind": "trap", "description": "edge midpoints on hull", "input": [[[0, 0], [0, 4], [4, 0], [4, 4], [0, 2], [2, 0], [2, 4], [4, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random distinct integer points in the allowed coordinate box",
+      "seed": 41,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(400, size))\n    pts = set()\n    attempts = 0\n    while len(pts) < n and attempts < n * 20:\n        attempts += 1\n        pts.add((rng.randint(0, 30), rng.randint(0, 30)))\n    return [[list(p) for p in pts]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def outerTrees(self, trees):\n        pts = [tuple(p) for p in trees]\n        n = len(pts)\n        if n <= 3:\n            return [list(p) for p in set(pts)]\n        def cross(o, a, b):\n            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])\n        on_hull = set()\n        for i in range(n):\n            for j in range(n):\n                if i == j:\n                    continue\n                a = pts[i]\n                b = pts[j]\n                pos = neg = False\n                ok = True\n                for k in range(n):\n                    if k == i or k == j:\n                        continue\n                    c = cross(a, b, pts[k])\n                    if c > 0:\n                        pos = True\n                    elif c < 0:\n                        neg = True\n                    if pos and neg:\n                        ok = False\n                        break\n                if ok:\n                    minx, maxx = min(a[0], b[0]), max(a[0], b[0])\n                    miny, maxy = min(a[1], b[1]), max(a[1], b[1])\n                    for k in range(n):\n                        c = pts[k]\n                        if cross(a, b, c) == 0 and minx <= c[0] <= maxx and miny <= c[1] <= maxy:\n                            on_hull.add(c)\n        return [list(p) for p in on_hull]\n",
+  "solutions": {
+    "python": "class Solution:\n    def outerTrees(self, trees):\n        pts = sorted(set(tuple(p) for p in trees))\n        if len(pts) <= 2:\n            return [list(p) for p in pts]\n        def cross(o, a, b):\n            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])\n        lower = []\n        for p in pts:\n            while len(lower) >= 2 and cross(lower[-2], lower[-1], p) < 0:\n                lower.pop()\n            lower.append(p)\n        upper = []\n        for p in reversed(pts):\n            while len(upper) >= 2 and cross(upper[-2], upper[-1], p) < 0:\n                upper.pop()\n            upper.append(p)\n        result = set(lower) | set(upper)\n        return [list(p) for p in result]\n",
+    "javascript": "var outerTrees = function(trees) {\n    const seen = new Set();\n    const pts = [];\n    for (const [x, y] of trees) {\n        const key = x + ',' + y;\n        if (!seen.has(key)) { seen.add(key); pts.push([x, y]); }\n    }\n    pts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);\n    if (pts.length <= 2) return pts.map(p => [p[0], p[1]]);\n    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);\n    const lower = [];\n    for (const p of pts) {\n        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) < 0) lower.pop();\n        lower.push(p);\n    }\n    const upper = [];\n    for (let i = pts.length - 1; i >= 0; i--) {\n        const p = pts[i];\n        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) < 0) upper.pop();\n        upper.push(p);\n    }\n    const resSet = new Map();\n    for (const p of lower) resSet.set(p[0] + ',' + p[1], [p[0], p[1]]);\n    for (const p of upper) resSet.set(p[0] + ',' + p[1], [p[0], p[1]]);\n    return Array.from(resSet.values());\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "jump-game-vii",
+  "judge": "exact",
+  "pattern": "A reachability DP over indices uses a sliding window prefix count so each zero position is reachable when some reachable index lies in its valid jump window.",
+  "hints": [
+    "Index zero is reachable; an index is reachable only if it holds a zero and some earlier reachable index sits within the jump range.",
+    "Naively scanning the whole window per index is too slow; maintain a running count of reachable indices inside the moving window.",
+    "Let reach[i] be true when s[i] is zero and the count of reachable indices in [i-maxJump, i-minJump] is positive; slide that window with a prefix sum."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [2, 100000] },
+    { "param": "minJump", "kind": "int", "value": [1, 99999] },
+    { "param": "maxJump", "kind": "int", "value": [1, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "reachable via two hops", "input": ["011010", 2, 3] },
+    { "kind": "trap", "description": "blocked despite zeros", "input": ["01101110", 2, 3] },
+    { "kind": "boundary", "description": "shortest string directly reachable", "input": ["00", 1, 1] },
+    { "kind": "trap", "description": "last index is a one so unreachable", "input": ["001", 1, 2] },
+    { "kind": "trap", "description": "gap larger than maxJump blocks progress", "input": ["0001", 1, 1] },
+    { "kind": "edge", "description": "all zeros wide window", "input": ["000000", 1, 5] },
+    { "kind": "trap", "description": "minJump skips the only landing", "input": ["0100", 2, 2] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings forced to start with zero, random valid jump bounds",
+      "seed": 37,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, size))\n    chars = ['0'] + [rng.choice('01') for _ in range(n - 1)]\n    s = ''.join(chars)\n    mn = rng.randint(1, n - 1)\n    mx = rng.randint(mn, n - 1)\n    return [s, mn, mx]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def canReach(self, s, minJump, maxJump):\n        n = len(s)\n        if s[-1] != '0':\n            return False\n        # BFS with a pointer to avoid re-scanning already-queued indices\n        visited = [False] * n\n        visited[0] = True\n        q = deque([0])\n        far = 0  # highest index already enqueued/considered\n        while q:\n            i = q.popleft()\n            lo = max(i + minJump, far + 1)\n            hi = min(i + maxJump, n - 1)\n            for j in range(lo, hi + 1):\n                if s[j] == '0' and not visited[j]:\n                    visited[j] = True\n                    if j == n - 1:\n                        return True\n                    q.append(j)\n            far = max(far, i + maxJump)\n        return visited[n - 1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def canReach(self, s, minJump, maxJump):\n        n = len(s)\n        if s[-1] != '0':\n            return False\n        reach = [0] * n\n        reach[0] = 1\n        pre = [0] * (n + 1)\n        pre[1] = 1\n        for i in range(1, n):\n            if s[i] == '0':\n                lo = max(0, i - maxJump)\n                hi = i - minJump\n                if hi >= lo:\n                    if pre[hi + 1] - pre[lo] > 0:\n                        reach[i] = 1\n            pre[i + 1] = pre[i] + reach[i]\n        return reach[n - 1] == 1\n",
+    "javascript": "var canReach = function(s, minJump, maxJump) {\n    const n = s.length;\n    if (s[n - 1] !== '0') return false;\n    const reach = new Array(n).fill(0);\n    reach[0] = 1;\n    const pre = new Array(n + 1).fill(0);\n    pre[1] = 1;\n    for (let i = 1; i < n; i++) {\n        if (s[i] === '0') {\n            const lo = Math.max(0, i - maxJump);\n            const hi = i - minJump;\n            if (hi >= lo && pre[hi + 1] - pre[lo] > 0) reach[i] = 1;\n        }\n        pre[i + 1] = pre[i] + reach[i];\n    }\n    return reach[n - 1] === 1;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

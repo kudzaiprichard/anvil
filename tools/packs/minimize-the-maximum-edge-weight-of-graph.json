@@ -1,0 +1,50 @@
+{
+  "slug": "minimize-the-maximum-edge-weight-of-graph",
+  "judge": "exact",
+  "pattern": "Reaching node 0 from anywhere only ever needs one chosen outgoing edge per node, so the smallest workable cap on edge weight is exactly the bottleneck (minimax) value of the cheapest-worst-edge path from each node back to the root -- a widest-path problem solved like Dijkstra but minimizing the maximum edge instead of the sum.",
+  "hints": [
+    "Reverse every directed edge conceptually: you care about how each node can reach node 0, so build an adjacency list keyed by the edge's destination pointing back at its source.",
+    "Because you only ever need one surviving outgoing edge per node to form a path to the root, this reduces to: for every node, find a path to 0 whose largest edge weight is as small as possible -- a minimax shortest path, solvable with a Dijkstra-style relaxation that propagates max(currentBest, edgeWeight) instead of a sum.",
+    "Run the minimax relaxation from node 0 outward over the reversed edges; if every node ends up with a finite bottleneck value, the answer is the largest of those values, otherwise some node can never reach 0 and the answer is -1."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000], "value": [0, 1000000] },
+    { "param": "threshold", "kind": "int", "value": [1, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, one edge removed to reach weight 1", "input": [5, [[1,0,1],[2,0,2],[3,0,1],[4,3,1],[2,1,1]], 2] },
+    { "kind": "trap", "description": "no edge points into node 0 at all, so nothing can reach it", "input": [5, [[0,1,1],[0,2,2],[0,3,1],[0,4,1],[1,2,1],[1,4,1]], 1] },
+    { "kind": "edge", "description": "a chain-like graph funneling into node 0 through node 4", "input": [5, [[1,2,1],[1,3,3],[1,4,5],[2,3,2],[3,4,2],[4,0,1]], 1] },
+    { "kind": "trap", "description": "one node has no outgoing edge at all and can never reach 0", "input": [5, [[1,2,1],[1,3,3],[1,4,5],[2,3,2],[4,0,1]], 1] },
+    { "kind": "boundary", "description": "smallest possible graph, two nodes, single edge into the root", "input": [2, [[1,0,1000000]], 1] },
+    { "kind": "trap", "description": "two different edges from the same node to the same target with different weights, cheaper one should win", "input": [4, [[1,0,5],[1,0,2],[2,1,3],[3,2,4]], 1] },
+    { "kind": "edge", "description": "a star graph where every other node points directly at the root with varying weights", "input": [6, [[1,0,4],[2,0,1],[3,0,9],[4,0,2],[5,0,7]], 1] },
+    { "kind": "trap", "description": "a longer path forces the bottleneck to be the largest single edge along it, not the sum", "input": [5, [[1,0,10],[2,1,1],[3,2,1],[4,3,1]], 1] }
+  ],
+  "stress": [
+    {
+      "description": "a random tree of directed edges pointing toward 0 (guaranteed reachable) plus extra random shortcut edges",
+      "seed": 7,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 1500))\n    edges = []\n    seen_pairs = set()\n    for i in range(1, n):\n        parent = rng.randint(0, i - 1)\n        w = rng.randint(1, 1000000)\n        edges.append([i, parent, w])\n        seen_pairs.add((i, parent))\n    extra = min(n, 500)\n    for _ in range(extra):\n        a = rng.randint(0, n - 1)\n        b = rng.randint(0, n - 1)\n        if a == b or (a, b) in seen_pairs:\n            continue\n        w = rng.randint(1, 1000000)\n        edges.append([a, b, w])\n        seen_pairs.add((a, b))\n    threshold = rng.randint(1, n - 1)\n    return [n, edges, threshold]\n",
+      "note": "every node has a guaranteed path to 0 via the generated tree, so this never produces an unreachable -1 case"
+    },
+    {
+      "description": "a random graph with some nodes deliberately cut off from node 0",
+      "seed": 8,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(size, 800))\n    half = n // 2\n    edges = []\n    seen_pairs = set()\n    for i in range(1, half):\n        parent = rng.randint(0, i - 1)\n        w = rng.randint(1, 1000000)\n        edges.append([i, parent, w])\n        seen_pairs.add((i, parent))\n    for i in range(half, n):\n        parent = rng.randint(half, i - 1) if i > half else half\n        w = rng.randint(1, 1000000)\n        if i != parent and (i, parent) not in seen_pairs:\n            edges.append([i, parent, w])\n            seen_pairs.add((i, parent))\n    threshold = rng.randint(1, n - 1)\n    return [n, edges, threshold]\n",
+      "note": "the second half of the nodes forms its own component disconnected from 0, forcing -1"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minMaxWeight(self, n, edges, threshold):\n        reached = [False] * n\n        reached[0] = True\n        best = [0] * n\n        edges_sorted = sorted(edges, key=lambda e: e[2])\n        changed = True\n        while changed:\n            changed = False\n            for a, b, w in edges_sorted:\n                if reached[b] and not reached[a]:\n                    reached[a] = True\n                    best[a] = max(best[b], w)\n                    changed = True\n                elif reached[b] and reached[a]:\n                    cand = max(best[b], w)\n                    if cand < best[a]:\n                        best[a] = cand\n                        changed = True\n        if not all(reached):\n            return -1\n        return max(best)\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def minMaxWeight(self, n, edges, threshold):\n        radj = [[] for _ in range(n)]\n        for a, b, w in edges:\n            radj[b].append((a, w))\n        INF = float('inf')\n        dist = [INF] * n\n        dist[0] = 0\n        pq = [(0, 0)]\n        while pq:\n            d, node = heapq.heappop(pq)\n            if d > dist[node]:\n                continue\n            for nxt, w in radj[node]:\n                nd = w if w > d else d\n                if nd < dist[nxt]:\n                    dist[nxt] = nd\n                    heapq.heappush(pq, (nd, nxt))\n        if any(d == INF for d in dist):\n            return -1\n        return max(dist)\n",
+    "javascript": "var minMaxWeight = function(n, edges, threshold) {\n    const radj = Array.from({length: n}, () => []);\n    for (const [a, b, w] of edges) {\n        radj[b].push([a, w]);\n    }\n    const INF = Infinity;\n    const dist = new Array(n).fill(INF);\n    dist[0] = 0;\n    class Heap {\n        constructor() { this.a = []; }\n        push(x) {\n            const a = this.a;\n            a.push(x);\n            let i = a.length - 1;\n            while (i > 0) {\n                const p = (i - 1) >> 1;\n                if (a[p][0] <= a[i][0]) break;\n                [a[p], a[i]] = [a[i], a[p]];\n                i = p;\n            }\n        }\n        pop() {\n            const a = this.a;\n            const top = a[0];\n            const last = a.pop();\n            if (a.length) {\n                a[0] = last;\n                let i = 0;\n                while (true) {\n                    let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                    if (l < a.length && a[l][0] < a[s][0]) s = l;\n                    if (r < a.length && a[r][0] < a[s][0]) s = r;\n                    if (s === i) break;\n                    [a[s], a[i]] = [a[i], a[s]];\n                    i = s;\n                }\n            }\n            return top;\n        }\n        get size() { return this.a.length; }\n    }\n    const pq = new Heap();\n    pq.push([0, 0]);\n    while (pq.size) {\n        const [d, node] = pq.pop();\n        if (d > dist[node]) continue;\n        for (const [nxt, w] of radj[node]) {\n            const nd = w > d ? w : d;\n            if (nd < dist[nxt]) {\n                dist[nxt] = nd;\n                pq.push([nd, nxt]);\n            }\n        }\n    }\n    if (dist.some(d => d === INF)) return -1;\n    let best = 0;\n    for (const d of dist) if (d > best) best = d;\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + m) log n)",
+    "space": "O(n + m)"
+  }
+}

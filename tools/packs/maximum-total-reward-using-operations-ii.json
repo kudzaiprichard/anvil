@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-total-reward-using-operations-ii",
+  "judge": "exact",
+  "pattern": "Same DP as the Easy variant but values reach 5×10^4, requiring a bitset (Python int as bitmask) to keep the prefix-sum DP efficient enough.",
+  "hints": [
+    "The DP idea from the Easy variant still applies: sort and deduplicate, then for each value v mark every reachable total x+v where x < v. The problem is doing this fast enough for large value ranges.",
+    "Represent the set of reachable totals as a Python integer used as a bitmask. For value v, the bits below v are candidates; shifting the masked portion left by v and OR-ing it in performs all updates in O(1) bit operations.",
+    "The answer is the position of the highest set bit in the bitmask after processing all values. Python arbitrary-precision integers make this bitset approach O(m^2 / 64) in practice."
+  ],
+  "constraints": [
+    { "param": "rewardValues", "kind": "int[]", "len": [1, 50000], "value": [1, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element", "input": [[7]] },
+    { "kind": "edge", "description": "all identical", "input": [[4, 4, 4, 4]] },
+    { "kind": "edge", "description": "example 1 shared with part I", "input": [[1, 1, 3, 3]] },
+    { "kind": "edge", "description": "example 2 shared with part I", "input": [[1, 6, 4, 3, 2]] },
+    { "kind": "edge", "description": "consecutive values 1..10", "input": [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]] },
+    { "kind": "boundary", "description": "length 1, max value 50000", "input": [[50000]] },
+    { "kind": "boundary", "description": "two values, large gap", "input": [[1, 50000]] },
+    { "kind": "trap", "description": "many duplicates of a large value", "input": [[10000, 10000, 10000, 10001]] },
+    { "kind": "trap", "description": "values that require skipping one to pick two", "input": [[1, 3, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random array length up to 1000 values up to 2000 (moderate to keep oracle fast)",
+      "seed": 13,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, size)\n    vals = [rng.randint(1, 2000) for _ in range(n)]\n    return [vals]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxTotalReward(self, rewardValues):\n        vals = sorted(set(rewardValues))\n        reachable = {0}\n        for v in vals:\n            additions = {x + v for x in reachable if x < v}\n            reachable |= additions\n        return max(reachable)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxTotalReward(self, rewardValues):\n        vals = sorted(set(rewardValues))\n        # Use Python int as bitmask: bit i set means total i is reachable\n        dp = 1  # bit 0 set: total 0 reachable\n        for v in vals:\n            # candidates are totals x where x < v, i.e. bits 0..v-1\n            mask = (1 << v) - 1\n            dp |= (dp & mask) << v\n        return dp.bit_length() - 1\n",
+    "javascript": "var maxTotalReward = function(rewardValues) {\n    const vals = [...new Set(rewardValues)].sort((a, b) => a - b);\n    const maxVal = vals[vals.length - 1];\n    const dp = new Uint8Array(2 * maxVal + 1);\n    dp[0] = 1;\n    for (const v of vals) {\n        for (let x = v - 1; x >= 0; x--) {\n            if (dp[x]) dp[x + v] = 1;\n        }\n    }\n    for (let i = 2 * maxVal; i >= 0; i--) {\n        if (dp[i]) return i;\n    }\n    return 0;\n};"
+  },
+  "complexity": { "time": "O(m^2 / 64)", "space": "O(m)" }
+}

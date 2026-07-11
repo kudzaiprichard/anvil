@@ -1,0 +1,45 @@
+{
+  "slug": "design-hashset",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Implementing a set of integers from scratch with bucket arrays shows how a hash function plus per-bucket membership lists turns add, remove, and lookup into near-constant-time operations.",
+  "hints": [
+    "Scatter each key into one of a fixed number of buckets using the remainder of the key by the bucket count.",
+    "A bucket is just a short list of the keys that landed there, since distinct keys can collide into the same bucket.",
+    "To add, append the key to its bucket only if absent; to remove, drop it from the bucket; to test membership, scan the bucket for the key."
+  ],
+  "constraints": [
+    { "param": "key", "kind": "int", "value": [0, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: add, query present and absent, re-add duplicate, remove, query removed",
+      "input": [["MyHashSet", "add", "add", "contains", "contains", "add", "contains", "remove", "contains"], [[], [1], [2], [1], [3], [2], [2], [2], [2]]] },
+    { "kind": "boundary", "description": "contains on an empty set is false",
+      "input": [["MyHashSet", "contains"], [[], [0]]] },
+    { "kind": "trap", "description": "adding the same key twice does not create a duplicate; one remove clears it",
+      "input": [["MyHashSet", "add", "add", "remove", "contains"], [[], [5], [5], [5], [5]]] },
+    { "kind": "trap", "description": "removing a key that was never added is harmless",
+      "input": [["MyHashSet", "remove", "contains"], [[], [9], [9]]] },
+    { "kind": "edge", "description": "remove then re-add the same key restores membership",
+      "input": [["MyHashSet", "add", "remove", "contains", "add", "contains"], [[], [4], [4], [4], [4], [4]]] },
+    { "kind": "boundary", "description": "key zero is a real, storable value",
+      "input": [["MyHashSet", "add", "contains"], [[], [0], [0]]] },
+    { "kind": "boundary", "description": "extreme key within bounds",
+      "input": [["MyHashSet", "add", "contains", "contains"], [[], [1000000], [1000000], [999999]]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized add/remove/contains workload over a small key space so collisions, duplicate adds, and misses all occur",
+      "seed": 31,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    ops = ['MyHashSet']\n    args = [[]]\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.45:\n            ops.append('add'); args.append([rng.randint(0, 40)])\n        elif r < 0.75:\n            ops.append('contains'); args.append([rng.randint(0, 40)])\n        else:\n            ops.append('remove'); args.append([rng.randint(0, 40)])\n    return [ops, args]\n",
+      "note": "small key range forces hash collisions handled by chaining"
+    }
+  ],
+  "oracle_python": "class MyHashSet:\n    def __init__(self):\n        self.keys = []\n    def add(self, key):\n        if key not in self.keys:\n            self.keys.append(key)\n    def remove(self, key):\n        self.keys = [k for k in self.keys if k != key]\n    def contains(self, key):\n        return key in self.keys\n",
+  "solutions": {
+    "python": "class MyHashSet:\n    def __init__(self):\n        self.size = 1009\n        self.buckets = [[] for _ in range(self.size)]\n    def add(self, key):\n        b = self.buckets[key % self.size]\n        if key not in b:\n            b.append(key)\n    def remove(self, key):\n        b = self.buckets[key % self.size]\n        if key in b:\n            b.remove(key)\n    def contains(self, key):\n        return key in self.buckets[key % self.size]\n",
+    "javascript": "class MyHashSet {\n    constructor() {\n        this.size = 1009;\n        this.buckets = Array.from({ length: this.size }, () => []);\n    }\n    add(key) {\n        const b = this.buckets[key % this.size];\n        if (b.indexOf(key) === -1) b.push(key);\n    }\n    remove(key) {\n        const b = this.buckets[key % this.size];\n        const i = b.indexOf(key);\n        if (i !== -1) b.splice(i, 1);\n    }\n    contains(key) {\n        return this.buckets[key % this.size].indexOf(key) !== -1;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) average per op", "space": "O(n)" }
+}

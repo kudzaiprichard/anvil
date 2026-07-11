@@ -1,0 +1,45 @@
+{
+  "slug": "design-an-atm-machine",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Greedy denomination dispensing from largest to smallest is correct here because every banknote value divides all larger ones, so committing the most large notes first never blocks an otherwise-possible withdrawal.",
+  "hints": [
+    "Keep a running count of how many notes you hold of each of the five fixed denominations, updating it on every deposit.",
+    "For a withdrawal, walk the denominations from largest to smallest and take as many of each as both the request and your stock allow.",
+    "Compute the full plan first without touching your stock; only if the remaining amount reaches exactly zero do you subtract the plan and return it, otherwise return [-1] and leave the stock unchanged."
+  ],
+  "constraints": [
+    { "param": "amount", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: a successful withdraw, a rejected greedy-trap withdraw, then another success",
+      "input": [["ATM", "deposit", "withdraw", "deposit", "withdraw", "withdraw"], [[], [[0, 0, 1, 2, 1]], [600], [[0, 1, 0, 1, 1]], [600], [550]]] },
+    { "kind": "trap", "description": "greedy commits the largest note and then cannot finish, so the request is rejected even though a non-greedy split exists",
+      "input": [["ATM", "deposit", "withdraw"], [[], [[0, 0, 0, 3, 1]], [600]]] },
+    { "kind": "boundary", "description": "withdraw of zero-stock machine is rejected; deposit then exact-drain works",
+      "input": [["ATM", "withdraw", "deposit", "withdraw"], [[], [100], [[1, 0, 0, 0, 0]], [20]]] },
+    { "kind": "edge", "description": "amount not reachable by any combination of denominations on hand",
+      "input": [["ATM", "deposit", "withdraw"], [[], [[5, 0, 0, 0, 0]], [70]]] },
+    { "kind": "edge", "description": "withdraw uses every denomination once",
+      "input": [["ATM", "deposit", "withdraw"], [[], [[1, 1, 1, 1, 1]], [870]]] },
+    { "kind": "trap", "description": "a rejected withdraw must not consume notes, so the following withdraw still succeeds",
+      "input": [["ATM", "deposit", "withdraw", "withdraw"], [[], [[0, 0, 1, 0, 1]], [620], [600]]] },
+    { "kind": "boundary", "description": "large stock and a large multi-note withdrawal",
+      "input": [["ATM", "deposit", "withdraw", "withdraw"], [[], [[10, 10, 10, 10, 10]], [8700], [870]]] }
+  ],
+  "stress": [
+    {
+      "description": "interleaved deposits and withdrawals; withdrawal amounts are multiples of 20 so many succeed and the greedy path is exercised both ways",
+      "seed": 41,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    ops = ['ATM']\n    args = [[]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.5:\n            counts = [rng.randint(0, 5) for _ in range(5)]\n            ops.append('deposit'); args.append([counts])\n        else:\n            amt = rng.randint(1, 200) * 20\n            ops.append('withdraw'); args.append([amt])\n    return [ops, args]\n",
+      "note": "amounts are multiples of 20 (the smallest note) so dispensability depends on stock, not divisibility alone"
+    }
+  ],
+  "oracle_python": "class ATM:\n    DENOMS = [20, 50, 100, 200, 500]\n    def __init__(self):\n        self.bills = [0, 0, 0, 0, 0]\n    def deposit(self, banknotesCount):\n        for i in range(5):\n            self.bills[i] += banknotesCount[i]\n    def withdraw(self, amount):\n        take = [0, 0, 0, 0, 0]\n        rem = amount\n        i = 4\n        while i >= 0:\n            d = self.DENOMS[i]\n            use = 0\n            while use < self.bills[i] and d <= rem:\n                use += 1\n                rem -= d\n            take[i] = use\n            i -= 1\n        if rem != 0:\n            return [-1]\n        for i in range(5):\n            self.bills[i] -= take[i]\n        return take\n",
+  "solutions": {
+    "python": "class ATM:\n    def __init__(self):\n        self.denoms = [20, 50, 100, 200, 500]\n        self.count = [0] * 5\n    def deposit(self, banknotesCount):\n        for i in range(5):\n            self.count[i] += banknotesCount[i]\n    def withdraw(self, amount):\n        plan = [0] * 5\n        for i in range(4, -1, -1):\n            need = min(amount // self.denoms[i], self.count[i])\n            plan[i] = need\n            amount -= need * self.denoms[i]\n        if amount != 0:\n            return [-1]\n        for i in range(5):\n            self.count[i] -= plan[i]\n        return plan\n",
+    "javascript": "class ATM {\n    constructor() {\n        this.denoms = [20, 50, 100, 200, 500];\n        this.count = [0, 0, 0, 0, 0];\n    }\n    deposit(banknotesCount) {\n        for (let i = 0; i < 5; i++) this.count[i] += banknotesCount[i];\n    }\n    withdraw(amount) {\n        const plan = [0, 0, 0, 0, 0];\n        for (let i = 4; i >= 0; i--) {\n            const need = Math.min(Math.floor(amount / this.denoms[i]), this.count[i]);\n            plan[i] = need;\n            amount -= need * this.denoms[i];\n        }\n        if (amount !== 0) return [-1];\n        for (let i = 0; i < 5; i++) this.count[i] -= plan[i];\n        return plan;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(1)" }
+}

@@ -1,0 +1,139 @@
+{
+  "slug": "maximum-employees-to-be-invited-to-a-meeting",
+  "judge": "exact",
+  "pattern": "Since every person has exactly one favorite, the relationship forms a functional graph made of trees feeding into cycles; the best seating is either the single longest cycle (length greater than two) taken alone, or every mutual-favorite pair (a 2-cycle) seated back to back with its two longest inbound chains extended outward, summed across every such pair.",
+  "hints": [
+    "Draw an arrow from each person to their favorite. Since every person has exactly one outgoing arrow, the whole structure breaks down into simple cycles with tree-shaped chains feeding into them.",
+    "A cycle longer than two people can be seated by itself around the whole table — but a mutual pair (two people who are each other's favorite) can additionally have chains of other people extend outward on both sides, since each chain member still sits next to their own favorite even though it is not reciprocated.",
+    "Peel away the non-cycle people first (repeatedly removing whoever currently has no one pointing to them) to measure, for every surviving cycle member, the longest chain feeding into it. The answer is then the larger of: the length of the single longest lone cycle, versus the sum over every mutual pair of (2 plus its two inbound chain lengths)."
+  ],
+  "constraints": [
+    {
+      "param": "favorite",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ],
+      "note": "favorite[i] is a valid index (0 <= favorite[i] <= n-1 where n = favorite.length) and favorite[i] != i"
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "minimum size n=2 — the only possible arrangement is a mutual pair",
+      "input": [
+        [
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a mutual pair with one extra person chaining into it",
+      "input": [
+        [
+          1,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a single 4-person cycle with no extra chains",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two separate mutual pairs, each with one inbound chain — totals from every pair must be summed, not just the best one taken alone",
+      "input": [
+        [
+          1,
+          2,
+          1,
+          4,
+          5,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a 3-person cycle competing against a mutual pair with a chain in the same input, testing that the larger of the two options is chosen",
+      "input": [
+        [
+          1,
+          2,
+          0,
+          4,
+          3,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a single 6-person cycle with no extra chains",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a mutual pair with a long chain feeding into only one side and nothing on the other",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          4
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random functional graph at the max constraint size",
+      "seed": 123,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    favorite = []\n    for i in range(n):\n        f = rng.randint(0, n - 1)\n        while f == i:\n            f = rng.randint(0, n - 1)\n        favorite.append(f)\n    return [favorite]\n"
+    },
+    {
+      "description": "a perfect matching of n/2 disjoint mutual-favorite pairs with no chains, stressing the many-2-cycles summation path",
+      "seed": 7,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(size, 100000))\n    if n % 2 == 1:\n        n -= 1\n    favorite = [0] * n\n    order = list(range(n))\n    rng.shuffle(order)\n    for i in range(0, n, 2):\n        a, b = order[i], order[i + 1]\n        favorite[a] = b\n        favorite[b] = a\n    return [favorite]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumInvitations(self, favorite):\n        from itertools import combinations, permutations\n        n = len(favorite)\n        for k in range(n, 1, -1):\n            found = False\n            for combo in combinations(range(n), k):\n                for perm in permutations(combo):\n                    ok = True\n                    for idx in range(k):\n                        person = perm[idx]\n                        left = perm[idx - 1]\n                        right = perm[(idx + 1) % k]\n                        if favorite[person] != left and favorite[person] != right:\n                            ok = False\n                            break\n                    if ok:\n                        found = True\n                        break\n                if found:\n                    break\n            if found:\n                return k\n        return 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumInvitations(self, favorite) -> int:\n        from collections import deque\n        n = len(favorite)\n        indeg = [0] * n\n        for f in favorite:\n            indeg[f] += 1\n        dist = [0] * n\n        visited = [False] * n\n        q = deque(i for i in range(n) if indeg[i] == 0)\n        while q:\n            u = q.popleft()\n            visited[u] = True\n            v = favorite[u]\n            if dist[u] + 1 > dist[v]:\n                dist[v] = dist[u] + 1\n            indeg[v] -= 1\n            if indeg[v] == 0:\n                q.append(v)\n        longest_cycle = 0\n        two_cycle_total = 0\n        for i in range(n):\n            if visited[i]:\n                continue\n            cycle = []\n            cur = i\n            while not visited[cur]:\n                visited[cur] = True\n                cycle.append(cur)\n                cur = favorite[cur]\n            clen = len(cycle)\n            if clen == 2:\n                a, b = cycle\n                two_cycle_total += 2 + dist[a] + dist[b]\n            else:\n                longest_cycle = max(longest_cycle, clen)\n        return max(longest_cycle, two_cycle_total)\n",
+    "javascript": "var maximumInvitations = function(favorite) {\n    const n = favorite.length;\n    const indeg = new Int32Array(n);\n    for (const f of favorite) indeg[f]++;\n    const dist = new Int32Array(n);\n    const visited = new Uint8Array(n);\n    const queue = [];\n    for (let i = 0; i < n; i++) if (indeg[i] === 0) queue.push(i);\n    let head = 0;\n    while (head < queue.length) {\n        const u = queue[head++];\n        visited[u] = 1;\n        const v = favorite[u];\n        if (dist[u] + 1 > dist[v]) dist[v] = dist[u] + 1;\n        indeg[v]--;\n        if (indeg[v] === 0) queue.push(v);\n    }\n    let longestCycle = 0;\n    let twoCycleTotal = 0;\n    for (let i = 0; i < n; i++) {\n        if (visited[i]) continue;\n        const cycle = [];\n        let cur = i;\n        while (!visited[cur]) {\n            visited[cur] = 1;\n            cycle.push(cur);\n            cur = favorite[cur];\n        }\n        const clen = cycle.length;\n        if (clen === 2) {\n            const a = cycle[0], b = cycle[1];\n            twoCycleTotal += 2 + dist[a] + dist[b];\n        } else {\n            longestCycle = Math.max(longestCycle, clen);\n        }\n    }\n    return Math.max(longestCycle, twoCycleTotal);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

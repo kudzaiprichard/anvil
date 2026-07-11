@@ -1,0 +1,157 @@
+{
+  "slug": "minimum-operations-to-form-subsequence-with-target-sum",
+  "judge": "exact",
+  "pattern": "Counting how many elements sit at each power-of-two level and sweeping the target's bits from low to high while carrying leftover pairs upward turns 'can this subset of split pieces reach the target' into a single pass with on-demand splitting.",
+  "hints": [
+    "Group elements by which power of two they equal; two elements at the same level can substitute for one element at the next level up when you add them into your chosen subset.",
+    "Sweep the target's bits from the lowest to the highest, keeping a running 'carry' of leftover same-level elements that pair up to help satisfy the next bit -- this models substitution without ever performing a split.",
+    "Only when a bit is required and neither the existing count nor the carried-forward leftovers can supply it do you actually need to spend an operation, cascading a single element down one level at a time from the nearest higher non-empty level."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        1073741824
+      ]
+    },
+    {
+      "param": "target",
+      "kind": "int",
+      "value": [
+        1,
+        2147483647
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "one split unlocks the target sum",
+      "input": [
+        [
+          1,
+          2,
+          8
+        ],
+        7
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two splits are needed across different levels",
+      "input": [
+        [
+          1,
+          32,
+          1,
+          2
+        ],
+        12
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "total sum falls short of the target",
+      "input": [
+        [
+          1,
+          32,
+          1
+        ],
+        35
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single element exactly equal to the target",
+      "input": [
+        [
+          64
+        ],
+        64
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the target is exactly the total sum, needing everything",
+      "input": [
+        [
+          1,
+          2,
+          4,
+          8
+        ],
+        15
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the target is already directly reachable, so zero splits should be reported",
+      "input": [
+        [
+          1,
+          4,
+          1,
+          8
+        ],
+        10
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "several small elements can substitute for a missing higher level without any split",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1,
+          16
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the only large element must cascade down several levels to reach a low bit",
+      "input": [
+        [
+          1,
+          1024
+        ],
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small random multisets of small powers of two, for a state-space cross-check",
+      "seed": 141,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 6))\n    nums = [2 ** rng.randint(0, 5) for _ in range(n)]\n    target = rng.randint(1, 60)\n    return [nums, target]\n",
+      "note": "kept small enough for an exhaustive state-space oracle during authoring"
+    },
+    {
+      "description": "large random multisets at the full constraint scale",
+      "seed": 142,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    nums = [2 ** rng.randint(0, 30) for _ in range(n)]\n    target = rng.randint(1, 2**31 - 1)\n    return [nums, target]\n",
+      "note": "exercises deep cascades across many levels"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minOperations(self, nums, target):\n        # Independent breadth-first search over actual multiset states (only\n        # feasible for small inputs), splitting elements explicitly rather\n        # than using the carry/bit-sweep model.\n        from collections import deque\n\n        total = sum(nums)\n        if total < target:\n            return -1\n\n        def has_subseq_sum(state, target):\n            sums = {0}\n            for v in state:\n                sums |= {s + v for s in sums}\n            return target in sums\n\n        start = tuple(sorted(nums))\n        if has_subseq_sum(start, target):\n            return 0\n        seen = {start}\n        q = deque([(start, 0)])\n        cap = 12\n        while q:\n            state, d = q.popleft()\n            if d >= cap:\n                continue\n            for i, v in enumerate(state):\n                if v > 1:\n                    rest = list(state[:i] + state[i + 1:])\n                    rest.append(v // 2)\n                    rest.append(v // 2)\n                    nstate = tuple(sorted(rest))\n                    if nstate in seen:\n                        continue\n                    nd = d + 1\n                    if has_subseq_sum(nstate, target):\n                        return nd\n                    seen.add(nstate)\n                    q.append((nstate, nd))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minOperations(self, nums, target):\n        total = sum(nums)\n        if total < target:\n            return -1\n        MAXLVL = 45\n        have = [0] * (MAXLVL + 2)\n        for v in nums:\n            b = v.bit_length() - 1\n            have[b] += 1\n        ops = 0\n        carry = 0\n        for i in range(0, MAXLVL + 1):\n            bit = (target >> i) & 1\n            avail = have[i] + carry\n            if avail < bit:\n                j = i + 1\n                while j <= MAXLVL + 1 and have[j] == 0:\n                    j += 1\n                while j > i:\n                    have[j] -= 1\n                    have[j - 1] += 2\n                    ops += 1\n                    j -= 1\n                avail = have[i] + carry\n            carry = (avail - bit) // 2\n        return ops\n",
+    "javascript": "var minOperations = function(nums, target) {\n    let total = 0;\n    for (const v of nums) total += v;\n    if (total < target) return -1;\n    const MAXLVL = 45;\n    const have = new Array(MAXLVL + 2).fill(0);\n    for (const v of nums) {\n        const b = Math.round(Math.log2(v));\n        have[b]++;\n    }\n    let ops = 0, carry = 0;\n    for (let i = 0; i <= MAXLVL; i++) {\n        const bit = Math.floor(target / Math.pow(2, i)) % 2;\n        let avail = have[i] + carry;\n        if (avail < bit) {\n            let j = i + 1;\n            while (j <= MAXLVL + 1 && have[j] === 0) j++;\n            while (j > i) {\n                have[j]--;\n                have[j - 1] += 2;\n                ops++;\n                j--;\n            }\n            avail = have[i] + carry;\n        }\n        carry = Math.floor((avail - bit) / 2);\n    }\n    return ops;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + log(target))",
+    "space": "O(log(target))"
+  }
+}

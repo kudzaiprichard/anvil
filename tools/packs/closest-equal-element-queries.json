@@ -1,0 +1,36 @@
+{
+  "slug": "closest-equal-element-queries",
+  "judge": "exact",
+  "pattern": "Grouping indices by value and only comparing each index to its circular neighbors within that group finds every nearest-equal distance in linear time.",
+  "hints": [
+    "Only indices that share the same value can ever answer each other's query, so group indices by value first.",
+    "Within one value's sorted list of positions, the nearest match for any position is always its neighbor in that list, wrapping around the array's ends.",
+    "For each position, compute the circular distance to its previous and next same-value position in the sorted group and keep the smaller; a value with only one occurrence answers -1."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000] },
+    { "param": "queries", "kind": "int[]", "len": [1, 100000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single element array, no other index can match", "input": [[5], [0]] },
+    { "kind": "trap", "description": "all values equal so neighbors wrap around trivially", "input": [[4, 4, 4, 4], [0, 2]] },
+    { "kind": "trap", "description": "matching value sits at opposite ends, distance is via the wraparound not the long way", "input": [[9, 1, 2, 9], [0]] },
+    { "kind": "edge", "description": "a value with exactly three occurrences to test neighbor selection", "input": [[1, 2, 1, 3, 1], [0, 2, 4]] },
+    { "kind": "edge", "description": "every value distinct so every query answers -1", "input": [[1, 2, 3, 4, 5], [0, 1, 2, 3, 4]] },
+    { "kind": "trap", "description": "repeated query indices should just repeat the answer", "input": [[1, 5, 1], [0, 0, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "large circular array with a narrow value range to force many duplicate groups",
+      "seed": 21,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    nums = [rng.randint(1, max(2, n // 10)) for _ in range(n)]\n    qcount = max(1, min(n, 500))\n    queries = [rng.randrange(0, n) for _ in range(qcount)]\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def solveQueries(self, nums, queries):\n        n = len(nums)\n        result = []\n        for q in queries:\n            v = nums[q]\n            best = -1\n            for j in range(n):\n                if j == q or nums[j] != v:\n                    continue\n                d = min(abs(q - j), n - abs(q - j))\n                if best == -1 or d < best:\n                    best = d\n            result.append(best)\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def solveQueries(self, nums, queries):\n        from collections import defaultdict\n        n = len(nums)\n        groups = defaultdict(list)\n        for i, v in enumerate(nums):\n            groups[v].append(i)\n        ans_by_index = {}\n        for v, positions in groups.items():\n            m = len(positions)\n            if m < 2:\n                for p in positions:\n                    ans_by_index[p] = -1\n                continue\n            for i in range(m):\n                p = positions[i]\n                prev = positions[(i - 1) % m]\n                nxt = positions[(i + 1) % m]\n                d1 = min(abs(p - prev), n - abs(p - prev))\n                d2 = min(abs(p - nxt), n - abs(p - nxt))\n                ans_by_index[p] = min(d1, d2)\n        return [ans_by_index[q] for q in queries]\n",
+    "javascript": "var solveQueries = function(nums, queries) {\n    const n = nums.length;\n    const groups = new Map();\n    for (let i = 0; i < n; i++) {\n        const v = nums[i];\n        if (!groups.has(v)) groups.set(v, []);\n        groups.get(v).push(i);\n    }\n    const ansByIndex = new Array(n).fill(-1);\n    for (const positions of groups.values()) {\n        const m = positions.length;\n        if (m < 2) continue;\n        for (let i = 0; i < m; i++) {\n            const p = positions[i];\n            const prev = positions[(i - 1 + m) % m];\n            const nxt = positions[(i + 1) % m];\n            const d1 = Math.min(Math.abs(p - prev), n - Math.abs(p - prev));\n            const d2 = Math.min(Math.abs(p - nxt), n - Math.abs(p - nxt));\n            ansByIndex[p] = Math.min(d1, d2);\n        }\n    }\n    return queries.map(q => ansByIndex[q]);\n};\n"
+  },
+  "complexity": { "time": "O(n + queries.length)", "space": "O(n)" }
+}

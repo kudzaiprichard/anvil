@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-increment-operations-to-make-array-beautiful",
+  "judge": "exact",
+  "pattern": "Reduce the 'every subarray of length 3 or more' condition to a purely local rule about every window of exactly 3 consecutive elements, then find the cheapest way to break up long low runs with a small rolling DP.",
+  "hints": [
+    "The condition about every subarray of length 3 or more is equivalent to a much simpler local rule about every window of exactly 3 consecutive elements — work out why a longer subarray is automatically covered once every length-3 window is, then you only ever need to reason about length-3 windows.",
+    "Raising one element up to exactly k (never further, since that would only cost more) either costs nothing, if it's already >= k, or costs k minus its value; you are choosing which elements to 'activate' so that no 3 consecutive elements are all inactive.",
+    "Scan left to right tracking how many consecutive elements have passed since the last activated one (0, 1, or 2 — a 3rd in a row would break the rule), and at each position take the cheaper of two choices: activate the current element now (pay its cost, reset the streak to 0) or leave it inactive (free, extend the streak by 1, only allowed if that stays under 3)."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [3, 100000], "value": [0, 1000000000] },
+    { "param": "k", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "every element already meets k, so no operations are needed", "input": [[5, 5, 5], 5] },
+    { "kind": "edge", "description": "k = 0 means every element already qualifies", "input": [[0, 0, 0], 0] },
+    { "kind": "trap", "description": "already-qualifying elements are spaced exactly two apart, so no window is ever all-low despite long stretches of zeros", "input": [[0, 10, 0, 0, 10, 0], 10] },
+    { "kind": "trap", "description": "a long uniform run of low values needs several strategically placed boosts, not just one per window", "input": [[1, 1, 1, 1, 1, 1, 1], 5] },
+    { "kind": "boundary", "description": "minimum array length with maximum possible k and all-zero values", "input": [[0, 0, 0], 1000000000] },
+    { "kind": "boundary", "description": "minimum array length where one element already reaches the maximum k", "input": [[1000000000, 0, 0], 1000000000] },
+    { "kind": "trap", "description": "qualifying elements spaced exactly at the boundary of a length-3 window (gap of two low elements) so no boost is needed", "input": [[0, 0, 5, 0, 0], 5] },
+    { "kind": "trap", "description": "a single well-placed middle boost covers three overlapping windows at once", "input": [[0, 0, 0, 0, 0], 7] }
+  ],
+  "stress": [
+    {
+      "description": "large arrays with roughly half the values forced below k and half fully random, to exercise long low runs and scattered qualifying elements",
+      "seed": 11,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 100000))\n    k = rng.randint(0, 1000000000)\n    nums = []\n    for _ in range(n):\n        if rng.random() < 0.5:\n            nums.append(rng.randint(0, max(0, k - 1)))\n        else:\n            nums.append(rng.randint(0, 1000000000))\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minIncrementOperations(self, nums, k):\n        n = len(nums)\n        qualifying = [x >= k for x in nums]\n        cost = [max(0, k - x) for x in nums]\n        idxs = [i for i in range(n) if not qualifying[i]]\n        m = len(idxs)\n        best = float('inf')\n        for mask in range(1 << m):\n            state = qualifying[:]\n            total = 0\n            for j in range(m):\n                if mask & (1 << j):\n                    state[idxs[j]] = True\n                    total += cost[idxs[j]]\n            run = 0\n            ok = True\n            for v in state:\n                if v:\n                    run = 0\n                else:\n                    run += 1\n                    if run >= 3:\n                        ok = False\n                        break\n            if ok and total < best:\n                best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minIncrementOperations(self, nums, k):\n        INF = float('inf')\n        dp0, dp1, dp2 = 0, INF, INF\n        for x in nums:\n            boost = max(0, k - x)\n            m = min(dp0, dp1, dp2)\n            dp0, dp1, dp2 = m + boost, dp0, dp1\n        return min(dp0, dp1, dp2)\n",
+    "javascript": "var minIncrementOperations = function(nums, k) {\n    const INF = Infinity;\n    let dp0 = 0, dp1 = INF, dp2 = INF;\n    for (const x of nums) {\n        const boost = Math.max(0, k - x);\n        const m = Math.min(dp0, dp1, dp2);\n        const ndp0 = m + boost;\n        const ndp1 = dp0;\n        const ndp2 = dp1;\n        dp0 = ndp0; dp1 = ndp1; dp2 = ndp2;\n    }\n    return Math.min(dp0, dp1, dp2);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

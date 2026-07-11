@@ -1,0 +1,36 @@
+{
+  "slug": "number-of-ways-to-assign-edge-weights-ii",
+  "judge": "exact",
+  "pattern": "Only the parity of the path length matters: among d edges exactly half of the two-to-the-d weightings give an odd sum, so each query reduces to a power of two over its tree distance.",
+  "hints": [
+    "An edge weight of 1 is odd and 2 is even, so the path sum's parity is just how many edges got weight 1.",
+    "Among d edges, exactly half of all assignments produce an odd count of weight-ones, giving 2^(d-1) ways when d is at least 1, and 0 when the path is empty.",
+    "Precompute depths and an ancestor table so each query's path length is depth[u]+depth[v]-2*depth[lca]; answer 2^(len-1) modulo 1e9+7, or 0 for length zero."
+  ],
+  "constraints": [
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single edge tree with self and adjacent queries", "input": [[[1, 2]], [[1, 1], [1, 2]]] },
+    { "kind": "edge", "description": "branching tree with paths of length two and three", "input": [[[1, 2], [1, 3], [3, 4], [3, 5]], [[1, 4], [3, 4], [2, 5]]] },
+    { "kind": "boundary", "description": "every query is a self-loop of length zero", "input": [[[1, 2], [2, 3]], [[1, 1], [2, 2], [3, 3]]] },
+    { "kind": "trap", "description": "path that crosses the root via the lca", "input": [[[1, 2], [1, 3], [2, 4], [3, 5]], [[4, 5], [4, 3], [2, 5]]] },
+    { "kind": "trap", "description": "deep line graph, long paths", "input": [[[1, 2], [2, 3], [3, 4], [4, 5], [5, 6]], [[1, 6], [2, 5], [3, 4]]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree by attaching each new node to an existing one, mixed queries",
+      "seed": 101,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    edges = []\n    for v in range(2, n + 1):\n        u = rng.randint(1, v - 1)\n        edges.append([u, v])\n    q = rng.randint(1, 200)\n    queries = [[rng.randint(1, n), rng.randint(1, n)] for _ in range(q)]\n    return [edges, queries]\n",
+      "note": "valid tree by construction; includes self-loops by chance"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def assignEdgeWeights(self, edges, queries):\n        MOD = 10**9 + 7\n        n = len(edges) + 1\n        adj = [[] for _ in range(n + 1)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        res = []\n        for u, v in queries:\n            dist = [-1] * (n + 1)\n            dist[u] = 0\n            dq = deque([u])\n            while dq:\n                x = dq.popleft()\n                if x == v:\n                    break\n                for y in adj[x]:\n                    if dist[y] == -1:\n                        dist[y] = dist[x] + 1\n                        dq.append(y)\n            d = dist[v]\n            res.append(0 if d == 0 else pow(2, d - 1, MOD))\n        return res\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def assignEdgeWeights(self, edges, queries):\n        MOD = 10**9 + 7\n        n = len(edges) + 1\n        adj = [[] for _ in range(n + 1)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        LOG = max(1, (n).bit_length())\n        depth = [0] * (n + 1)\n        up = [[0] * (n + 1) for _ in range(LOG)]\n        depth[1] = 0\n        up[0][1] = 1\n        visited = [False] * (n + 1)\n        visited[1] = True\n        dq = deque([1])\n        while dq:\n            x = dq.popleft()\n            for y in adj[x]:\n                if not visited[y]:\n                    visited[y] = True\n                    depth[y] = depth[x] + 1\n                    up[0][y] = x\n                    dq.append(y)\n        for k in range(1, LOG):\n            row = up[k]\n            prev = up[k - 1]\n            for node in range(1, n + 1):\n                row[node] = prev[prev[node]]\n        def lca(a, b):\n            if depth[a] < depth[b]:\n                a, b = b, a\n            diff = depth[a] - depth[b]\n            for k in range(LOG):\n                if (diff >> k) & 1:\n                    a = up[k][a]\n            if a == b:\n                return a\n            for k in range(LOG - 1, -1, -1):\n                if up[k][a] != up[k][b]:\n                    a = up[k][a]\n                    b = up[k][b]\n            return up[0][a]\n        res = []\n        for u, v in queries:\n            w = lca(u, v)\n            d = depth[u] + depth[v] - 2 * depth[w]\n            res.append(0 if d == 0 else pow(2, d - 1, MOD))\n        return res\n",
+    "javascript": "var assignEdgeWeights = function(edges, queries) {\n    const MOD = 1000000007n;\n    const n = edges.length + 1;\n    const adj = Array.from({ length: n + 1 }, () => []);\n    for (const [u, v] of edges) { adj[u].push(v); adj[v].push(u); }\n    let LOG = 1;\n    while ((1 << LOG) <= n) LOG++;\n    const depth = new Array(n + 1).fill(0);\n    const up = Array.from({ length: LOG }, () => new Array(n + 1).fill(0));\n    const visited = new Array(n + 1).fill(false);\n    visited[1] = true; up[0][1] = 1;\n    const q = [1];\n    let head = 0;\n    while (head < q.length) {\n        const x = q[head++];\n        for (const y of adj[x]) {\n            if (!visited[y]) { visited[y] = true; depth[y] = depth[x] + 1; up[0][y] = x; q.push(y); }\n        }\n    }\n    for (let k = 1; k < LOG; k++) {\n        for (let node = 1; node <= n; node++) up[k][node] = up[k - 1][up[k - 1][node]];\n    }\n    function lca(a, b) {\n        if (depth[a] < depth[b]) { const t = a; a = b; b = t; }\n        let diff = depth[a] - depth[b];\n        for (let k = 0; k < LOG; k++) if ((diff >> k) & 1) a = up[k][a];\n        if (a === b) return a;\n        for (let k = LOG - 1; k >= 0; k--) if (up[k][a] !== up[k][b]) { a = up[k][a]; b = up[k][b]; }\n        return up[0][a];\n    }\n    function powmod(e) {\n        let base = 2n, r = 1n, ee = BigInt(e);\n        while (ee > 0n) { if (ee & 1n) r = (r * base) % MOD; base = (base * base) % MOD; ee >>= 1n; }\n        return r;\n    }\n    const res = [];\n    for (const [u, v] of queries) {\n        const w = lca(u, v);\n        const d = depth[u] + depth[v] - 2 * depth[w];\n        res.push(d === 0 ? 0 : Number(powmod(d - 1)));\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) log n)", "space": "O(n log n)" }
+}

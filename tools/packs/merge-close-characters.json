@@ -1,0 +1,38 @@
+{
+  "slug": "merge-close-characters",
+  "judge": "exact",
+  "pattern": "Repeatedly restarting a leftmost-pair scan after every merge is wasteful busywork — a single left-to-right pass that, for each new character, looks back at most k already-kept characters and drops it if a match is found there reproduces exactly the same final string as the repeated-restart process, because the merge order never actually changes the end result.",
+  "hints": [
+    "Simulating the process literally (find the leftmost close pair, delete the right one, repeat from the start) works but re-scans from scratch after every single merge — think about whether you can decide, in one left-to-right pass, whether each character survives.",
+    "Keep a running list of characters that have survived so far. When you reach the next character of the original string, it only needs to be compared against the last k *surviving* characters — if one of them matches, this character merges away (is dropped) instead of being appended.",
+    "Because a dropped character never appears in the surviving list, the 'distance' for future comparisons is always measured against the current (already-collapsed) positions, not the original string's positions — a stack (or list you only ever append to / peek into) is enough, and it reproduces the same final string as repeatedly restarting the scan."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single character — nothing to merge", "input": ["a", 1] },
+    { "kind": "trap", "description": "a long run of the same character with k=1 chains down to a single character, one merge at a time", "input": ["aaaa", 1] },
+    { "kind": "trap", "description": "same run of characters but k equal to the string length — still collapses to one character", "input": ["aaaa", 4] },
+    { "kind": "trap", "description": "all distinct characters — no pair is ever close enough, string is unchanged", "input": ["abcdefghij", 1] },
+    { "kind": "edge", "description": "alternating two-letter pattern with k=1 — no two equal characters are ever adjacent, so nothing merges despite many repeats overall", "input": ["ababababab", 1] },
+    { "kind": "boundary", "description": "max length (100), all one character, k=1 — full chain collapse", "input": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1] },
+    { "kind": "boundary", "description": "max length (100), all one character, k equal to the full length", "input": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 100] },
+    { "kind": "trap", "description": "a repeated character pair separated by a different character, small k — only the closer-together repeat should merge", "input": ["yybyzybz", 2] }
+  ],
+  "stress": [
+    {
+      "description": "random strings over a small alphabet (to force frequent merges) with random k, seeded",
+      "seed": 9,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, size)\n    letters = 'abc'\n    s = ''.join(rng.choice(letters) for _ in range(n))\n    k = rng.randint(1, n)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mergeCharacters(self, s: str, k: int) -> str:\n        # Independent approach: literally simulate the rule as stated -- repeatedly\n        # find the leftmost close pair and delete the right character, restarting\n        # the scan from the beginning after every merge, until no merge is possible.\n        chars = list(s)\n        while True:\n            n = len(chars)\n            merged = False\n            for i in range(n):\n                limit = min(i + k, n - 1)\n                for j in range(i + 1, limit + 1):\n                    if chars[j] == chars[i]:\n                        del chars[j]\n                        merged = True\n                        break\n                if merged:\n                    break\n            if not merged:\n                break\n        return ''.join(chars)\n",
+  "solutions": {
+    "python": "class Solution:\n    def mergeCharacters(self, s: str, k: int) -> str:\n        stack = []\n        for c in s:\n            j = len(stack) - 1\n            skip = False\n            while j >= 0 and len(stack) - j <= k:\n                if stack[j] == c:\n                    skip = True\n                    break\n                j -= 1\n            if not skip:\n                stack.append(c)\n        return ''.join(stack)\n",
+    "javascript": "var mergeCharacters = function(s, k) {\n    const stack = [];\n    for (const c of s) {\n        let j = stack.length - 1;\n        let skip = false;\n        while (j >= 0 && stack.length - j <= k) {\n            if (stack[j] === c) {\n                skip = true;\n                break;\n            }\n            j -= 1;\n        }\n        if (!skip) {\n            stack.push(c);\n        }\n    }\n    return stack.join('');\n};\n"
+  },
+  "complexity": { "time": "O(n * k)", "space": "O(n)" }
+}

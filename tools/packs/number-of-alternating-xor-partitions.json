@@ -1,0 +1,45 @@
+{
+  "slug": "number-of-alternating-xor-partitions",
+  "judge": "exact",
+  "pattern": "Tracking, for every prefix length, how many ways reach it while expecting each of the two target XOR values next reduces a partition-counting problem to a running tally indexed by prefix XOR.",
+  "hints": [
+    "Work with prefix XOR values: the XOR of any contiguous block equals the XOR of the whole prefix up to its end, with the XOR of the whole prefix up to its start canceled out.",
+    "Define, for every prefix length, two running counts: the number of ways to have validly partitioned everything before it while the next block still owes target1, and the number of ways while it still owes target2; a new block closes out one of these counts and opens the other.",
+    "Rather than trying every possible block start for every possible end, group the running counts by their prefix XOR value in a lookup table, so each new position can look up exactly how many valid ways lead into it in constant time; sum both running counts at the very end, modulo 1e9 + 7."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 100000] },
+    { "param": "target1", "kind": "int", "value": [0, 100000] },
+    { "param": "target2", "kind": "int", "value": [0, 100000], "note": "target1 != target2" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the reference example with exactly one valid alternating partition", "input": [[2, 3, 1, 4], 1, 5] },
+    { "kind": "edge", "description": "the reference example with three valid alternating partitions", "input": [[1, 0, 0], 1, 0] },
+    { "kind": "edge", "description": "the reference example where the only possible single-block partition does not match target1", "input": [[7], 1, 7] },
+    { "kind": "edge", "description": "a single element whose value equals target1, the only valid partition is one block", "input": [[5], 5, 7] },
+    { "kind": "boundary", "description": "an array of all zeros against a target1 of zero, with many equally-valid single-element blocks", "input": [[0, 0, 0, 0, 0], 0, 3] },
+    { "kind": "boundary", "description": "values at the maximum allowed magnitude", "input": [[100000, 100000], 0, 100000] },
+    { "kind": "trap", "description": "no split of the array can ever reach target1 or target2, so the answer is zero", "input": [[1, 2, 3], 50, 60] },
+    { "kind": "trap", "description": "many repeated small values that XOR to zero in pairs, creating several overlapping ways to alternate", "input": [[1, 1, 1, 1, 1, 1], 1, 0] }
+  ],
+  "stress": [
+    {
+      "description": "random small values at a large length to build up many overlapping partitions and exercise the modulus",
+      "seed": 51,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(0, 3) for _ in range(n)]\n    target1 = rng.randint(0, 3)\n    target2 = rng.randint(0, 3)\n    while target2 == target1:\n        target2 = rng.randint(0, 3)\n    return [nums, target1, target2]\n"
+    },
+    {
+      "description": "random values across the full range at the maximum length",
+      "seed": 52,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(0, 100000) for _ in range(n)]\n    target1 = rng.randint(0, 100000)\n    target2 = rng.randint(0, 100000)\n    while target2 == target1:\n        target2 = rng.randint(0, 100000)\n    return [nums, target1, target2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def alternatingXOR(self, nums, target1, target2):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] ^ nums[i]\n        targets = [target1, target2]\n        dp = [[0, 0] for _ in range(n + 1)]\n        dp[0][0] = 1\n        for j in range(1, n + 1):\n            total = [0, 0]\n            for i in range(j):\n                for p in (0, 1):\n                    if dp[i][p] and (prefix[j] ^ prefix[i]) == targets[p]:\n                        total[1 - p] = (total[1 - p] + dp[i][p]) % MOD\n            dp[j][0] = total[0]\n            dp[j][1] = total[1]\n        return (dp[n][0] + dp[n][1]) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def alternatingXOR(self, nums, target1: int, target2: int) -> int:\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] ^ nums[i]\n        targets = (target1, target2)\n        map0 = {prefix[0]: 1}\n        map1 = {}\n        dp0 = 1\n        dp1 = 0\n        for j in range(1, n + 1):\n            pj = prefix[j]\n            new1 = map0.get(pj ^ targets[0], 0) % MOD\n            new0 = map1.get(pj ^ targets[1], 0) % MOD\n            dp0, dp1 = new0, new1\n            map0[pj] = (map0.get(pj, 0) + dp0) % MOD\n            map1[pj] = (map1.get(pj, 0) + dp1) % MOD\n        return (dp0 + dp1) % MOD\n",
+    "javascript": "var alternatingXOR = function(nums, target1, target2) {\n    const MOD = 1000000007;\n    const n = nums.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] ^ nums[i];\n    const targets = [target1, target2];\n    const map0 = new Map();\n    const map1 = new Map();\n    map0.set(prefix[0], 1);\n    let dp0 = 1, dp1 = 0;\n    for (let j = 1; j <= n; j++) {\n        const pj = prefix[j];\n        const new1 = map0.get(pj ^ targets[0]) || 0;\n        const new0 = map1.get(pj ^ targets[1]) || 0;\n        dp0 = new0 % MOD;\n        dp1 = new1 % MOD;\n        map0.set(pj, ((map0.get(pj) || 0) + dp0) % MOD);\n        map1.set(pj, ((map1.get(pj) || 0) + dp1) % MOD);\n    }\n    return (dp0 + dp1) % MOD;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

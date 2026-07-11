@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-difference-between-even-and-odd-frequency-ii",
+  "judge": "exact",
+  "pattern": "With only 5 possible digits, trying every ordered pair as (odd-frequency digit, even-frequency digit) and tracking, per parity signature of the two running prefix counts, the best prefix seen so far — released only once it is both far enough back and from an already-closed count bucket for the even digit — turns the substring search into a handful of linear scans.",
+  "hints": [
+    "For a fixed choice of digit a (wanting an odd count) and digit b (wanting an even, nonzero count), define f(i) = (count of a in the first i characters) - (count of b in the first i characters). The best substring [l, r) has value f(r) - f(l), and needs the parity of a's count to differ between l and r, the parity of b's count to match between l and r, and at least one b strictly between l and r.",
+    "The 'at least one b in between' condition is naturally satisfied by only ever comparing a prefix l against later prefixes once b's running count has moved on from l's bucket — delay adding a prefix into the tracked minimum until the next b appears after it, AND until the window length reaches k, whichever happens later.",
+    "For each of the 20 ordered (a, b) pairs with a != b, scan left to right maintaining the minimum f(l) for each of the 4 (parity of a, parity of b) signatures among prefixes that are already eligible; take the best f(r) - f(l) with opposite a-parity and matching b-parity across every position and every pair."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [3, 30000] },
+    { "param": "k", "kind": "int", "value": [1, 30000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example 1", "input": ["12233", 4] },
+    { "kind": "edge", "description": "statement example 2", "input": ["1122211", 3] },
+    { "kind": "edge", "description": "statement example 3", "input": ["110", 3] },
+    { "kind": "boundary", "description": "minimum length equal to k, only the whole string is a candidate", "input": ["012", 3] },
+    { "kind": "boundary", "description": "k is 1, every substring length is allowed", "input": ["01201", 1] },
+    { "kind": "trap", "description": "the globally best pair of digits only appears in a substring shorter than k", "input": ["3300110011", 8] },
+    { "kind": "trap", "description": "the even-frequency digit must actually occur, a zero-count digit cannot be chosen", "input": ["111222333", 3] }
+  ],
+  "stress": [
+    {
+      "description": "random digit strings over 0-4 with a random minimum substring length",
+      "seed": 23,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(3, max(3, min(size, 3000)))\n    s = ''.join(rng.choice('01234') for _ in range(n))\n    k = rng.randint(1, n)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxDifference(self, s, k):\n        n = len(s)\n        best = None\n        for length in range(k, n + 1):\n            for start in range(0, n - length + 1):\n                sub = s[start:start + length]\n                freq = {}\n                for ch in sub:\n                    freq[ch] = freq.get(ch, 0) + 1\n                odds = [v for v in freq.values() if v % 2 == 1]\n                evens = [v for v in freq.values() if v % 2 == 0 and v > 0]\n                if odds and evens:\n                    diff = max(odds) - min(evens)\n                    if best is None or diff > best:\n                        best = diff\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxDifference(self, s, k):\n        n = len(s)\n        digits = '01234'\n        prefcount = {}\n        for d in digits:\n            arr = [0] * (n + 1)\n            for i, ch in enumerate(s):\n                arr[i + 1] = arr[i] + (1 if ch == d else 0)\n            prefcount[d] = arr\n        nextocc = {}\n        for d in digits:\n            arr = [n] * (n + 1)\n            arr[n] = n\n            for i in range(n - 1, -1, -1):\n                arr[i] = i if s[i] == d else arr[i + 1]\n            nextocc[d] = arr\n        INF = float('inf')\n        ans = None\n        for a in digits:\n            for b in digits:\n                if a == b:\n                    continue\n                pa = prefcount[a]\n                pb = prefcount[b]\n                nb = nextocc[b]\n                committed = [[INF, INF], [INF, INF]]\n                pending = [[] for _ in range(n + 2)]\n                for r in range(0, n + 1):\n                    if pending[r]:\n                        for (ppa, ppb, val) in pending[r]:\n                            if val < committed[ppa][ppb]:\n                                committed[ppa][ppb] = val\n                    fr = pa[r] - pb[r]\n                    par_a = pa[r] & 1\n                    par_b = pb[r] & 1\n                    other = committed[1 - par_a][par_b]\n                    if other != INF:\n                        diff = fr - other\n                        if ans is None or diff > ans:\n                            ans = diff\n                    idx = nb[r] if r < n else n\n                    close_time = idx + 1 if idx < n else n + 1\n                    elig = max(close_time, r + k)\n                    if elig <= n:\n                        pending[elig].append((par_a, par_b, fr))\n        return ans\n",
+    "javascript": "var maxDifference = function(s, k) {\n    const n = s.length;\n    const digits = ['0', '1', '2', '3', '4'];\n    const prefcount = {};\n    for (const d of digits) {\n        const arr = new Array(n + 1).fill(0);\n        for (let i = 0; i < n; i++) arr[i + 1] = arr[i] + (s[i] === d ? 1 : 0);\n        prefcount[d] = arr;\n    }\n    const nextocc = {};\n    for (const d of digits) {\n        const arr = new Array(n + 1).fill(n);\n        arr[n] = n;\n        for (let i = n - 1; i >= 0; i--) arr[i] = (s[i] === d) ? i : arr[i + 1];\n        nextocc[d] = arr;\n    }\n    const INF = Infinity;\n    let ans = null;\n    for (const a of digits) {\n        for (const b of digits) {\n            if (a === b) continue;\n            const pa = prefcount[a], pb = prefcount[b], nb = nextocc[b];\n            const committed = [[INF, INF], [INF, INF]];\n            const pending = [];\n            for (let i = 0; i <= n + 1; i++) pending.push([]);\n            for (let r = 0; r <= n; r++) {\n                if (pending[r].length) {\n                    for (const [ppa, ppb, val] of pending[r]) {\n                        if (val < committed[ppa][ppb]) committed[ppa][ppb] = val;\n                    }\n                }\n                const fr = pa[r] - pb[r];\n                const parA = pa[r] & 1;\n                const parB = pb[r] & 1;\n                const other = committed[1 - parA][parB];\n                if (other !== INF) {\n                    const diff = fr - other;\n                    if (ans === null || diff > ans) ans = diff;\n                }\n                const idx = r < n ? nb[r] : n;\n                const closeTime = idx < n ? idx + 1 : n + 1;\n                const elig = Math.max(closeTime, r + k);\n                if (elig <= n) pending[elig].push([parA, parB, fr]);\n            }\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(25n)", "space": "O(n)" }
+}

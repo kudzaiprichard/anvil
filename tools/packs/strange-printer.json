@@ -1,0 +1,38 @@
+{
+  "slug": "strange-printer",
+  "judge": "exact",
+  "pattern": "Interval dynamic programming counts minimum print passes, exploiting that a run printed for the left end can be extended for free wherever the same character reappears.",
+  "hints": [
+    "Collapsing consecutive duplicate characters never changes the answer, so reduce runs to single characters first.",
+    "Think of the cost to print a substring [i..j]; the key saving is when s[i] equals some s[k] inside the range.",
+    "Let dp[i][j] be the min turns for substring i..j. Base dp[i][i]=1. dp[i][j] starts as 1 + dp[i+1][j]; for each k in (i, j] with s[k]==s[i], try dp[i+1][k-1] + dp[k][j] to merge the print of s[i] with s[k]."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two distinct runs", "input": ["aaabbb"] },
+    { "kind": "trap", "description": "outer character reappears, saving a turn", "input": ["aba"] },
+    { "kind": "boundary", "description": "single character", "input": ["a"] },
+    { "kind": "edge", "description": "all identical characters", "input": ["aaaa"] },
+    { "kind": "trap", "description": "alternating characters force many turns", "input": ["abab"] },
+    { "kind": "edge", "description": "all distinct characters", "input": ["abcd"] },
+    { "kind": "trap", "description": "nested reuse opportunities", "input": ["abcba"] },
+    { "kind": "edge", "description": "run reduction matters", "input": ["aabbaabb"] }
+  ],
+  "stress": [
+    {
+      "description": "random short strings over a tiny alphabet to create overlap opportunities",
+      "seed": 99,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, max(2, min(size, 40)))\n    alpha = 'abc'\n    s = ''.join(rng.choice(alpha) for _ in range(n))\n    return [s]\n",
+      "note": "small alphabet and length keep the O(n^3) DP fast while exercising overlaps"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def strangePrinter(self, s):\n        if not s:\n            return 0\n        # collapse runs\n        comp = []\n        for ch in s:\n            if not comp or comp[-1] != ch:\n                comp.append(ch)\n        t = ''.join(comp)\n        n = len(t)\n        import sys\n        sys.setrecursionlimit(10000)\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def solve(i, j):\n            if i > j:\n                return 0\n            if i == j:\n                return 1\n            res = 1 + solve(i + 1, j)\n            for k in range(i + 1, j + 1):\n                if t[k] == t[i]:\n                    res = min(res, solve(i + 1, k - 1) + solve(k, j))\n            return res\n        return solve(0, n - 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def strangePrinter(self, s):\n        comp = []\n        for ch in s:\n            if not comp or comp[-1] != ch:\n                comp.append(ch)\n        t = comp\n        n = len(t)\n        if n == 0:\n            return 0\n        dp = [[0] * n for _ in range(n)]\n        for i in range(n):\n            dp[i][i] = 1\n        for length in range(2, n + 1):\n            for i in range(0, n - length + 1):\n                j = i + length - 1\n                dp[i][j] = 1 + dp[i + 1][j]\n                for k in range(i + 1, j + 1):\n                    if t[k] == t[i]:\n                        left = dp[i + 1][k - 1] if k - 1 >= i + 1 else 0\n                        dp[i][j] = min(dp[i][j], left + dp[k][j])\n        return dp[0][n - 1]\n",
+    "javascript": "var strangePrinter = function(s) {\n    const comp = [];\n    for (const ch of s) {\n        if (comp.length === 0 || comp[comp.length - 1] !== ch) comp.push(ch);\n    }\n    const t = comp;\n    const n = t.length;\n    if (n === 0) return 0;\n    const dp = Array.from({ length: n }, () => new Array(n).fill(0));\n    for (let i = 0; i < n; i++) dp[i][i] = 1;\n    for (let len = 2; len <= n; len++) {\n        for (let i = 0; i + len - 1 < n; i++) {\n            const j = i + len - 1;\n            dp[i][j] = 1 + dp[i + 1][j];\n            for (let k = i + 1; k <= j; k++) {\n                if (t[k] === t[i]) {\n                    const left = (k - 1 >= i + 1) ? dp[i + 1][k - 1] : 0;\n                    dp[i][j] = Math.min(dp[i][j], left + dp[k][j]);\n                }\n            }\n        }\n    }\n    return dp[0][n - 1];\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n^2)" }
+}

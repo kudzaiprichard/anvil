@@ -1,0 +1,37 @@
+{
+  "slug": "sum-of-sortable-integers",
+  "judge": "exact",
+  "pattern": "Rotating a block only ever reorders its own elements, so a block length only works if every block's slice of the final sorted array is reachable from that same block purely by rotation -- a condition a doubled-block substring check settles in one pass per block.",
+  "hints": [
+    "Rotation can never move an element out of its own block, so the multiset of values sitting in each block of length k must already match the multiset that belongs there in the fully sorted array.",
+    "Beyond the multiset matching, the exact order matters too: the sorted array's slice for that block must be some cyclic rotation of the original block, not just any rearrangement.",
+    "To check whether one sequence is a cyclic rotation of another quickly, concatenate the original block with itself and look for the target slice as a contiguous run inside that doubled sequence."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single element, trivially sortable", "input": [ [7] ] },
+    { "kind": "edge", "description": "already sorted array, every divisor works", "input": [ [1, 2, 3, 4] ] },
+    { "kind": "trap", "description": "strictly decreasing array, no divisor works except when forced trivially", "input": [ [4, 3, 2, 1] ] },
+    { "kind": "trap", "description": "a block rotation would fix one block length but not a larger one", "input": [ [2, 1, 4, 3] ] },
+    { "kind": "edge", "description": "duplicate values across blocks", "input": [ [2, 2, 1, 1] ] },
+    { "kind": "boundary", "description": "prime length, only divisors are 1 and n itself", "input": [ [5, 3, 1, 4, 2] ] },
+    { "kind": "edge", "description": "highly composite length with several candidate divisors", "input": [ [6, 5, 4, 3, 2, 1] ] },
+    { "kind": "trap", "description": "one block already sorted while another needs a full rotation", "input": [ [1, 2, 6, 5, 4, 3] ] }
+  ],
+  "stress": [
+    {
+      "description": "large random array with a highly composite length",
+      "seed": 111,
+      "size": 720,
+      "generator_python": "def gen(rng, size):\n    composite_lengths = [720, 840, 60480, 100000]\n    n = min([c for c in composite_lengths if c >= 1], key=lambda c: abs(c - max(1, size)))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "from itertools import product\nclass Solution:\n    def sortableIntegers(self, nums):\n        n = len(nums)\n        def divisors(m):\n            ds = []\n            i = 1\n            while i * i <= m:\n                if m % i == 0:\n                    ds.append(i)\n                    if i != m // i:\n                        ds.append(m // i)\n                i += 1\n            return ds\n        target = sorted(nums)\n        total = 0\n        for k in divisors(n):\n            blocks = [nums[i:i + k] for i in range(0, n, k)]\n            options = [[b[r:] + b[:r] for r in range(k)] for b in blocks]\n            found = False\n            for combo in product(*options):\n                merged = []\n                for c in combo:\n                    merged.extend(c)\n                if merged == target:\n                    found = True\n                    break\n            if found:\n                total += k\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def sortableIntegers(self, nums):\n        n = len(nums)\n        def divisors(m):\n            ds = []\n            i = 1\n            while i * i <= m:\n                if m % i == 0:\n                    ds.append(i)\n                    if i != m // i:\n                        ds.append(m // i)\n                i += 1\n            return ds\n        def is_rotation(a, b):\n            if len(a) != len(b):\n                return False\n            if sorted(a) != sorted(b):\n                return False\n            ea = ',' + ','.join(str(x) for x in a) + ','\n            doubled = ea + ea[1:]\n            eb = ',' + ','.join(str(x) for x in b) + ','\n            return eb in doubled\n        target = sorted(nums)\n        total = 0\n        for k in divisors(n):\n            ok = True\n            for start in range(0, n, k):\n                a = nums[start:start + k]\n                b = target[start:start + k]\n                if not is_rotation(a, b):\n                    ok = False\n                    break\n            if ok:\n                total += k\n        return total\n",
+    "javascript": "var sortableIntegers = function(nums) {\n    const n = nums.length;\n    function divisors(m) {\n        const ds = [];\n        for (let i = 1; i * i <= m; i++) {\n            if (m % i === 0) {\n                ds.push(i);\n                if (i !== m / i) ds.push(m / i);\n            }\n        }\n        return ds;\n    }\n    function isRotation(a, b) {\n        if (a.length !== b.length) return false;\n        const sa = a.slice().sort((x, y) => x - y);\n        const sb = b.slice().sort((x, y) => x - y);\n        for (let i = 0; i < sa.length; i++) if (sa[i] !== sb[i]) return false;\n        const ea = ',' + a.join(',') + ',';\n        const doubled = ea + ea.slice(1);\n        const eb = ',' + b.join(',') + ',';\n        return doubled.includes(eb);\n    }\n    const target = nums.slice().sort((x, y) => x - y);\n    let total = 0;\n    for (const k of divisors(n)) {\n        let ok = true;\n        for (let start = 0; start < n; start += k) {\n            const a = nums.slice(start, start + k);\n            const b = target.slice(start, start + k);\n            if (!isRotation(a, b)) { ok = false; break; }\n        }\n        if (ok) total += k;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n * d(n))", "space": "O(n)" }
+}

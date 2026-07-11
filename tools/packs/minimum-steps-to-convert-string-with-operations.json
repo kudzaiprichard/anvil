@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-steps-to-convert-string-with-operations",
+  "judge": "exact",
+  "pattern": "Partition cost is additive, and within one piece a swap only pays off when it fixes two mirrored mismatches, so a quadratic DP over split points wins.",
+  "hints": [
+    "Let dp[i] be the cheapest way to match the first i characters; it comes from a previous split plus one substring's cost.",
+    "For one substring, optionally reverse it, then a swap is worth using only when two positions hold each other's needed letters; everything else is a replace.",
+    "Within a piece, cost = optional reverse + mismatches minus the number of mutually-fixable swap pairs; take the better of reversed and not."
+  ],
+  "constraints": [
+    { "param": "word1", "kind": "str", "len": [1, 100] },
+    { "param": "word2", "kind": "str", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "reverse then replace in pieces", "input": ["abcdf", "dacbe"] },
+    { "kind": "edge", "description": "swaps across small pieces", "input": ["abceded", "baecfef"] },
+    { "kind": "edge", "description": "whole-string reverse plus swap", "input": ["abcdef", "fedabc"] },
+    { "kind": "edge", "description": "identical strings cost nothing", "input": ["abc", "abc"] },
+    { "kind": "boundary", "description": "single char replace", "input": ["a", "b"] },
+    { "kind": "trap", "description": "one mirrored swap fixes two", "input": ["ab", "ba"] },
+    { "kind": "trap", "description": "all distinct replaces", "input": ["aaa", "bcd"] }
+  ],
+  "stress": [
+    {
+      "description": "short strings over a tiny alphabet so the partition oracle stays fast",
+      "seed": 111,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 7)))\n    import string\n    alpha = string.ascii_lowercase[:4]\n    w1 = ''.join(rng.choice(alpha) for _ in range(n))\n    w2 = ''.join(rng.choice(alpha) for _ in range(n))\n    return [w1, w2]\n"
+    }
+  ],
+  "oracle_python": "from functools import lru_cache\nclass Solution:\n    def minOperations(self, word1, word2):\n        def cost_brute(a, b):\n            n = len(a)\n            best = 10 ** 9\n            idx = list(range(n))\n            def matchings(rem):\n                if not rem:\n                    yield []\n                    return\n                first = rem[0]\n                for m in matchings(rem[1:]):\n                    yield m\n                for kk in range(1, len(rem)):\n                    rest = rem[1:kk] + rem[kk + 1:]\n                    for m in matchings(rest):\n                        yield [(first, rem[kk])] + m\n            for rev in (0, 1):\n                base = a[::-1] if rev else a\n                for match in matchings(idx):\n                    p = list(range(n))\n                    for x, y in match:\n                        p[x] = y\n                        p[y] = x\n                    rep = sum(1 for i in range(n) if base[p[i]] != b[i])\n                    best = min(best, rev + len(match) + rep)\n            return best\n        @lru_cache(maxsize=None)\n        def f(a, b):\n            if not a:\n                return 0\n            return min(cost_brute(a[:i], b[:i]) + f(a[i:], b[i:]) for i in range(1, len(a) + 1))\n        return f(word1, word2)\n",
+  "solutions": {
+    "python": "from collections import Counter\nclass Solution:\n    def minOperations(self, word1, word2):\n        def cost(a, b):\n            best = 10 ** 9\n            m = len(a)\n            for rev in (0, 1):\n                base = a[::-1] if rev else a\n                cnt = Counter()\n                mis = 0\n                for i in range(m):\n                    if base[i] != b[i]:\n                        mis += 1\n                        cnt[(base[i], b[i])] += 1\n                pairs = 0\n                used = set()\n                for (x, y), c in cnt.items():\n                    if (x, y) in used or x == y:\n                        continue\n                    used.add((x, y))\n                    used.add((y, x))\n                    pairs += min(c, cnt.get((y, x), 0))\n                v = rev + mis - pairs\n                if v < best:\n                    best = v\n            return best\n        n = len(word1)\n        INF = 10 ** 9\n        dp = [INF] * (n + 1)\n        dp[0] = 0\n        for i in range(1, n + 1):\n            for j in range(i):\n                c = dp[j] + cost(word1[j:i], word2[j:i])\n                if c < dp[i]:\n                    dp[i] = c\n        return dp[n]\n",
+    "javascript": "var minOperations = function(word1, word2) {\n    const cost = (a, b) => {\n        let best = Infinity;\n        const m = a.length;\n        for (let rev = 0; rev < 2; rev++) {\n            const base = rev ? a.split('').reverse().join('') : a;\n            const cnt = new Map();\n            let mis = 0;\n            for (let i = 0; i < m; i++) {\n                if (base[i] !== b[i]) {\n                    mis++;\n                    const key = base[i] + b[i];\n                    cnt.set(key, (cnt.get(key) || 0) + 1);\n                }\n            }\n            let pairs = 0;\n            const used = new Set();\n            for (const [key, c] of cnt.entries()) {\n                const x = key[0], y = key[1];\n                if (used.has(key) || x === y) continue;\n                used.add(key);\n                used.add(y + x);\n                pairs += Math.min(c, cnt.get(y + x) || 0);\n            }\n            const v = rev + mis - pairs;\n            if (v < best) best = v;\n        }\n        return best;\n    };\n    const n = word1.length;\n    const dp = new Array(n + 1).fill(Infinity);\n    dp[0] = 0;\n    for (let i = 1; i <= n; i++) {\n        for (let j = 0; j < i; j++) {\n            const c = dp[j] + cost(word1.slice(j, i), word2.slice(j, i));\n            if (c < dp[i]) dp[i] = c;\n        }\n    }\n    return dp[n];\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n)" }
+}

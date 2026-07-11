@@ -1,0 +1,38 @@
+{
+  "slug": "brace-expansion-ii",
+  "judge": "exact",
+  "pattern": "A recursive grammar evaluation where comma means set union and adjacency means cartesian-product concatenation, returning the sorted distinct words.",
+  "hints": [
+    "Two operations build the answer: a comma joins alternatives into one set, and writing expressions side by side concatenates every pair across them.",
+    "Parse the top level into comma-separated groups, and within a group split into concatenated factors, recursing into each braced factor.",
+    "Evaluate each factor to a set; concatenate factors of a group by cartesian product, union the groups, then return the unique words sorted."
+  ],
+  "constraints": [
+    { "param": "expression", "kind": "string", "len": [1, 60] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example, concatenation over a nested union", "input": ["{a,b}{c,{d,e}}"] },
+    { "kind": "edge", "description": "second example, duplicates collapse", "input": ["{{a,z},a{b,c},{ab,z}}"] },
+    { "kind": "boundary", "description": "a single letter", "input": ["a"] },
+    { "kind": "edge", "description": "plain concatenation of two letters", "input": ["ab"] },
+    { "kind": "edge", "description": "simple union of single letters", "input": ["{a,b,c}"] },
+    { "kind": "trap", "description": "nested union producing the same set twice", "input": ["{{a,b},{b,c}}"] },
+    { "kind": "trap", "description": "product of two unions", "input": ["{a,b}{c,d}"] },
+    { "kind": "trap", "description": "deeper nesting with shared prefixes", "input": ["a{b,c}{d,e}f{g,h}"] }
+  ],
+  "stress": [
+    {
+      "description": "randomly built valid grammar expressions of bounded size",
+      "seed": 121,
+      "size": 3,
+      "generator_python": "def gen(rng, size):\n    depth = max(1, size)\n    letters = 'abc'\n    def build(d, budget):\n        if d <= 0 or budget <= 1 or rng.random() < 0.4:\n            return rng.choice(letters)\n        choice = rng.random()\n        if choice < 0.5:\n            k = rng.randrange(2, 4)\n            parts = [build(d - 1, budget // k) for _ in range(k)]\n            return '{' + ','.join(parts) + '}'\n        else:\n            k = rng.randrange(2, 3)\n            parts = [build(d - 1, budget // k) for _ in range(k)]\n            return ''.join(parts)\n    e = build(depth, 30)\n    return [e]\n",
+      "note": "keeps expressions within the 60-char limit and grammatically valid"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def braceExpansionII(self, expression):\n        def parse(s):\n            # returns set of words for a top-level expression (union of concat groups)\n            groups = split_top(s, ',')\n            result = set()\n            for g in groups:\n                result |= concat(g)\n                pass\n            return result\n        def concat(s):\n            factors = split_factors(s)\n            cur = {''}\n            for f in factors:\n                fset = factor_set(f)\n                cur = {a + b for a in cur for b in fset}\n            return cur\n        def factor_set(f):\n            if f and f[0] == '{':\n                return parse(f[1:-1])\n            return {f}\n        def split_top(s, sep):\n            parts = []\n            depth = 0\n            last = 0\n            for i, ch in enumerate(s):\n                if ch == '{':\n                    depth += 1\n                elif ch == '}':\n                    depth -= 1\n                elif ch == sep and depth == 0:\n                    parts.append(s[last:i])\n                    last = i + 1\n            parts.append(s[last:])\n            return parts\n        def split_factors(s):\n            factors = []\n            depth = 0\n            i = 0\n            n = len(s)\n            while i < n:\n                if s[i] == '{':\n                    j = i\n                    d = 0\n                    while j < n:\n                        if s[j] == '{':\n                            d += 1\n                        elif s[j] == '}':\n                            d -= 1\n                            if d == 0:\n                                break\n                        j += 1\n                    factors.append(s[i:j + 1])\n                    i = j + 1\n                else:\n                    j = i\n                    while j < n and s[j] != '{':\n                        j += 1\n                    factors.append(s[i:j])\n                    i = j\n            return factors\n        return sorted(parse(expression))\n",
+  "solutions": {
+    "python": "class Solution:\n    def braceExpansionII(self, expression):\n        pos = 0\n        s = expression\n        n = len(s)\n        def parse_union():\n            nonlocal pos\n            result = set()\n            result |= parse_concat()\n            while pos < n and s[pos] == ',':\n                pos += 1\n                result |= parse_concat()\n            return result\n        def parse_concat():\n            nonlocal pos\n            cur = {''}\n            while pos < n and s[pos] not in ',}':\n                if s[pos] == '{':\n                    pos += 1\n                    inner = parse_union()\n                    pos += 1\n                    cur = {a + b for a in cur for b in inner}\n                else:\n                    cur = {a + s[pos] for a in cur}\n                    pos += 1\n            return cur\n        return sorted(parse_union())\n",
+    "javascript": "var braceExpansionII = function(expression) {\n    let pos = 0;\n    const s = expression;\n    const n = s.length;\n    function parseUnion() {\n        let result = new Set(parseConcat());\n        while (pos < n && s[pos] === ',') {\n            pos++;\n            for (const w of parseConcat()) result.add(w);\n        }\n        return result;\n    }\n    function parseConcat() {\n        let cur = new Set(['']);\n        while (pos < n && s[pos] !== ',' && s[pos] !== '}') {\n            if (s[pos] === '{') {\n                pos++;\n                const inner = parseUnion();\n                pos++;\n                const next = new Set();\n                for (const a of cur) for (const b of inner) next.add(a + b);\n                cur = next;\n            } else {\n                const ch = s[pos];\n                const next = new Set();\n                for (const a of cur) next.add(a + ch);\n                cur = next;\n                pos++;\n            }\n        }\n        return cur;\n    }\n    const result = parseUnion();\n    return Array.from(result).sort();\n};\n"
+  },
+  "complexity": { "time": "O(W log W)", "space": "O(W)" }
+}

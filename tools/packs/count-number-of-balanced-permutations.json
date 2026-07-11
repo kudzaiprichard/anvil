@@ -1,0 +1,37 @@
+{
+  "slug": "count-number-of-balanced-permutations",
+  "judge": "exact",
+  "pattern": "A permutation's even-position sum and odd-position sum only depend on which digit copies land in the even slots versus the odd slots, not on their internal order, so counting balanced permutations reduces to a knapsack over how many copies of each digit value go to the even group, weighted by how many distinct arrangements each split produces.",
+  "hints": [
+    "The even positions and odd positions each need a fixed number of digits (based only on the string's length), and both groups must sum to exactly half of the total digit sum -- so first check whether the total digit sum is even at all.",
+    "For each digit value 0-9, decide how many of its available copies go into the even group versus the odd group; a dynamic program over (digits considered so far, count placed in the even group, sum placed in the even group) tracks every feasible split.",
+    "For a fixed split, the number of distinct permutations it produces is (even-slot count)! times (odd-slot count)! divided by the factorial of how many copies of each digit landed in each group -- sum that quantity, weighted appropriately, over every feasible split using modular inverse factorials."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "string", "len": [2, 80] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three distinct digits", "input": ["246"] },
+    { "kind": "edge", "description": "repeated digits among a small string", "input": ["1123"] },
+    { "kind": "boundary", "description": "shortest possible input, two digits", "input": ["19"] },
+    { "kind": "boundary", "description": "shortest input where the two digits already balance", "input": ["55"] },
+    { "kind": "trap", "description": "odd total digit sum makes balance impossible regardless of arrangement", "input": ["1357"] },
+    { "kind": "trap", "description": "all digits identical, every permutation is the same string", "input": ["2222"] },
+    { "kind": "trap", "description": "digit zero included, since it still occupies a position and counts toward the sum as zero", "input": ["1023"] },
+    { "kind": "edge", "description": "five digits with an odd count split between even and odd position groups", "input": ["12345"] }
+  ],
+  "stress": [
+    {
+      "description": "random digit strings across the full length range",
+      "seed": 37,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 80)))\n    num = ''.join(str(rng.randint(0, 9)) for _ in range(n))\n    return [num]\n"
+    }
+  ],
+  "oracle_python": "from itertools import permutations\nclass Solution:\n    def countBalancedPermutations(self, num):\n        MOD = 10 ** 9 + 7\n        seen = set()\n        count = 0\n        for p in permutations(num):\n            s = ''.join(p)\n            if s in seen:\n                continue\n            seen.add(s)\n            even_sum = sum(int(s[i]) for i in range(0, len(s), 2))\n            odd_sum = sum(int(s[i]) for i in range(1, len(s), 2))\n            if even_sum == odd_sum:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countBalancedPermutations(self, num):\n        MOD = 10 ** 9 + 7\n        n = len(num)\n        even_cnt = (n + 1) // 2\n        odd_cnt = n // 2\n        cnt = [0] * 10\n        total = 0\n        for ch in num:\n            d = int(ch)\n            cnt[d] += 1\n            total += d\n        if total % 2 != 0:\n            return 0\n        target = total // 2\n        max_n = n + 1\n        fact = [1] * max_n\n        for i in range(1, max_n):\n            fact[i] = fact[i - 1] * i % MOD\n        invfact = [1] * max_n\n        invfact[max_n - 1] = pow(fact[max_n - 1], MOD - 2, MOD)\n        for i in range(max_n - 2, -1, -1):\n            invfact[i] = invfact[i + 1] * (i + 1) % MOD\n        dp = [[0] * (target + 1) for _ in range(even_cnt + 1)]\n        dp[0][0] = 1\n        for d in range(10):\n            c = cnt[d]\n            ndp = [[0] * (target + 1) for _ in range(even_cnt + 1)]\n            for j in range(even_cnt + 1):\n                row = dp[j]\n                for s in range(target + 1):\n                    val = row[s]\n                    if val == 0:\n                        continue\n                    maxk = min(c, even_cnt - j)\n                    for k in range(maxk + 1):\n                        ns = s + k * d\n                        if ns > target:\n                            break\n                        nj = j + k\n                        ndp[nj][ns] = (ndp[nj][ns] + val * invfact[k] % MOD * invfact[c - k]) % MOD\n            dp = ndp\n        ways = dp[even_cnt][target]\n        return ways * fact[even_cnt] % MOD * fact[odd_cnt] % MOD\n",
+    "javascript": "var countBalancedPermutations = function(num) {\n    const MOD = 1000000007n;\n    const n = num.length;\n    const evenCnt = Math.ceil(n / 2);\n    const oddCnt = Math.floor(n / 2);\n    const cnt = new Array(10).fill(0);\n    let total = 0;\n    for (const ch of num) {\n        const d = ch.charCodeAt(0) - 48;\n        cnt[d]++;\n        total += d;\n    }\n    if (total % 2 !== 0) return 0;\n    const target = total / 2;\n    const maxN = n + 1;\n    const fact = new Array(maxN);\n    fact[0] = 1n;\n    for (let i = 1; i < maxN; i++) fact[i] = (fact[i - 1] * BigInt(i)) % MOD;\n    function power(a, b, m) {\n        a %= m;\n        let r = 1n;\n        while (b > 0n) {\n            if (b & 1n) r = (r * a) % m;\n            a = (a * a) % m;\n            b >>= 1n;\n        }\n        return r;\n    }\n    const invfact = new Array(maxN);\n    invfact[maxN - 1] = power(fact[maxN - 1], MOD - 2n, MOD);\n    for (let i = maxN - 2; i >= 0; i--) invfact[i] = (invfact[i + 1] * BigInt(i + 1)) % MOD;\n    let dp = [];\n    for (let j = 0; j <= evenCnt; j++) dp.push(new Array(target + 1).fill(0n));\n    dp[0][0] = 1n;\n    for (let d = 0; d < 10; d++) {\n        const c = cnt[d];\n        const ndp = [];\n        for (let j = 0; j <= evenCnt; j++) ndp.push(new Array(target + 1).fill(0n));\n        for (let j = 0; j <= evenCnt; j++) {\n            for (let s = 0; s <= target; s++) {\n                const val = dp[j][s];\n                if (val === 0n) continue;\n                const maxk = Math.min(c, evenCnt - j);\n                for (let k = 0; k <= maxk; k++) {\n                    const ns = s + k * d;\n                    if (ns > target) break;\n                    const nj = j + k;\n                    ndp[nj][ns] = (ndp[nj][ns] + (val * invfact[k] % MOD) * invfact[c - k]) % MOD;\n                }\n            }\n        }\n        dp = ndp;\n    }\n    const ways = dp[evenCnt][target];\n    const ans = (ways * fact[evenCnt] % MOD) * fact[oddCnt] % MOD;\n    return Number(ans);\n};\n"
+  },
+  "complexity": { "time": "O(n^2) via the digit/count/sum DP", "space": "O(n^2)" }
+}

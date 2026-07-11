@@ -1,0 +1,37 @@
+{
+  "slug": "count-number-of-texts",
+  "judge": "exact",
+  "pattern": "Each maximal run of one key decomposes independently, and within a run a bounded-step counting recurrence (Tribonacci-like for the four-letter keys) tallies the groupings modulo a large prime.",
+  "hints": [
+    "Different digits never combine into one letter, so split the input into maximal runs of the same digit and multiply their counts.",
+    "Within a run of length L of a key offering g letters (g is 3 for most, 4 for the keys '7' and '9'), the number of decodings depends only on L and g.",
+    "Define f(L) = f(L-1) + f(L-2) + f(L-3) (plus f(L-4) when g is 4), with f(0)=1, taking every addition modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "pressedKeys", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two different runs multiply", "input": ["22233"] },
+    { "kind": "boundary", "description": "single press", "input": ["2"] },
+    { "kind": "trap", "description": "four-letter key '7' uses the 4-step recurrence", "input": ["7777"] },
+    { "kind": "trap", "description": "four-letter key '9'", "input": ["9999"] },
+    { "kind": "edge", "description": "alternating single presses", "input": ["234567"] },
+    { "kind": "trap", "description": "long run of a three-letter key", "input": ["2222"] },
+    { "kind": "edge", "description": "mixed runs of varying length", "input": ["227777889"] }
+  ],
+  "stress": [
+    {
+      "description": "long random sequence of digits 2-9 with frequent repeats forcing the modulo",
+      "seed": 18,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    out = []\n    while len(out) < n:\n        d = str(rng.randint(2, 9))\n        run = rng.randint(1, 8)\n        out.extend([d] * run)\n    return [''.join(out[:n])]\n",
+      "note": "runs up to length 8 exercise both recurrence depths"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countTexts(self, pressedKeys):\n        MOD = 10**9 + 7\n        four = {'7', '9'}\n        i = 0\n        n = len(pressedKeys)\n        result = 1\n        while i < n:\n            j = i\n            while j < n and pressedKeys[j] == pressedKeys[i]:\n                j += 1\n            L = j - i\n            g = 4 if pressedKeys[i] in four else 3\n            dp = [0] * (L + 1)\n            dp[0] = 1\n            for x in range(1, L + 1):\n                for step in range(1, g + 1):\n                    if x - step >= 0:\n                        dp[x] = (dp[x] + dp[x - step]) % MOD\n            result = (result * dp[L]) % MOD\n            i = j\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def countTexts(self, pressedKeys):\n        MOD = 10**9 + 7\n        n = len(pressedKeys)\n        dp = [0] * (n + 1)\n        dp[0] = 1\n        for i in range(1, n + 1):\n            ch = pressedKeys[i - 1]\n            g = 4 if ch in ('7', '9') else 3\n            total = 0\n            for step in range(1, g + 1):\n                k = i - step\n                if k >= 0 and pressedKeys[k:i] == ch * step:\n                    total += dp[k]\n            dp[i] = total % MOD\n        return dp[n]\n",
+    "javascript": "var countTexts = function(pressedKeys) {\n    const MOD = 1000000007n;\n    const n = pressedKeys.length;\n    const dp = new Array(n + 1).fill(0n);\n    dp[0] = 1n;\n    for (let i = 1; i <= n; i++) {\n        const ch = pressedKeys[i - 1];\n        const g = (ch === '7' || ch === '9') ? 4 : 3;\n        let total = 0n;\n        for (let step = 1; step <= g; step++) {\n            const k = i - step;\n            if (k < 0) break;\n            let same = true;\n            for (let t = k; t < i; t++) {\n                if (pressedKeys[t] !== ch) { same = false; break; }\n            }\n            if (same) total += dp[k];\n        }\n        dp[i] = total % MOD;\n    }\n    return Number(dp[n]);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

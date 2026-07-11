@@ -1,0 +1,38 @@
+{
+  "slug": "walking-robot-simulation",
+  "judge": "exact",
+  "pattern": "Simulate the robot step by step using a direction vector that rotates on turn commands, advancing one unit at a time and halting against any obstacle stored in a hash set, while tracking the largest squared distance seen.",
+  "hints": [
+    "Keep the heading as a small vector and rotate it left or right by swapping and negating its components on a turn command.",
+    "Move forward one cell at a time so you can stop the instant the next cell holds an obstacle; put the obstacles in a set for constant-time lookup.",
+    "After every single-unit step, update the best answer with the current squared distance from the origin; turn commands change direction but never the position."
+  ],
+  "constraints": [
+    { "param": "commands", "kind": "int[]", "len": [1, 10000], "value": [-2, 9] },
+    { "param": "obstacles", "kind": "int[][]", "len": [0, 10000], "value": [-30000, 30000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a turn then a forward run, no obstacles", "input": [[4, -1, 3], []] },
+    { "kind": "trap", "description": "an obstacle stops a run partway then a turn continues", "input": [[4, -1, 4, -2, 4], [[2, 4]]] },
+    { "kind": "trap", "description": "obstacle at the origin blocks return but not departure", "input": [[6, -1, -1, 6], [[0, 0]]] },
+    { "kind": "boundary", "description": "a single forward command", "input": [[9], []] },
+    { "kind": "edge", "description": "only turns, robot never moves", "input": [[-1, -2, -1, -2], []] },
+    { "kind": "trap", "description": "a wall of obstacles immediately ahead pins the robot", "input": [[5, -1, 5, -1, 5], [[0, 1], [1, 0], [0, -1], [-1, 0]]] },
+    { "kind": "edge", "description": "full square loop returns near the origin", "input": [[2, -1, 2, -1, 2, -1, 2], []] }
+  ],
+  "stress": [
+    {
+      "description": "random command stream with random obstacles drawn without replacement so they are unique grid points",
+      "seed": 37,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    commands = []\n    for _ in range(n):\n        r = rng.random()\n        if r < 0.15:\n            commands.append(-1)\n        elif r < 0.3:\n            commands.append(-2)\n        else:\n            commands.append(rng.randint(1, 9))\n    m = rng.randint(0, 200)\n    coords = set()\n    obstacles = []\n    while len(obstacles) < m:\n        x = rng.randint(-50, 50)\n        y = rng.randint(-50, 50)\n        if (x, y) not in coords:\n            coords.add((x, y))\n            obstacles.append([x, y])\n    return [commands, obstacles]\n",
+      "note": "obstacles kept unique; small coordinate window makes collisions with the path likely"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def robotSim(self, commands, obstacles):\n        # Brute: same simulation but with an explicit direction index table.\n        dirs = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # N, E, S, W\n        d = 0\n        x = y = 0\n        blocked = set((ox, oy) for ox, oy in obstacles)\n        best = 0\n        for cmd in commands:\n            if cmd == -1:\n                d = (d + 1) % 4\n            elif cmd == -2:\n                d = (d - 1) % 4\n            else:\n                dx, dy = dirs[d]\n                for _ in range(cmd):\n                    nx, ny = x + dx, y + dy\n                    if (nx, ny) in blocked:\n                        break\n                    x, y = nx, ny\n                    if x * x + y * y > best:\n                        best = x * x + y * y\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def robotSim(self, commands, obstacles):\n        dx, dy = 0, 1\n        x = y = 0\n        obs = set(map(tuple, obstacles))\n        best = 0\n        for cmd in commands:\n            if cmd == -1:\n                dx, dy = dy, -dx\n            elif cmd == -2:\n                dx, dy = -dy, dx\n            else:\n                for _ in range(cmd):\n                    nx, ny = x + dx, y + dy\n                    if (nx, ny) in obs:\n                        break\n                    x, y = nx, ny\n                    best = max(best, x * x + y * y)\n        return best\n",
+    "javascript": "var robotSim = function(commands, obstacles) {\n    let dx = 0, dy = 1, x = 0, y = 0, best = 0;\n    const obs = new Set(obstacles.map(([a, b]) => a + ',' + b));\n    for (const cmd of commands) {\n        if (cmd === -1) {\n            [dx, dy] = [dy, -dx];\n        } else if (cmd === -2) {\n            [dx, dy] = [-dy, dx];\n        } else {\n            for (let i = 0; i < cmd; i++) {\n                const nx = x + dx, ny = y + dy;\n                if (obs.has(nx + ',' + ny)) break;\n                x = nx; y = ny;\n                best = Math.max(best, x * x + y * y);\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(sum of moves)", "space": "O(obstacles)" }
+}

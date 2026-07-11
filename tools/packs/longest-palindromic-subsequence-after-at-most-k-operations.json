@@ -1,0 +1,39 @@
+{
+  "slug": "longest-palindromic-subsequence-after-at-most-k-operations",
+  "judge": "exact",
+  "pattern": "The cost to force two letters to match is fixed and symmetric -- the shorter hop between them going forward or backward around the alphabet -- so the classic interval recursion for longest palindromic subsequence just gains one extra dimension: how much budget is still unspent.",
+  "hints": [
+    "Any two letters can always be forced to match; the only question is how many single-step swaps it costs, and that cost is simply the shorter distance between them going forward or backward around the alphabet (never more than 13).",
+    "This is the usual 'longest palindromic subsequence of a substring' recursion, except every state also remembers how much of the budget remains unspent.",
+    "For a range, either skip past one end (budget untouched) or pay to make the two ends match and add 2 to whatever the inner range achieves with the leftover budget; an empty range contributes 0 and a single character always contributes 1 regardless of budget."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 200] },
+    { "param": "k", "kind": "int", "value": [1, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, small budget forces a partial match", "input": ["abced", 2] },
+    { "kind": "edge", "description": "statement example, budget enough to turn the whole string into a palindrome", "input": ["aaazzz", 4] },
+    { "kind": "boundary", "description": "single character, already a palindrome regardless of budget", "input": ["a", 1] },
+    { "kind": "boundary", "description": "minimal budget, two letters exactly one step apart around the wrap", "input": ["az", 1] },
+    { "kind": "trap", "description": "already a palindrome, spending the budget is never required", "input": ["abcba", 1] },
+    { "kind": "trap", "description": "all identical letters, already a palindrome", "input": ["zzzz", 1] },
+    { "kind": "trap", "description": "budget one short of the cost needed to match the two ends", "input": ["am", 11] },
+    { "kind": "trap", "description": "budget exactly equal to the cost needed to match the two ends", "input": ["am", 12] },
+    { "kind": "trap", "description": "already a palindrome with an even length and a middle-repeated pair", "input": ["abccba", 1] }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase string across the full length range with a random budget",
+      "seed": 37,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    s = ''.join(rng.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(n))\n    k = rng.randint(1, 200)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestPalindromicSubsequence(self, s, k):\n        def dist(a, b):\n            d = abs(ord(a) - ord(b))\n            return min(d, 26 - d)\n\n        n = len(s)\n        best = 0\n        for mask in range(1, 1 << n):\n            idxs = [i for i in range(n) if mask & (1 << i)]\n            length = len(idxs)\n            cost = 0\n            lo, hi = 0, length - 1\n            ok = True\n            while lo < hi:\n                cost += dist(s[idxs[lo]], s[idxs[hi]])\n                if cost > k:\n                    ok = False\n                    break\n                lo += 1\n                hi -= 1\n            if ok and length > best:\n                best = length\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestPalindromicSubsequence(self, s, k):\n        import sys\n        sys.setrecursionlimit(10000)\n        from functools import lru_cache\n\n        def dist(a, b):\n            d = abs(ord(a) - ord(b))\n            return min(d, 26 - d)\n\n        n = len(s)\n\n        @lru_cache(maxsize=None)\n        def solve(i, j, budget):\n            if i > j:\n                return 0\n            if i == j:\n                return 1\n            best = max(solve(i + 1, j, budget), solve(i, j - 1, budget))\n            c = dist(s[i], s[j])\n            if c <= budget:\n                best = max(best, solve(i + 1, j - 1, budget - c) + 2)\n            return best\n\n        result = solve(0, n - 1, k)\n        solve.cache_clear()\n        return result\n",
+    "javascript": "var longestPalindromicSubsequence = function(s, k) {\n    const n = s.length;\n    function dist(a, b) {\n        const d = Math.abs(a.charCodeAt(0) - b.charCodeAt(0));\n        return Math.min(d, 26 - d);\n    }\n    const memo = new Map();\n    function solve(i, j, budget) {\n        if (i > j) return 0;\n        if (i === j) return 1;\n        const key = ((i * (n + 1) + j) * (k + 1)) + budget;\n        if (memo.has(key)) return memo.get(key);\n        let best = Math.max(solve(i + 1, j, budget), solve(i, j - 1, budget));\n        const c = dist(s[i], s[j]);\n        if (c <= budget) {\n            best = Math.max(best, solve(i + 1, j - 1, budget - c) + 2);\n        }\n        memo.set(key, best);\n        return best;\n    }\n    return solve(0, n - 1, k);\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * k)", "space": "O(n^2 * k)" }
+}

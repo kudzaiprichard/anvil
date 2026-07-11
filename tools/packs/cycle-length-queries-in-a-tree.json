@@ -1,0 +1,38 @@
+{
+  "slug": "cycle-length-queries-in-a-tree",
+  "judge": "exact",
+  "pattern": "In this implicit heap-indexed tree, a node's depth and its parent are both readable straight from its integer value (parent = value // 2), so the cycle formed by one extra edge is just the tree distance between the two endpoints plus one, found by repeatedly hopping the deeper endpoint to its parent until they meet.",
+  "hints": [
+    "You never need to build the tree at all — for any node value v, its parent is simply v // 2, so you can walk toward the root purely with arithmetic.",
+    "To find how far apart two node values are, repeatedly replace whichever of the two current values is larger with its parent (value // 2); once they become equal you've reached their lowest common ancestor, and the number of replacement steps taken is exactly the tree distance between the original two nodes.",
+    "The query's added edge turns that tree path into a cycle, so the answer is the tree distance you just computed plus one (for the new edge itself) — this works even when one query node is an ancestor of the other, or when they're siblings sharing the same parent."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 30] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "note": "each inner pair [a,b], 1<=a,b<=2^n-1, a!=b" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "smallest possible tree (3 nodes) — a sibling pair sharing the root as parent", "input": [2, [[2, 3]]] },
+    { "kind": "edge", "description": "a direct parent-child pair — adding an edge that already conceptually exists as tree adjacency forms a 2-cycle", "input": [3, [[1, 2]]] },
+    { "kind": "edge", "description": "root paired with the deepest rightmost leaf", "input": [4, [[1, 15]]] },
+    { "kind": "edge", "description": "several independent queries answered in one call, none of which should affect another", "input": [3, [[2, 3], [1, 2], [4, 7]]] },
+    { "kind": "boundary", "description": "the largest allowed tree, querying the root against its deepest leaf", "input": [30, [[1, 1073741823]]] },
+    { "kind": "boundary", "description": "the largest allowed tree, querying two deepest-level siblings that only share their immediate parent", "input": [30, [[536870912, 536870913]]] },
+    { "kind": "trap", "description": "two nodes at the same depth but in entirely different subtrees — the lowest common ancestor is the root, requiring a full climb from both sides rather than a shortcut", "input": [4, [[8, 15]]] },
+    { "kind": "trap", "description": "one query node is a distant ancestor of the other (several levels apart, not just an immediate parent) — a solution assuming symmetric depths would mishandle this", "input": [5, [[1, 20]]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree size and up to 100000 random queries with distinct endpoints",
+      "seed": 23,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, 30)\n    max_val = (1 << n) - 1\n    k = min(100000, max(1, size))\n    queries = []\n    for _ in range(k):\n        a = rng.randint(1, max_val)\n        b = rng.randint(1, max_val)\n        while b == a:\n            b = rng.randint(1, max_val)\n        queries.append([a, b])\n    return [n, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def cycleLengthQueries(self, n, queries):\n        def depth(v):\n            return v.bit_length() - 1\n\n        answer = []\n        for a, b in queries:\n            da, db = depth(a), depth(b)\n            x, y = a, b\n            if da > db:\n                x >>= (da - db)\n            elif db > da:\n                y >>= (db - da)\n            climb = 0\n            while x != y:\n                x >>= 1\n                y >>= 1\n                climb += 1\n            distance = abs(da - db) + 2 * climb\n            answer.append(distance + 1)\n        return answer\n",
+  "solutions": {
+    "python": "class Solution:\n    def cycleLengthQueries(self, n, queries):\n        answer = []\n        for a, b in queries:\n            x, y = a, b\n            steps = 0\n            while x != y:\n                if x > y:\n                    x //= 2\n                else:\n                    y //= 2\n                steps += 1\n            answer.append(steps + 1)\n        return answer\n",
+    "javascript": "var cycleLengthQueries = function(n, queries) {\n    const answer = [];\n    for (const [a, b] of queries) {\n        let x = a, y = b;\n        let steps = 0;\n        while (x !== y) {\n            if (x > y) {\n                x = Math.floor(x / 2);\n            } else {\n                y = Math.floor(y / 2);\n            }\n            steps++;\n        }\n        answer.push(steps + 1);\n    }\n    return answer;\n};\n"
+  },
+  "complexity": { "time": "O(m log(2^n))", "space": "O(1) extra beyond the answer array" }
+}

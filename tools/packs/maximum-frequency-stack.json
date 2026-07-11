@@ -1,0 +1,43 @@
+{
+  "slug": "maximum-frequency-stack",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Grouping values by how many times they have been pushed so far turns 'pop the most frequent, and among ties the most recent' into popping from the top of the highest-frequency group's own stack.",
+  "hints": [
+    "Track how many times each value has been pushed; the answer to pop() always comes from whichever value currently has the highest push count.",
+    "For every frequency level, keep a stack of the values that reached exactly that frequency, in the order they got there — the most recently pushed value at a given frequency is always on top of that level's stack.",
+    "push(val): bump val's count, then push val onto the stack for its new count and raise the running maxFrequency if needed. pop(): pop the top of the stack at maxFrequency, decrement that value's count, and if its stack is now empty drop maxFrequency by one."
+  ],
+  "constraints": [
+    { "param": "val", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single value pushed and popped repeatedly",
+      "input": [["FreqStack", "push", "push", "pop", "pop"], [[], [3], [3], [], []]] },
+    { "kind": "edge", "description": "tie in frequency resolved by recency (top of stack wins)",
+      "input": [["FreqStack", "push", "push", "push", "push", "pop", "pop"], [[], [1], [2], [1], [2], [], []]] },
+    { "kind": "boundary", "description": "pop immediately after the very first push",
+      "input": [["FreqStack", "push", "pop"], [[], [9], []]] },
+    { "kind": "trap", "description": "after popping the unique max-frequency value, the running max must fall back to the next-highest frequency, not stay stuck",
+      "input": [["FreqStack", "push", "push", "push", "push", "push", "push", "pop", "pop", "pop", "pop"], [[], [11], [13], [11], [13], [10], [11], [], [], [], []]] },
+    { "kind": "trap", "description": "re-pushing a value that was just popped must correctly re-raise its frequency and the running max",
+      "input": [["FreqStack", "push", "push", "pop", "push", "pop", "pop"], [[], [6], [6], [], [6], [], []]] },
+    { "kind": "trap", "description": "three-way frequency tie where the most recently reinforced value must win",
+      "input": [["FreqStack", "push", "push", "push", "push", "push", "push", "pop"], [[], [1], [2], [3], [1], [2], [3], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of push and pop from a small value alphabet, forcing frequent ties",
+      "seed": 5,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    ops = ['FreqStack']\n    args = [[]]\n    stack = []\n    for _ in range(max(1, size)):\n        if stack and rng.random() < 0.45:\n            ops.append('pop')\n            args.append([])\n            stack.pop()\n        else:\n            v = rng.randint(0, 9)\n            ops.append('push')\n            args.append([v])\n            stack.append(v)\n    return [ops, args]\n",
+      "note": "a tiny value alphabet (0-9) against a long op sequence maximizes frequency collisions"
+    }
+  ],
+  "oracle_python": "class FreqStack:\n    def __init__(self):\n        self.items = []\n\n    def push(self, val):\n        self.items.append(val)\n\n    def pop(self):\n        counts = {}\n        for v in self.items:\n            counts[v] = counts.get(v, 0) + 1\n        best = max(counts.values())\n        for i in range(len(self.items) - 1, -1, -1):\n            if counts[self.items[i]] == best:\n                return self.items.pop(i)\n",
+  "solutions": {
+    "python": "class FreqStack:\n    def __init__(self):\n        self.freq = {}\n        self.group = {}\n        self.max_freq = 0\n\n    def push(self, val):\n        f = self.freq.get(val, 0) + 1\n        self.freq[val] = f\n        if f > self.max_freq:\n            self.max_freq = f\n        self.group.setdefault(f, []).append(val)\n\n    def pop(self):\n        val = self.group[self.max_freq].pop()\n        self.freq[val] -= 1\n        if not self.group[self.max_freq]:\n            del self.group[self.max_freq]\n            self.max_freq -= 1\n        return val\n",
+    "javascript": "class FreqStack {\n    constructor() {\n        this.freq = new Map();\n        this.group = new Map();\n        this.maxFreq = 0;\n    }\n    push(val) {\n        const f = (this.freq.get(val) || 0) + 1;\n        this.freq.set(val, f);\n        if (f > this.maxFreq) this.maxFreq = f;\n        if (!this.group.has(f)) this.group.set(f, []);\n        this.group.get(f).push(val);\n    }\n    pop() {\n        const bucket = this.group.get(this.maxFreq);\n        const val = bucket.pop();\n        this.freq.set(val, this.freq.get(val) - 1);\n        if (bucket.length === 0) {\n            this.group.delete(this.maxFreq);\n            this.maxFreq -= 1;\n        }\n        return val;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(n)" }
+}

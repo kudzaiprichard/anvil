@@ -1,0 +1,133 @@
+{
+  "slug": "smallest-k-length-subsequence-with-occurrences-of-a-letter",
+  "judge": "exact",
+  "pattern": "Building the lexicographically smallest length-k subsequence is a monotonic stack that greedily drops larger earlier characters, constrained by how many copies of the required letter must still be reachable ahead.",
+  "hints": [
+    "Without the repetition requirement this would be the classic 'smallest subsequence of length k' monotonic stack problem — build that first.",
+    "A character can only be popped off the stack if doing so still leaves enough of the string ahead (including the current character) to fill the remaining slots, and popping a required-letter occurrence is only safe if there are still enough of that letter left to satisfy what's still needed.",
+    "Track, from the right, how many of the target letter remain from each position onward, and track how many more of that letter the answer still needs. Pop the stack top while it's greater than the current character, there's room left to refill, and (if the top is the target letter) enough of that letter remains ahead to cover the need; then push the current character whenever there's still room in the stack for it, prioritizing the target letter until its quota is met."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        50000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        50000
+      ]
+    },
+    {
+      "param": "letter",
+      "kind": "string",
+      "len": [
+        1,
+        1
+      ]
+    },
+    {
+      "param": "repetition",
+      "kind": "int",
+      "value": [
+        1,
+        50000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "k equals the string length, must take every character",
+      "input": [
+        "abc",
+        3,
+        "b",
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "repetition equals k, the whole answer is the required letter",
+      "input": [
+        "aabb",
+        2,
+        "b",
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "letter appears many times but only a few are required",
+      "input": [
+        "bbbbba",
+        2,
+        "b",
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "dropping a required-letter occurrence would break the quota",
+      "input": [
+        "cba",
+        2,
+        "a",
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "already sorted ascending string",
+      "input": [
+        "abcde",
+        3,
+        "c",
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "descending string forces keeping the tail",
+      "input": [
+        "edcba",
+        3,
+        "a",
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "repeated required letter surrounded by smaller characters",
+      "input": [
+        "aababc",
+        3,
+        "b",
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long random lowercase string with a random required letter and repetition",
+      "seed": 81,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 50000))\n    s = ''.join(rng.choice('abcde') for _ in range(n))\n    letter = rng.choice('abcde')\n    letter_count = s.count(letter)\n    if letter_count == 0:\n        s = letter + s[1:]\n        letter_count = s.count(letter)\n    repetition = rng.randint(1, letter_count)\n    k = rng.randint(repetition, n)\n    return [s, k, letter, repetition]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\n\nclass Solution:\n    def smallestSubsequence(self, s, k, letter, repetition):\n        n = len(s)\n        best = None\n        for idxs in combinations(range(n), k):\n            sub = ''.join(s[i] for i in idxs)\n            if sub.count(letter) >= repetition:\n                if best is None or sub < best:\n                    best = sub\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def smallestSubsequence(self, s, k, letter, repetition):\n        n = len(s)\n        suffix_count = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            suffix_count[i] = suffix_count[i + 1] + (1 if s[i] == letter else 0)\n        stack = []\n        need = repetition\n        for i, ch in enumerate(s):\n            while stack and stack[-1] > ch and len(stack) - 1 + (n - i) >= k:\n                top = stack[-1]\n                if top == letter:\n                    if need >= suffix_count[i]:\n                        break\n                    need += 1\n                stack.pop()\n            if len(stack) < k:\n                if ch == letter:\n                    stack.append(ch)\n                    need -= 1\n                elif (k - len(stack)) > need:\n                    stack.append(ch)\n        return ''.join(stack)\n",
+    "javascript": "var smallestSubsequence = function(s, k, letter, repetition) {\n    const n = s.length;\n    const suffixCount = new Array(n + 1).fill(0);\n    for (let i = n - 1; i >= 0; i--) {\n        suffixCount[i] = suffixCount[i + 1] + (s[i] === letter ? 1 : 0);\n    }\n    const stack = [];\n    let need = repetition;\n    for (let i = 0; i < n; i++) {\n        const ch = s[i];\n        while (stack.length && stack[stack.length - 1] > ch && (stack.length - 1 + (n - i)) >= k) {\n            const top = stack[stack.length - 1];\n            if (top === letter) {\n                if (need >= suffixCount[i]) break;\n                need += 1;\n            }\n            stack.pop();\n        }\n        if (stack.length < k) {\n            if (ch === letter) {\n                stack.push(ch);\n                need -= 1;\n            } else if ((k - stack.length) > need) {\n                stack.push(ch);\n            }\n        }\n    }\n    return stack.join('');\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

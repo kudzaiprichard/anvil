@@ -1,0 +1,40 @@
+{
+  "slug": "count-unguarded-cells-in-the-grid",
+  "judge": "exact",
+  "pattern": "Marking each guard's line of sight by sweeping outward in all four directions until a wall or guard blocks it lets a final grid scan tally the cells that stay both empty and unseen.",
+  "hints": [
+    "Build the grid, place walls and guards, then have each guard illuminate cells until something stops the beam.",
+    "A guard's sight in one direction halts the moment it hits a wall or another guard, so process each direction independently.",
+    "After casting all sightlines, count cells that are neither a guard, a wall, nor marked as seen."
+  ],
+  "constraints": [
+    { "param": "m", "kind": "int", "value": [1, 100000] },
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "guards", "kind": "int[][]", "len": [1, 50000] },
+    { "param": "walls", "kind": "int[][]", "len": [1, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "several guards and walls interacting", "input": [4, 6, [[0, 0], [1, 1], [2, 3]], [[0, 1], [2, 2], [1, 4]]] },
+    { "kind": "trap", "description": "guard fully boxed in by walls", "input": [3, 3, [[1, 1]], [[0, 1], [1, 0], [2, 1], [1, 2]]] },
+    { "kind": "boundary", "description": "single row", "input": [1, 5, [[0, 2]], [[0, 4]]] },
+    { "kind": "boundary", "description": "single column", "input": [5, 1, [[2, 0]], [[0, 0]]] },
+    { "kind": "trap", "description": "guard blocks another guard's beam", "input": [1, 4, [[0, 0], [0, 2]], [[0, 3]]] },
+    { "kind": "edge", "description": "wall stops sight mid-row", "input": [3, 4, [[1, 0]], [[1, 2]]] },
+    { "kind": "edge", "description": "guards on opposite corners", "input": [3, 3, [[0, 0], [2, 2]], [[1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random mid-size grid with disjoint guard and wall placements",
+      "seed": 20,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(2, max(2, min(size, 60)))\n    n = rng.randint(2, max(2, min(size, 60)))\n    cells = [(r, c) for r in range(m) for c in range(n)]\n    rng.shuffle(cells)\n    total = len(cells)\n    ng = rng.randint(1, max(1, total // 4))\n    nw = rng.randint(1, max(1, total // 4))\n    guards = [list(c) for c in cells[:ng]]\n    walls = [list(c) for c in cells[ng:ng + nw]]\n    return [m, n, guards, walls]\n",
+      "note": "guards and walls drawn from a shuffled cell list stay unique and disjoint"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countUnguarded(self, m, n, guards, walls):\n        EMPTY, GUARD, WALL, SEEN = 0, 1, 2, 3\n        grid = [[EMPTY] * n for _ in range(m)]\n        for r, c in walls:\n            grid[r][c] = WALL\n        for r, c in guards:\n            grid[r][c] = GUARD\n        guard_set = {(r, c) for r, c in guards}\n        wall_set = {(r, c) for r, c in walls}\n        seen = set()\n        for gr, gc in guards:\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                r, c = gr + dr, gc + dc\n                while 0 <= r < m and 0 <= c < n and (r, c) not in wall_set and (r, c) not in guard_set:\n                    seen.add((r, c))\n                    r += dr\n                    c += dc\n        count = 0\n        for r in range(m):\n            for c in range(n):\n                if (r, c) not in guard_set and (r, c) not in wall_set and (r, c) not in seen:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countUnguarded(self, m, n, guards, walls):\n        EMPTY, GUARD, WALL, SEEN = 0, 1, 2, 3\n        grid = [[EMPTY] * n for _ in range(m)]\n        for r, c in walls:\n            grid[r][c] = WALL\n        for r, c in guards:\n            grid[r][c] = GUARD\n        for gr, gc in guards:\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                r, c = gr + dr, gc + dc\n                while 0 <= r < m and 0 <= c < n and grid[r][c] in (EMPTY, SEEN):\n                    grid[r][c] = SEEN\n                    r += dr\n                    c += dc\n        return sum(1 for row in grid for v in row if v == EMPTY)\n",
+    "javascript": "var countUnguarded = function(m, n, guards, walls) {\n    const EMPTY = 0, GUARD = 1, WALL = 2, SEEN = 3;\n    const grid = Array.from({ length: m }, () => new Array(n).fill(EMPTY));\n    for (const [r, c] of walls) grid[r][c] = WALL;\n    for (const [r, c] of guards) grid[r][c] = GUARD;\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    for (const [gr, gc] of guards) {\n        for (const [dr, dc] of dirs) {\n            let r = gr + dr, c = gc + dc;\n            while (r >= 0 && r < m && c >= 0 && c < n && (grid[r][c] === EMPTY || grid[r][c] === SEEN)) {\n                grid[r][c] = SEEN;\n                r += dr;\n                c += dc;\n            }\n        }\n    }\n    let count = 0;\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            if (grid[r][c] === EMPTY) count++;\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

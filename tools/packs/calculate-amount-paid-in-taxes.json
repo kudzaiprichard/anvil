@@ -1,0 +1,37 @@
+{
+  "slug": "calculate-amount-paid-in-taxes",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "Walking the brackets in order and taxing only the income that falls inside each band accumulates the total owed.",
+  "hints": [
+    "Income is sliced by the bracket boundaries; each slice is taxed at that bracket's own rate, not the whole income.",
+    "Track how much income remains as you pass each bracket; the taxed width of a bracket is its span capped by the remaining income.",
+    "For each bracket, the band width is its upper bound minus the previous upper bound; tax min(remaining income, band width) at the bracket's percent, then reduce remaining income, stopping once income is exhausted."
+  ],
+  "constraints": [
+    { "param": "brackets", "kind": "int[][]", "len": [1, 100], "value": [0, 1000] },
+    { "param": "income", "kind": "int", "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "income spans three brackets", "input": [[[3, 50], [7, 10], [12, 25]], 10] },
+    { "kind": "edge", "description": "income stops partway through the second bracket", "input": [[[1, 0], [4, 25], [5, 50]], 2] },
+    { "kind": "boundary", "description": "zero income owes nothing", "input": [[[2, 50]], 0] },
+    { "kind": "trap", "description": "first bracket taxed at zero percent", "input": [[[5, 0], [10, 100]], 8] },
+    { "kind": "boundary", "description": "income exactly fills the last bracket boundary", "input": [[[3, 50], [7, 10]], 7] },
+    { "kind": "trap", "description": "income within only the first bracket ignores later rates", "input": [[[10, 30], [20, 90]], 5] },
+    { "kind": "edge", "description": "all brackets at one hundred percent", "input": [[[2, 100], [4, 100]], 4] }
+  ],
+  "stress": [
+    {
+      "description": "random ascending brackets with income inside the final band",
+      "seed": 12,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    cnt = rng.randrange(1, max(2, min(size, 100)) + 1)\n    uppers = sorted(rng.sample(range(1, 1001), cnt))\n    brackets = [[u, rng.randrange(0, 101)] for u in uppers]\n    income = rng.randrange(0, uppers[-1] + 1)\n    return [brackets, income]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def calculateTax(self, brackets, income):\n        total = 0.0\n        for i in range(len(brackets)):\n            lo = brackets[i - 1][0] if i > 0 else 0\n            hi = brackets[i][0]\n            pct = brackets[i][1]\n            taxable = max(0, min(income, hi) - lo)\n            total += taxable * pct / 100.0\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def calculateTax(self, brackets, income):\n        total = 0.0\n        prev = 0\n        remaining = income\n        for upper, percent in brackets:\n            if remaining <= 0:\n                break\n            width = min(remaining, upper - prev)\n            total += width * percent / 100.0\n            remaining -= width\n            prev = upper\n        return total\n",
+    "javascript": "var calculateTax = function(brackets, income) {\n    let total = 0;\n    let prev = 0;\n    let remaining = income;\n    for (const [upper, percent] of brackets) {\n        if (remaining <= 0) break;\n        const width = Math.min(remaining, upper - prev);\n        total += width * percent / 100;\n        remaining -= width;\n        prev = upper;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

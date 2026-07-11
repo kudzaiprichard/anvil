@@ -1,0 +1,39 @@
+{
+  "slug": "vowel-spellchecker",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Precompute three lookup maps - exact words, lowercased words, and a vowel-masked key - so each query resolves by checking those tiers in priority order.",
+  "hints": [
+    "Each query is answered by trying matches in a fixed priority: exact, then case-insensitive, then vowel-insensitive.",
+    "Build a set of exact words, a map from lowercase form to the first original, and a map from a devoweled-lowercase form to the first original.",
+    "Lowercase the query and replace every vowel with a single placeholder to form keys; return the first map (in priority order) that has a hit, else the empty string."
+  ],
+  "constraints": [
+    { "param": "wordlist", "kind": "string[]", "len": [1, 5000] },
+    { "param": "queries", "kind": "string[]", "len": [1, 5000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the full precedence ladder across many queries", "input": [["KiTe", "kite", "hare", "Hare"], ["kite", "Kite", "KiTe", "Hare", "HARE", "Hear", "hear", "keti", "keet", "keto"]] },
+    { "kind": "edge", "description": "capitalization-only correction", "input": [["yellow"], ["YellOw"]] },
+    { "kind": "trap", "description": "exact match outranks an earlier case-insensitive one", "input": [["Foo", "foo"], ["foo"]] },
+    { "kind": "trap", "description": "vowel match must keep the wordlist's casing", "input": [["YellOw"], ["yollow"]] },
+    { "kind": "trap", "description": "extra letters mean no vowel match", "input": [["YellOw"], ["yeellow", "yllw"]] },
+    { "kind": "boundary", "description": "no match returns the empty string", "input": [["abc"], ["xyz"]] },
+    { "kind": "trap", "description": "first case-insensitive match wins among duplicates", "input": [["aBc", "abc", "ABC"], ["AbC"]] }
+  ],
+  "stress": [
+    {
+      "description": "random short words with overlapping case and vowel variants",
+      "seed": 53,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    import string\n    def word():\n        L = rng.randint(1, 7)\n        return ''.join(rng.choice(string.ascii_letters) for _ in range(L))\n    nw = max(1, min(size, 300))\n    nq = max(1, min(size, 300))\n    wordlist = [word() for _ in range(nw)]\n    queries = []\n    vowels = 'aeiou'\n    for _ in range(nq):\n        if wordlist and rng.random() < 0.5:\n            base = rng.choice(wordlist)\n            chars = list(base)\n            for i in range(len(chars)):\n                if rng.random() < 0.3:\n                    chars[i] = chars[i].upper() if chars[i].islower() else chars[i].lower()\n                if chars[i].lower() in vowels and rng.random() < 0.4:\n                    keep = chars[i].isupper()\n                    nc = rng.choice(vowels)\n                    chars[i] = nc.upper() if keep else nc\n            queries.append(''.join(chars))\n        else:\n            queries.append(word())\n    return [wordlist, queries]\n",
+      "note": "many queries are perturbed versions of wordlist entries to exercise all tiers"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def spellchecker(self, wordlist, queries):\n        vowels = set('aeiou')\n        def devowel(w):\n            return ''.join('*' if c in vowels else c for c in w.lower())\n        res = []\n        for q in queries:\n            ans = ''\n            if q in wordlist:\n                ans = q\n            else:\n                found = ''\n                for w in wordlist:\n                    if w.lower() == q.lower():\n                        found = w\n                        break\n                if found:\n                    ans = found\n                else:\n                    dq = devowel(q)\n                    for w in wordlist:\n                        if devowel(w) == dq:\n                            found = w\n                            break\n                    ans = found\n            res.append(ans)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def spellchecker(self, wordlist, queries):\n        vowels = set('aeiou')\n        def devowel(w):\n            return ''.join('*' if c in vowels else c for c in w.lower())\n        exact = set(wordlist)\n        lower_map = {}\n        vowel_map = {}\n        for w in wordlist:\n            lw = w.lower()\n            if lw not in lower_map:\n                lower_map[lw] = w\n            dv = devowel(w)\n            if dv not in vowel_map:\n                vowel_map[dv] = w\n        res = []\n        for q in queries:\n            if q in exact:\n                res.append(q)\n            elif q.lower() in lower_map:\n                res.append(lower_map[q.lower()])\n            elif devowel(q) in vowel_map:\n                res.append(vowel_map[devowel(q)])\n            else:\n                res.append('')\n        return res\n",
+    "javascript": "var spellchecker = function(wordlist, queries) {\n    const vowels = new Set(['a', 'e', 'i', 'o', 'u']);\n    const devowel = (w) => w.toLowerCase().split('').map(c => vowels.has(c) ? '*' : c).join('');\n    const exact = new Set(wordlist);\n    const lowerMap = new Map();\n    const vowelMap = new Map();\n    for (const w of wordlist) {\n        const lw = w.toLowerCase();\n        if (!lowerMap.has(lw)) lowerMap.set(lw, w);\n        const dv = devowel(w);\n        if (!vowelMap.has(dv)) vowelMap.set(dv, w);\n    }\n    const res = [];\n    for (const q of queries) {\n        if (exact.has(q)) res.push(q);\n        else if (lowerMap.has(q.toLowerCase())) res.push(lowerMap.get(q.toLowerCase()));\n        else if (vowelMap.has(devowel(q))) res.push(vowelMap.get(devowel(q)));\n        else res.push('');\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O((W + Q) * L)", "space": "O(W * L)" }
+}

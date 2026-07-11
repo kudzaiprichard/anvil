@@ -1,0 +1,40 @@
+{
+  "slug": "count-all-possible-routes",
+  "judge": "exact",
+  "pattern": "Count fuel-bounded walks with a memoized recursion keyed on (current city, fuel remaining), crediting a route every time the walk is standing at the destination, whether or not it keeps going.",
+  "hints": [
+    "The destination can be visited more than once in a single valid route (you may pass through and keep driving), so count it as a hit every time you're there rather than stopping the recursion.",
+    "Since order and starting city matter but only remaining fuel constrains future moves, memoize on (current city, fuel left) — with up to 100 cities and 200 fuel that state space is tiny.",
+    "From each state, add 1 if you're at the destination, then for every other city whose distance costs no more than the fuel left, recurse into (that city, fuel left - cost) and sum, all modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "locations", "kind": "int[]", "len": [2, 100], "value": [0, 100000] },
+    { "param": "start", "kind": "int", "value": [0, 99] },
+    { "param": "finish", "kind": "int", "value": [0, 99] },
+    { "param": "fuel", "kind": "int", "value": [1, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "start equals finish and fuel is too small to leave and come back, so only the trivial route counts", "input": [[0, 10], 0, 0, 3] },
+    { "kind": "boundary", "description": "just two cities with fuel that permits several back-and-forth trips", "input": [[0, 5], 0, 1, 20] },
+    { "kind": "edge", "description": "three cities where reaching the destination directly costs more fuel than a detour through the middle city", "input": [[2, 7, 15], 0, 2, 25] },
+    { "kind": "boundary", "description": "fuel exactly equal to the single direct hop distance", "input": [[0, 50], 0, 1, 50] },
+    { "kind": "trap", "description": "the destination is unreachable from the start given the fuel budget", "input": [[0, 100], 0, 1, 5] },
+    { "kind": "edge", "description": "start and finish at opposite ends of a four-city line", "input": [[0, 20, 45, 90], 0, 3, 120] },
+    { "kind": "trap", "description": "two intermediate cities sit at equal distance from the start, forcing the recursion to branch through either", "input": [[0, 10, 20], 0, 2, 15] }
+  ],
+  "stress": [
+    {
+      "description": "up to 100 distinct cities at random positions with the fuel budget maxed out",
+      "seed": 13,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = min(100, max(2, size))\n    locations = rng.sample(range(0, 100000), n)\n    start = rng.randint(0, n - 1)\n    finish = rng.randint(0, n - 1)\n    fuel = 200\n    return [locations, start, finish, fuel]\n",
+      "note": "distinct random positions with max fuel exercises the full (position, fuel) memo table"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countRoutes(self, locations, start, finish, fuel):\n        MOD = 10 ** 9 + 7\n        n = len(locations)\n        dp = [[0] * n for _ in range(fuel + 1)]\n        for i in range(n):\n            dp[0][i] = 1 if i == finish else 0\n        for f in range(1, fuel + 1):\n            for i in range(n):\n                total = 1 if i == finish else 0\n                for j in range(n):\n                    if j == i:\n                        continue\n                    cost = abs(locations[i] - locations[j])\n                    if cost <= f:\n                        total += dp[f - cost][j]\n                dp[f][i] = total % MOD\n        return dp[fuel][start]\n",
+  "solutions": {
+    "python": "from functools import lru_cache\n\n\nclass Solution:\n    def countRoutes(self, locations, start: int, finish: int, fuel: int) -> int:\n        MOD = 10 ** 9 + 7\n        n = len(locations)\n\n        @lru_cache(maxsize=None)\n        def dp(pos, remaining):\n            total = 1 if pos == finish else 0\n            for nxt in range(n):\n                if nxt == pos:\n                    continue\n                cost = abs(locations[pos] - locations[nxt])\n                if cost <= remaining:\n                    total += dp(nxt, remaining - cost)\n            return total % MOD\n\n        result = dp(start, fuel)\n        dp.cache_clear()\n        return result\n",
+    "javascript": "var countRoutes = function(locations, start, finish, fuel) {\n    const MOD = 1000000007;\n    const n = locations.length;\n    const memo = new Map();\n\n    function dp(pos, remaining) {\n        const key = pos * 1000 + remaining;\n        if (memo.has(key)) return memo.get(key);\n        let total = pos === finish ? 1 : 0;\n        for (let nxt = 0; nxt < n; nxt++) {\n            if (nxt === pos) continue;\n            const cost = Math.abs(locations[pos] - locations[nxt]);\n            if (cost <= remaining) {\n                total = (total + dp(nxt, remaining - cost)) % MOD;\n            }\n        }\n        memo.set(key, total);\n        return total;\n    }\n\n    return dp(start, fuel);\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * fuel)", "space": "O(n * fuel)" }
+}

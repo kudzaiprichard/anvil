@@ -1,0 +1,46 @@
+{
+  "slug": "design-a-stack-with-increment-operation",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Bumping every element from the bottom up to some depth is really just bumping a prefix of an array, so a plain capped array with push/pop from the end handles the whole class in constant time per push and pop.",
+  "hints": [
+    "Store the stack as a plain array; push refuses to grow past the fixed capacity, and pop removes (and returns) the last element or -1 if there is nothing to remove.",
+    "increment(k, val) only ever touches the bottom-most elements, so it adds val to indices 0..min(k, currentSize)-1 — never more than the stack currently holds.",
+    "Do the increment eagerly (walk the affected prefix and add val to each) rather than trying to defer it; with the given call limits a direct prefix walk is fast enough and keeps push/pop untouched."
+  ],
+  "constraints": [
+    { "param": "maxSize", "kind": "int", "value": [1, 1000] },
+    { "param": "x", "kind": "int", "value": [1, 1000] },
+    { "param": "k", "kind": "int", "value": [1, 1000] },
+    { "param": "val", "kind": "int", "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "push past capacity is silently dropped, then normal pop/increment behavior resumes",
+      "input": [["CustomStack", "push", "push", "push", "increment", "pop", "pop", "pop", "pop"], [[2], [1], [2], [3], [1, 50], [], [], [], []]] },
+    { "kind": "edge", "description": "increment on an empty stack does nothing and later pushes are unaffected",
+      "input": [["CustomStack", "increment", "push", "pop"], [[3], [5, 100], [9], []]] },
+    { "kind": "boundary", "description": "capacity of one: single push/pop cycle",
+      "input": [["CustomStack", "push", "pop", "pop"], [[1], [4], [], []]] },
+    { "kind": "boundary", "description": "increment with k far larger than the current stack size bumps every element, not more",
+      "input": [["CustomStack", "push", "push", "increment", "pop", "pop"], [[5], [1], [2], [1000, 7], [], []]] },
+    { "kind": "trap", "description": "pop on an empty stack must return -1 without raising, and popping does not affect maxSize",
+      "input": [["CustomStack", "pop", "push", "pop", "pop"], [[3], [], [8], [], []]] },
+    { "kind": "trap", "description": "two increments in a row over overlapping but different-sized prefixes must both take effect additively",
+      "input": [["CustomStack", "push", "push", "push", "push", "increment", "increment", "pop", "pop", "pop", "pop"], [[4], [2], [4], [6], [8], [3, 10], [2, 5], [], [], [], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of push, pop, and increment against a small-capacity stack",
+      "seed": 91,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    cap = rng.randint(1, 10)\n    ops = ['CustomStack']\n    args = [[cap]]\n    count = 0\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.4:\n            ops.append('push')\n            args.append([rng.randint(1, 1000)])\n            count += 1\n        elif r < 0.7:\n            ops.append('pop')\n            args.append([])\n            count = max(0, count - 1)\n        else:\n            ops.append('increment')\n            args.append([rng.randint(1, cap + 3), rng.randint(0, 100)])\n    return [ops, args]\n",
+      "note": "small capacity forces frequent full-stack pushes and empty-stack pops alongside increments"
+    }
+  ],
+  "oracle_python": "class CustomStack:\n    def __init__(self, maxSize):\n        self.cap = maxSize\n        self.data = []\n\n    def push(self, x):\n        if len(self.data) < self.cap:\n            self.data.append(x)\n\n    def pop(self):\n        if not self.data:\n            return -1\n        return self.data.pop()\n\n    def increment(self, k, val):\n        for i in range(min(k, len(self.data))):\n            self.data[i] += val\n",
+  "solutions": {
+    "python": "class CustomStack:\n    def __init__(self, maxSize):\n        self.cap = maxSize\n        self.stack = []\n\n    def push(self, x):\n        if len(self.stack) < self.cap:\n            self.stack.append(x)\n\n    def pop(self):\n        if not self.stack:\n            return -1\n        return self.stack.pop()\n\n    def increment(self, k, val):\n        bound = min(k, len(self.stack))\n        for i in range(bound):\n            self.stack[i] += val\n",
+    "javascript": "class CustomStack {\n    constructor(maxSize) {\n        this.cap = maxSize;\n        this.stack = [];\n    }\n    push(x) {\n        if (this.stack.length < this.cap) {\n            this.stack.push(x);\n        }\n    }\n    pop() {\n        if (this.stack.length === 0) return -1;\n        return this.stack.pop();\n    }\n    increment(k, val) {\n        const bound = Math.min(k, this.stack.length);\n        for (let i = 0; i < bound; i++) {\n            this.stack[i] += val;\n        }\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) push/pop, O(k) increment", "space": "O(maxSize)" }
+}

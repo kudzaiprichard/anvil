@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-number-of-vertices-to-reach-all-nodes",
+  "judge": "unordered",
+  "pattern": "In a directed acyclic graph, a vertex can only be reached from elsewhere if something points at it, so every vertex with no incoming edge must anchor its own component of the required set.",
+  "hints": [
+    "Think about which vertices could possibly be left out of the answer: only ones that some other vertex can reach.",
+    "Count how many edges point into each vertex; a vertex nothing points at can never be supplied by another starting point.",
+    "The answer is exactly the set of vertices whose in-degree is zero — collect them in one pass over the edge list, no traversal needed."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one root feeds a small fan of descendants", "input": [4, [[0, 1], [1, 2], [1, 3]]] },
+    { "kind": "edge", "description": "two disjoint chains, each needs its own root", "input": [4, [[0, 1], [2, 3]]] },
+    { "kind": "boundary", "description": "minimum size: two nodes, one edge", "input": [2, [[0, 1]]] },
+    { "kind": "boundary", "description": "star graph, one hub reaches every other node directly", "input": [10, [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7], [0, 8], [0, 9]]] },
+    { "kind": "trap", "description": "diamond re-convergence: node 3 has two parents but is still not a root", "input": [5, [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]]] },
+    { "kind": "trap", "description": "long single chain: only the very first node qualifies", "input": [5, [[0, 1], [1, 2], [2, 3], [3, 4]]] },
+    { "kind": "trap", "description": "isolated vertices untouched by any edge must still be included", "input": [6, [[3, 4]]] },
+    { "kind": "edge", "description": "three separate roots feeding a mix of private and shared descendants", "input": [7, [[0, 2], [1, 2], [2, 3], [4, 5], [5, 6]]] }
+  ],
+  "stress": [
+    {
+      "description": "random DAGs built over a shuffled topological order so no cycle can form, edge count capped for fast oracle verification",
+      "seed": 2024,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 400))\n    order = list(range(n))\n    rng.shuffle(order)\n    max_possible = n * (n - 1) // 2\n    edge_count = min(max_possible, max(1, n * 2))\n    edges = set()\n    guard = 0\n    while len(edges) < edge_count and guard < edge_count * 8:\n        i = rng.randint(0, n - 2)\n        j = rng.randint(i + 1, n - 1)\n        u, v = order[i], order[j]\n        edges.add((u, v))\n        guard += 1\n    return [n, [list(e) for e in edges]]\n",
+      "note": "edges only ever go from an earlier position to a later position in the shuffled order, guaranteeing acyclicity"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findSmallestSetOfVertices(self, n, edges):\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n        reached_by_other = [False] * n\n        for start in range(n):\n            visited = [False] * n\n            visited[start] = True\n            stack = [start]\n            while stack:\n                cur = stack.pop()\n                for nxt in adj[cur]:\n                    if not visited[nxt]:\n                        visited[nxt] = True\n                        reached_by_other[nxt] = True\n                        stack.append(nxt)\n        return [v for v in range(n) if not reached_by_other[v]]\n",
+  "solutions": {
+    "python": "class Solution:\n    def findSmallestSetOfVertices(self, n, edges):\n        indegree = [0] * n\n        for _, to in edges:\n            indegree[to] += 1\n        return [v for v in range(n) if indegree[v] == 0]\n",
+    "javascript": "var findSmallestSetOfVertices = function(n, edges) {\n    const indegree = new Array(n).fill(0);\n    for (const edge of edges) {\n        indegree[edge[1]] += 1;\n    }\n    const res = [];\n    for (let v = 0; v < n; v++) {\n        if (indegree[v] === 0) res.push(v);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n + e)", "space": "O(n)" }
+}

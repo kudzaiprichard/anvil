@@ -1,0 +1,86 @@
+{
+  "slug": "maximum-number-of-fish-in-a-grid",
+  "judge": "exact",
+  "pattern": "Land cells split the grid into separate pools of connected water, and a fisher starting anywhere in a pool can reach (and empty) every cell in it but never cross into another pool -- so the answer is just the largest fish total among all these pools, found with one flood-fill per unvisited water cell.",
+  "hints": [
+    "Land cells break the grid into isolated pools of water; wherever a fisher starts, they can wander to any water cell reachable through up/down/left/right moves, but never past a land cell or diagonally.",
+    "Scan every cell; whenever you find an unvisited water cell, flood-fill outward through its water neighbors (never diagonal ones), marking every visited cell so it is never re-explored, and add up the fish as you go.",
+    "Each flood-fill's running total is the best any fisher starting inside that pool could ever catch, so keep the largest total seen across all pools, defaulting to zero when the grid has no water at all."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 10], "value": [0, 10] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "a single water cell, the smallest possible grid",
+      "input": [[[7]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single land cell, no water anywhere",
+      "input": [[[0]]]
+    },
+    {
+      "kind": "edge",
+      "description": "an entirely land grid",
+      "input": [[[0, 0, 0], [0, 0, 0], [0, 0, 0]]]
+    },
+    {
+      "kind": "edge",
+      "description": "an entirely connected water grid where every cell contributes to one pool",
+      "input": [[[2, 2, 2], [2, 2, 2], [2, 2, 2]]]
+    },
+    {
+      "kind": "trap",
+      "description": "two separate single-cell pools tied for the maximum, so no pool may be double-counted or merged",
+      "input": [[[5, 0, 5]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "the maximum grid size fully filled with the maximum fish count",
+      "input": [
+        [
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+          [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two water cells that only touch diagonally, which must be treated as separate pools, not one",
+      "input": [[[3, 0], [0, 4]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a full-size grid with random fish counts and land cells scattered throughout",
+      "seed": 5,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    rows = 10\n    cols = 10\n    grid = [[rng.randint(0, 10) for _ in range(cols)] for _ in range(rows)]\n    return [grid]\n"
+    },
+    {
+      "description": "a mostly-land grid so the flood fill must handle many small isolated pools",
+      "seed": 17,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    rows = 10\n    cols = 10\n    grid = []\n    for _ in range(rows):\n        row = []\n        for _ in range(cols):\n            if rng.random() < 0.7:\n                row.append(0)\n            else:\n                row.append(rng.randint(1, 10))\n        grid.append(row)\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMaxFish(self, grid):\n        rows = len(grid)\n        cols = len(grid[0]) if rows else 0\n        parent = list(range(rows * cols))\n\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n\n        for r in range(rows):\n            for c in range(cols):\n                if grid[r][c] == 0:\n                    continue\n                idx = r * cols + c\n                if c + 1 < cols and grid[r][c + 1] > 0:\n                    union(idx, idx + 1)\n                if r + 1 < rows and grid[r + 1][c] > 0:\n                    union(idx, idx + cols)\n\n        totals = {}\n        best = 0\n        for r in range(rows):\n            for c in range(cols):\n                if grid[r][c] == 0:\n                    continue\n                idx = r * cols + c\n                root = find(idx)\n                totals[root] = totals.get(root, 0) + grid[r][c]\n                if totals[root] > best:\n                    best = totals[root]\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMaxFish(self, grid):\n        rows = len(grid)\n        cols = len(grid[0]) if rows else 0\n        visited = [[False] * cols for _ in range(rows)]\n        best = 0\n        for r in range(rows):\n            for c in range(cols):\n                if grid[r][c] > 0 and not visited[r][c]:\n                    stack = [(r, c)]\n                    visited[r][c] = True\n                    total = 0\n                    while stack:\n                        cr, cc = stack.pop()\n                        total += grid[cr][cc]\n                        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                            nr, nc = cr + dr, cc + dc\n                            if 0 <= nr < rows and 0 <= nc < cols and not visited[nr][nc] and grid[nr][nc] > 0:\n                                visited[nr][nc] = True\n                                stack.append((nr, nc))\n                    best = max(best, total)\n        return best\n",
+    "javascript": "var findMaxFish = function(grid) {\n    const rows = grid.length;\n    const cols = rows ? grid[0].length : 0;\n    const visited = Array.from({ length: rows }, () => new Array(cols).fill(false));\n    let best = 0;\n    for (let r = 0; r < rows; r++) {\n        for (let c = 0; c < cols; c++) {\n            if (grid[r][c] > 0 && !visited[r][c]) {\n                const stack = [[r, c]];\n                visited[r][c] = true;\n                let total = 0;\n                while (stack.length) {\n                    const [cr, cc] = stack.pop();\n                    total += grid[cr][cc];\n                    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n                    for (const [dr, dc] of dirs) {\n                        const nr = cr + dr, nc = cc + dc;\n                        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc] && grid[nr][nc] > 0) {\n                            visited[nr][nc] = true;\n                            stack.push([nr, nc]);\n                        }\n                    }\n                }\n                best = Math.max(best, total);\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m * n)",
+    "space": "O(m * n)"
+  }
+}

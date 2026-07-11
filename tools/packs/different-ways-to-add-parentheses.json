@@ -1,0 +1,37 @@
+{
+  "slug": "different-ways-to-add-parentheses",
+  "judge": "unordered",
+  "pattern": "Divide and conquer on every operator splits the expression into independent left and right sub-expressions whose result sets are combined by applying that operator to every pair.",
+  "hints": [
+    "Each operator in the expression can serve as the last operation computed; splitting there gives independent sub-problems.",
+    "Recursively compute all possible values for the left and right sub-expressions, then combine each left value with each right value using the current operator.",
+    "Memoize the results for each substring so sub-expressions shared by multiple splits are only evaluated once."
+  ],
+  "constraints": [
+    { "param": "expression", "kind": "string", "len": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two operators give two groupings", "input": ["2-1-1"] },
+    { "kind": "edge", "description": "mixed operators with multiple outcomes including duplicates", "input": ["2*3-4*5"] },
+    { "kind": "boundary", "description": "single digit, exactly one result", "input": ["5"] },
+    { "kind": "boundary", "description": "single operator between two digits", "input": ["3+4"] },
+    { "kind": "trap", "description": "multiplication distributes across subtraction creating repeated values", "input": ["2*3-2*3"] },
+    { "kind": "edge", "description": "all additions, many groupings but same sum each time", "input": ["1+1+1+1"] },
+    { "kind": "trap", "description": "three operators yield five groupings (Catalan number)", "input": ["1+2*3-4"] }
+  ],
+  "stress": [
+    {
+      "description": "expression of alternating single digits and operators up to length 19",
+      "seed": 5,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    ops = ['+', '-', '*']\n    num_ops = min(max(1, size), 9)\n    parts = [str(rng.randint(1, 9))]\n    for _ in range(num_ops):\n        parts.append(rng.choice(ops))\n        parts.append(str(rng.randint(1, 9)))\n    return [''.join(parts)]\n",
+      "note": "size caps at 9 operators (19 chars) to keep Catalan blowup manageable"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def diffWaysToCompute(self, expression):\n        # Brute force: same divide-and-conquer without memoization.\n        if expression.lstrip('-').isdigit():\n            return [int(expression)]\n        results = []\n        for i, ch in enumerate(expression):\n            if ch in '+-*':\n                for l in self.diffWaysToCompute(expression[:i]):\n                    for r in self.diffWaysToCompute(expression[i+1:]):\n                        if ch == '+': results.append(l + r)\n                        elif ch == '-': results.append(l - r)\n                        else: results.append(l * r)\n        return results\n",
+  "solutions": {
+    "python": "class Solution:\n    def diffWaysToCompute(self, expression):\n        memo = {}\n        def dp(s):\n            if s in memo:\n                return memo[s]\n            if s.lstrip('-').isdigit():\n                return [int(s)]\n            res = []\n            for i, ch in enumerate(s):\n                if ch in '+-*':\n                    for l in dp(s[:i]):\n                        for r in dp(s[i+1:]):\n                            if ch == '+': res.append(l + r)\n                            elif ch == '-': res.append(l - r)\n                            else: res.append(l * r)\n            memo[s] = res\n            return res\n        return dp(expression)\n",
+    "javascript": "var diffWaysToCompute = function(expression) {\n    const memo = new Map();\n    function dp(s) {\n        if (memo.has(s)) return memo.get(s);\n        if (/^-?\\d+$/.test(s)) return [parseInt(s)];\n        const res = [];\n        for (let i = 0; i < s.length; i++) {\n            const ch = s[i];\n            if (ch === '+' || ch === '-' || ch === '*') {\n                for (const l of dp(s.slice(0, i))) {\n                    for (const r of dp(s.slice(i + 1))) {\n                        if (ch === '+') res.push(l + r);\n                        else if (ch === '-') res.push(l - r);\n                        else res.push(l * r);\n                    }\n                }\n            }\n        }\n        memo.set(s, res);\n        return res;\n    }\n    return dp(expression);\n};\n"
+  },
+  "complexity": { "time": "O(n * 2^n)", "space": "O(2^n)" }
+}

@@ -1,0 +1,46 @@
+{
+  "slug": "minimum-seconds-to-equalize-a-circular-array",
+  "judge": "exact",
+  "pattern": "Each value floods outward from every one of its own occurrences simultaneously; the slowest gap between two neighboring copies of the best value sets the clock.",
+  "hints": [
+    "Think of every occurrence of a value as a source that spreads one step per second in both directions around the circle. A value wins once its sources have covered the whole array.",
+    "For a fixed value, only the largest circular gap between two consecutive occurrences of that value matters - that gap is the bottleneck.",
+    "Group indices by value. For each value, look at every consecutive pair of its occurrences around the circle (wrapping past the end back to the start); the seconds needed for that value is floor(largest gap / 2). Answer = smallest such cost over all values."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element already equal", "input": [[7]] },
+    { "kind": "edge", "description": "already all equal", "input": [[5, 5, 5, 5]] },
+    { "kind": "edge", "description": "alternating two values, even length", "input": [[1, 2, 1, 2]] },
+    { "kind": "edge", "description": "one value dominates but leaves an uneven gap", "input": [[2, 1, 3, 3, 2]] },
+    { "kind": "boundary", "description": "minimum length array", "input": [[42]] },
+    { "kind": "boundary", "description": "two distinct values each appearing once", "input": [[1, 2]] },
+    { "kind": "trap", "description": "the globally most frequent value is not the fastest to spread - a rarer, evenly spaced value wins", "input": [[9, 1, 9, 1, 9, 1, 9, 9]] },
+    { "kind": "trap", "description": "single occurrence of the majority value forces using the full circle as the gap", "input": [[3, 3, 3, 3, 1, 3, 3, 3]] },
+    { "kind": "trap", "description": "odd-length circular gap needs floor division, not ceiling", "input": [[1, 2, 2, 2, 2, 2, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "100k elements, few distinct values placed at random circular positions",
+      "seed": 7,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    values = [rng.randrange(1, 6) for _ in range(3)]\n    nums = [values[rng.randrange(0, len(values))] for _ in range(n)]\n    return [nums]\n",
+      "note": "few distinct values maximize the per-value gap bookkeeping; should finish well under the run timeout"
+    },
+    {
+      "description": "100k elements almost all distinct, forcing large single-occurrence gaps",
+      "seed": 11,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = list(range(1, n + 1))\n    rng.shuffle(nums)\n    i = rng.randrange(0, n)\n    j = rng.randrange(0, n)\n    nums[j] = nums[i]\n    return [nums]\n",
+      "note": "mostly-unique values with one duplicated pair exercises the many-singleton-value path"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumSeconds(self, nums):\n        n = len(nums)\n        pos = {}\n        for i, v in enumerate(nums):\n            pos.setdefault(v, []).append(i)\n        best = n\n        for idxs in pos.values():\n            worst = 0\n            for i in range(n):\n                d = min(min(abs(i - p), n - abs(i - p)) for p in idxs)\n                if d > worst:\n                    worst = d\n            if worst < best:\n                best = worst\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumSeconds(self, nums):\n        n = len(nums)\n        pos = {}\n        for i, v in enumerate(nums):\n            pos.setdefault(v, []).append(i)\n        ans = n\n        for idxs in pos.values():\n            maxgap = 0\n            m = len(idxs)\n            for i in range(m):\n                nxt = idxs[(i + 1) % m]\n                gap = nxt - idxs[i]\n                if gap <= 0:\n                    gap += n\n                if gap > maxgap:\n                    maxgap = gap\n            cost = maxgap // 2\n            if cost < ans:\n                ans = cost\n        return ans\n",
+    "javascript": "var minimumSeconds = function(nums) {\n    const n = nums.length;\n    const pos = new Map();\n    for (let i = 0; i < n; i++) {\n        if (!pos.has(nums[i])) pos.set(nums[i], []);\n        pos.get(nums[i]).push(i);\n    }\n    let ans = n;\n    for (const idxs of pos.values()) {\n        let maxgap = 0;\n        const m = idxs.length;\n        for (let i = 0; i < m; i++) {\n            let gap = idxs[(i + 1) % m] - idxs[i];\n            if (gap <= 0) gap += n;\n            if (gap > maxgap) maxgap = gap;\n        }\n        const cost = Math.floor(maxgap / 2);\n        if (cost < ans) ans = cost;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

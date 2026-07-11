@@ -1,0 +1,39 @@
+{
+  "slug": "word-search-ii",
+  "judge": "unordered",
+  "pattern": "Build a trie from the word list, then DFS from every board cell following only trie branches to prune impossible paths early and collect all reachable words.",
+  "hints": [
+    "Searching each word independently repeats a lot of work; insert all words into a trie so a single DFS pass from each cell explores all matching words simultaneously.",
+    "During DFS, advance a trie pointer with each step and mark a word as found when you reach an end-of-word node; mark cells visited during recursion to avoid reuse.",
+    "Prune the trie as words are found to avoid revisiting completed prefixes, and remove leaf trie nodes that led only to already-collected words."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "char[][]", "rows": [1, 12], "cols": [1, 12] },
+    { "param": "words", "kind": "string[]", "len": [1, 30000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic 4x4 board with two findable words", "input": [[["o","a","a","n"],["e","t","a","e"],["i","h","k","r"],["i","f","l","v"]], ["oath","pea","eat","rain"]] },
+    { "kind": "edge", "description": "word would require reusing a cell — not found", "input": [[["a","b"],["c","d"]], ["abcb"]] },
+    { "kind": "boundary", "description": "single cell board, word matches", "input": [[["z"]], ["z"]] },
+    { "kind": "boundary", "description": "single cell board, no word matches", "input": [[["a"]], ["b","c"]] },
+    { "kind": "trap", "description": "word list contains duplicates in name but board finds none", "input": [[["a","b"],["c","d"]], ["ef","gh"]] },
+    { "kind": "trap", "description": "all board cells the same letter and word uses only that letter", "input": [[["a","a"],["a","a"]], ["aaa","aa","a"]] },
+    { "kind": "edge", "description": "multiple words share a prefix found on the board", "input": [[["a","b","c"],["d","e","f"],["g","h","i"]], ["ab","abc","abcf","de"]] },
+    { "kind": "trap", "description": "word longer than total board cells cannot exist", "input": [[["a","b"],["c","d"]], ["abcda"]] }
+  ],
+  "stress": [
+    {
+      "description": "small board over tiny alphabet so many word paths exist and trie pruning is exercised",
+      "seed": 83,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = min(size, 12)\n    n = min(size, 12)\n    alpha = 'abcde'\n    board = [[rng.choice(alpha) for _ in range(n)] for _ in range(m)]\n    words = set()\n    for _ in range(200):\n        length = rng.randint(1, min(8, m * n))\n        words.add(''.join(rng.choice(alpha) for _ in range(length)))\n    return [board, list(words)]\n",
+      "note": "tiny alphabet increases hit rate; oracle is brute-force per word so stays manageable"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findWords(self, board, words):\n        m, n = len(board), len(board[0])\n        def dfs(i, j, k, word, visited):\n            if k == len(word):\n                return True\n            if i < 0 or i >= m or j < 0 or j >= n:\n                return False\n            if (i, j) in visited or board[i][j] != word[k]:\n                return False\n            visited.add((i, j))\n            found = (dfs(i+1,j,k+1,word,visited) or dfs(i-1,j,k+1,word,visited) or\n                     dfs(i,j+1,k+1,word,visited) or dfs(i,j-1,k+1,word,visited))\n            visited.discard((i, j))\n            return found\n        result = []\n        for word in words:\n            for i in range(m):\n                for j in range(n):\n                    if dfs(i, j, 0, word, set()):\n                        result.append(word)\n                        break\n                else:\n                    continue\n                break\n        return sorted(result)\n",
+  "solutions": {
+    "python": "class Solution:\n    def findWords(self, board, words):\n        TRIE_END = '#'\n        trie = {}\n        for w in words:\n            node = trie\n            for c in w:\n                node = node.setdefault(c, {})\n            node[TRIE_END] = w\n        m, n = len(board), len(board[0])\n        result = []\n        def dfs(i, j, node):\n            c = board[i][j]\n            if c not in node:\n                return\n            nxt = node[c]\n            if TRIE_END in nxt:\n                result.append(nxt[TRIE_END])\n                del nxt[TRIE_END]\n            board[i][j] = '#'\n            for di, dj in ((1,0),(-1,0),(0,1),(0,-1)):\n                ni, nj = i+di, j+dj\n                if 0 <= ni < m and 0 <= nj < n and board[ni][nj] != '#':\n                    dfs(ni, nj, nxt)\n            board[i][j] = c\n        for i in range(m):\n            for j in range(n):\n                dfs(i, j, trie)\n        return sorted(result)\n",
+    "javascript": "var findWords = function(board, words) {\n    const TRIE_END = '#';\n    const trie = {};\n    for (const w of words) {\n        let node = trie;\n        for (const c of w) {\n            if (!node[c]) node[c] = {};\n            node = node[c];\n        }\n        node[TRIE_END] = w;\n    }\n    const m = board.length, n = board[0].length;\n    const result = [];\n    const dfs = (i, j, node) => {\n        const c = board[i][j];\n        if (!node[c]) return;\n        const nxt = node[c];\n        if (nxt[TRIE_END]) {\n            result.push(nxt[TRIE_END]);\n            delete nxt[TRIE_END];\n        }\n        board[i][j] = '#';\n        for (const [di, dj] of [[1,0],[-1,0],[0,1],[0,-1]]) {\n            const ni = i + di, nj = j + dj;\n            if (ni >= 0 && ni < m && nj >= 0 && nj < n && board[ni][nj] !== '#') {\n                dfs(ni, nj, nxt);\n            }\n        }\n        board[i][j] = c;\n    };\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            dfs(i, j, trie);\n        }\n    }\n    return result.sort();\n};\n"
+  },
+  "complexity": { "time": "O(m*n*4^L)", "space": "O(W*L)" }
+}

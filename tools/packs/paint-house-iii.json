@@ -1,0 +1,68 @@
+{
+  "slug": "paint-house-iii",
+  "judge": "exact",
+  "pattern": "3D DP over (house index, last color used, number of neighborhoods formed so far) — transition respects pre-painted houses and accumulates painting cost.",
+  "hints": [
+    "State: dp[i][c][t] = minimum cost to color houses 0..i where house i has color c and there are t neighborhoods so far.",
+    "If house i is already painted, only that color is valid; otherwise try all n colors and add cost[i][c-1].",
+    "Neighborhoods increment by 1 when house i's color differs from house i-1's color; the final answer is min over all colors of dp[m-1][c][target]."
+  ],
+  "constraints": [
+    { "param": "houses", "kind": "int[]", "len": [1, 100], "value": [0, 20] },
+    { "param": "cost", "kind": "int[][]", "len": [1, 100], "value": [1, 10000] },
+    { "param": "m", "kind": "int", "value": [1, 100] },
+    { "param": "n", "kind": "int", "value": [1, 20] },
+    { "param": "target", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "All houses pre-painted, already target neighborhoods",
+      "input": [[1, 2, 1], [[1, 1], [1, 1], [1, 1]], 3, 2, 3]
+    },
+    {
+      "kind": "edge",
+      "description": "Impossible — existing paint creates more neighborhoods than target",
+      "input": [[3, 1, 2, 3], [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]], 4, 3, 3]
+    },
+    {
+      "kind": "edge",
+      "description": "Single house, paint it",
+      "input": [[0], [[5, 3, 7]], 1, 3, 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "Statement example 1",
+      "input": [[0, 0, 0, 0, 0], [[1, 10], [10, 1], [10, 1], [1, 10], [5, 1]], 5, 2, 3]
+    },
+    {
+      "kind": "boundary",
+      "description": "Statement example 2 — some pre-painted",
+      "input": [[0, 2, 1, 2, 0], [[1, 10], [10, 1], [10, 1], [1, 10], [5, 1]], 5, 2, 3]
+    },
+    {
+      "kind": "trap",
+      "description": "Target 1 — all houses must be same color",
+      "input": [[0, 0, 0], [[1, 5], [5, 1], [1, 5]], 3, 2, 1]
+    },
+    {
+      "kind": "trap",
+      "description": "Target equals m — every consecutive house must differ",
+      "input": [[0, 0, 0], [[1, 2], [2, 1], [1, 2]], 3, 2, 3]
+    }
+  ],
+  "stress": [
+    {
+      "description": "Random houses with many unpainted",
+      "seed": 5,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    m = size\n    n = rng.randint(2, 20)\n    target = rng.randint(1, m)\n    houses = [rng.choice([0, 0, 0, rng.randint(1, n)]) for _ in range(m)]\n    cost = [[rng.randint(1, 10000) for _ in range(n)] for _ in range(m)]\n    return [houses, cost, m, n, target]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCost(self, houses, cost, m, n, target):\n        INF = float('inf')\n        # dp[c][t] = min cost, prev color c, t neighborhoods\n        prev = [[INF] * (target + 1) for _ in range(n + 1)]\n        # Initialize first house\n        if houses[0] != 0:\n            c = houses[0]\n            prev[c][1] = 0\n        else:\n            for c in range(1, n + 1):\n                prev[c][1] = cost[0][c - 1]\n        for i in range(1, m):\n            curr = [[INF] * (target + 1) for _ in range(n + 1)]\n            colors = [houses[i]] if houses[i] != 0 else range(1, n + 1)\n            for c in colors:\n                paint = 0 if houses[i] != 0 else cost[i][c - 1]\n                for pc in range(1, n + 1):\n                    for t in range(1, target + 1):\n                        if prev[pc][t] == INF:\n                            continue\n                        nt = t + (1 if c != pc else 0)\n                        if nt <= target:\n                            curr[c][nt] = min(curr[c][nt], prev[pc][t] + paint)\n            prev = curr\n        ans = min(prev[c][target] for c in range(1, n + 1))\n        return ans if ans != INF else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCost(self, houses, cost, m, n, target):\n        INF = float('inf')\n        prev = [[INF] * (target + 1) for _ in range(n + 1)]\n        if houses[0] != 0:\n            prev[houses[0]][1] = 0\n        else:\n            for c in range(1, n + 1):\n                prev[c][1] = cost[0][c - 1]\n        for i in range(1, m):\n            curr = [[INF] * (target + 1) for _ in range(n + 1)]\n            colors = [houses[i]] if houses[i] != 0 else range(1, n + 1)\n            for c in colors:\n                paint = 0 if houses[i] != 0 else cost[i][c - 1]\n                for pc in range(1, n + 1):\n                    for t in range(1, target + 1):\n                        if prev[pc][t] == INF:\n                            continue\n                        nt = t + (1 if c != pc else 0)\n                        if nt <= target:\n                            curr[c][nt] = min(curr[c][nt], prev[pc][t] + paint)\n            prev = curr\n        ans = min(prev[c][target] for c in range(1, n + 1))\n        return ans if ans != INF else -1\n",
+    "javascript": "var minCost = function(houses, cost, m, n, target) {\n    const INF = Infinity;\n    let prev = Array.from({length: n+1}, () => new Array(target+1).fill(INF));\n    if (houses[0] !== 0) {\n        prev[houses[0]][1] = 0;\n    } else {\n        for (let c = 1; c <= n; c++) prev[c][1] = cost[0][c-1];\n    }\n    for (let i = 1; i < m; i++) {\n        const curr = Array.from({length: n+1}, () => new Array(target+1).fill(INF));\n        const colors = houses[i] !== 0 ? [houses[i]] : Array.from({length: n}, (_, j) => j+1);\n        for (const c of colors) {\n            const paint = houses[i] !== 0 ? 0 : cost[i][c-1];\n            for (let pc = 1; pc <= n; pc++) {\n                for (let t = 1; t <= target; t++) {\n                    if (prev[pc][t] === INF) continue;\n                    const nt = t + (c !== pc ? 1 : 0);\n                    if (nt <= target)\n                        curr[c][nt] = Math.min(curr[c][nt], prev[pc][t] + paint);\n                }\n            }\n        }\n        prev = curr;\n    }\n    let ans = INF;\n    for (let c = 1; c <= n; c++) ans = Math.min(ans, prev[c][target]);\n    return ans === INF ? -1 : ans;\n};"
+  },
+  "complexity": { "time": "O(m * n^2 * target)", "space": "O(n * target)" }
+}

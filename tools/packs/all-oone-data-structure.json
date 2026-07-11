@@ -1,0 +1,87 @@
+{
+  "slug": "all-oone-data-structure",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A doubly-linked list of frequency buckets, each holding the set of keys at that count, combined with a hash map from key to its bucket, achieves O(1) increments, decrements, and min/max queries.",
+  "hints": [
+    "getMaxKey and getMinKey must be O(1), which means you cannot scan all keys to find extreme counts — the order must be maintained continuously.",
+    "Group keys by their count in a sorted sequence of buckets; inc moves a key to the next bucket and dec moves it to the previous one.",
+    "A doubly-linked list of buckets (sorted by count) lets you insert/remove a bucket in O(1) and gives constant access to the head (min) and tail (max)."
+  ],
+  "constraints": [
+    { "param": "key", "kind": "string", "len": [1, 10] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "basic increment, min/max agree when only one key exists",
+      "input": [
+        ["AllOne", "inc", "inc", "getMaxKey", "getMinKey", "inc", "getMaxKey", "getMinKey"],
+        [[], ["hello"], ["hello"], [], [], ["leet"], [], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "empty structure returns empty strings",
+      "input": [
+        ["AllOne", "getMaxKey", "getMinKey"],
+        [[], [], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "inc then dec removes a key; querying after removal returns empty",
+      "input": [
+        ["AllOne", "inc", "dec", "getMaxKey", "getMinKey"],
+        [[], ["x"], ["x"], [], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "multiple keys at the same count; min and max may return any one of them",
+      "input": [
+        ["AllOne", "inc", "inc", "inc", "inc", "getMaxKey", "getMinKey"],
+        [[], ["a"], ["b"], ["c"], ["a"], [], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "decrement from count 2 to 1, check min updates correctly",
+      "input": [
+        ["AllOne", "inc", "inc", "inc", "dec", "getMinKey", "getMaxKey"],
+        [[], ["x"], ["x"], ["y"], ["x"], [], []]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character key, many increments then decrements back to removal",
+      "input": [
+        ["AllOne", "inc", "inc", "inc", "dec", "dec", "dec", "getMaxKey", "getMinKey"],
+        [[], ["z"], ["z"], ["z"], ["z"], ["z"], ["z"], [], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "after all keys removed and one re-added, min and max both reflect the lone key",
+      "input": [
+        ["AllOne", "inc", "inc", "dec", "dec", "inc", "getMinKey", "getMaxKey"],
+        [[], ["a"], ["b"], ["a"], ["b"], ["c"], [], []]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "randomized inc/dec over a small alphabet; dec only issued when key is present",
+      "seed": 42,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    keys = [chr(ord('a') + i) for i in range(6)]\n    ops = ['AllOne']\n    args = [[]]\n    counts = {}\n    for _ in range(max(1, size)):\n        r = rng.random()\n        k = rng.choice(keys)\n        present = [key for key, v in counts.items() if v > 0]\n        if r < 0.5:\n            ops.append('inc'); args.append([k])\n            counts[k] = counts.get(k, 0) + 1\n        elif present:\n            dk = rng.choice(present)\n            ops.append('dec'); args.append([dk])\n            counts[dk] -= 1\n        else:\n            ops.append('inc'); args.append([k])\n            counts[k] = counts.get(k, 0) + 1\n        if rng.random() < 0.15:\n            ops.append('getMaxKey'); args.append([])\n        if rng.random() < 0.15:\n            ops.append('getMinKey'); args.append([])\n    return [ops, args]\n",
+      "note": "small key space forces contention; min/max queries sprinkled throughout"
+    }
+  ],
+  "oracle_python": "class AllOne:\n    def __init__(self):\n        self.counts = {}\n    def inc(self, key):\n        self.counts[key] = self.counts.get(key, 0) + 1\n    def dec(self, key):\n        self.counts[key] -= 1\n        if self.counts[key] == 0:\n            del self.counts[key]\n    def getMaxKey(self):\n        if not self.counts:\n            return ''\n        max_cnt = max(self.counts.values())\n        return min(k for k, v in self.counts.items() if v == max_cnt)\n    def getMinKey(self):\n        if not self.counts:\n            return ''\n        min_cnt = min(self.counts.values())\n        return min(k for k, v in self.counts.items() if v == min_cnt)\n",
+  "solutions": {
+    "python": "class AllOne:\n    def __init__(self):\n        self.key_cnt = {}\n        # doubly-linked list: sentinel head (min side) and tail (max side)\n        # each node: {'cnt': int, 'keys': set, 'prev': node, 'next': node}\n        self.head = {'cnt': 0, 'keys': set(), 'prev': None, 'next': None}\n        self.tail = {'cnt': 0, 'keys': set(), 'prev': None, 'next': None}\n        self.head['next'] = self.tail\n        self.tail['prev'] = self.head\n        self.cnt_node = {}  # cnt -> node\n\n    def _insert_after(self, node, new_cnt):\n        new_node = {'cnt': new_cnt, 'keys': set(), 'prev': node, 'next': node['next']}\n        node['next']['prev'] = new_node\n        node['next'] = new_node\n        self.cnt_node[new_cnt] = new_node\n        return new_node\n\n    def _remove_node(self, node):\n        node['prev']['next'] = node['next']\n        node['next']['prev'] = node['prev']\n        del self.cnt_node[node['cnt']]\n\n    def inc(self, key):\n        old_cnt = self.key_cnt.get(key, 0)\n        new_cnt = old_cnt + 1\n        self.key_cnt[key] = new_cnt\n        if new_cnt not in self.cnt_node:\n            if old_cnt == 0:\n                self._insert_after(self.head, new_cnt)\n            else:\n                self._insert_after(self.cnt_node[old_cnt], new_cnt)\n        self.cnt_node[new_cnt]['keys'].add(key)\n        if old_cnt > 0:\n            old_node = self.cnt_node[old_cnt]\n            old_node['keys'].discard(key)\n            if not old_node['keys']:\n                self._remove_node(old_node)\n\n    def dec(self, key):\n        old_cnt = self.key_cnt[key]\n        new_cnt = old_cnt - 1\n        if new_cnt == 0:\n            del self.key_cnt[key]\n        else:\n            self.key_cnt[key] = new_cnt\n            if new_cnt not in self.cnt_node:\n                self._insert_after(self.cnt_node[old_cnt]['prev'], new_cnt)\n            self.cnt_node[new_cnt]['keys'].add(key)\n        old_node = self.cnt_node[old_cnt]\n        old_node['keys'].discard(key)\n        if not old_node['keys']:\n            self._remove_node(old_node)\n\n    def getMaxKey(self):\n        node = self.tail['prev']\n        if node is self.head:\n            return ''\n        return min(node['keys'])\n\n    def getMinKey(self):\n        node = self.head['next']\n        if node is self.tail:\n            return ''\n        return min(node['keys'])\n",
+    "javascript": "class AllOne {\n    constructor() {\n        this.keyCnt = new Map();\n        this.head = { cnt: 0, keys: new Set(), prev: null, next: null };\n        this.tail = { cnt: 0, keys: new Set(), prev: null, next: null };\n        this.head.next = this.tail;\n        this.tail.prev = this.head;\n        this.cntNode = new Map();\n    }\n    _insertAfter(node, newCnt) {\n        const nn = { cnt: newCnt, keys: new Set(), prev: node, next: node.next };\n        node.next.prev = nn;\n        node.next = nn;\n        this.cntNode.set(newCnt, nn);\n        return nn;\n    }\n    _removeNode(node) {\n        node.prev.next = node.next;\n        node.next.prev = node.prev;\n        this.cntNode.delete(node.cnt);\n    }\n    inc(key) {\n        const oldCnt = this.keyCnt.get(key) || 0;\n        const newCnt = oldCnt + 1;\n        this.keyCnt.set(key, newCnt);\n        if (!this.cntNode.has(newCnt)) {\n            const anchor = oldCnt === 0 ? this.head : this.cntNode.get(oldCnt);\n            this._insertAfter(anchor, newCnt);\n        }\n        this.cntNode.get(newCnt).keys.add(key);\n        if (oldCnt > 0) {\n            const oldNode = this.cntNode.get(oldCnt);\n            oldNode.keys.delete(key);\n            if (oldNode.keys.size === 0) this._removeNode(oldNode);\n        }\n    }\n    dec(key) {\n        const oldCnt = this.keyCnt.get(key);\n        const newCnt = oldCnt - 1;\n        if (newCnt === 0) {\n            this.keyCnt.delete(key);\n        } else {\n            this.keyCnt.set(key, newCnt);\n            if (!this.cntNode.has(newCnt)) {\n                this._insertAfter(this.cntNode.get(oldCnt).prev, newCnt);\n            }\n            this.cntNode.get(newCnt).keys.add(key);\n        }\n        const oldNode = this.cntNode.get(oldCnt);\n        oldNode.keys.delete(key);\n        if (oldNode.keys.size === 0) this._removeNode(oldNode);\n    }\n    _minOfSet(s) {\n        let best = null;\n        for (const k of s) if (best === null || k < best) best = k;\n        return best;\n    }\n    getMaxKey() {\n        const node = this.tail.prev;\n        if (node === this.head) return '';\n        return this._minOfSet(node.keys);\n    }\n    getMinKey() {\n        const node = this.head.next;\n        if (node === this.tail) return '';\n        return this._minOfSet(node.keys);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(distinct keys)" }
+}

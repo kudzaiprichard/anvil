@@ -1,0 +1,41 @@
+{
+  "slug": "find-duplicate-subtrees",
+  "judge": { "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    import json\n    src = args[0] if args[0] is not None else []\n    def deser(a):\n        if not a:\n            return None\n        root = [a[0], None, None]\n        q = [root]; i = 1\n        while q and i < len(a):\n            node = q.pop(0)\n            if i < len(a):\n                if a[i] is not None:\n                    node[1] = [a[i], None, None]; q.append(node[1])\n                i += 1\n            if i < len(a):\n                if a[i] is not None:\n                    node[2] = [a[i], None, None]; q.append(node[2])\n                i += 1\n        return root\n    # serialize a node-as-list subtree into a canonical structural string\n    def ser(node):\n        if node is None:\n            return '#'\n        return '(' + str(node[0]) + ser(node[1]) + ser(node[2]) + ')'\n    root = deser(src)\n    # count every subtree signature in the source tree\n    counts = {}\n    def walk(node):\n        if node is None:\n            return\n        counts[ser(node)] = counts.get(ser(node), 0) + 1\n        walk(node[1]); walk(node[2])\n    walk(root)\n    # the set of signatures that are duplicated in the source\n    dup_sigs = set(s for s, c in counts.items() if c >= 2)\n    # each returned tree must be a duplicated subtree; no signature repeated in output\n    got = set()\n    for item in output:\n        node = deser(item)\n        sig = ser(node)\n        if sig not in dup_sigs:\n            return False\n        if sig in got:\n            return False\n        got.add(sig)\n    # completeness: every duplicated signature must be represented exactly once\n    return got == dup_sigs\n",
+    "validator_javascript": "function validate(args, output) {\n    const src = args[0] === null || args[0] === undefined ? [] : args[0];\n    function deser(a) {\n        if (!a || a.length === 0) return null;\n        const root = [a[0], null, null];\n        const q = [root]; let i = 1;\n        while (q.length && i < a.length) {\n            const node = q.shift();\n            if (i < a.length) { if (a[i] !== null) { node[1] = [a[i], null, null]; q.push(node[1]); } i++; }\n            if (i < a.length) { if (a[i] !== null) { node[2] = [a[i], null, null]; q.push(node[2]); } i++; }\n        }\n        return root;\n    }\n    function ser(node) {\n        if (node === null) return '#';\n        return '(' + String(node[0]) + ser(node[1]) + ser(node[2]) + ')';\n    }\n    const root = deser(src);\n    const counts = new Map();\n    function walk(node) {\n        if (node === null) return;\n        const s = ser(node);\n        counts.set(s, (counts.get(s) || 0) + 1);\n        walk(node[1]); walk(node[2]);\n    }\n    walk(root);\n    const dupSigs = new Set();\n    for (const [s, c] of counts) if (c >= 2) dupSigs.add(s);\n    const got = new Set();\n    for (const item of output) {\n        const node = deser(item);\n        const sig = ser(node);\n        if (!dupSigs.has(sig)) return false;\n        if (got.has(sig)) return false;\n        got.add(sig);\n    }\n    if (got.size !== dupSigs.size) return false;\n    for (const s of dupSigs) if (!got.has(s)) return false;\n    return true;\n}\n"
+  },
+  "io_types": { "params": ["tree"], "returns": { "list_of": "tree" } },
+  "no_anchor_ok": true,
+  "pattern": "Giving every subtree a canonical signature lets a hash map count repeats, and the first time a signature is seen twice you record one representative root.",
+  "hints": [
+    "Two subtrees are equal only if they have identical shape and identical values everywhere, so encode each subtree as a string built from its structure.",
+    "A post-order serialization that includes markers for missing children makes each subtree's encoding unique to its shape and values.",
+    "Count encodings in a map; the moment a count reaches two, push that node as the single representative for that duplicate kind."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 5000], "value": [-200, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "duplicate leaf and duplicate subtree", "input": [[1, 2, 3, 4, null, 2, 4, null, null, 4]] },
+    { "kind": "edge", "description": "repeated single-node subtree", "input": [[2, 1, 1]] },
+    { "kind": "edge", "description": "nested duplicates of different sizes", "input": [[2, 2, 2, 3, null, 3, null]] },
+    { "kind": "boundary", "description": "single node, no duplicates", "input": [[1]] },
+    { "kind": "trap", "description": "same values but different structure are not duplicates", "input": [[0, 0, 0, 0, null, null, 0]] },
+    { "kind": "trap", "description": "mirror shapes with swapped children are distinct", "input": [[1, 2, 2, 3, null, null, 3]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree over a tiny value alphabet to force frequent duplicate subtrees",
+      "seed": 131,
+      "size": 120,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    arr = [rng.randint(0, 2)]\n    for _ in range(n - 1):\n        arr.append(rng.randint(0, 2) if rng.random() < 0.8 else None)\n    while arr and arr[-1] is None:\n        arr.pop()\n    return [arr]\n",
+      "note": "small alphabet maximizes duplicate subtrees"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findDuplicateSubtrees(self, root):\n        from collections import defaultdict\n        counts = defaultdict(int)\n        first = {}\n        def ser(node):\n            if node is None:\n                return '#'\n            sig = '(' + str(node.val) + ser(node.left) + ser(node.right) + ')'\n            counts[sig] += 1\n            if counts[sig] == 1:\n                first[sig] = node\n            return sig\n        ser(root)\n        res = [first[sig] for sig, c in counts.items() if c >= 2]\n        # canonical order: sort by signature so all references agree byte-for-byte\n        res.sort(key=lambda nd: ser_sig(nd))\n        return res\n\n\ndef ser_sig(node):\n    if node is None:\n        return '#'\n    return '(' + str(node.val) + ser_sig(node.left) + ser_sig(node.right) + ')'\n",
+  "solutions": {
+    "python": "class Solution:\n    def findDuplicateSubtrees(self, root):\n        from collections import defaultdict\n        seen = defaultdict(int)\n        rep = {}\n        def sig(node):\n            if node is None:\n                return '#'\n            s = str(node.val) + ',' + sig(node.left) + ',' + sig(node.right)\n            seen[s] += 1\n            if seen[s] == 2:\n                rep[s] = node\n            return s\n        sig(root)\n        items = sorted(rep.items(), key=lambda kv: kv[0])\n        return [node for _, node in items]\n",
+    "javascript": "var findDuplicateSubtrees = function(root) {\n    const seen = new Map();\n    const rep = new Map();\n    const sig = (node) => {\n        if (node === null) return '#';\n        const s = node.val + ',' + sig(node.left) + ',' + sig(node.right);\n        const c = (seen.get(s) || 0) + 1;\n        seen.set(s, c);\n        if (c === 2) rep.set(s, node);\n        return s;\n    };\n    sig(root);\n    const keys = Array.from(rep.keys()).sort();\n    return keys.map(k => rep.get(k));\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

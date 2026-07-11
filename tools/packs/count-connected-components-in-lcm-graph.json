@@ -1,0 +1,132 @@
+{
+  "slug": "count-connected-components-in-lcm-graph",
+  "judge": "exact",
+  "pattern": "Two numbers only need a shared multiple no larger than the threshold to end up in the same component, so sweep multiples instead of comparing every pair.",
+  "hints": [
+    "Any value larger than the threshold can never satisfy the lcm bound with anything else, so it is always its own component.",
+    "For a value at or below the threshold, walk through its multiples up to the threshold -- whichever other array value you first meet at a given multiple can be merged with it, because their lcm divides that multiple.",
+    "Drive a union-find over the array's indices with that multiples sweep; it finishes in roughly threshold*log(threshold) time, then just count the remaining distinct groups plus the always-isolated large values."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "threshold",
+      "kind": "int",
+      "value": [
+        1,
+        200000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single value, trivially one component",
+      "input": [
+        [
+          7
+        ],
+        10
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two values whose lcm is exactly the threshold",
+      "input": [
+        [
+          4,
+          6
+        ],
+        12
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two values whose lcm is just one above the threshold",
+      "input": [
+        [
+          4,
+          6
+        ],
+        11
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "every value exceeds the threshold, all isolated",
+      "input": [
+        [
+          50,
+          60,
+          70
+        ],
+        10
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "connectivity only holds transitively through a middle value",
+      "input": [
+        [
+          6,
+          10,
+          15
+        ],
+        30
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a mix of small mutually-connected values and one large isolated value",
+      "input": [
+        [
+          2,
+          3,
+          4,
+          6
+        ],
+        12
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "threshold equal to one, only self-lcm-eligible values (none) can connect",
+      "input": [
+        [
+          1,
+          2,
+          3
+        ],
+        1
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "many distinct values spread across and beyond the threshold",
+      "seed": 701,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    threshold = rng.randint(1, 200000)\n    n = max(1, min(20000, size if size >= 1 else 1))\n    pool_hi = max(threshold * 2, 400000)\n    pool = rng.sample(range(1, pool_hi + 1), min(n, pool_hi))\n    return [pool, threshold]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countComponents(self, nums, threshold):\n        # independent re-derivation: brute-force pairwise lcm check, correct but\n        # only intended for small inputs\n        from math import gcd\n        n = len(nums)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for i in range(n):\n            for j in range(i + 1, n):\n                lcm = nums[i] * nums[j] // gcd(nums[i], nums[j])\n                if lcm <= threshold:\n                    union(i, j)\n        return len({find(i) for i in range(n)})\n",
+  "solutions": {
+    "python": "class Solution:\n    def countComponents(self, nums, threshold):\n        n = len(nums)\n        idx_of = {}\n        small = []\n        isolated = 0\n        for i, v in enumerate(nums):\n            if v > threshold:\n                isolated += 1\n            else:\n                idx_of[v] = i\n                small.append(v)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        rep = [0] * (threshold + 1)\n        for v in small:\n            d = v\n            while d <= threshold:\n                if rep[d] == 0:\n                    rep[d] = v\n                else:\n                    union(idx_of[v], idx_of[rep[d]])\n                d += v\n        roots = {find(idx_of[v]) for v in small}\n        return isolated + len(roots)\n",
+    "javascript": "var countComponents = function(nums, threshold) {\n    const n = nums.length;\n    const parent = new Array(n);\n    for (let i = 0; i < n; i++) parent[i] = i;\n    function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }\n    function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }\n    const idxOf = new Map();\n    const small = [];\n    let isolated = 0;\n    for (let i = 0; i < n; i++) {\n        const v = nums[i];\n        if (v > threshold) { isolated++; }\n        else { idxOf.set(v, i); small.push(v); }\n    }\n    const rep = new Array(threshold + 1).fill(0);\n    for (const v of small) {\n        for (let d = v; d <= threshold; d += v) {\n            if (rep[d] === 0) rep[d] = v;\n            else union(idxOf.get(v), idxOf.get(rep[d]));\n        }\n    }\n    const roots = new Set();\n    for (const v of small) roots.add(find(idxOf.get(v)));\n    return isolated + roots.size;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n+threshold)*log(threshold))",
+    "space": "O(n+threshold)"
+  }
+}

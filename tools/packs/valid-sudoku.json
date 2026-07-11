@@ -1,0 +1,35 @@
+{
+  "slug": "valid-sudoku",
+  "judge": "exact",
+  "pattern": "Validity is purely about no repeated digit within any row, column, or 3x3 box, so one pass tracking seen digits per group settles it.",
+  "hints": [
+    "You only check the filled cells; empty cells marked with a dot never cause a conflict.",
+    "There are three kinds of groups to keep clean: the nine rows, the nine columns, and the nine 3x3 boxes.",
+    "Scan every cell once; for a digit, derive its box index as (row//3)*3 + col//3 and reject if it has already appeared in that row, column, or box."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "char[][]", "len": [9, 9] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a valid partially filled board", "input": [[["5", "3", ".", ".", "7", ".", ".", ".", "."], ["6", ".", ".", "1", "9", "5", ".", ".", "."], [".", "9", "8", ".", ".", ".", ".", "6", "."], ["8", ".", ".", ".", "6", ".", ".", ".", "3"], ["4", ".", ".", "8", ".", "3", ".", ".", "1"], ["7", ".", ".", ".", "2", ".", ".", ".", "6"], [".", "6", ".", ".", ".", ".", "2", "8", "."], [".", ".", ".", "4", "1", "9", ".", ".", "5"], [".", ".", ".", ".", "8", ".", ".", "7", "9"]]] },
+    { "kind": "trap", "description": "column conflict introduced by a leading 8", "input": [[["8", "3", ".", ".", "7", ".", ".", ".", "."], ["6", ".", ".", "1", "9", "5", ".", ".", "."], [".", "9", "8", ".", ".", ".", ".", "6", "."], ["8", ".", ".", ".", "6", ".", ".", ".", "3"], ["4", ".", ".", "8", ".", "3", ".", ".", "1"], ["7", ".", ".", ".", "2", ".", ".", ".", "6"], [".", "6", ".", ".", ".", ".", "2", "8", "."], [".", ".", ".", "4", "1", "9", ".", ".", "5"], [".", ".", ".", ".", "8", ".", ".", "7", "9"]]] },
+    { "kind": "boundary", "description": "completely empty board is valid", "input": [[[".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."]]] },
+    { "kind": "trap", "description": "duplicate within a single row", "input": [[["1", "1", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."]]] },
+    { "kind": "trap", "description": "duplicate inside one 3x3 box but not a row or column", "input": [[["1", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", "1", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", ".", ".", ".", "."]]] }
+  ],
+  "stress": [
+    {
+      "description": "sparse random boards with a few digits placed at random cells",
+      "seed": 36,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    board = [['.' for _ in range(9)] for _ in range(9)]\n    k = rng.randint(0, max(1, size))\n    for _ in range(k):\n        r = rng.randrange(9); c = rng.randrange(9)\n        board[r][c] = str(rng.randint(1, 9))\n    return [board]\n",
+      "note": "random placement produces both valid and invalid boards to stress all three checks"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isValidSudoku(self, board):\n        def dup(cells):\n            vals = [v for v in cells if v != '.']\n            return len(vals) != len(set(vals))\n        for r in range(9):\n            if dup(board[r]):\n                return False\n        for c in range(9):\n            if dup([board[r][c] for r in range(9)]):\n                return False\n        for br in range(0, 9, 3):\n            for bc in range(0, 9, 3):\n                cells = [board[br + i][bc + j] for i in range(3) for j in range(3)]\n                if dup(cells):\n                    return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def isValidSudoku(self, board):\n        rows = [set() for _ in range(9)]\n        cols = [set() for _ in range(9)]\n        boxes = [set() for _ in range(9)]\n        for r in range(9):\n            for c in range(9):\n                v = board[r][c]\n                if v == '.':\n                    continue\n                b = (r // 3) * 3 + c // 3\n                if v in rows[r] or v in cols[c] or v in boxes[b]:\n                    return False\n                rows[r].add(v); cols[c].add(v); boxes[b].add(v)\n        return True\n",
+    "javascript": "var isValidSudoku = function(board) {\n    const rows = Array.from({length: 9}, () => new Set());\n    const cols = Array.from({length: 9}, () => new Set());\n    const boxes = Array.from({length: 9}, () => new Set());\n    for (let r = 0; r < 9; r++) {\n        for (let c = 0; c < 9; c++) {\n            const v = board[r][c];\n            if (v === '.') continue;\n            const b = Math.floor(r / 3) * 3 + Math.floor(c / 3);\n            if (rows[r].has(v) || cols[c].has(v) || boxes[b].has(v)) return false;\n            rows[r].add(v); cols[c].add(v); boxes[b].add(v);\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(1)", "space": "O(1)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-number-of-events-that-can-be-attended",
+  "judge": "exact",
+  "pattern": "Sweeping days in order and always attending the available event that expires soonest is the greedy choice that maximises the count, made efficient with a min-heap of end days.",
+  "hints": [
+    "On any given day, if you must pick one event to attend, the safest is the one that will become unavailable first — postponing the longer-lived ones loses nothing.",
+    "Process days from earliest to latest. Keep the set of events that have already started and not yet ended; among them the one ending soonest is the one to attend today.",
+    "Sort events by start day. As the day counter advances, push every newly started event's end day into a min-heap, discard ended events from the top, then pop the soonest-ending one to attend and increment the count."
+  ],
+  "constraints": [
+    { "param": "events", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "chain of overlapping events, all attendable", "input": [[[1, 2], [2, 3], [3, 4]]] },
+    { "kind": "trap", "description": "duplicate one-day options on the same days", "input": [[[1, 2], [2, 3], [3, 4], [1, 2]]] },
+    { "kind": "trap", "description": "three events all confined to two days, one must be dropped", "input": [[[1, 2], [1, 2], [1, 2]]] },
+    { "kind": "edge", "description": "a long event should yield its days to short ones", "input": [[[1, 100000], [1, 1], [1, 1]]] },
+    { "kind": "boundary", "description": "single one-day event", "input": [[[5, 5]]] },
+    { "kind": "edge", "description": "disjoint events on separate days", "input": [[[1, 1], [3, 3], [5, 5]]] },
+    { "kind": "trap", "description": "later-starting short event must be taken before a long one expires", "input": [[[1, 4], [4, 4], [2, 2], [3, 4], [1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random events over a moderate day range, forcing heavy heap churn",
+      "seed": 157,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    events = []\n    for _ in range(n):\n        s = rng.randint(1, 2000)\n        e = rng.randint(s, min(2000, s + 50))\n        events.append([s, e])\n    return [events]\n",
+      "note": "bounded day span concentrates conflicts so the greedy is exercised"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxEvents(self, events):\n        # brute matching: for each day, take the still-open event with the\n        # earliest end among unused ones (bounded inputs keep this feasible).\n        evs = sorted(events, key=lambda e: (e[0], e[1]))\n        used = [False] * len(evs)\n        if not evs:\n            return 0\n        last_day = max(e[1] for e in evs)\n        attended = 0\n        for day in range(1, last_day + 1):\n            best = -1\n            best_end = None\n            for i, e in enumerate(evs):\n                if not used[i] and e[0] <= day <= e[1]:\n                    if best_end is None or e[1] < best_end:\n                        best_end = e[1]\n                        best = i\n            if best != -1:\n                used[best] = True\n                attended += 1\n        return attended\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass Solution:\n    def maxEvents(self, events):\n        events.sort()\n        heap = []\n        i = 0\n        n = len(events)\n        day = 0\n        attended = 0\n        while i < n or heap:\n            if not heap:\n                day = events[i][0]\n            while i < n and events[i][0] <= day:\n                heapq.heappush(heap, events[i][1])\n                i += 1\n            while heap and heap[0] < day:\n                heapq.heappop(heap)\n            if heap:\n                heapq.heappop(heap)\n                attended += 1\n                day += 1\n        return attended\n",
+    "javascript": "var maxEvents = function(events) {\n    events.sort((a, b) => a[0] - b[0]);\n    const heap = [];\n    const up = (i) => { while (i > 0) { const p = (i - 1) >> 1; if (heap[p] <= heap[i]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };\n    const down = (i) => { const n = heap.length; for (;;) { let l = 2 * i + 1, r = l + 1, b = i; if (l < n && heap[l] < heap[b]) b = l; if (r < n && heap[r] < heap[b]) b = r; if (b === i) break; [heap[b], heap[i]] = [heap[i], heap[b]]; i = b; } };\n    const push = (v) => { heap.push(v); up(heap.length - 1); };\n    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; down(0); } return top; };\n    let i = 0, day = 0, attended = 0;\n    const n = events.length;\n    while (i < n || heap.length) {\n        if (!heap.length) day = events[i][0];\n        while (i < n && events[i][0] <= day) { push(events[i][1]); i++; }\n        while (heap.length && heap[0] < day) pop();\n        if (heap.length) { pop(); attended++; day++; }\n    }\n    return attended;\n};\n"
+  },
+  "complexity": { "time": "O(n log n + D log n)", "space": "O(n)" }
+}

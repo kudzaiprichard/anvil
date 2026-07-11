@@ -1,0 +1,204 @@
+{
+  "judge": "exact",
+  "pattern": "Because every ride is really just a weighted interval on the line of points, and a picked-up ride can never overlap another, the best total earnings up to each point only depends on the best total at the point where that ride began -- a point-indexed running best turns this into ordinary interval scheduling.",
+  "hints": [
+    "Group the rides by their drop-off point, since a ride can only ever affect the running best exactly at the point it ends.",
+    "Sweep the points from 1 to n, carrying forward a running best-earnings-so-far; at each point, the best without taking any ride ending there is simply the running best from the previous point.",
+    "For every ride ending at the current point, taking it is worth the running best at its starting point (from a previous, already-computed point) plus its own profit; keep whichever option -- skip, or one of the rides ending here -- is largest."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "rides",
+      "kind": "int[][]",
+      "len": [
+        1,
+        30000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a single ride spanning almost the whole route",
+      "input": [
+        5,
+        [
+          [
+            2,
+            5,
+            4
+          ],
+          [
+            1,
+            5,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several rides chained end to end with none overlapping",
+      "input": [
+        20,
+        [
+          [
+            1,
+            6,
+            1
+          ],
+          [
+            3,
+            10,
+            2
+          ],
+          [
+            10,
+            12,
+            3
+          ],
+          [
+            11,
+            12,
+            2
+          ],
+          [
+            12,
+            15,
+            2
+          ],
+          [
+            13,
+            18,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible route with exactly one ride",
+      "input": [
+        2,
+        [
+          [
+            1,
+            2,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single ride with the maximum possible tip",
+      "input": [
+        10,
+        [
+          [
+            1,
+            10,
+            100000
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one long ride looks tempting but two shorter chained rides earn strictly more",
+      "input": [
+        10,
+        [
+          [
+            1,
+            10,
+            1
+          ],
+          [
+            1,
+            5,
+            1
+          ],
+          [
+            5,
+            10,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a ride's drop-off exactly matches another's pick-up, which must be allowed back to back",
+      "input": [
+        5,
+        [
+          [
+            1,
+            3,
+            2
+          ],
+          [
+            3,
+            5,
+            2
+          ],
+          [
+            1,
+            5,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "identical fully-overlapping rides where only one can ever be taken",
+      "input": [
+        5,
+        [
+          [
+            1,
+            5,
+            3
+          ],
+          [
+            1,
+            5,
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random valid rides scattered across a large route",
+      "seed": 55,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    num_rides = max(1, min(30000, n * 2))\n    rides = []\n    for _ in range(num_rides):\n        s = rng.randint(1, n - 1)\n        e = rng.randint(s + 1, n)\n        t = rng.randint(1, 100000)\n        rides.append([s, e, t])\n    return [n, rides]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxTaxiEarnings(self, n, rides):\n        rides = sorted(rides)\n        m = len(rides)\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def solve(i, cur_end):\n            if i == m:\n                return 0\n            s, e, t = rides[i]\n            skip = solve(i + 1, cur_end)\n            if s >= cur_end:\n                take = (e - s + t) + solve(i + 1, e)\n            else:\n                take = float('-inf')\n            return max(skip, take)\n        result = solve(0, 0)\n        solve.cache_clear()\n        return result\n",
+  "solutions": {
+    "python": "from collections import defaultdict\nclass Solution:\n    def maxTaxiEarnings(self, n, rides):\n        by_end = defaultdict(list)\n        for s, e, t in rides:\n            by_end[e].append((s, t))\n        dp = [0] * (n + 1)\n        for i in range(1, n + 1):\n            dp[i] = dp[i - 1]\n            for s, t in by_end.get(i, []):\n                cand = dp[s] + (i - s + t)\n                if cand > dp[i]:\n                    dp[i] = cand\n        return dp[n]\n",
+    "javascript": "var maxTaxiEarnings = function(n, rides) {\n    const byEnd = Array.from({length: n + 1}, () => []);\n    for (const [s, e, t] of rides) byEnd[e].push([s, t]);\n    const dp = new Array(n + 1).fill(0);\n    for (let i = 1; i <= n; i++) {\n        dp[i] = dp[i - 1];\n        for (const [s, t] of byEnd[i]) {\n            const cand = dp[s] + (i - s + t);\n            if (cand > dp[i]) dp[i] = cand;\n        }\n    }\n    return dp[n];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + rides.length)",
+    "space": "O(n)"
+  },
+  "slug": "maximum-earnings-from-taxi"
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "exclusive-time-of-functions",
+  "judge": "exact",
+  "pattern": "A call stack of running function ids, plus a remembered last timestamp, lets each log event credit the elapsed slice to whichever function currently sits on top.",
+  "hints": [
+    "Parse each log into id, kind, and timestamp; keep a stack of currently running function ids.",
+    "When a function starts, the time since the previous event belongs to whoever was on top before; then push the new id.",
+    "On a start at time t, add t - prev to the current top (if any), push id, set prev = t. On an end at time t, add t - prev + 1 to the popped id, then set prev = t + 1."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "logs", "kind": "string[]", "len": [2, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first statement example", "input": [2, ["0:start:0", "1:start:2", "1:end:5", "0:end:6"]] },
+    { "kind": "edge", "description": "second statement example, recursion on one function", "input": [1, ["0:start:0", "0:start:2", "0:end:5", "0:start:6", "0:end:6", "0:end:7"]] },
+    { "kind": "edge", "description": "third statement example, recursion then a call", "input": [2, ["0:start:0", "0:start:2", "0:end:5", "1:start:6", "1:end:6", "0:end:7"]] },
+    { "kind": "boundary", "description": "single function spanning one unit", "input": [1, ["0:start:0", "0:end:0"]] },
+    { "kind": "trap", "description": "function with zero gap end at same start", "input": [1, ["0:start:5", "0:end:5"]] },
+    { "kind": "trap", "description": "function never runs gets zero time", "input": [3, ["0:start:0", "0:end:10"]] },
+    { "kind": "edge", "description": "two sibling calls back to back", "input": [2, ["0:start:0", "0:end:3", "1:start:4", "1:end:9"]] }
+  ],
+  "stress": [
+    {
+      "description": "random well-formed nested call logs over several functions",
+      "seed": 44,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 10)\n    depth_target = rng.randint(1, n)\n    pairs = max(1, size // 2)\n    logs = []\n    stack = []\n    t = 0\n    for _ in range(pairs):\n        # decide to start or end\n        if stack and (len(stack) >= depth_target or rng.random() < 0.5):\n            fid = stack.pop()\n            logs.append('%d:end:%d' % (fid, t))\n        else:\n            fid = rng.randint(0, n - 1)\n            stack.append(fid)\n            logs.append('%d:start:%d' % (fid, t))\n        t += rng.randint(1, 5)\n    while stack:\n        fid = stack.pop()\n        logs.append('%d:end:%d' % (fid, t))\n        t += rng.randint(1, 5)\n    if len(logs) < 2:\n        logs = ['0:start:0', '0:end:1']\n        n = max(n, 1)\n    return [n, logs]\n",
+      "note": "stack discipline guarantees every start has a matching end"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def exclusiveTime(self, n, logs):\n        res = [0] * n\n        stack = []  # (id, accumulated_self_time, start_time)\n        for log in logs:\n            fid_s, kind, ts_s = log.split(':')\n            fid = int(fid_s)\n            ts = int(ts_s)\n            if kind == 'start':\n                stack.append([fid, 0, ts])\n            else:\n                top = stack.pop()\n                elapsed = ts - top[2] + 1\n                self_time = elapsed - top[1]\n                res[top[0]] += self_time\n                if stack:\n                    stack[-1][1] += elapsed\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def exclusiveTime(self, n, logs):\n        res = [0] * n\n        stack = []\n        prev = 0\n        for log in logs:\n            fid_s, kind, ts_s = log.split(':')\n            fid = int(fid_s)\n            ts = int(ts_s)\n            if kind == 'start':\n                if stack:\n                    res[stack[-1]] += ts - prev\n                stack.append(fid)\n                prev = ts\n            else:\n                res[stack.pop()] += ts - prev + 1\n                prev = ts + 1\n        return res\n",
+    "javascript": "var exclusiveTime = function(n, logs) {\n    const res = new Array(n).fill(0);\n    const stack = [];\n    let prev = 0;\n    for (const log of logs) {\n        const [fidS, kind, tsS] = log.split(':');\n        const fid = parseInt(fidS, 10);\n        const ts = parseInt(tsS, 10);\n        if (kind === 'start') {\n            if (stack.length) res[stack[stack.length - 1]] += ts - prev;\n            stack.push(fid);\n            prev = ts;\n        } else {\n            res[stack.pop()] += ts - prev + 1;\n            prev = ts + 1;\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(m)", "space": "O(m)" }
+}

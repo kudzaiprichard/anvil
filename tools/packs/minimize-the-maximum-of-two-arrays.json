@@ -1,0 +1,133 @@
+{
+  "slug": "minimize-the-maximum-of-two-arrays",
+  "judge": "exact",
+  "pattern": "The answer only depends on how many integers up to a candidate maximum fall into four buckets -- divisible by only the first divisor, only the second, both, or neither -- so binary search the candidate maximum with a bucket-counting feasibility check.",
+  "hints": [
+    "Think in terms of a candidate maximum value M: how many integers from 1 to M are divisible by the first divisor only, the second divisor only, both, or neither?",
+    "A number divisible by the first array's own divisor can never sit in that array, so it can only ever help fill the other array's quota (and symmetrically the other way round).",
+    "Binary search M upward from 1: it is feasible once (numbers usable only by array one) + (numbers usable by either) meets that array's quota, the same holds for array two, and the two quotas together fit within everything that isn't divisible by both divisors."
+  ],
+  "constraints": [
+    {
+      "param": "divisor1",
+      "kind": "int",
+      "value": [
+        2,
+        100000
+      ]
+    },
+    {
+      "param": "divisor2",
+      "kind": "int",
+      "value": [
+        2,
+        100000
+      ]
+    },
+    {
+      "param": "uniqueCnt1",
+      "kind": "int",
+      "value": [
+        1,
+        999999999
+      ]
+    },
+    {
+      "param": "uniqueCnt2",
+      "kind": "int",
+      "value": [
+        1,
+        999999999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "moderate coprime divisors with a balanced demand between the two arrays",
+      "input": [
+        2,
+        3,
+        5,
+        5
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "equal divisors collapse both exclusive pools to zero, forcing all demand onto neither-divisible numbers",
+      "input": [
+        5,
+        5,
+        3,
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one divisor is a multiple of the other so their least common multiple equals the larger divisor",
+      "input": [
+        3,
+        9,
+        4,
+        6
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible unique counts for both arrays",
+      "input": [
+        2,
+        3,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "demand skewed heavily toward the second array",
+      "input": [
+        3,
+        7,
+        1,
+        50
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "demand skewed heavily toward the first array",
+      "input": [
+        7,
+        3,
+        50,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "small divisors that share a nontrivial common factor",
+      "input": [
+        4,
+        6,
+        7,
+        9
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large-scale divisors and unique counts near the full constraint range",
+      "seed": 7,
+      "size": 1000000000,
+      "generator_python": "def gen(rng, size):\n    divisor1 = rng.randint(2, 100000)\n    divisor2 = rng.randint(2, 100000)\n    total = max(2, min(size, 999999999))\n    uniqueCnt1 = rng.randint(1, total - 1)\n    uniqueCnt2 = total - uniqueCnt1\n    return [divisor1, divisor2, uniqueCnt1, uniqueCnt2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimizeSet(self, divisor1, divisor2, uniqueCnt1, uniqueCnt2):\n        m = 0\n        only_d1 = only_d2 = neither = 0\n        target = uniqueCnt1 + uniqueCnt2\n        while True:\n            m += 1\n            d1 = (m % divisor1 == 0)\n            d2 = (m % divisor2 == 0)\n            if d1 and d2:\n                pass\n            elif d1:\n                only_d1 += 1\n            elif d2:\n                only_d2 += 1\n            else:\n                neither += 1\n            if (only_d2 + neither >= uniqueCnt1 and\n                    only_d1 + neither >= uniqueCnt2 and\n                    only_d1 + only_d2 + neither >= target):\n                return m\n",
+  "solutions": {
+    "python": "import math\n\nclass Solution:\n    def minimizeSet(self, divisor1, divisor2, uniqueCnt1, uniqueCnt2):\n        g = math.gcd(divisor1, divisor2)\n        lcm = divisor1 // g * divisor2\n        def feasible(m):\n            d1 = m // divisor1\n            d2 = m // divisor2\n            dl = m // lcm\n            only_d1 = d1 - dl\n            only_d2 = d2 - dl\n            neither = m - d1 - d2 + dl\n            return (only_d2 + neither >= uniqueCnt1 and\n                    only_d1 + neither >= uniqueCnt2 and\n                    only_d1 + only_d2 + neither >= uniqueCnt1 + uniqueCnt2)\n        lo, hi = 1, max(2, uniqueCnt1 + uniqueCnt2)\n        while not feasible(hi):\n            hi *= 2\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var minimizeSet = function(divisor1, divisor2, uniqueCnt1, uniqueCnt2) {\n    function gcd(a, b) { while (b) { const t = a % b; a = b; b = t; } return a; }\n    const g = gcd(divisor1, divisor2);\n    const lcm = (divisor1 / g) * divisor2;\n    function feasible(m) {\n        const d1 = Math.floor(m / divisor1);\n        const d2 = Math.floor(m / divisor2);\n        const dl = Math.floor(m / lcm);\n        const onlyD1 = d1 - dl;\n        const onlyD2 = d2 - dl;\n        const neither = m - d1 - d2 + dl;\n        return onlyD2 + neither >= uniqueCnt1 &&\n               onlyD1 + neither >= uniqueCnt2 &&\n               onlyD1 + onlyD2 + neither >= uniqueCnt1 + uniqueCnt2;\n    }\n    let lo = 1, hi = Math.max(2, uniqueCnt1 + uniqueCnt2);\n    while (!feasible(hi)) hi *= 2;\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (feasible(mid)) hi = mid; else lo = mid + 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": {
+    "time": "O(log(answer))",
+    "space": "O(1)"
+  }
+}

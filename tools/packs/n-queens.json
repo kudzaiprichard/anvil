@@ -1,0 +1,41 @@
+{
+  "slug": "n-queens",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    n = args[0]\n    if not isinstance(output, list):\n        return False\n    def total_count(n):\n        cols = set(); d = set(); a = set()\n        def place(r):\n            if r == n:\n                return 1\n            t = 0\n            for c in range(n):\n                if c in cols or (r - c) in d or (r + c) in a:\n                    continue\n                cols.add(c); d.add(r - c); a.add(r + c)\n                t += place(r + 1)\n                cols.remove(c); d.remove(r - c); a.remove(r + c)\n            return t\n        return place(0)\n    seen = set()\n    for board in output:\n        if not isinstance(board, list) or len(board) != n:\n            return False\n        queens = []\n        for row in board:\n            if not isinstance(row, str) or len(row) != n:\n                return False\n            if row.count('Q') != 1:\n                return False\n            if any(ch not in 'Q.' for ch in row):\n                return False\n            queens.append(row.index('Q'))\n        ok = True\n        for i in range(n):\n            for j in range(i + 1, n):\n                if queens[i] == queens[j] or abs(queens[i] - queens[j]) == j - i:\n                    ok = False\n        if not ok:\n            return False\n        key = tuple(queens)\n        if key in seen:\n            return False\n        seen.add(key)\n    return len(seen) == total_count(n)\n",
+    "validator_javascript": "function validate(args, output) {\n    const n = args[0];\n    if (!Array.isArray(output)) return false;\n    function totalCount(n) {\n        const cols = new Set(), d = new Set(), a = new Set();\n        function place(r) {\n            if (r === n) return 1;\n            let t = 0;\n            for (let c = 0; c < n; c++) {\n                if (cols.has(c) || d.has(r - c) || a.has(r + c)) continue;\n                cols.add(c); d.add(r - c); a.add(r + c);\n                t += place(r + 1);\n                cols.delete(c); d.delete(r - c); a.delete(r + c);\n            }\n            return t;\n        }\n        return place(0);\n    }\n    const seen = new Set();\n    for (const board of output) {\n        if (!Array.isArray(board) || board.length !== n) return false;\n        const queens = [];\n        for (const row of board) {\n            if (typeof row !== 'string' || row.length !== n) return false;\n            let cnt = 0, pos = -1;\n            for (let k = 0; k < row.length; k++) {\n                if (row[k] === 'Q') { cnt++; pos = k; }\n                else if (row[k] !== '.') return false;\n            }\n            if (cnt !== 1) return false;\n            queens.push(pos);\n        }\n        let ok = true;\n        for (let i = 0; i < n; i++) {\n            for (let j = i + 1; j < n; j++) {\n                if (queens[i] === queens[j] || Math.abs(queens[i] - queens[j]) === j - i) ok = false;\n            }\n        }\n        if (!ok) return false;\n        const key = queens.join(',');\n        if (seen.has(key)) return false;\n        seen.add(key);\n    }\n    return seen.size === totalCount(n);\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Every distinct board is found by row-by-row backtracking, rendering each accepted column choice into a string row of dots with a single queen.",
+  "hints": [
+    "Place one queen per row and only choose a column that no earlier queen attacks.",
+    "Columns and both diagonal directions (row-col and row+col) capture every attack as set membership.",
+    "Backtrack across rows recording each column; when all rows are filled, render every row as a string of dots with 'Q' at the chosen column and collect that board."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 9] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "smallest board with two distinct solutions", "input": [4] },
+    { "kind": "boundary", "description": "single cell has one trivial board", "input": [1] },
+    { "kind": "trap", "description": "two queens cannot be placed", "input": [2] },
+    { "kind": "trap", "description": "three by three has no solution", "input": [3] },
+    { "kind": "edge", "description": "five by five has ten solutions", "input": [5] },
+    { "kind": "edge", "description": "six by six solution set", "input": [6] }
+  ],
+  "stress": [
+    {
+      "description": "deterministically sample a small legal board size",
+      "seed": 51,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    return [rng.randrange(1, 8)]\n",
+      "note": "n capped at 7 keeps the rendered solution set small while exercising many boards"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def solveNQueens(self, n):\n        from itertools import permutations\n        sols = []\n        for perm in permutations(range(n)):\n            ok = True\n            for i in range(n):\n                for j in range(i + 1, n):\n                    if abs(perm[i] - perm[j]) == j - i:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if ok:\n                sols.append(perm)\n        sols.sort()\n        boards = []\n        for perm in sols:\n            boards.append(['.' * col + 'Q' + '.' * (n - col - 1) for col in perm])\n        return boards\n",
+  "solutions": {
+    "python": "class Solution:\n    def solveNQueens(self, n):\n        sols = []\n        cols = set(); diag = set(); anti = set()\n        placement = []\n        def place(row):\n            if row == n:\n                sols.append(tuple(placement))\n                return\n            for c in range(n):\n                if c in cols or (row - c) in diag or (row + c) in anti:\n                    continue\n                cols.add(c); diag.add(row - c); anti.add(row + c)\n                placement.append(c)\n                place(row + 1)\n                placement.pop()\n                cols.remove(c); diag.remove(row - c); anti.remove(row + c)\n        place(0)\n        sols.sort()\n        return [['.' * c + 'Q' + '.' * (n - c - 1) for c in perm] for perm in sols]\n",
+    "javascript": "var solveNQueens = function(n) {\n    const sols = [];\n    const cols = new Set(), diag = new Set(), anti = new Set();\n    const placement = [];\n    function place(row) {\n        if (row === n) {\n            sols.push(placement.slice());\n            return;\n        }\n        for (let c = 0; c < n; c++) {\n            if (cols.has(c) || diag.has(row - c) || anti.has(row + c)) continue;\n            cols.add(c); diag.add(row - c); anti.add(row + c);\n            placement.push(c);\n            place(row + 1);\n            placement.pop();\n            cols.delete(c); diag.delete(row - c); anti.delete(row + c);\n        }\n    }\n    place(0);\n    sols.sort((a, b) => {\n        for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return 0;\n    });\n    return sols.map(perm => perm.map(c => '.'.repeat(c) + 'Q' + '.'.repeat(n - c - 1)));\n};\n"
+  },
+  "complexity": { "time": "O(n!)", "space": "O(n)" }
+}

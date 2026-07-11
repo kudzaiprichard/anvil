@@ -1,0 +1,37 @@
+{
+  "slug": "count-sequences-to-k",
+  "judge": "exact",
+  "pattern": "Every reachable value is a product of powers of 2, 3, and 5 only (since each array element is 1-6), so instead of tracking exact rational values, track just the three integer exponents (of 2, 3, 5) reached so far and count how many choice-sequences land on the exponent triple of k's own factorization.",
+  "hints": [
+    "Every number from 1 to 6 factors only into 2s, 3s, and 5s (4 = 2^2, 6 = 2*3), and multiplying or dividing by one of them just adds or subtracts a small, fixed vector of exponents — so the running value can be represented exactly as an (exponent of 2, exponent of 3, exponent of 5) triple instead of a fraction.",
+    "Run a DP over the array: at each step, for every exponent-triple currently reachable with some count of sequences, produce three successor triples (add the current element's exponent vector for multiply, subtract it for divide, keep it unchanged for leave-as-is), accumulating counts in a dictionary/map keyed by triple.",
+    "Before running the DP, factor k itself into its own (exponent of 2, exponent of 3, exponent of 5) triple — if anything is left over after dividing out all factors of 2, 3 and 5, k is unreachable and the answer is 0 immediately. Otherwise, after processing every element, the answer is exactly the accumulated count at that target triple."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 19], "value": [1, 6] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element, k already reached without any multiply/divide (leave-unchanged path), plus the trivial multiply and divide paths for a value of 1", "input": [[1], 1] },
+    { "kind": "trap", "description": "single element, val is always 1 regardless of the chosen operation (multiplying/dividing by 1 changes nothing) — k=2 is unreachable, answer 0", "input": [[1], 2] },
+    { "kind": "trap", "description": "k has a prime factor (7) outside {2,3,5} — no sequence of multiplies/divides by numbers 1-6 can ever produce it, so the answer is 0 without even running the DP", "input": [[6], 7] },
+    { "kind": "trap", "description": "max length (19), every element is 1 — every one of the 3^19 possible choice sequences leaves the value at 1, so with k=1 every sequence counts", "input": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 1] },
+    { "kind": "boundary", "description": "max length (19), every element is 6 and k = 6^19 exactly — only the single all-multiply sequence reaches this k, at the top of the reachable range", "input": [[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], 609359740010496] },
+    { "kind": "boundary", "description": "max length (19), every element is 5, k at the constraint's exact upper bound (10^15) — k needs a factor of 2 that a run of only 5s can never contribute, so the answer is 0", "input": [[5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5], 1000000000000000] },
+    { "kind": "trap", "description": "mixed small values where a divide is required (not just multiplies) to reach a fractional-looking target that is still an integer", "input": [[4, 6, 3], 2] }
+  ],
+  "stress": [
+    {
+      "description": "random-length arrays of digits 1-6 with a random target k, seeded, covering both reachable and unreachable k values",
+      "seed": 6,
+      "size": 19,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, size)\n    nums = [rng.randint(1, 6) for _ in range(n)]\n    k = rng.choice([rng.randint(1, 50), rng.randint(1, 10**15)])\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "from fractions import Fraction\nfrom collections import defaultdict\n\nclass Solution:\n    def countSequences(self, nums, k) -> int:\n        # Independent approach: track the EXACT rational value reached so far\n        # using Fraction arithmetic (not a prime-exponent vector), and count\n        # sequences landing on Fraction(k) exactly. Different representation,\n        # same question, so a bug in either the exponent-vector or the target\n        # factorization logic shows up as a disagreement.\n        dp = defaultdict(int)\n        dp[Fraction(1)] = 1\n        for num in nums:\n            ndp = defaultdict(int)\n            for val, cnt in dp.items():\n                ndp[val * num] += cnt\n                ndp[val / num] += cnt\n                ndp[val] += cnt\n            dp = ndp\n        return dp.get(Fraction(k), 0)\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\n_EXP = {1: (0, 0, 0), 2: (1, 0, 0), 3: (0, 1, 0), 4: (2, 0, 0), 5: (0, 0, 1), 6: (1, 1, 0)}\n\n\nclass Solution:\n    def countSequences(self, nums, k) -> int:\n        kk = k\n        target = [0, 0, 0]\n        for i, p in enumerate((2, 3, 5)):\n            while kk % p == 0:\n                kk //= p\n                target[i] += 1\n        if kk != 1:\n            return 0\n        target = tuple(target)\n        dp = {(0, 0, 0): 1}\n        for num in nums:\n            ex, ey, ez = _EXP[num]\n            ndp = defaultdict(int)\n            for (x, y, z), cnt in dp.items():\n                ndp[(x + ex, y + ey, z + ez)] += cnt\n                ndp[(x - ex, y - ey, z - ez)] += cnt\n                ndp[(x, y, z)] += cnt\n            dp = ndp\n        return dp.get(target, 0)\n",
+    "javascript": "var countSequences = function(nums, k) {\n    const EXP = { 1: [0, 0, 0], 2: [1, 0, 0], 3: [0, 1, 0], 4: [2, 0, 0], 5: [0, 0, 1], 6: [1, 1, 0] };\n    let kk = k;\n    const target = [0, 0, 0];\n    const primes = [2, 3, 5];\n    for (let i = 0; i < 3; i++) {\n        while (kk % primes[i] === 0) {\n            kk /= primes[i];\n            target[i] += 1;\n        }\n    }\n    if (kk !== 1) return 0;\n    let dp = new Map();\n    dp.set('0,0,0', { vec: [0, 0, 0], cnt: 1 });\n    for (const num of nums) {\n        const [ex, ey, ez] = EXP[num];\n        const ndp = new Map();\n        const add = (x, y, z, cnt) => {\n            const key = x + ',' + y + ',' + z;\n            const existing = ndp.get(key);\n            if (existing) existing.cnt += cnt;\n            else ndp.set(key, { vec: [x, y, z], cnt });\n        };\n        for (const { vec, cnt } of dp.values()) {\n            const [x, y, z] = vec;\n            add(x + ex, y + ey, z + ez, cnt);\n            add(x - ex, y - ey, z - ez, cnt);\n            add(x, y, z, cnt);\n        }\n        dp = ndp;\n    }\n    const targetKey = target.join(',');\n    const result = dp.get(targetKey);\n    return result ? result.cnt : 0;\n};\n"
+  },
+  "complexity": { "time": "O(n * distinct exponent-triples reached)", "space": "O(distinct exponent-triples)" }
+}

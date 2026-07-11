@@ -1,0 +1,40 @@
+{
+  "slug": "maximum-star-sum-of-a-graph",
+  "judge": "exact",
+  "pattern": "For a fixed center, the best star only ever attaches its positive-valued neighbors (a negative neighbor would only lower the sum), and among those it should take the k largest, so bucket each node's positive neighbor values, sort descending, and try every node as center.",
+  "hints": [
+    "Adding a neighbor to the star only ever helps if that neighbor's value is positive — a negative-valued neighbor should simply be left out, regardless of how many edges you're still allowed to use.",
+    "For a fixed center, collect the values of its positive-valued neighbors, sort them from largest to smallest, and take at most the first k — that greedily maximizes the sum for that center.",
+    "Try every node as the center once (accumulate each node's positive neighbor values via an adjacency list built from the edge list) and keep the best center value plus its top-k positive neighbor sum."
+  ],
+  "constraints": [
+    { "param": "vals", "kind": "int[]", "len": [1, 100000], "value": [-10000, 10000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000], "note": "each inner pair [a,b], 0<=a,b<len(vals), a!=b, no repeated edge" },
+    { "param": "k", "kind": "int", "value": [0, 99999], "note": "0 <= k <= len(vals) - 1, so k is always in range for the given vals" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single node, no edges, k = 0 — the star is just the node itself", "input": [[-5], [], 0] },
+    { "kind": "edge", "description": "mixed positive and negative neighbor values, only some fit under k", "input": [[1, 2, 3, 4, 10, -10, -20], [[0, 1], [1, 2], [1, 3], [3, 4], [3, 5], [3, 6]], 2] },
+    { "kind": "edge", "description": "k = 0 forces every star to be a single node — answer is just the max value", "input": [[5, -1, 3, -8], [[0, 1], [1, 2], [2, 3]], 0] },
+    { "kind": "edge", "description": "all node values negative — best star is still the least negative single node since attaching any neighbor only makes it worse", "input": [[-1, -2, -3], [[0, 1], [1, 2]], 2] },
+    { "kind": "edge", "description": "isolated nodes mixed with connected ones — isolated nodes can only ever form a single-node star even with k at its max", "input": [[7, 1, 2], [[1, 2]], 2] },
+    { "kind": "boundary", "description": "k at its maximum allowed value (n-1) but larger than one node's actual degree — should just take all of that node's positive neighbors, not error", "input": [[10, 1, 2, 3], [[0, 1], [2, 3]], 3] },
+    { "kind": "trap", "description": "a high-value center with mostly negative neighbors loses to a lower-value center with several positive neighbors once k allows enough of them", "input": [[100, -50, -50, -50, 1, 2, 3, 4], [[0, 1], [0, 2], [0, 3], [4, 5], [4, 6], [4, 7]], 3] },
+    { "kind": "trap", "description": "a zero-valued neighbor contributes nothing either way and must not be skipped incorrectly when counting toward k versus a positive neighbor", "input": [[5, 0, 3], [[0, 1], [0, 2]], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse graph on up to 2000 nodes with values in the full allowed range",
+      "seed": 21,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    vals = [rng.randint(-10000, 10000) for _ in range(n)]\n    edge_set = set()\n    max_edges = min(n * (n - 1) // 2, 3 * n)\n    attempts = 0\n    while len(edge_set) < max_edges and attempts < max_edges * 5:\n        attempts += 1\n        a = rng.randrange(n)\n        b = rng.randrange(n)\n        if a == b:\n            continue\n        pair = (min(a, b), max(a, b))\n        edge_set.add(pair)\n    edges = [[a, b] for a, b in edge_set]\n    k = rng.randint(0, max(0, n - 1))\n    return [vals, edges, k]\n",
+      "note": "edge count capped to keep the harness call fast while still exercising many centers"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxStarSum(self, vals, edges, k):\n        n = len(vals)\n        neighbors = [[] for _ in range(n)]\n        for a, b in edges:\n            neighbors[a].append(vals[b])\n            neighbors[b].append(vals[a])\n        best = None\n        for i in range(n):\n            ns = sorted(neighbors[i], reverse=True)\n            total = vals[i]\n            count = 0\n            for v in ns:\n                if count >= k or v <= 0:\n                    break\n                total += v\n                count += 1\n            if best is None or total > best:\n                best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxStarSum(self, vals, edges, k):\n        n = len(vals)\n        adj = [[] for _ in range(n)]\n        for a, b in edges:\n            if vals[b] > 0:\n                adj[a].append(vals[b])\n            if vals[a] > 0:\n                adj[b].append(vals[a])\n        best = float('-inf')\n        for i in range(n):\n            top = sorted(adj[i], reverse=True)[:k]\n            best = max(best, vals[i] + sum(top))\n        return best\n",
+    "javascript": "var maxStarSum = function(vals, edges, k) {\n    const n = vals.length;\n    const adj = Array.from({ length: n }, () => []);\n    for (const [a, b] of edges) {\n        if (vals[b] > 0) adj[a].push(vals[b]);\n        if (vals[a] > 0) adj[b].push(vals[a]);\n    }\n    let best = -Infinity;\n    for (let i = 0; i < n; i++) {\n        const top = adj[i].slice().sort((x, y) => y - x).slice(0, k);\n        const sum = top.reduce((s, v) => s + v, 0);\n        if (vals[i] + sum > best) best = vals[i] + sum;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O((n + e) log n)", "space": "O(n + e)" }
+}

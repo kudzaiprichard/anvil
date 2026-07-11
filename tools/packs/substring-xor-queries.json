@@ -1,0 +1,74 @@
+{
+  "slug": "substring-xor-queries",
+  "judge": "exact",
+  "pattern": "Because the target values are bounded well under 2^30, only substrings up to 30 characters long can ever matter, so precomputing the shortest, leftmost substring for every value reachable in that window answers every query in constant time.",
+  "hints": [
+    "A query's answer only ever needs a substring whose decimal value fits under roughly 2^30, so no substring longer than about 30 characters is ever worth examining.",
+    "Sweep every substring of length 1 up to that cap, from shortest to longest and left to right, and remember the first time each decimal value is produced -- that's automatically the shortest, leftmost substring for that value.",
+    "For each query, XOR its two numbers together to get the target value and look it up directly in your precomputed table, returning [-1, -1] when the value was never produced."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [1, 10000],
+      "note": "binary string of '0'/'1' characters"
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "rows": [1, 100000],
+      "cols": [2, 2],
+      "value": [0, 1000000000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "single-character string, query that matches it exactly",
+      "input": ["1", [[4, 5]]]
+    },
+    {
+      "kind": "edge",
+      "description": "target value only achievable through a substring with a leading zero, and a shorter substring exists without one",
+      "input": ["0010", [[2, 0]]]
+    },
+    {
+      "kind": "trap",
+      "description": "query target has no matching substring anywhere",
+      "input": ["0101", [[12, 8]]]
+    },
+    {
+      "kind": "trap",
+      "description": "the same decimal value is produced by two different substrings of equal length, the leftmost occurrence must win",
+      "input": ["110110", [[6, 0], [3, 6]]]
+    },
+    {
+      "kind": "edge",
+      "description": "all-zero string, target of zero should resolve to the very first character",
+      "input": ["0000", [[7, 7]]]
+    },
+    {
+      "kind": "trap",
+      "description": "multiple queries against the same string mixing found and not-found targets",
+      "input": ["101101", [[0, 5], [1, 2], [999999999, 0]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random binary string with random queries whose targets are bounded like the constraints",
+      "seed": 101,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 10000))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    q = max(1, min(2000, size))\n    queries = [[rng.randint(0, 1000000000), rng.randint(0, 1000000000)] for _ in range(q)]\n    return [s, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def substringXorQueries(self, s, queries):\n        n = len(s)\n        max_len = min(n, 30)\n        ans = []\n        for first, second in queries:\n            target = first ^ second\n            found = [-1, -1]\n            for length in range(1, max_len + 1):\n                match = None\n                for left in range(0, n - length + 1):\n                    val = int(s[left:left + length], 2)\n                    if val == target:\n                        match = [left, left + length - 1]\n                        break\n                if match is not None:\n                    found = match\n                    break\n            ans.append(found)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def substringXorQueries(self, s, queries):\n        n = len(s)\n        max_len = min(n, 30)\n        best = {}\n        for length in range(1, max_len + 1):\n            for left in range(0, n - length + 1):\n                val = int(s[left:left + length], 2)\n                if val not in best:\n                    best[val] = [left, left + length - 1]\n        ans = []\n        for first, second in queries:\n            target = first ^ second\n            ans.append(best.get(target, [-1, -1]))\n        return ans\n",
+    "javascript": "var substringXorQueries = function(s, queries) {\n    const n = s.length;\n    const maxLen = Math.min(n, 30);\n    const best = new Map();\n    for (let length = 1; length <= maxLen; length++) {\n        for (let left = 0; left + length <= n; left++) {\n            const sub = s.substring(left, left + length);\n            const val = parseInt(sub, 2);\n            if (!best.has(val)) {\n                best.set(val, [left, left + length - 1]);\n            }\n        }\n    }\n    const ans = [];\n    for (const [first, second] of queries) {\n        const target = first ^ second;\n        ans.push(best.has(target) ? best.get(target) : [-1, -1]);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * 30 + q)",
+    "space": "O(n * 30)"
+  }
+}

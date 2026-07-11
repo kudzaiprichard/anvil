@@ -1,0 +1,72 @@
+{
+  "slug": "rearrange-spaces-between-words",
+  "judge": "exact",
+  "pattern": "Separate the two independent quantities in the string - how many spaces exist total, and how many gaps between words need filling - then divide one by the other and park the remainder at the end.",
+  "hints": [
+    "The letters themselves never move; only count how many space characters exist in total and split the text into its words.",
+    "With w words there are only w-1 internal gaps to fill evenly - divide the total space count by that gap count to get the even amount per gap, and whatever does not divide evenly is leftover.",
+    "Join the words with the even amount of spaces between each pair, then append the leftover spaces at the very end; when there is only a single word, all of the spaces go at the end since there are no internal gaps."
+  ],
+  "constraints": [
+    { "param": "text", "kind": "string", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "spaces split evenly among several words with none left over",
+      "input": ["  this   is  a sentence "]
+    },
+    {
+      "kind": "edge",
+      "description": "spaces do not divide evenly, leftover goes at the end",
+      "input": [" practice   makes   perfect"]
+    },
+    {
+      "kind": "edge",
+      "description": "only one word in the text, all spaces go at the end",
+      "input": ["  spaces"]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single character, one word, no spaces at all",
+      "input": ["a"]
+    },
+    {
+      "kind": "boundary",
+      "description": "single word with no leading or trailing spaces at all",
+      "input": ["hello"]
+    },
+    {
+      "kind": "boundary",
+      "description": "exactly two words separated by the minimum one space",
+      "input": ["a b"]
+    },
+    {
+      "kind": "trap",
+      "description": "many words but very few spaces, so most gaps get zero spaces and only the leftover shows up at the end",
+      "input": ["a b c d e f g h"]
+    },
+    {
+      "kind": "trap",
+      "description": "spaces only appear around a single word, none between words, all collapse to the end",
+      "input": ["   word   "]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-max length with a variable number of words and spaces distributed randomly",
+      "seed": 4,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    limit = 100\n    word_count = rng.randint(1, 20)\n    words = []\n    for _ in range(word_count):\n        wlen = rng.randint(1, 5)\n        words.append(''.join(rng.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(wlen)))\n    total_word_len = sum(len(w) for w in words)\n    min_gaps = max(word_count - 1, 0)\n    remaining = limit - total_word_len\n    if remaining < min_gaps:\n        # trim words to fit if the random draw was too long\n        words = words[:1]\n        total_word_len = len(words[0])\n        word_count = 1\n        min_gaps = 0\n        remaining = limit - total_word_len\n    extra_leading = rng.randint(0, max(remaining - min_gaps, 0))\n    remaining -= extra_leading\n    if word_count == 1:\n        text = words[0] + (' ' * remaining) if remaining > 0 else words[0]\n        text = (' ' * extra_leading) + text\n    else:\n        gap_budget = remaining\n        gaps = [1] * (word_count - 1)\n        leftover = gap_budget - (word_count - 1)\n        idx = 0\n        while leftover > 0:\n            gaps[idx % len(gaps)] += 1\n            leftover -= 1\n            idx += 1\n        parts = [words[0]]\n        for w, g in zip(words[1:], gaps):\n            parts.append(' ' * g)\n            parts.append(w)\n        text = (' ' * extra_leading) + ''.join(parts)\n    if len(text) > limit:\n        text = text[:limit]\n    if not text.strip():\n        text = 'a'\n    return [text]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def reorderSpaces(self, text):\n        spaces = text.count(' ')\n        words = text.split()\n        if len(words) == 1:\n            return words[0] + ' ' * spaces\n        gap = spaces // (len(words) - 1)\n        extra = spaces - gap * (len(words) - 1)\n        result = ''\n        for idx, w in enumerate(words):\n            result += w\n            if idx != len(words) - 1:\n                result += ' ' * gap\n        result += ' ' * extra\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def reorderSpaces(self, text):\n        spaces = text.count(' ')\n        words = text.split()\n        if len(words) == 1:\n            return words[0] + ' ' * spaces\n        gap, extra = divmod(spaces, len(words) - 1)\n        return (' ' * gap).join(words) + ' ' * extra\n",
+    "javascript": "var reorderSpaces = function(text) {\n    const spaces = (text.match(/ /g) || []).length;\n    const words = text.split(' ').filter(w => w.length > 0);\n    if (words.length === 1) {\n        return words[0] + ' '.repeat(spaces);\n    }\n    const gap = Math.floor(spaces / (words.length - 1));\n    const extra = spaces - gap * (words.length - 1);\n    return words.join(' '.repeat(gap)) + ' '.repeat(extra);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

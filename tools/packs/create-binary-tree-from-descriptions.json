@@ -1,0 +1,37 @@
+{
+  "slug": "create-binary-tree-from-descriptions",
+  "judge": "exact",
+  "io_types": { "params": ["json"], "returns": "tree" },
+  "pattern": "Every child except the root shows up exactly once as a child in the description list, so the one value that never appears in that slot is the root.",
+  "hints": [
+    "Build every referenced value into a node once, keyed by value, then just wire left/right pointers between the already-built nodes as you scan the list.",
+    "Track which values ever appear as a child; whichever value only ever appears as a parent is the root.",
+    "One pass: a dict value -> node (creating nodes lazily on first sight), attach child to parent.left or parent.right per the flag, and a set of seen-as-child values to find the unique root afterward."
+  ],
+  "constraints": [
+    { "param": "descriptions", "kind": "int[][]", "len": [1, 10000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two-level tree built out of order, root discoverable only after full scan", "input": [[[20, 15, 1], [20, 17, 0], [50, 20, 1], [50, 80, 0], [80, 19, 1]]] },
+    { "kind": "edge", "description": "a chain alternating left/right children", "input": [[[1, 2, 1], [2, 3, 0], [3, 4, 1]]] },
+    { "kind": "boundary", "description": "single description, minimal tree of two nodes", "input": [[[1, 2, 1]]] },
+    { "kind": "trap", "description": "root value is larger than some child values, order in the list must not be assumed to be top-down", "input": [[[5, 9, 0], [3, 5, 1], [3, 8, 0]]] },
+    { "kind": "trap", "description": "a node is parent to both a left and a right child listed non-adjacently", "input": [[[10, 20, 1], [30, 40, 1], [10, 30, 0], [30, 50, 0]]] },
+    { "kind": "boundary", "description": "max-magnitude values", "input": [[[100000, 99999, 1], [100000, 99998, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "randomly shaped tree of up to 3000 nodes, descriptions shuffled so the root is not first",
+      "seed": 11,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 3000))\n    values = rng.sample(range(1, 100001), n)\n    root = values[0]\n    descriptions = []\n    frontier = [root]\n    remaining = values[1:]\n    i = 0\n    while i < len(remaining):\n        parent = frontier[rng.randrange(len(frontier))]\n        child = remaining[i]\n        i += 1\n        is_left = 1 if rng.random() < 0.5 else 0\n        # avoid giving a parent two children on the same side\n        used_sides = {d[2] for d in descriptions if d[0] == parent}\n        if is_left in used_sides:\n            is_left = 1 - is_left\n            if is_left in used_sides:\n                continue\n        descriptions.append([parent, child, is_left])\n        frontier.append(child)\n    rng.shuffle(descriptions)\n    return [descriptions]\n",
+      "note": "each parent gets at most one left and one right child by construction; shuffled so root discovery needs a full scan"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def createBinaryTree(self, descriptions):\n        nodes = {}\n\n        def get(v):\n            if v not in nodes:\n                nodes[v] = TreeNode(v)\n            return nodes[v]\n\n        children = set()\n        parents = set()\n        for p, c, is_left in descriptions:\n            parent = get(p)\n            child = get(c)\n            if is_left == 1:\n                parent.left = child\n            else:\n                parent.right = child\n            children.add(c)\n            parents.add(p)\n        root_val = next(iter(parents - children))\n        return nodes[root_val]\n",
+  "solutions": {
+    "python": "class Solution:\n    def createBinaryTree(self, descriptions):\n        nodes = {}\n        has_parent = set()\n        for p, c, is_left in descriptions:\n            if p not in nodes:\n                nodes[p] = TreeNode(p)\n            if c not in nodes:\n                nodes[c] = TreeNode(c)\n            if is_left == 1:\n                nodes[p].left = nodes[c]\n            else:\n                nodes[p].right = nodes[c]\n            has_parent.add(c)\n        for p, _c, _is_left in descriptions:\n            if p not in has_parent:\n                return nodes[p]\n        return None\n",
+    "javascript": "var createBinaryTree = function(descriptions) {\n    const nodes = new Map();\n    const hasParent = new Set();\n    const get = (v) => {\n        if (!nodes.has(v)) nodes.set(v, new TreeNode(v));\n        return nodes.get(v);\n    };\n    for (const [p, c, isLeft] of descriptions) {\n        const parent = get(p);\n        const child = get(c);\n        if (isLeft === 1) parent.left = child; else parent.right = child;\n        hasParent.add(c);\n    }\n    for (const [p] of descriptions) {\n        if (!hasParent.has(p)) return nodes.get(p);\n    }\n    return null;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

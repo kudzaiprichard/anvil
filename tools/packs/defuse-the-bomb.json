@@ -1,0 +1,78 @@
+{
+  "slug": "defuse-the-bomb",
+  "judge": "exact",
+  "pattern": "Every output slot is a fixed-length running sum over a circular window that either looks ahead or looks behind, so building one prefix-sum array over the code doubled onto itself turns every window sum into a single subtraction.",
+  "hints": [
+    "For each position, the answer only depends on summing a fixed number of neighboring positions -- ahead of it if the shift is positive, behind it if negative, and it's simply zero if the shift is zero.",
+    "Because the array wraps around, it helps to imagine the code written out twice back to back; then every circular window becomes an ordinary contiguous slice of that doubled sequence.",
+    "Build a running prefix sum over the doubled sequence once, then each answer is just the difference of two prefix values picked out by the window's start and end -- no need to re-add the same numbers for every position."
+  ],
+  "constraints": [
+    { "param": "code", "kind": "int[]", "len": [1, 100], "value": [1, 100] },
+    { "param": "k", "kind": "int", "value": [-99, 99] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, positive shift",
+      "input": [[5, 7, 1, 4], 3]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, zero shift yields all zeros",
+      "input": [[1, 2, 3, 4], 0]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, negative shift",
+      "input": [[2, 4, 9, 3], -2]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element code, only valid shift is zero",
+      "input": [[5], 0]
+    },
+    {
+      "kind": "boundary",
+      "description": "largest positive shift for a two-element code",
+      "input": [[9, 3], 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "largest negative shift for a two-element code",
+      "input": [[9, 3], -1]
+    },
+    {
+      "kind": "trap",
+      "description": "shift equal to n - 1, wraps around every other element",
+      "input": [[10, 20, 30, 40, 50], 4]
+    },
+    {
+      "kind": "trap",
+      "description": "shift equal to -(n - 1), wraps the other direction",
+      "input": [[10, 20, 30, 40, 50], -4]
+    },
+    {
+      "kind": "trap",
+      "description": "all elements identical, isolates whether the count of terms is right rather than their values",
+      "input": [[7, 7, 7, 7, 7], 2]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random code arrays of varying length with random valid shifts, both directions",
+      "seed": 5,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 100)))\n    code = [rng.randint(1, 100) for _ in range(n)]\n    if n == 1:\n        k = 0\n    else:\n        k = rng.randint(-(n - 1), n - 1)\n    return [code, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def decrypt(self, code, k):\n        n = len(code)\n        result = [0] * n\n        if k == 0:\n            return result\n        for i in range(n):\n            total = 0\n            if k > 0:\n                for j in range(1, k + 1):\n                    total += code[(i + j) % n]\n            else:\n                for j in range(1, -k + 1):\n                    total += code[(i - j) % n]\n            result[i] = total\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def decrypt(self, code, k):\n        n = len(code)\n        if k == 0:\n            return [0] * n\n        ext = code + code\n        prefix = [0] * (2 * n + 1)\n        for i in range(2 * n):\n            prefix[i + 1] = prefix[i] + ext[i]\n        result = [0] * n\n        for i in range(n):\n            if k > 0:\n                start = i + 1\n                end = i + k\n            else:\n                start = i + n + k\n                end = i + n - 1\n            result[i] = prefix[end + 1] - prefix[start]\n        return result\n",
+    "javascript": "var decrypt = function(code, k) {\n    const n = code.length;\n    if (k === 0) return new Array(n).fill(0);\n    const ext = code.concat(code);\n    const prefix = new Array(2 * n + 1).fill(0);\n    for (let i = 0; i < 2 * n; i++) {\n        prefix[i + 1] = prefix[i] + ext[i];\n    }\n    const result = new Array(n).fill(0);\n    for (let i = 0; i < n; i++) {\n        let start, end;\n        if (k > 0) {\n            start = i + 1;\n            end = i + k;\n        } else {\n            start = i + n + k;\n            end = i + n - 1;\n        }\n        result[i] = prefix[end + 1] - prefix[start];\n    }\n    return result;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

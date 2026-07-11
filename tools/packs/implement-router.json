@@ -1,0 +1,100 @@
+{
+  "slug": "implement-router",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Bounded FIFO storage with a range-count query splits into two views of the same data: one arrival-ordered queue for eviction and forwarding, and one per-key sorted timeline for counting a timestamp window, kept in sync on every insert and removal.",
+  "hints": [
+    "Both eviction (drop the oldest packet) and forwarding (return the oldest packet) care about arrival order, so keep the stored packets in a structure that gives you the front cheaply.",
+    "A duplicate check and a destination-scoped time-range count are each easiest against a different view of the same data — a lookup set for duplicates, and a per-destination arrival-ordered list of timestamps for counting.",
+    "Because addPacket calls arrive with non-decreasing timestamps, each destination's own timestamp list is already sorted by arrival, so a range count is a pair of binary searches; removing the oldest packet (by eviction or forwardPacket) just pops the front of both the global queue and that destination's list."
+  ],
+  "constraints": [
+    { "param": "memoryLimit", "kind": "int", "value": [2, 100000] },
+    { "param": "source", "kind": "int", "value": [1, 200000] },
+    { "param": "destination", "kind": "int", "value": [1, 200000] },
+    { "param": "timestamp", "kind": "int", "value": [1, 1000000000] },
+    { "param": "startTime", "kind": "int", "value": [1, 1000000000] },
+    { "param": "endTime", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sample 1: duplicate rejection, eviction on overflow, forwardPacket, and a windowed count",
+      "input": [
+        ["Router", "addPacket", "addPacket", "addPacket", "addPacket", "addPacket", "forwardPacket", "addPacket", "getCount"],
+        [[3], [1, 4, 90], [2, 5, 90], [1, 4, 90], [3, 5, 95], [4, 5, 105], [], [5, 2, 110], [5, 100, 110]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "sample 2: forwardPacket on an empty router returns an empty array",
+      "input": [
+        ["Router", "addPacket", "forwardPacket", "forwardPacket"],
+        [[2], [7, 4, 90], [], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "adding the exact same source/destination/timestamp twice is rejected the second time",
+      "input": [
+        ["Router", "addPacket", "addPacket"],
+        [[5], [1, 2, 10], [1, 2, 10]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "hitting the memory limit auto-evicts the oldest packet even without a forwardPacket call, so it stops counting toward a later query",
+      "input": [
+        ["Router", "addPacket", "addPacket", "addPacket", "getCount"],
+        [[2], [1, 2, 10], [1, 3, 11], [1, 4, 12], [2, 0, 100]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "getCount is inclusive of both the start and end timestamps",
+      "input": [
+        ["Router", "addPacket", "getCount", "getCount"],
+        [[5], [1, 9, 100], [9, 100, 100], [9, 101, 200]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "getCount for a destination that has never received a packet is zero",
+      "input": [
+        ["Router", "addPacket", "getCount"],
+        [[3], [1, 2, 5], [99, 0, 100]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "source, destination, and timestamp at the constraint extremes",
+      "input": [
+        ["Router", "addPacket", "getCount"],
+        [[2], [200000, 200000, 1000000000], [200000, 1, 1000000000]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a packet already removed by forwardPacket must not still be counted by getCount",
+      "input": [
+        ["Router", "addPacket", "addPacket", "forwardPacket", "getCount"],
+        [[5], [1, 6, 10], [2, 6, 11], [], [6, 0, 100]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random addPacket (non-decreasing timestamps)/forwardPacket/getCount traffic against a small memory limit",
+      "seed": 53,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    limit = rng.randint(2, 20)\n    ops = ['Router']\n    args = [[limit]]\n    t = 1\n    seen = set()\n    dests = list(range(1, 8))\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.55:\n            t += rng.randint(0, 3)\n            src = rng.randint(1, 10)\n            dst = rng.choice(dests)\n            tries = 0\n            key = (src, dst, t)\n            while key in seen and tries < 5:\n                dst = rng.choice(dests)\n                key = (src, dst, t)\n                tries += 1\n            seen.add(key)\n            ops.append('addPacket')\n            args.append([src, dst, t])\n        elif r < 0.75:\n            ops.append('forwardPacket')\n            args.append([])\n        else:\n            dst = rng.choice(dests)\n            lo = rng.randint(1, max(1, t))\n            hi = lo + rng.randint(0, 10)\n            ops.append('getCount')\n            args.append([dst, lo, hi])\n    return [ops, args]\n",
+      "note": "timestamp t only ever increases (or stays equal) across addPacket calls so the non-decreasing-order guarantee always holds"
+    }
+  ],
+  "oracle_python": "class Router:\n    def __init__(self, memoryLimit):\n        self.limit = memoryLimit\n        self.packets = []\n\n    def addPacket(self, source, destination, timestamp):\n        for p in self.packets:\n            if p[0] == source and p[1] == destination and p[2] == timestamp:\n                return False\n        if len(self.packets) >= self.limit:\n            self.packets.pop(0)\n        self.packets.append([source, destination, timestamp])\n        return True\n\n    def forwardPacket(self):\n        if not self.packets:\n            return []\n        return self.packets.pop(0)\n\n    def getCount(self, destination, startTime, endTime):\n        return sum(\n            1\n            for p in self.packets\n            if p[1] == destination and startTime <= p[2] <= endTime\n        )\n",
+  "solutions": {
+    "python": "from collections import deque, defaultdict\nfrom bisect import bisect_left, bisect_right\n\n\nclass Router:\n    def __init__(self, memoryLimit):\n        self.limit = memoryLimit\n        self.packets = deque()\n        self.seen = set()\n        self.by_dest = defaultdict(deque)\n\n    def addPacket(self, source, destination, timestamp):\n        key = (source, destination, timestamp)\n        if key in self.seen:\n            return False\n        if len(self.packets) == self.limit:\n            self._evict()\n        self.packets.append(key)\n        self.seen.add(key)\n        self.by_dest[destination].append(timestamp)\n        return True\n\n    def _evict(self):\n        s, d, t = self.packets.popleft()\n        self.seen.discard((s, d, t))\n        self.by_dest[d].popleft()\n\n    def forwardPacket(self):\n        if not self.packets:\n            return []\n        s, d, t = self.packets.popleft()\n        self.seen.discard((s, d, t))\n        self.by_dest[d].popleft()\n        return [s, d, t]\n\n    def getCount(self, destination, startTime, endTime):\n        dq = self.by_dest.get(destination)\n        if not dq:\n            return 0\n        lst = list(dq)\n        lo = bisect_left(lst, startTime)\n        hi = bisect_right(lst, endTime)\n        return hi - lo\n",
+    "javascript": "class Router {\n    constructor(memoryLimit) {\n        this.limit = memoryLimit;\n        this.packets = [];\n        this.seen = new Set();\n        this.byDest = new Map();\n        this.destStart = new Map();\n    }\n    _key(s, d, t) {\n        return s + ',' + d + ',' + t;\n    }\n    addPacket(source, destination, timestamp) {\n        const key = this._key(source, destination, timestamp);\n        if (this.seen.has(key)) return false;\n        if (this.packets.length === this.limit) this._evict();\n        this.packets.push([source, destination, timestamp, key]);\n        this.seen.add(key);\n        if (!this.byDest.has(destination)) {\n            this.byDest.set(destination, []);\n            this.destStart.set(destination, 0);\n        }\n        this.byDest.get(destination).push(timestamp);\n        return true;\n    }\n    _evict() {\n        const [, d, , key] = this.packets.shift();\n        this.seen.delete(key);\n        this.destStart.set(d, this.destStart.get(d) + 1);\n    }\n    forwardPacket() {\n        if (this.packets.length === 0) return [];\n        const [s, d, t, key] = this.packets.shift();\n        this.seen.delete(key);\n        this.destStart.set(d, this.destStart.get(d) + 1);\n        return [s, d, t];\n    }\n    getCount(destination, startTime, endTime) {\n        const arr = this.byDest.get(destination);\n        if (!arr) return 0;\n        const start = this.destStart.get(destination) || 0;\n        const lo = this._lowerBound(arr, start, arr.length, startTime);\n        const hi = this._upperBound(arr, start, arr.length, endTime);\n        return Math.max(0, hi - lo);\n    }\n    _lowerBound(arr, lo, hi, target) {\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] < target) lo = mid + 1;\n            else hi = mid;\n        }\n        return lo;\n    }\n    _upperBound(arr, lo, hi, target) {\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] <= target) lo = mid + 1;\n            else hi = mid;\n        }\n        return hi;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) per call", "space": "O(memoryLimit)" }
+}

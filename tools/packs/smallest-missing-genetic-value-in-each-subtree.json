@@ -1,0 +1,209 @@
+{
+  "judge": "exact",
+  "pattern": "Only the ancestor chain of the single node holding genetic value 1 can ever have a missing value greater than 1, since every other subtree lacks 1 outright; walking that chain upward while accumulating each subtree's values into a running set lets the mex be tracked incrementally instead of recomputed per node.",
+  "hints": [
+    "Every subtree that does not contain the node whose value is 1 automatically has 1 as its answer -- so first find that one node.",
+    "Only the ancestors of that node can possibly have an answer greater than 1; walk upward from it toward the root, one parent at a time.",
+    "At each step upward, add the newly-entered subtree's values (skipping the child subtree already accounted for) into a running set, then advance a smallest-missing-value counter forward through that set -- it only ever increases, so it never needs to restart from 1."
+  ],
+  "constraints": [
+    {
+      "param": "parents",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        -1,
+        99999
+      ]
+    },
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "value 1 sits at the root, so every node's answer depends on the full tree",
+      "input": [
+        [
+          -1,
+          0,
+          0
+        ],
+        [
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "value 1 is a leaf far from the root",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2
+        ],
+        [
+          4,
+          3,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible tree, two nodes",
+      "input": [
+        [
+          -1,
+          0
+        ],
+        [
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a long path with value 1 at the deepest leaf",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          5,
+          4,
+          3,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a star-shaped tree (root with many direct children), value 1 on a leaf, so only the root and that leaf are ancestors",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          10,
+          1,
+          20,
+          30,
+          40
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "value 1 node has its own children, which must be counted in its own subtree but must not be double-counted when moving to the parent",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          1,
+          2
+        ],
+        [
+          9,
+          1,
+          8,
+          7,
+          6
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "genetic values at the maximum bound, clustered near it",
+      "input": [
+        [
+          -1,
+          0,
+          0
+        ],
+        [
+          100000,
+          99999,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a skewed chain where the node with value 1 is the very last leaf, forcing the full-length ancestor walk",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        [
+          7,
+          6,
+          5,
+          4,
+          3,
+          2,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random tree built by attaching each node to a uniformly random earlier node, with a random distinct permutation of genetic values",
+      "seed": 71,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    parents = [-1] + [rng.randint(0, i - 1) for i in range(1, n)]\n    nums = list(range(1, n + 1))\n    rng.shuffle(nums)\n    return [parents, nums]\n"
+    },
+    {
+      "description": "a long random chain (path graph), stressing the ancestor-walk length",
+      "seed": 72,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    parents = [-1] + list(range(0, n - 1))\n    nums = list(range(1, n + 1))\n    rng.shuffle(nums)\n    return [parents, nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def smallestMissingValueSubtree(self, parents, nums):\n        n = len(parents)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parents[i]].append(i)\n        def subtree_values(root):\n            vals = set()\n            stack = [root]\n            while stack:\n                cur = stack.pop()\n                vals.add(nums[cur])\n                stack.extend(children[cur])\n            return vals\n        ans = [1] * n\n        for node in range(n):\n            vals = subtree_values(node)\n            mex = 1\n            while mex in vals:\n                mex += 1\n            ans[node] = mex\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def smallestMissingValueSubtree(self, parents, nums):\n        n = len(parents)\n        ans = [1] * n\n        target = -1\n        for i, v in enumerate(nums):\n            if v == 1:\n                target = i\n                break\n        if target == -1:\n            return ans\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parents[i]].append(i)\n        visited = set()\n        mex = 1\n        node = target\n        prev = -1\n        while node != -1:\n            stack = [node]\n            while stack:\n                cur = stack.pop()\n                if cur == prev:\n                    continue\n                visited.add(nums[cur])\n                for ch in children[cur]:\n                    stack.append(ch)\n            while mex in visited:\n                mex += 1\n            ans[node] = mex\n            prev = node\n            node = parents[node]\n        return ans\n",
+    "javascript": "var smallestMissingValueSubtree = function(parents, nums) {\n    const n = parents.length;\n    const ans = new Array(n).fill(1);\n    let target = -1;\n    for (let i = 0; i < n; i++) {\n        if (nums[i] === 1) { target = i; break; }\n    }\n    if (target === -1) return ans;\n    const children = Array.from({length: n}, () => []);\n    for (let i = 1; i < n; i++) children[parents[i]].push(i);\n    const visited = new Set();\n    let mex = 1;\n    let node = target;\n    let prev = -1;\n    while (node !== -1) {\n        const stack = [node];\n        while (stack.length) {\n            const cur = stack.pop();\n            if (cur === prev) continue;\n            visited.add(nums[cur]);\n            for (const ch of children[cur]) stack.push(ch);\n        }\n        while (visited.has(mex)) mex++;\n        ans[node] = mex;\n        prev = node;\n        node = parents[node];\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n) amortized",
+    "space": "O(n)"
+  },
+  "slug": "smallest-missing-genetic-value-in-each-subtree"
+}

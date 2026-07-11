@@ -1,0 +1,36 @@
+{
+  "slug": "cherry-pickup",
+  "judge": "exact",
+  "pattern": "A round trip is equivalent to two simultaneous top-left to bottom-right walks, so a shared-step dynamic program over both walkers' positions maximizes cherries while never double-counting a shared cell.",
+  "hints": [
+    "Going there and back is the same as sending two people from the start to the end at the same time, each only moving right or down.",
+    "Both walkers take the same number of steps, so a single counter ties their positions together: knowing three of the four coordinates fixes the fourth.",
+    "Define dp by step count and the two row positions; add cherries from both cells (once if they coincide), block paths through thorns, and take the best of the four move combinations, clamping the start cell to a valid path."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 50], "value": [-1, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two-way pickup around thorns", "input": [[[0, 1, -1], [1, 0, -1], [1, 1, 1]]] },
+    { "kind": "trap", "description": "no path through is possible, zero cherries", "input": [[[1, 1, -1], [1, -1, 1], [-1, 1, 1]]] },
+    { "kind": "edge", "description": "single empty cell", "input": [[[0]]] },
+    { "kind": "edge", "description": "single cherry cell", "input": [[[1]]] },
+    { "kind": "edge", "description": "all cherries small grid", "input": [[[1, 1], [1, 1]]] },
+    { "kind": "trap", "description": "thorn forces one route, second pass picks remainder", "input": [[[1, 1, 1], [1, -1, 1], [1, 1, 1]]] },
+    { "kind": "boundary", "description": "row grid forces the same single path both ways", "input": [[[1, 1, 1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "small random grids that keep the corners passable and avoid full blockage",
+      "seed": 79,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 8))\n    while True:\n        g = [[rng.choice([-1, 0, 1, 1]) for _ in range(n)] for _ in range(n)]\n        g[0][0] = 1\n        g[n - 1][n - 1] = 1\n        return [g]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def cherryPickup(self, grid):\n        n = len(grid)\n        NEG = float('-inf')\n        dp = [[NEG] * n for _ in range(n)]\n        dp[0][0] = grid[0][0]\n        for s in range(1, 2 * n - 2 + 1):\n            ndp = [[NEG] * n for _ in range(n)]\n            for x1 in range(max(0, s - (n - 1)), min(n - 1, s) + 1):\n                y1 = s - x1\n                if grid[x1][y1] == -1:\n                    continue\n                for x2 in range(max(0, s - (n - 1)), min(n - 1, s) + 1):\n                    y2 = s - x2\n                    if grid[x2][y2] == -1:\n                        continue\n                    best = NEG\n                    for px1 in (x1, x1 - 1):\n                        for px2 in (x2, x2 - 1):\n                            if 0 <= px1 < n and 0 <= px2 < n and dp[px1][px2] != NEG:\n                                if dp[px1][px2] > best:\n                                    best = dp[px1][px2]\n                    if best == NEG:\n                        continue\n                    gain = grid[x1][y1]\n                    if x1 != x2:\n                        gain += grid[x2][y2]\n                    ndp[x1][x2] = best + gain\n            dp = ndp\n        ans = dp[n - 1][n - 1]\n        return 0 if ans == NEG else ans\n",
+  "solutions": {
+    "python": "import sys\nfrom functools import lru_cache\nclass Solution:\n    def cherryPickup(self, grid):\n        n = len(grid)\n        sys.setrecursionlimit(1000000)\n        NEG = float('-inf')\n        @lru_cache(maxsize=None)\n        def dp(r1, c1, r2):\n            c2 = r1 + c1 - r2\n            if r1 >= n or c1 >= n or r2 >= n or c2 >= n or c2 < 0 or grid[r1][c1] == -1 or grid[r2][c2] == -1:\n                return NEG\n            if r1 == n - 1 and c1 == n - 1:\n                return grid[r1][c1]\n            gain = grid[r1][c1]\n            if (r1, c1) != (r2, c2):\n                gain += grid[r2][c2]\n            best = max(dp(r1 + 1, c1, r2 + 1), dp(r1 + 1, c1, r2), dp(r1, c1 + 1, r2 + 1), dp(r1, c1 + 1, r2))\n            if best == NEG:\n                return NEG\n            return gain + best\n        result = dp(0, 0, 0)\n        dp.cache_clear()\n        return max(0, result if result != NEG else 0)\n",
+    "javascript": "var cherryPickup = function(grid) {\n    const n = grid.length;\n    const NEG = -Infinity;\n    const memo = new Map();\n    function dp(r1, c1, r2) {\n        const c2 = r1 + c1 - r2;\n        if (r1 >= n || c1 >= n || r2 >= n || c2 >= n || c2 < 0 || grid[r1][c1] === -1 || grid[r2][c2] === -1) return NEG;\n        if (r1 === n - 1 && c1 === n - 1) return grid[r1][c1];\n        const key = r1 * n * n + c1 * n + r2;\n        if (memo.has(key)) return memo.get(key);\n        let gain = grid[r1][c1];\n        if (!(r1 === r2 && c1 === c2)) gain += grid[r2][c2];\n        const best = Math.max(dp(r1 + 1, c1, r2 + 1), dp(r1 + 1, c1, r2), dp(r1, c1 + 1, r2 + 1), dp(r1, c1 + 1, r2));\n        const res = best === NEG ? NEG : gain + best;\n        memo.set(key, res);\n        return res;\n    }\n    const result = dp(0, 0, 0);\n    return Math.max(0, result === NEG ? 0 : result);\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n^2)" }
+}

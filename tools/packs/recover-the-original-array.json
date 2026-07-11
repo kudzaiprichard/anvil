@@ -1,0 +1,40 @@
+{
+  "slug": "recover-the-original-array",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    nums = args[0]\n    if not isinstance(output, list):\n        return False\n    n_expected = len(nums) // 2\n    if len(output) != n_expected:\n        return False\n    arr = output\n    for v in arr:\n        if not isinstance(v, int) or isinstance(v, bool) or v <= 0:\n            return False\n    from collections import Counter\n    nums_cnt = Counter(nums)\n    a0 = arr[0]\n    candidates = set()\n    for nv in nums:\n        diff = nv - a0\n        if diff != 0:\n            candidates.add(abs(diff))\n    for k in candidates:\n        combined = Counter()\n        for v in arr:\n            combined[v - k] += 1\n            combined[v + k] += 1\n        if combined == nums_cnt:\n            return True\n    return False\n",
+    "validator_javascript": "function validate(args, output) {\n    const nums = args[0];\n    if (!Array.isArray(output)) return false;\n    const nExpected = Math.floor(nums.length / 2);\n    if (output.length !== nExpected) return false;\n    const arr = output;\n    for (const v of arr) {\n        if (!Number.isInteger(v) || v <= 0) return false;\n    }\n    const numsCnt = new Map();\n    for (const v of nums) numsCnt.set(v, (numsCnt.get(v) || 0) + 1);\n    const a0 = arr[0];\n    const candidates = new Set();\n    for (const nv of nums) {\n        const diff = nv - a0;\n        if (diff !== 0) candidates.add(Math.abs(diff));\n    }\n    for (const k of candidates) {\n        const combined = new Map();\n        for (const v of arr) {\n            combined.set(v - k, (combined.get(v - k) || 0) + 1);\n            combined.set(v + k, (combined.get(v + k) || 0) + 1);\n        }\n        if (combined.size === numsCnt.size) {\n            let same = true;\n            for (const [key, cnt] of combined) {\n                if (numsCnt.get(key) !== cnt) { same = false; break; }\n            }\n            if (same) return true;\n        }\n    }\n    return false;\n}\n"
+  },
+  "pattern": "The smallest surviving value must be a shifted-down copy of the smallest recovered value, so trying each plausible shift and greedily pairing values from the bottom up either completes or rules that shift out.",
+  "hints": [
+    "Whatever the hidden shift is, the very smallest surviving number has to be the smallest recovered value shifted down, which narrows down what the shift could be.",
+    "Sort the surviving numbers. The smallest one, paired with some other entry exactly twice-the-shift above it, tells you a candidate shift; only a few candidates are worth trying.",
+    "For each candidate shift k (built from the smallest value and every other value that could be its shifted-up partner), repeatedly take the smallest remaining number, require its exact partner at value + 2k to still be available, remove both, and record their midpoint; if every number gets consumed this way, that shift produced a valid recovered array."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 2000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "smallest possible size, a single recovered value", "input": [[40, 60]] },
+    { "kind": "edge", "description": "shift produces an overlapping value shared between the low and high halves", "input": [[3, 7, 7, 11]] },
+    { "kind": "boundary", "description": "values near the top of the allowed range", "input": [[999999981, 999999999]] },
+    { "kind": "trap", "description": "repeated recovered values create repeated survivors on both sides", "input": [[5, 5, 5, 15, 15, 15]] },
+    { "kind": "trap", "description": "consecutive recovered values make the low and high halves overlap in the middle", "input": [[2, 3, 4, 4, 5, 6]] },
+    { "kind": "boundary", "description": "smallest surviving value touches the minimum allowed value", "input": [[1, 3]] },
+    { "kind": "trap", "description": "two duplicated recovered values with a larger shift to rule out smaller false candidates", "input": [[4, 4, 17, 17, 10, 10, 23, 23]] }
+  ],
+  "stress": [
+    {
+      "description": "large random valid instances built by choosing a shift and array first, then shuffling their combined survivors",
+      "seed": 21,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(1000, size // 2))\n    k = rng.randrange(1, 1000)\n    arr = [rng.randrange(k + 1, 10**9 - k) for _ in range(n)]\n    nums = []\n    for v in arr:\n        nums.append(v - k)\n        nums.append(v + k)\n    rng.shuffle(nums)\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "import bisect\n\n\nclass Solution:\n    def recoverArray(self, nums):\n        s = sorted(nums)\n        n = len(s) // 2\n        for i in range(1, len(s)):\n            diff = s[i] - s[0]\n            if diff <= 0 or diff % 2 != 0:\n                continue\n            k = diff // 2\n            pool = list(s)\n            arr = []\n            ok = True\n            while pool:\n                v = pool[0]\n                partner = v + 2 * k\n                pos = bisect.bisect_left(pool, partner)\n                if pos >= len(pool) or pool[pos] != partner or pos == 0:\n                    ok = False\n                    break\n                del pool[pos]\n                arr.append(v + k)\n                del pool[0]\n            if ok and len(arr) == n:\n                return sorted(arr)\n        return []\n",
+  "solutions": {
+    "python": "from collections import Counter\n\n\nclass Solution:\n    def recoverArray(self, nums):\n        s = sorted(nums)\n        n = len(s) // 2\n        for i in range(1, len(s)):\n            diff = s[i] - s[0]\n            if diff <= 0 or diff % 2 != 0:\n                continue\n            k = diff // 2\n            cnt = Counter(s)\n            arr = []\n            ok = True\n            for v in s:\n                if cnt[v] <= 0:\n                    continue\n                partner = v + 2 * k\n                if cnt[partner] <= 0:\n                    ok = False\n                    break\n                cnt[v] -= 1\n                cnt[partner] -= 1\n                arr.append(v + k)\n            if ok and len(arr) == n:\n                return sorted(arr)\n        return []\n",
+    "javascript": "var recoverArray = function(nums) {\n    const s = nums.slice().sort((a, b) => a - b);\n    const n = s.length / 2;\n    for (let i = 1; i < s.length; i++) {\n        const diff = s[i] - s[0];\n        if (diff <= 0 || diff % 2 !== 0) continue;\n        const k = diff / 2;\n        const cnt = new Map();\n        for (const v of s) cnt.set(v, (cnt.get(v) || 0) + 1);\n        const arr = [];\n        let ok = true;\n        for (const v of s) {\n            if ((cnt.get(v) || 0) <= 0) continue;\n            const partner = v + 2 * k;\n            if ((cnt.get(partner) || 0) <= 0) { ok = false; break; }\n            cnt.set(v, cnt.get(v) - 1);\n            cnt.set(partner, cnt.get(partner) - 1);\n            arr.push(v + k);\n        }\n        if (ok && arr.length === n) {\n            arr.sort((a, b) => a - b);\n            return arr;\n        }\n    }\n    return [];\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

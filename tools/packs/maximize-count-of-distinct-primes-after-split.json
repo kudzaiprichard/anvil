@@ -1,0 +1,37 @@
+{
+  "slug": "maximize-count-of-distinct-primes-after-split",
+  "judge": "exact",
+  "pattern": "Summed across both halves, a distinct prime is counted twice exactly when it straddles the cut, so the best split is the point covered by the most prime occurrence-spans.",
+  "hints": [
+    "For any fixed split, the combined distinct-prime count equals the number of distinct primes present plus the number of those primes that appear on both sides.",
+    "A prime appears on both sides of cut k precisely when k lies strictly after its first occurrence and at or before its last occurrence.",
+    "Treat each prime's first-to-last occurrence as an interval of valid cut positions; the answer is the count of distinct primes plus the maximum number of such intervals overlapping at a single cut, recomputed as updates change the array."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 50000], "value": [1, 100000] },
+    { "param": "queries", "kind": "int[][]" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two updates with persistent state", "input": [[2, 1, 3, 1, 2], [[1, 2], [3, 3]]] },
+    { "kind": "edge", "description": "update wipes out all primes", "input": [[2, 1, 4], [[0, 1]]] },
+    { "kind": "edge", "description": "no primes at all", "input": [[1, 4, 6, 8], [[0, 9]]] },
+    { "kind": "boundary", "description": "same prime on both sides straddles", "input": [[3, 5, 3], [[1, 7]]] },
+    { "kind": "trap", "description": "prime appearing once cannot straddle", "input": [[2, 3, 5, 7], [[0, 11]]] },
+    { "kind": "trap", "description": "update creates a straddling duplicate prime", "input": [[2, 4, 2], [[1, 2]]] },
+    { "kind": "trap", "description": "one is not prime, boundary value", "input": [[1, 1, 2], [[0, 2], [2, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "small arrays and small values with frequent prime repeats and persistent updates",
+      "seed": 103,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 40))\n    nums = [rng.randint(1, 20) for _ in range(n)]\n    q = rng.randint(1, 30)\n    queries = []\n    for _ in range(q):\n        idx = rng.randint(0, n - 1)\n        val = rng.randint(1, 20)\n        queries.append([idx, val])\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumCount(self, nums, queries):\n        def is_prime(x):\n            if x < 2:\n                return False\n            i = 2\n            while i * i <= x:\n                if x % i == 0:\n                    return False\n                i += 1\n            return True\n        cache = {}\n        def prime(x):\n            if x not in cache:\n                cache[x] = is_prime(x)\n            return cache[x]\n        arr = list(nums)\n        n = len(arr)\n        res = []\n        for idx, val in queries:\n            arr[idx] = val\n            best = 0\n            for k in range(1, n):\n                left = set(v for v in arr[:k] if prime(v))\n                right = set(v for v in arr[k:] if prime(v))\n                best = max(best, len(left) + len(right))\n            res.append(best)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumCount(self, nums, queries):\n        def is_prime(x):\n            if x < 2:\n                return False\n            if x % 2 == 0:\n                return x == 2\n            i = 3\n            while i * i <= x:\n                if x % i == 0:\n                    return False\n                i += 2\n            return True\n        cache = {}\n        def prime(x):\n            if x not in cache:\n                cache[x] = is_prime(x)\n            return cache[x]\n        arr = list(nums)\n        n = len(arr)\n        res = []\n        for idx, val in queries:\n            arr[idx] = val\n            first = {}\n            last = {}\n            for i, v in enumerate(arr):\n                if prime(v):\n                    if v not in first:\n                        first[v] = i\n                    last[v] = i\n            distinct = len(first)\n            diff = [0] * (n + 2)\n            for v in first:\n                lo = first[v] + 1\n                hi = last[v]\n                if lo <= hi:\n                    diff[lo] += 1\n                    diff[hi + 1] -= 1\n            best_overlap = 0\n            run = 0\n            for k in range(1, n):\n                run += diff[k]\n                if run > best_overlap:\n                    best_overlap = run\n            res.append(distinct + best_overlap)\n        return res\n",
+    "javascript": "var maximumCount = function(nums, queries) {\n    const cache = new Map();\n    const isPrime = (x) => {\n        if (cache.has(x)) return cache.get(x);\n        let r = true;\n        if (x < 2) r = false;\n        else if (x % 2 === 0) r = (x === 2);\n        else { for (let i = 3; i * i <= x; i += 2) { if (x % i === 0) { r = false; break; } } }\n        cache.set(x, r);\n        return r;\n    };\n    const arr = nums.slice();\n    const n = arr.length;\n    const res = [];\n    for (const [idx, val] of queries) {\n        arr[idx] = val;\n        const first = new Map();\n        const last = new Map();\n        for (let i = 0; i < n; i++) {\n            const v = arr[i];\n            if (isPrime(v)) {\n                if (!first.has(v)) first.set(v, i);\n                last.set(v, i);\n            }\n        }\n        const distinct = first.size;\n        const diff = new Array(n + 2).fill(0);\n        for (const [v, lo0] of first) {\n            const lo = lo0 + 1;\n            const hi = last.get(v);\n            if (lo <= hi) { diff[lo] += 1; diff[hi + 1] -= 1; }\n        }\n        let bestOverlap = 0, run = 0;\n        for (let k = 1; k < n; k++) {\n            run += diff[k];\n            if (run > bestOverlap) bestOverlap = run;\n        }\n        res.push(distinct + bestOverlap);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(q * n)", "space": "O(n)" }
+}

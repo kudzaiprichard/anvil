@@ -1,0 +1,36 @@
+{
+  "slug": "find-players-with-zero-or-one-losses",
+  "judge": "exact",
+  "pattern": "A single pass over the match list, tallying each player's loss count in a hash map (and recording every player seen), separates the field into two sorted buckets without ever building the full standings table.",
+  "hints": [
+    "Every player who appears in the match list needs to be accounted for, whether they won, lost, or both -- start by collecting the full set of participants, not just the losers.",
+    "Keep a running loss count per player using a hash map, incrementing it each time that player shows up as a loser; a player who never appears as a loser has zero losses.",
+    "Walk every player you saw at least once: bucket the ones with a loss count of zero into one list and the ones with a loss count of exactly one into another, then sort each list before returning."
+  ],
+  "constraints": [
+    { "param": "matches", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed zero, one, and two-loss players", "input": [[[1, 3], [2, 3], [3, 6], [5, 6], [5, 7], [4, 5], [4, 8], [4, 9], [10, 4], [10, 9]]] },
+    { "kind": "edge", "description": "no player has lost more than once", "input": [[[2, 3], [1, 3], [5, 4], [6, 4]]] },
+    { "kind": "boundary", "description": "single match, single winner and loser", "input": [[[1, 2]]] },
+    { "kind": "trap", "description": "one player loses to many different winners, ends up with zero losses among the one-loss bucket check", "input": [[[1, 5], [2, 5], [3, 5], [4, 5]]] },
+    { "kind": "trap", "description": "a chain where every player except the ends has exactly one loss and one win", "input": [[[1, 2], [2, 3], [3, 4], [4, 5]]] },
+    { "kind": "trap", "description": "results already arrive with descending ids, output must still be sorted ascending", "input": [[[9, 1], [7, 1], [5, 3], [3, 1]]] },
+    { "kind": "edge", "description": "everyone who ever lost, lost exactly twice -- second bucket stays empty", "input": [[[1, 2], [3, 2], [1, 4], [3, 4]]] }
+  ],
+  "stress": [
+    {
+      "description": "random tournament bracket built from unique (winner, loser) pairs over a bounded player pool",
+      "seed": 41,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    pool = max(2, min(n // 2 + 2, 2000))\n    seen = set()\n    matches = []\n    attempts = 0\n    while len(matches) < min(n, pool * (pool - 1)) and attempts < n * 5:\n        attempts += 1\n        a = rng.randint(1, pool)\n        b = rng.randint(1, pool)\n        if a == b:\n            continue\n        key = (a, b)\n        if key in seen:\n            continue\n        seen.add(key)\n        matches.append([a, b])\n    if not matches:\n        matches = [[1, 2]]\n    return [matches]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findWinners(self, matches):\n        players = set()\n        losses = {}\n        for w, l in matches:\n            players.add(w)\n            players.add(l)\n            losses[l] = losses.get(l, 0) + 1\n        zero = sorted(p for p in players if losses.get(p, 0) == 0)\n        one = sorted(p for p in players if losses.get(p, 0) == 1)\n        return [zero, one]\n",
+  "solutions": {
+    "python": "class Solution:\n    def findWinners(self, matches):\n        loss_count = {}\n        for winner, loser in matches:\n            loss_count.setdefault(winner, 0)\n            loss_count[loser] = loss_count.get(loser, 0) + 1\n        zero_losses = sorted(p for p, c in loss_count.items() if c == 0)\n        one_loss = sorted(p for p, c in loss_count.items() if c == 1)\n        return [zero_losses, one_loss]\n",
+    "javascript": "var findWinners = function(matches) {\n    const lossCount = new Map();\n    for (const [winner, loser] of matches) {\n        if (!lossCount.has(winner)) lossCount.set(winner, 0);\n        lossCount.set(loser, (lossCount.get(loser) || 0) + 1);\n    }\n    const zero = [];\n    const one = [];\n    for (const [player, count] of lossCount.entries()) {\n        if (count === 0) zero.push(player);\n        else if (count === 1) one.push(player);\n    }\n    zero.sort((a, b) => a - b);\n    one.sort((a, b) => a - b);\n    return [zero, one];\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

@@ -1,0 +1,44 @@
+{
+  "slug": "find-the-smallest-balanced-index",
+  "judge": "exact",
+  "pattern": "Comparing a running left sum against a running right product at every index is a two-pass prefix/suffix sweep -- and since the product side only ever grows as more elements join it, it is safe to cap it at a sentinel above any possible sum instead of letting it explode into an unusably huge number.",
+  "hints": [
+    "Precompute the running sum from the left as you go, one index at a time.",
+    "Precompute the running product from the right first, walking backwards, so it is ready before you need it at each index.",
+    "The right-side product can grow far larger than any possible left sum -- once it exceeds the maximum possible total sum of the array, clamp it to a fixed 'too big' sentinel instead of keeping the exact (huge) value, since it can only get bigger (or stay the same) as you move further left."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "balanced index in the middle of a short array", "input": [[2, 1, 2]] },
+    { "kind": "edge", "description": "balanced index requires summing more than one left element", "input": [[2, 8, 2, 2, 5]] },
+    { "kind": "edge", "description": "single element -- empty sum 0 vs empty product 1 never match", "input": [[1]] },
+    { "kind": "boundary", "description": "two elements, checking both empty-side conventions at once", "input": [[1, 1]] },
+    { "kind": "trap", "description": "index 0 is only balanced if the entire remaining product equals 0, which never happens since all values are >= 1", "input": [[5, 5]] },
+    { "kind": "trap", "description": "the last index is only balanced if the whole prefix sum equals the empty product 1", "input": [[1, 5, 5, 5]] },
+    { "kind": "trap", "description": "multiple candidate indices balance -- must report the smallest", "input": [[3, 1, 2, 6, 1, 1]] },
+    { "kind": "boundary", "description": "values at the constraint ceiling so the right-hand product would explode without clamping", "input": [[1000000000, 1000000000, 1000000000, 1000000000, 1000000000]] },
+    { "kind": "trap", "description": "all ones -- sum grows slowly while product stays fixed at 1, so only an early index can balance", "input": [[1, 1, 1, 1, 1, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random moderate values, likely no balance found, exercises the full scan and the clamp",
+      "seed": 31,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "small values so a genuine balance is likely to occur somewhere in the array",
+      "seed": 32,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 2000))\n    nums = [rng.randint(1, 3) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def smallestBalancedIndex(self, nums):\n        # independent construction: build both prefix sums and suffix products as separate\n        # arrays first (rather than folding sum/product into one combined pass), then compare.\n        n = len(nums)\n        CAP = 2 * 10**14\n        prefix_sums = [0] * n\n        running = 0\n        for i in range(n):\n            prefix_sums[i] = running\n            running += nums[i]\n        suffix_products = [1] * n\n        running_p = 1\n        for i in range(n - 2, -1, -1):\n            running_p = running_p * nums[i + 1]\n            if running_p > CAP:\n                running_p = CAP + 1\n            suffix_products[i] = running_p\n        for i in range(n):\n            if prefix_sums[i] == suffix_products[i]:\n                return i\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def smallestBalancedIndex(self, nums):\n        n = len(nums)\n        CAP = 2 * 10**14\n        right = [0] * n\n        right[n - 1] = 1\n        for i in range(n - 2, -1, -1):\n            prod = right[i + 1] * nums[i + 1]\n            right[i] = CAP + 1 if prod > CAP else prod\n        prefix = 0\n        for i in range(n):\n            if prefix == right[i]:\n                return i\n            prefix += nums[i]\n        return -1\n",
+    "javascript": "var smallestBalancedIndex = function(nums) {\n    const n = nums.length;\n    const CAP = 2e14;\n    const right = new Array(n);\n    right[n - 1] = 1;\n    for (let i = n - 2; i >= 0; i--) {\n        const prod = right[i + 1] * nums[i + 1];\n        right[i] = prod > CAP ? CAP + 1 : prod;\n    }\n    let prefix = 0;\n    for (let i = 0; i < n; i++) {\n        if (prefix === right[i]) return i;\n        prefix += nums[i];\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

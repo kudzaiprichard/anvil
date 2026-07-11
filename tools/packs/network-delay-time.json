@@ -1,0 +1,38 @@
+{
+  "slug": "network-delay-time",
+  "judge": "exact",
+  "pattern": "Dijkstra's shortest-path algorithm from the source node gives the time each node first receives the signal; the answer is the largest of those arrival times.",
+  "hints": [
+    "The signal reaches each node along the fastest cumulative path from the start.",
+    "This is single-source shortest paths on a weighted directed graph.",
+    "Run Dijkstra from k with a min-heap; if any node is unreachable return -1, otherwise return the maximum finalized distance."
+  ],
+  "constraints": [
+    { "param": "times", "kind": "int[][]", "len": [1, 6000], "value": [0, 100] },
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one chain", "input": [[[2, 1, 1], [2, 3, 1], [3, 4, 1]], 4, 2] },
+    { "kind": "edge", "description": "statement example two single edge reachable", "input": [[[1, 2, 1]], 2, 1] },
+    { "kind": "edge", "description": "statement example three unreachable node", "input": [[[1, 2, 1]], 2, 2] },
+    { "kind": "boundary", "description": "single node no edges needed", "input": [[[1, 1, 0]], 1, 1] },
+    { "kind": "trap", "description": "shorter alternate path beats direct edge", "input": [[[1, 2, 9], [1, 3, 1], [3, 2, 1]], 3, 1] },
+    { "kind": "trap", "description": "zero-weight edges", "input": [[[1, 2, 0], [2, 3, 0]], 3, 1] },
+    { "kind": "trap", "description": "node fully disconnected from source", "input": [[[1, 2, 5]], 3, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random reachable graph built from a spanning tree plus extra edges",
+      "seed": 37,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(60, size))\n    k = rng.randint(1, n)\n    nodes = list(range(1, n + 1))\n    rng.shuffle(nodes)\n    if nodes[0] != k:\n        idx = nodes.index(k)\n        nodes[0], nodes[idx] = nodes[idx], nodes[0]\n    edges = set()\n    times = []\n    for i in range(1, len(nodes)):\n        u = nodes[rng.randint(0, i - 1)]\n        v = nodes[i]\n        edges.add((u, v))\n        times.append([u, v, rng.randint(0, 100)])\n    extra = rng.randint(0, n)\n    for _ in range(extra):\n        u = rng.randint(1, n)\n        v = rng.randint(1, n)\n        if u != v and (u, v) not in edges:\n            edges.add((u, v))\n            times.append([u, v, rng.randint(0, 100)])\n    if not times:\n        times.append([k, k % n + 1 if n > 1 else k, 0])\n        if n == 1:\n            times = [[1, 1, 0]]\n    return [times, n, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def networkDelayTime(self, times, n, k):\n        INF = float('inf')\n        dist = {i: INF for i in range(1, n + 1)}\n        dist[k] = 0\n        for _ in range(n - 1):\n            for u, v, w in times:\n                if dist[u] != INF and dist[u] + w < dist[v]:\n                    dist[v] = dist[u] + w\n        m = max(dist.values())\n        return -1 if m == INF else m\n",
+  "solutions": {
+    "python": "class Solution:\n    def networkDelayTime(self, times, n, k):\n        import heapq\n        graph = {i: [] for i in range(1, n + 1)}\n        for u, v, w in times:\n            graph[u].append((v, w))\n        dist = {}\n        heap = [(0, k)]\n        while heap:\n            d, u = heapq.heappop(heap)\n            if u in dist:\n                continue\n            dist[u] = d\n            for v, w in graph[u]:\n                if v not in dist:\n                    heapq.heappush(heap, (d + w, v))\n        if len(dist) < n:\n            return -1\n        return max(dist.values())\n",
+    "javascript": "var networkDelayTime = function(times, n, k) {\n    const graph = new Map();\n    for (let i = 1; i <= n; i++) graph.set(i, []);\n    for (const [u, v, w] of times) graph.get(u).push([v, w]);\n    const dist = new Map();\n    const heap = [[0, k]];\n    const push = (item) => {\n        heap.push(item);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p][0] <= heap[i][0]) break;\n            [heap[p], heap[i]] = [heap[i], heap[p]];\n            i = p;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                if (l < heap.length && heap[l][0] < heap[s][0]) s = l;\n                if (r < heap.length && heap[r][0] < heap[s][0]) s = r;\n                if (s === i) break;\n                [heap[s], heap[i]] = [heap[i], heap[s]];\n                i = s;\n            }\n        }\n        return top;\n    };\n    while (heap.length) {\n        const [d, u] = pop();\n        if (dist.has(u)) continue;\n        dist.set(u, d);\n        for (const [v, w] of graph.get(u)) {\n            if (!dist.has(v)) push([d + w, v]);\n        }\n    }\n    if (dist.size < n) return -1;\n    let m = 0;\n    for (const v of dist.values()) m = Math.max(m, v);\n    return m;\n};\n"
+  },
+  "complexity": { "time": "O(E log V)", "space": "O(V+E)" }
+}

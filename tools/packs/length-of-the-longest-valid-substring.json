@@ -1,0 +1,38 @@
+{
+  "slug": "length-of-the-longest-valid-substring",
+  "judge": "exact",
+  "pattern": "Since every forbidden word is short, checking only the handful of trailing chunks ending at each position is enough to know when the current window has picked up something forbidden and must shrink from the left.",
+  "hints": [
+    "Every forbidden word is at most ten characters long, so at any position you only ever need to check the last few trailing chunks ending there -- nothing longer can matter.",
+    "Keep a left boundary for the current valid window; whenever a trailing chunk ending at the current position matches a forbidden word, the left boundary must jump to just past where that chunk started.",
+    "Look the trailing chunks up in a hash set of forbidden words for O(1) membership checks, and keep a running maximum of window width as you sweep right across the string."
+  ],
+  "constraints": [
+    { "param": "word", "kind": "string", "len": [1, 100000], "note": "lowercase English letters only" },
+    { "param": "forbidden", "kind": "string[]", "len": [1, 100000], "elem_len": [1, 10], "note": "each entry is lowercase English letters only" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, longest valid chunk length four", "input": ["cbaaaabc", ["aaa", "cb"]] },
+    { "kind": "edge", "description": "statement example, single letters and pairs forbidden", "input": ["leetcode", ["de", "le", "e"]] },
+    { "kind": "boundary", "description": "single character word that is itself forbidden", "input": ["a", ["a"]] },
+    { "kind": "trap", "description": "a run of the same letter with a forbidden triple splits it into pairs", "input": ["aaaaa", ["aaa"]] },
+    { "kind": "trap", "description": "a single forbidden letter breaks the string into separated runs", "input": ["abcabcabc", ["b"]] },
+    { "kind": "edge", "description": "forbidden word never occurs in the string at all", "input": ["leetcode", ["zzz"]] },
+    { "kind": "boundary", "description": "the entire word itself is the only forbidden entry", "input": ["code", ["code"]] },
+    { "kind": "trap", "description": "several short forbidden words overlapping the same region", "input": ["abcdefgh", ["cd", "de", "efg"]] }
+  ],
+  "stress": [
+    {
+      "description": "random word with a handful of random short forbidden fragments drawn from it",
+      "seed": 9,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    letters = 'abcdefghijklmnopqrstuvwxyz'\n    n = max(1, min(size, 100000))\n    word = ''.join(rng.choice(letters) for _ in range(n))\n    fcount = min(max(1, size // 20), 1000)\n    forbidden = set()\n    for _ in range(fcount):\n        flen = rng.randint(1, min(10, n))\n        start = rng.randint(0, n - flen)\n        forbidden.add(word[start:start + flen])\n    if not forbidden:\n        forbidden.add(word[:1])\n    return [word, list(forbidden)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestValidSubstring(self, word, forbidden):\n        forb = set(forbidden)\n        n = len(word)\n        best = 0\n        for i in range(n):\n            for j in range(i, n):\n                sub = word[i:j + 1]\n                bad = False\n                for f in forb:\n                    if f in sub:\n                        bad = True\n                        break\n                if bad:\n                    break\n                best = max(best, j - i + 1)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestValidSubstring(self, word, forbidden):\n        forb = set(forbidden)\n        max_len = max((len(f) for f in forb), default=0)\n        n = len(word)\n        left = 0\n        best = 0\n        for right in range(n):\n            limit = min(max_len, right - left + 1)\n            for length in range(1, limit + 1):\n                sub = word[right - length + 1:right + 1]\n                if sub in forb:\n                    left = max(left, right - length + 2)\n                    break\n            best = max(best, right - left + 1)\n        return best\n",
+    "javascript": "var longestValidSubstring = function(word, forbidden) {\n    const forb = new Set(forbidden);\n    let maxLen = 0;\n    for (const f of forb) maxLen = Math.max(maxLen, f.length);\n    const n = word.length;\n    let left = 0;\n    let best = 0;\n    for (let right = 0; right < n; right++) {\n        const limit = Math.min(maxLen, right - left + 1);\n        for (let length = 1; length <= limit; length++) {\n            const sub = word.slice(right - length + 1, right + 1);\n            if (forb.has(sub)) {\n                left = Math.max(left, right - length + 2);\n                break;\n            }\n        }\n        best = Math.max(best, right - left + 1);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n * maxForbiddenLength)", "space": "O(forbidden.length)" }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "process-tasks-using-servers",
+  "judge": "exact",
+  "pattern": "Two priority queues simulate the queue: a free heap ordered by weight then index, and a busy heap ordered by free-time, advancing virtual time when no server is free.",
+  "hints": [
+    "Process tasks in order; at the moment a task can start, give it to the free server with the smallest weight, breaking ties by smallest index.",
+    "Keep busy servers in a heap keyed by the time they become free so you can release them as time advances.",
+    "If no server is free when task j arrives, jump time forward to the next release; release every server free by the current time before assigning."
+  ],
+  "constraints": [
+    { "param": "servers", "kind": "int[]", "len": [1, 200000], "value": [1, 200000] },
+    { "param": "tasks", "kind": "int[]", "len": [1, 200000], "value": [1, 200000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first statement example", "input": [[3, 3, 2], [1, 2, 3, 2, 1, 2]] },
+    { "kind": "edge", "description": "second statement example", "input": [[5, 1, 4, 3, 2], [2, 1, 2, 4, 5, 2, 1]] },
+    { "kind": "boundary", "description": "single server handles all sequentially", "input": [[5], [1, 2, 3]] },
+    { "kind": "trap", "description": "tie on weight resolved by index", "input": [[2, 2, 2], [1, 1, 1]] },
+    { "kind": "edge", "description": "more servers than tasks", "input": [[1, 2, 3, 4], [5]] },
+    { "kind": "trap", "description": "long task blocks then many short ones queue", "input": [[1, 1], [10, 1, 1, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random servers and tasks of moderate length",
+      "seed": 61,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    ns = rng.randint(1, max(1, size))\n    nt = rng.randint(1, max(1, size))\n    servers = [rng.randint(1, 200000) for _ in range(ns)]\n    tasks = [rng.randint(1, 200) for _ in range(nt)]\n    return [servers, tasks]\n"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def assignTasks(self, servers, tasks):\n        free = [(w, i) for i, w in enumerate(servers)]\n        heapq.heapify(free)\n        busy = []  # (free_time, weight, index)\n        m = len(tasks)\n        ans = [0] * m\n        t = 0\n        for j in range(m):\n            t = max(t, j)\n            if not free:\n                # advance to next release\n                t = max(t, busy[0][0])\n            while busy and busy[0][0] <= t:\n                ft, w, idx = heapq.heappop(busy)\n                heapq.heappush(free, (w, idx))\n            w, idx = heapq.heappop(free)\n            ans[j] = idx\n            heapq.heappush(busy, (t + tasks[j], w, idx))\n        return ans\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def assignTasks(self, servers, tasks):\n        free = [(w, i) for i, w in enumerate(servers)]\n        heapq.heapify(free)\n        busy = []\n        ans = []\n        t = 0\n        for j, dur in enumerate(tasks):\n            t = max(t, j)\n            while busy and busy[0][0] <= t:\n                ft, w, idx = heapq.heappop(busy)\n                heapq.heappush(free, (w, idx))\n            if not free:\n                t = busy[0][0]\n                while busy and busy[0][0] <= t:\n                    ft, w, idx = heapq.heappop(busy)\n                    heapq.heappush(free, (w, idx))\n            w, idx = heapq.heappop(free)\n            ans.append(idx)\n            heapq.heappush(busy, (t + dur, w, idx))\n        return ans\n",
+    "javascript": "class Heap {\n    constructor(cmp) { this.a = []; this.cmp = cmp; }\n    size() { return this.a.length; }\n    peek() { return this.a[0]; }\n    push(x) {\n        const a = this.a; a.push(x); let i = a.length - 1;\n        while (i > 0) { const p = (i - 1) >> 1; if (this.cmp(a[i], a[p]) < 0) { [a[i], a[p]] = [a[p], a[i]]; i = p; } else break; }\n    }\n    pop() {\n        const a = this.a; const top = a[0]; const last = a.pop();\n        if (a.length) { a[0] = last; let i = 0; const n = a.length;\n            while (true) { let l = 2*i+1, r = 2*i+2, s = i;\n                if (l < n && this.cmp(a[l], a[s]) < 0) s = l;\n                if (r < n && this.cmp(a[r], a[s]) < 0) s = r;\n                if (s === i) break; [a[i], a[s]] = [a[s], a[i]]; i = s; } }\n        return top;\n    }\n}\nvar assignTasks = function(servers, tasks) {\n    const free = new Heap((x, y) => x[0] !== y[0] ? x[0] - y[0] : x[1] - y[1]);\n    for (let i = 0; i < servers.length; i++) free.push([servers[i], i]);\n    const busy = new Heap((x, y) => x[0] !== y[0] ? x[0] - y[0] : (x[1] !== y[1] ? x[1] - y[1] : x[2] - y[2]));\n    const ans = [];\n    let t = 0;\n    for (let j = 0; j < tasks.length; j++) {\n        t = Math.max(t, j);\n        while (busy.size() && busy.peek()[0] <= t) {\n            const [ft, w, idx] = busy.pop();\n            free.push([w, idx]);\n        }\n        if (!free.size()) {\n            t = busy.peek()[0];\n            while (busy.size() && busy.peek()[0] <= t) {\n                const [ft, w, idx] = busy.pop();\n                free.push([w, idx]);\n            }\n        }\n        const [w, idx] = free.pop();\n        ans.push(idx);\n        busy.push([t + tasks[j], w, idx]);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n+m) log n)", "space": "O(n)" }
+}

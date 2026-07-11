@@ -1,0 +1,74 @@
+{
+  "slug": "number-of-closed-islands",
+  "judge": "exact",
+  "pattern": "Two-pass flood-fill: first erase all land reachable from any border cell (those cannot form closed islands), then count the remaining connected land regions as closed islands.",
+  "hints": [
+    "A land group touching any border cell can never be closed — it has an escape route. Flood-fill outward from every border land cell (0) first, marking each visited cell so it won't be counted later.",
+    "After the border-connected land is neutralised, scan the interior: each unvisited land cell (0) you encounter is the start of a closed island — flood-fill it to claim the whole region, then increment your counter.",
+    "The flood-fill itself is straightforward DFS or BFS in four cardinal directions; the key insight is that the two-pass order (erase border-land first, count interior second) lets you reuse the same fill logic."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 100], "value": [0, 1], "note": "m rows, n cols, each dimension in 1..100; 0 = land, 1 = water" }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "all water — no land at all, zero closed islands",
+      "input": [[[1, 1, 1], [1, 1, 1], [1, 1, 1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "all land — every cell touches the border, so zero closed islands",
+      "input": [[[0, 0, 0], [0, 0, 0], [0, 0, 0]]]
+    },
+    {
+      "kind": "trap",
+      "description": "land cell touches the border on one side — not closed",
+      "input": [[[1, 1, 1], [0, 1, 1], [1, 1, 1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "single interior land cell fully surrounded by water — one closed island",
+      "input": [[[1, 1, 1], [1, 0, 1], [1, 1, 1]]]
+    },
+    {
+      "kind": "trap",
+      "description": "first example — two distinct closed regions",
+      "input": [[[1, 1, 1, 1, 1, 1, 1, 0], [1, 0, 0, 0, 0, 1, 1, 0], [1, 0, 1, 0, 1, 1, 1, 0], [1, 0, 0, 0, 0, 1, 0, 1], [1, 1, 1, 1, 1, 1, 1, 0]]]
+    },
+    {
+      "kind": "trap",
+      "description": "second example — one closed island, border-touching land eliminated",
+      "input": [[[0, 0, 1, 0, 0], [0, 1, 0, 1, 0], [0, 1, 1, 1, 0]]]
+    },
+    {
+      "kind": "trap",
+      "description": "third example — concentric ring of water with two interior islands",
+      "input": [[[1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 0, 1], [1, 0, 1, 0, 1, 0, 1], [1, 0, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "1x1 grid with a single land cell — it is the border itself, so not closed",
+      "input": [[[0]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "two adjacent interior land cells form one closed island",
+      "input": [[[1, 1, 1, 1], [1, 0, 0, 1], [1, 1, 1, 1]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large grid with random land/water — checks correctness under scale",
+      "seed": 55,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 100))\n    grid = [[rng.randint(0, 1) for _ in range(n)] for _ in range(n)]\n    # Force border to water so stress focuses on interior island counting\n    for r in range(n):\n        grid[r][0] = 1\n        grid[r][n - 1] = 1\n    for c in range(n):\n        grid[0][c] = 1\n        grid[n - 1][c] = 1\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def closedIsland(self, grid):\n        # Union-Find brute-force: build connected components, check if any cell\n        # in a component lies on the border.\n        m, n = len(grid), len(grid[0])\n        parent = list(range(m * n))\n\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n\n        def union(a, b):\n            parent[find(a)] = find(b)\n\n        for r in range(m):\n            for c in range(n):\n                if grid[r][c] == 0:\n                    for dr, dc in ((1, 0), (0, 1)):\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == 0:\n                            union(r * n + c, nr * n + nc)\n\n        # For each component root, check if any member is on the border\n        border_roots = set()\n        for r in range(m):\n            for c in range(n):\n                if grid[r][c] == 0 and (r == 0 or r == m - 1 or c == 0 or c == n - 1):\n                    border_roots.add(find(r * n + c))\n\n        # Count distinct interior-only component roots\n        seen = set()\n        count = 0\n        for r in range(m):\n            for c in range(n):\n                if grid[r][c] == 0:\n                    root = find(r * n + c)\n                    if root not in border_roots and root not in seen:\n                        seen.add(root)\n                        count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def closedIsland(self, grid):\n        m, n = len(grid), len(grid[0])\n\n        def flood(r, c):\n            if r < 0 or r >= m or c < 0 or c >= n or grid[r][c] != 0:\n                return\n            grid[r][c] = 1  # mark visited / neutralised\n            flood(r + 1, c)\n            flood(r - 1, c)\n            flood(r, c + 1)\n            flood(r, c - 1)\n\n        # Pass 1: erase land connected to any border\n        for r in range(m):\n            flood(r, 0)\n            flood(r, n - 1)\n        for c in range(n):\n            flood(0, c)\n            flood(m - 1, c)\n\n        # Pass 2: count remaining closed islands\n        count = 0\n        for r in range(m):\n            for c in range(n):\n                if grid[r][c] == 0:\n                    count += 1\n                    flood(r, c)\n        return count\n",
+    "javascript": "var closedIsland = function(grid) {\n    const m = grid.length, n = grid[0].length;\n\n    function flood(r, c) {\n        if (r < 0 || r >= m || c < 0 || c >= n || grid[r][c] !== 0) return;\n        grid[r][c] = 1;\n        flood(r + 1, c); flood(r - 1, c);\n        flood(r, c + 1); flood(r, c - 1);\n    }\n\n    // Pass 1: neutralise border-connected land\n    for (let r = 0; r < m; r++) { flood(r, 0); flood(r, n - 1); }\n    for (let c = 0; c < n; c++) { flood(0, c); flood(m - 1, c); }\n\n    // Pass 2: count closed islands\n    let count = 0;\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            if (grid[r][c] === 0) {\n                count++;\n                flood(r, c);\n            }\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

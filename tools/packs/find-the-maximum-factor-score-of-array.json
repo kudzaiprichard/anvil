@@ -1,0 +1,133 @@
+{
+  "judge": "exact",
+  "pattern": "Since only one element may ever be dropped, precomputed prefix and suffix GCD/LCM tables let every 'remove element i' scenario be answered in constant time instead of recomputing from scratch.",
+  "hints": [
+    "The factor score of the whole array is one candidate answer; every other candidate comes from dropping exactly one element, so you need the GCD and LCM of 'everything except index i' for every i.",
+    "Build prefix and suffix arrays of running GCD and running LCM across the array; combining the prefix up to i-1 with the suffix from i+1 gives the GCD and LCM of the array with index i removed, without rescanning it.",
+    "Take the maximum of the full array's factor score and every one-element-removed factor score computed from those prefix/suffix tables; a length-one array's only real option is keeping its single element, which squares it."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100
+      ],
+      "value": [
+        1,
+        30
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, removing the odd one out doubles the score",
+      "input": [
+        [
+          2,
+          4,
+          8,
+          16
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, keeping the whole array is already optimal",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a single element squares itself",
+      "input": [
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all identical elements",
+      "input": [
+        [
+          6,
+          6,
+          6,
+          6
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two elements at the maximum value",
+      "input": [
+        [
+          30,
+          30
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible values throughout",
+      "input": [
+        [
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "removing the smallest value does not help since it doesn't lower the GCD",
+      "input": [
+        [
+          6,
+          12,
+          18,
+          24
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "coprime values where the full array already has GCD 1",
+      "input": [
+        [
+          7,
+          11,
+          13
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small-valued arrays exercising many different removal scenarios",
+      "seed": 23,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    nums = [rng.randint(1, 30) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "import math\nfrom functools import reduce\n\n\nclass Solution:\n    def maxScore(self, nums):\n        n = len(nums)\n\n        def score(arr):\n            if not arr:\n                return 0\n            g = reduce(math.gcd, arr)\n            l = reduce(lambda a, b: a * b // math.gcd(a, b), arr)\n            return g * l\n\n        best = score(nums)\n        for i in range(n):\n            rest = nums[:i] + nums[i + 1:]\n            best = max(best, score(rest))\n        return best\n",
+  "solutions": {
+    "python": "from math import gcd\n\n\nclass Solution:\n    def maxScore(self, nums: List[int]) -> int:\n        n = len(nums)\n        prefix_gcd = [0] * (n + 1)\n        suffix_gcd = [0] * (n + 1)\n        prefix_lcm = [1] * (n + 1)\n        suffix_lcm = [1] * (n + 1)\n        for i in range(n):\n            prefix_gcd[i + 1] = gcd(prefix_gcd[i], nums[i])\n            prefix_lcm[i + 1] = prefix_lcm[i] * nums[i] // gcd(prefix_lcm[i], nums[i])\n        for i in range(n - 1, -1, -1):\n            suffix_gcd[i] = gcd(suffix_gcd[i + 1], nums[i])\n            suffix_lcm[i] = suffix_lcm[i + 1] * nums[i] // gcd(suffix_lcm[i + 1], nums[i])\n        best = prefix_gcd[n] * prefix_lcm[n]\n        for i in range(n):\n            g = gcd(prefix_gcd[i], suffix_gcd[i + 1])\n            l = prefix_lcm[i] * suffix_lcm[i + 1] // gcd(prefix_lcm[i], suffix_lcm[i + 1])\n            score = g * l\n            if score > best:\n                best = score\n        return best\n",
+    "javascript": "var maxScore = function(nums) {\n    const gcd = (a, b) => { while (b) { [a, b] = [b, a % b]; } return a; };\n    const n = nums.length;\n    const prefixGcd = new Array(n + 1).fill(0);\n    const suffixGcd = new Array(n + 1).fill(0);\n    const prefixLcm = new Array(n + 1).fill(1);\n    const suffixLcm = new Array(n + 1).fill(1);\n    for (let i = 0; i < n; i++) {\n        prefixGcd[i + 1] = gcd(prefixGcd[i], nums[i]);\n        prefixLcm[i + 1] = prefixLcm[i] * nums[i] / gcd(prefixLcm[i], nums[i]);\n    }\n    for (let i = n - 1; i >= 0; i--) {\n        suffixGcd[i] = gcd(suffixGcd[i + 1], nums[i]);\n        suffixLcm[i] = suffixLcm[i + 1] * nums[i] / gcd(suffixLcm[i + 1], nums[i]);\n    }\n    let best = prefixGcd[n] * prefixLcm[n];\n    for (let i = 0; i < n; i++) {\n        const g = gcd(prefixGcd[i], suffixGcd[i + 1]);\n        const l = prefixLcm[i] * suffixLcm[i + 1] / gcd(prefixLcm[i], suffixLcm[i + 1]);\n        const score = g * l;\n        if (score > best) best = score;\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  },
+  "slug": "find-the-maximum-factor-score-of-array"
+}

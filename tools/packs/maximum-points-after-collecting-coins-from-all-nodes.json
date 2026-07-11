@@ -1,0 +1,237 @@
+{
+  "slug": "maximum-points-after-collecting-coins-from-all-nodes",
+  "judge": "exact",
+  "pattern": "When a per-node choice can compound down a rooted tree (here, repeatedly halving a value), the useful state is capped because a bounded value can only be halved a handful of times before it floors at zero -- so a small per-node table indexed by 'how many halvings so far' turns an exponential choice tree into a linear-in-depth DP.",
+  "hints": [
+    "At every node you make one of two independent choices, and the choice you make changes what every node in its subtree sees -- so the value seen deep in a subtree depends on how many ancestors already chose the 'halve everything below' option.",
+    "Because coin counts are capped, halving the same value more than a dozen or so times always lands on zero -- so you never need to track the exact halving count past that cap, only whether you're at or beyond it.",
+    "Do a post-order pass computing, for each node and each possible 'halvings applied by ancestors so far' (0 up to the cap), the best score obtainable in that subtree: either take the node's (halved-by-ancestors) value minus the penalty and recurse at the same halving level, or take half of it and recurse into children at halvings+1 -- take the max of the two at the root with zero ancestor halvings."
+  ],
+  "constraints": [
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "coins",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        0,
+        10000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "star graph, root with three leaf children",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ]
+        ],
+        [
+          6,
+          1,
+          8,
+          2
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimal tree, two nodes",
+      "input": [
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          5,
+          9
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all coins zero -- halving is always at least as good as paying k",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k is zero -- taking the full amount everywhere is never penalized",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ]
+        ],
+        [
+          4,
+          6,
+          2,
+          9
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k larger than every coin value -- the halve-and-propagate branch should win throughout",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ]
+        ],
+        [
+          3,
+          5,
+          4,
+          6
+        ],
+        10000
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "deeper chain so a halving decision partway down changes several descendants",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        [
+          10000,
+          8000,
+          6000,
+          4000,
+          2000
+        ],
+        500
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "max coin value at every node with zero penalty",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        [
+          10000,
+          10000,
+          10000
+        ],
+        0
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random tree built by attaching each new node to a uniformly random earlier node, random coin values and penalty",
+      "seed": 7,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = []\n    for i in range(1, n):\n        p = rng.randint(0, i - 1)\n        edges.append([p, i])\n    coins = [rng.randint(0, 10000) for _ in range(n)]\n    k = rng.randint(0, 10000)\n    return [edges, coins, k]\n"
+    }
+  ],
+  "oracle_python": "import sys\n\nclass Solution:\n    def maximumPoints(self, edges, coins, k):\n        n = len(coins)\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        sys.setrecursionlimit(10000)\n\n        def dfs(node, parent, halvings):\n            val = coins[node]\n            for _ in range(halvings):\n                val //= 2\n            take_all = val - k\n            take_half = val // 2\n            for child in adj[node]:\n                if child == parent:\n                    continue\n                take_all += dfs(child, node, halvings)\n                take_half += dfs(child, node, halvings + 1)\n            return max(take_all, take_half)\n\n        return dfs(0, -1, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumPoints(self, edges, coins, k):\n        n = len(coins)\n        CAP = 14\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        parent = [-1] * n\n        visited = [False] * n\n        order = []\n        stack = [0]\n        visited[0] = True\n        while stack:\n            node = stack.pop()\n            order.append(node)\n            for nxt in adj[node]:\n                if not visited[nxt]:\n                    visited[nxt] = True\n                    parent[nxt] = node\n                    stack.append(nxt)\n        dp = [[0] * (CAP + 1) for _ in range(n)]\n        for node in reversed(order):\n            for h in range(CAP + 1):\n                val = coins[node] >> h\n                option_a = val - k\n                option_b = val // 2\n                for child in adj[node]:\n                    if child == parent[node]:\n                        continue\n                    option_a += dp[child][h]\n                    option_b += dp[child][min(h + 1, CAP)]\n                dp[node][h] = max(option_a, option_b)\n        return dp[0][0]\n",
+    "javascript": "var maximumPoints = function(edges, coins, k) {\n    const n = coins.length;\n    const CAP = 14;\n    const adj = Array.from({ length: n }, () => []);\n    for (const [u, v] of edges) {\n        adj[u].push(v);\n        adj[v].push(u);\n    }\n    const parent = new Array(n).fill(-1);\n    const visited = new Array(n).fill(false);\n    const order = [];\n    const stack = [0];\n    visited[0] = true;\n    while (stack.length) {\n        const node = stack.pop();\n        order.push(node);\n        for (const nxt of adj[node]) {\n            if (!visited[nxt]) {\n                visited[nxt] = true;\n                parent[nxt] = node;\n                stack.push(nxt);\n            }\n        }\n    }\n    const dp = Array.from({ length: n }, () => new Array(CAP + 1).fill(0));\n    for (let idx = order.length - 1; idx >= 0; idx--) {\n        const node = order[idx];\n        for (let h = 0; h <= CAP; h++) {\n            const val = coins[node] >> h;\n            let optionA = val - k;\n            let optionB = Math.floor(val / 2);\n            for (const child of adj[node]) {\n                if (child === parent[node]) continue;\n                optionA += dp[child][h];\n                optionB += dp[child][Math.min(h + 1, CAP)];\n            }\n            dp[node][h] = Math.max(optionA, optionB);\n        }\n    }\n    return dp[0][0];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * log(max(coins)))",
+    "space": "O(n * log(max(coins)))"
+  }
+}

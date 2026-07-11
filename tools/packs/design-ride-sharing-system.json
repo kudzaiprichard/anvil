@@ -1,0 +1,96 @@
+{
+  "slug": "design-ride-sharing-system",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "First-come-first-served matching over two independent arrival queues reduces to peeling off the front of each queue, except a cancelled rider must be skipped rather than matched — so the rider side needs a cheap way to tell a still-waiting id from one that already left the line.",
+  "hints": [
+    "Riders and drivers each arrive in their own order and should be matched oldest-first from each side, independent of the other side's arrival times.",
+    "A cancelled rider is still physically at its old position in line; rather than removing it from the middle of a queue, mark it cancelled and have matching skip over any cancelled id it finds at the front.",
+    "Keep two arrival-ordered queues (riders, drivers) plus a set of rider ids that are still actually waiting; before matching, drop from the front of the rider queue anything no longer in that waiting set, then take the front of both queues."
+  ],
+  "constraints": [
+    { "param": "riderId", "kind": "int", "value": [1, 1000] },
+    { "param": "driverId", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sample 1: a match, a cancel on an already-matched rider (no effect), then an empty match",
+      "input": [
+        ["RideSharingSystem", "addRider", "addDriver", "addRider", "matchDriverWithRider", "addDriver", "cancelRider", "matchDriverWithRider", "matchDriverWithRider"],
+        [[], [3], [2], [1], [], [5], [3], [], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "sample 2: a match, then a cancelled waiting rider leaves nothing to match",
+      "input": [
+        ["RideSharingSystem", "addRider", "addDriver", "addDriver", "matchDriverWithRider", "addRider", "cancelRider", "matchDriverWithRider"],
+        [[], [8], [8], [6], [], [2], [2], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "cancelling a rider that is not at the front of the queue must still be skipped correctly when its turn would have come up",
+      "input": [
+        ["RideSharingSystem", "addRider", "addRider", "addRider", "addDriver", "addDriver", "cancelRider", "matchDriverWithRider", "matchDriverWithRider"],
+        [[], [1], [2], [3], [100], [200], [2], [], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "no riders waiting at all means a match cannot be made even with drivers available",
+      "input": [
+        ["RideSharingSystem", "addDriver", "matchDriverWithRider"],
+        [[], [10], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "no drivers waiting at all means a match cannot be made even with riders available",
+      "input": [
+        ["RideSharingSystem", "addRider", "matchDriverWithRider"],
+        [[], [10], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "cancelling a riderId that was never added is a harmless no-op",
+      "input": [
+        ["RideSharingSystem", "addDriver", "cancelRider", "addRider", "matchDriverWithRider"],
+        [[], [1], [999], [1], []]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "riderId and driverId at the constraint extremes",
+      "input": [
+        ["RideSharingSystem", "addRider", "addDriver", "matchDriverWithRider"],
+        [[], [1000], [1], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "drivers and riders are each matched strictly in their own arrival order, not by id order",
+      "input": [
+        ["RideSharingSystem", "addDriver", "addDriver", "addRider", "addRider", "matchDriverWithRider", "matchDriverWithRider"],
+        [[], [50], [10], [999], [1], [], []]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random addRider/addDriver/matchDriverWithRider/cancelRider with unique never-reused ids",
+      "seed": 71,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    ops = ['RideSharingSystem']\n    args = [[]]\n    next_rider = [1]\n    next_driver = [1]\n    waiting_riders = []\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.35:\n            rid = next_rider[0]\n            next_rider[0] += 1\n            ops.append('addRider')\n            args.append([rid])\n            waiting_riders.append(rid)\n        elif r < 0.6:\n            did = next_driver[0]\n            next_driver[0] += 1\n            ops.append('addDriver')\n            args.append([did])\n        elif r < 0.8 and waiting_riders:\n            rid = rng.choice(waiting_riders)\n            waiting_riders.remove(rid)\n            ops.append('cancelRider')\n            args.append([rid])\n        else:\n            ops.append('matchDriverWithRider')\n            args.append([])\n            if waiting_riders:\n                waiting_riders.pop(0)\n    return [ops, args]\n",
+      "note": "ids increase monotonically per role so no rider or driver id is ever reused; the generator's own waiting_riders list stays a loose upper bound on who could still be matched"
+    }
+  ],
+  "oracle_python": "class RideSharingSystem:\n    def __init__(self):\n        self.rider_order = []\n        self.rider_status = {}\n        self.driver_order = []\n        self.driver_status = {}\n\n    def addRider(self, riderId):\n        self.rider_order.append(riderId)\n        self.rider_status[riderId] = 'waiting'\n\n    def addDriver(self, driverId):\n        self.driver_order.append(driverId)\n        self.driver_status[driverId] = 'waiting'\n\n    def matchDriverWithRider(self):\n        rider = None\n        for rid in self.rider_order:\n            if self.rider_status.get(rid) == 'waiting':\n                rider = rid\n                break\n        driver = None\n        for did in self.driver_order:\n            if self.driver_status.get(did) == 'waiting':\n                driver = did\n                break\n        if rider is None or driver is None:\n            return [-1, -1]\n        self.rider_status[rider] = 'matched'\n        self.driver_status[driver] = 'matched'\n        return [driver, rider]\n\n    def cancelRider(self, riderId):\n        if self.rider_status.get(riderId) == 'waiting':\n            self.rider_status[riderId] = 'cancelled'\n",
+  "solutions": {
+    "python": "from collections import deque\n\n\nclass RideSharingSystem:\n    def __init__(self):\n        self.riders = deque()\n        self.drivers = deque()\n        self.active = set()\n\n    def addRider(self, riderId):\n        self.riders.append(riderId)\n        self.active.add(riderId)\n\n    def addDriver(self, driverId):\n        self.drivers.append(driverId)\n\n    def matchDriverWithRider(self):\n        while self.riders and self.riders[0] not in self.active:\n            self.riders.popleft()\n        if not self.riders or not self.drivers:\n            return [-1, -1]\n        rider = self.riders.popleft()\n        self.active.discard(rider)\n        driver = self.drivers.popleft()\n        return [driver, rider]\n\n    def cancelRider(self, riderId):\n        self.active.discard(riderId)\n",
+    "javascript": "class RideSharingSystem {\n    constructor() {\n        this.riders = [];\n        this.riderIdx = 0;\n        this.drivers = [];\n        this.driverIdx = 0;\n        this.active = new Set();\n    }\n    addRider(riderId) {\n        this.riders.push(riderId);\n        this.active.add(riderId);\n    }\n    addDriver(driverId) {\n        this.drivers.push(driverId);\n    }\n    matchDriverWithRider() {\n        while (this.riderIdx < this.riders.length && !this.active.has(this.riders[this.riderIdx])) {\n            this.riderIdx++;\n        }\n        if (this.riderIdx >= this.riders.length || this.driverIdx >= this.drivers.length) {\n            return [-1, -1];\n        }\n        const rider = this.riders[this.riderIdx++];\n        this.active.delete(rider);\n        const driver = this.drivers[this.driverIdx++];\n        return [driver, rider];\n    }\n    cancelRider(riderId) {\n        this.active.delete(riderId);\n    }\n}\n"
+  },
+  "complexity": { "time": "amortized O(1) per call", "space": "O(riders + drivers)" }
+}

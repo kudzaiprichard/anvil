@@ -1,0 +1,39 @@
+{
+  "slug": "peaks-in-array",
+  "judge": "exact",
+  "pattern": "Segment tree with point updates: maintain a bit array of current peak flags and answer range-sum queries with O(log n) per operation.",
+  "hints": [
+    "A peak at index i satisfies nums[i-1] < nums[i] > nums[i+1]. After a point update at index idx, only peak flags at idx-1, idx, idx+1 can change — recompute those three.",
+    "Store peak flags in a Fenwick tree (BIT) for O(log n) prefix-sum queries. For a type-1 query on [l, r], count peaks in indices [l+1, r-1] since endpoints can never be peaks.",
+    "For each point update, compute the change in peak flags at the three affected positions and apply delta updates to the BIT."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [3, 100000], "value": [1, 100000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "example 1", "input": [[3, 1, 4, 2, 5], [[2, 3, 4], [1, 0, 4]]] },
+    { "kind": "edge", "description": "example 2", "input": [[4, 1, 4, 2, 1, 5], [[2, 2, 4], [1, 0, 2], [1, 0, 4]]] },
+    { "kind": "edge", "description": "only type-2 queries (no type-1 output)", "input": [[1, 3, 2, 4, 1], [[2, 2, 5]]] },
+    { "kind": "edge", "description": "query length-3 subarray — middle can be peak", "input": [[1, 3, 1], [[1, 0, 2]]] },
+    { "kind": "boundary", "description": "monotone increasing, no peaks", "input": [[1, 2, 3, 4, 5], [[1, 0, 4]]] },
+    { "kind": "boundary", "description": "query single-element subarray (l==r), always 0 peaks", "input": [[1, 5, 2], [[1, 1, 1]]] },
+    { "kind": "trap", "description": "update makes a non-peak into a peak", "input": [[3, 2, 3], [[2, 1, 5], [1, 0, 2]]] },
+    { "kind": "trap", "description": "update destroys existing peak", "input": [[1, 5, 1, 5, 1], [[2, 1, 3], [1, 0, 4]]] },
+    { "kind": "trap", "description": "equal adjacent values: not a strict peak", "input": [[3, 3, 3], [[1, 0, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random nums and mixed queries",
+      "seed": 55,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(3, size)\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    q = rng.randint(1, size)\n    queries = []\n    for _ in range(q):\n        t = rng.randint(1, 2)\n        if t == 1:\n            l = rng.randint(0, n - 1)\n            r = rng.randint(l, n - 1)\n            queries.append([1, l, r])\n        else:\n            idx = rng.randint(0, n - 1)\n            val = rng.randint(1, 100000)\n            queries.append([2, idx, val])\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countOfPeaks(self, nums, queries):\n        nums = list(nums)\n        result = []\n        def is_peak(i):\n            return 0 < i < len(nums) - 1 and nums[i] > nums[i-1] and nums[i] > nums[i+1]\n        for q in queries:\n            if q[0] == 1:\n                l, r = q[1], q[2]\n                count = sum(1 for i in range(l + 1, r) if is_peak(i))\n                result.append(count)\n            else:\n                nums[q[1]] = q[2]\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def countOfPeaks(self, nums, queries):\n        n = len(nums)\n        nums = list(nums)\n        # Fenwick tree over peak flags at indices 1..n-2\n        bit = [0] * (n + 1)\n        def update(i, delta):\n            i += 1  # 1-indexed\n            while i <= n:\n                bit[i] += delta\n                i += i & (-i)\n        def query(i):\n            i += 1\n            s = 0\n            while i > 0:\n                s += bit[i]\n                i -= i & (-i)\n            return s\n        def range_query(l, r):\n            if l > r:\n                return 0\n            return query(r) - (query(l - 1) if l > 0 else 0)\n        def is_peak(i):\n            return 0 < i < n - 1 and nums[i] > nums[i-1] and nums[i] > nums[i+1]\n        # Initialize BIT\n        for i in range(1, n - 1):\n            if is_peak(i):\n                update(i, 1)\n        result = []\n        for q in queries:\n            if q[0] == 1:\n                l, r = q[1], q[2]\n                # peaks can only exist at indices l+1 .. r-1\n                if r - l < 2:\n                    result.append(0)\n                else:\n                    result.append(range_query(l + 1, r - 1))\n            else:\n                idx, val = q[1], q[2]\n                # Recompute peak flags for affected positions\n                affected = [idx - 1, idx, idx + 1]\n                old_peaks = {i: is_peak(i) for i in affected if 0 < i < n - 1}\n                nums[idx] = val\n                for i in affected:\n                    if 0 < i < n - 1:\n                        new_pk = is_peak(i)\n                        if old_peaks.get(i, False) != new_pk:\n                            update(i, 1 if new_pk else -1)\n        return result\n",
+    "javascript": "var countOfPeaks = function(nums, queries) {\n    const n = nums.length;\n    nums = [...nums];\n    const bit = new Int32Array(n + 1);\n    function update(i, delta) {\n        for (i++; i <= n; i += i & (-i)) bit[i] += delta;\n    }\n    function query(i) {\n        let s = 0;\n        for (i++; i > 0; i -= i & (-i)) s += bit[i];\n        return s;\n    }\n    function rangeQ(l, r) {\n        if (l > r) return 0;\n        return query(r) - (l > 0 ? query(l - 1) : 0);\n    }\n    function isPeak(i) {\n        return i > 0 && i < n - 1 && nums[i] > nums[i-1] && nums[i] > nums[i+1];\n    }\n    for (let i = 1; i < n - 1; i++) {\n        if (isPeak(i)) update(i, 1);\n    }\n    const result = [];\n    for (const q of queries) {\n        if (q[0] === 1) {\n            const [, l, r] = q;\n            result.push(r - l < 2 ? 0 : rangeQ(l + 1, r - 1));\n        } else {\n            const [, idx, val] = q;\n            const affected = [idx - 1, idx, idx + 1];\n            const oldPeaks = {};\n            for (const i of affected) {\n                if (i > 0 && i < n - 1) oldPeaks[i] = isPeak(i);\n            }\n            nums[idx] = val;\n            for (const i of affected) {\n                if (i > 0 && i < n - 1) {\n                    const np = isPeak(i);\n                    if (oldPeaks[i] !== np) update(i, np ? 1 : -1);\n                }\n            }\n        }\n    }\n    return result;\n};"
+  },
+  "complexity": { "time": "O((n + q) log n)", "space": "O(n)" }
+}

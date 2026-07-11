@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-increments-for-target-multiples-in-an-array",
+  "judge": "exact",
+  "pattern": "With at most 4 targets there are only 16 subsets to worry about, so a bitmask knapsack over nums (each number bumped up to the LCM of whichever subset of targets it will cover) finds the cheapest way to cover every target at least once.",
+  "hints": [
+    "One increased number can satisfy several targets at once, as long as it becomes a common multiple of all of them; the cheapest way to make a number a multiple of a value L is to round it up to the next multiple of L.",
+    "Since target has at most 4 entries, there are only 15 non-empty subsets of targets; precompute the LCM of every subset once.",
+    "Do a bitmask DP over which targets are already covered: for each number in nums, in turn, try assigning it to cover any one subset (paying the rounding-up cost for that subset's LCM) or leaving it untouched, and keep the cheapest way to reach the full covered mask."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 50000], "value": [1, 10000] },
+    { "param": "target", "kind": "int[]", "len": [1, 4], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example 1", "input": [[1, 2, 3], [4]] },
+    { "kind": "edge", "description": "statement example 2, one number covers two targets", "input": [[8, 4], [10, 5]] },
+    { "kind": "edge", "description": "statement example 3, already satisfied", "input": [[7, 9, 10], [7]] },
+    { "kind": "boundary", "description": "single num, single target, maximum single-element gap", "input": [[1], [10000]] },
+    { "kind": "boundary", "description": "four targets, target length equals nums length exactly", "input": [[3, 5, 7, 11], [6, 10, 14, 22]] },
+    { "kind": "trap", "description": "covering two targets together costs more than covering them with two separate numbers", "input": [[9, 9], [10, 15]] },
+    { "kind": "trap", "description": "one already-satisfied target must not block covering the rest cheaply", "input": [[6, 1, 1], [6, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random nums with 1 to 4 random targets",
+      "seed": 13,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 20000)))\n    m = rng.randint(1, min(4, n))\n    nums = [rng.randint(1, 10000) for _ in range(n)]\n    target = [rng.randint(1, 10000) for _ in range(m)]\n    return [nums, target]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumIncrements(self, nums, target):\n        import itertools\n        m = len(target)\n        full = (1 << m) - 1\n        from math import gcd\n        def lcm_set(idxs):\n            l = 1\n            for i in idxs:\n                l = l * target[i] // gcd(l, target[i])\n            return l\n        best = None\n        n = len(nums)\n        for choice in itertools.product(range(1 << m), repeat=n):\n            mask = 0\n            cost = 0\n            for i, s in enumerate(choice):\n                if s == 0:\n                    continue\n                idxs = [j for j in range(m) if s & (1 << j)]\n                L = lcm_set(idxs)\n                num = nums[i]\n                cost += (-num) % L\n                mask |= s\n            if mask == full:\n                if best is None or cost < best:\n                    best = cost\n        return best if best is not None else 0\n",
+  "solutions": {
+    "python": "from math import gcd\nclass Solution:\n    def minimumIncrements(self, nums, target):\n        m = len(target)\n        full = (1 << m) - 1\n        lcm_of = [1] * (1 << m)\n        for mask in range(1, 1 << m):\n            l = 1\n            for j in range(m):\n                if mask & (1 << j):\n                    l = l * target[j] // gcd(l, target[j])\n            lcm_of[mask] = l\n        INF = float('inf')\n        dp = [INF] * (1 << m)\n        dp[0] = 0\n        for num in nums:\n            ndp = dp[:]\n            for mask in range(1 << m):\n                if dp[mask] == INF:\n                    continue\n                base = dp[mask]\n                for s in range(1, 1 << m):\n                    L = lcm_of[s]\n                    cost = (-num) % L\n                    nm = mask | s\n                    val = base + cost\n                    if val < ndp[nm]:\n                        ndp[nm] = val\n            dp = ndp\n        return dp[full]\n",
+    "javascript": "var minimumIncrements = function(nums, target) {\n    function gcd(a, b) { while (b) { [a, b] = [b, a % b]; } return a; }\n    const m = target.length;\n    const full = (1 << m) - 1;\n    const lcmOf = new Array(1 << m).fill(1);\n    for (let mask = 1; mask < (1 << m); mask++) {\n        let l = 1;\n        for (let j = 0; j < m; j++) {\n            if (mask & (1 << j)) l = l / gcd(l, target[j]) * target[j];\n        }\n        lcmOf[mask] = l;\n    }\n    const INF = Infinity;\n    let dp = new Array(1 << m).fill(INF);\n    dp[0] = 0;\n    for (const num of nums) {\n        const ndp = dp.slice();\n        for (let mask = 0; mask < (1 << m); mask++) {\n            if (dp[mask] === INF) continue;\n            const base = dp[mask];\n            for (let s = 1; s < (1 << m); s++) {\n                const L = lcmOf[s];\n                const cost = ((-num) % L + L) % L;\n                const nm = mask | s;\n                const val = base + cost;\n                if (val < ndp[nm]) ndp[nm] = val;\n            }\n        }\n        dp = ndp;\n    }\n    return dp[full];\n};\n"
+  },
+  "complexity": { "time": "O(n * 4^m) with m <= 4", "space": "O(2^m)" }
+}

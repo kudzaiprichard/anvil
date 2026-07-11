@@ -1,0 +1,38 @@
+{
+  "slug": "build-array-where-you-can-find-the-maximum-exactly-k-comparisons",
+  "judge": "exact",
+  "pattern": "3-D DP where dp[i][j][c] = number of ways to fill the first i elements such that the current maximum is j and search_cost so far is c.",
+  "hints": [
+    "Define dp[len][max_val][cost] = ways to build a prefix of `len` elements with current max = max_val and accumulated search cost = cost.",
+    "Transition: append a value <= current max (cost unchanged) or append a value > current max (cost increases by 1, new max is that value).",
+    "Answer is sum of dp[n][j][k] for all j from 1 to m; use prefix sums over the max dimension to speed up the first transition."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 50] },
+    { "param": "m", "kind": "int", "value": [1, 100] },
+    { "param": "k", "kind": "int", "value": [0, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "n=2, m=3, k=1 basic example", "input": [2, 3, 1] },
+    { "kind": "edge", "description": "impossible k > n", "input": [5, 2, 3] },
+    { "kind": "boundary", "description": "single element array k=1", "input": [9, 1, 1] },
+    { "kind": "boundary", "description": "k=0 is impossible since first element always triggers a comparison", "input": [3, 5, 0] },
+    { "kind": "trap", "description": "m=1 so only one array possible for k=1", "input": [5, 1, 1] },
+    { "kind": "boundary", "description": "maximum n and k", "input": [50, 100, 50] },
+    { "kind": "edge", "description": "k equals n means each new element must be strictly larger", "input": [4, 10, 4] }
+  ],
+  "stress": [
+    {
+      "description": "random small valid (n, m, k) triples",
+      "seed": 61,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, min(size, 10))\n    m = rng.randint(1, min(size, 20))\n    k = rng.randint(0, n)\n    return [n, m, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numOfArrays(self, n: int, m: int, k: int) -> int:\n        MOD = 10**9 + 7\n        # dp[i][j][c] = ways to fill first i elements, current max=j, cost=c\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(i, cur_max, cost):\n            if cost > k:\n                return 0\n            if i == n:\n                return 1 if cost == k else 0\n            res = 0\n            # Append value <= cur_max (no cost change)\n            if cur_max > 0:\n                res += cur_max * dp(i + 1, cur_max, cost)\n            # Append value > cur_max (cost += 1)\n            for v in range(cur_max + 1, m + 1):\n                res += dp(i + 1, v, cost + 1)\n            return res % MOD\n        return dp(0, 0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def numOfArrays(self, n: int, m: int, k: int) -> int:\n        MOD = 10**9 + 7\n        # dp[j][c] = ways to build current prefix with max=j, cost=c\n        INF = 0\n        # Use bottom-up DP\n        # dp[len][max_val][cost]\n        dp = [[[0] * (k + 1) for _ in range(m + 1)] for _ in range(n + 1)]\n        # Base: length 0, max=0, cost=0\n        dp[0][0][0] = 1\n        for length in range(n):\n            # prefix sum over j dimension for each cost level\n            for cost in range(k + 1):\n                prefix = [0] * (m + 2)\n                for j in range(m + 1):\n                    prefix[j + 1] = (prefix[j] + dp[length][j][cost]) % MOD\n                for j in range(1, m + 1):\n                    # append value <= j: any of the j values 1..j, max stays j\n                    # sum over prev_max in [j, j] since appending <=j doesn't increase max past j\n                    # actually: to have current max = j, append value in [1..j]\n                    # contribution from states where max was j (append <=j) => j ways\n                    dp[length + 1][j][cost] = (dp[length + 1][j][cost] + j * dp[length][j][cost]) % MOD\n                    # append value = j where prev_max < j (cost+1)\n                    if cost + 1 <= k:\n                        # sum dp[length][prev_max][cost] for prev_max in [0, j-1]\n                        dp[length + 1][j][cost + 1] = (dp[length + 1][j][cost + 1] + prefix[j]) % MOD\n        return sum(dp[n][j][k] for j in range(1, m + 1)) % MOD\n",
+    "javascript": "var numOfArrays = function(n, m, k) {\n    const MOD = 1000000007n;\n    // dp[length][maxVal][cost]\n    const dp = Array.from({length: n+1}, () =>\n        Array.from({length: m+1}, () => new Array(k+1).fill(0n)));\n    dp[0][0][0] = 1n;\n    for (let length = 0; length < n; length++) {\n        for (let cost = 0; cost <= k; cost++) {\n            // prefix sum over j\n            const prefix = new Array(m + 2).fill(0n);\n            for (let j = 0; j <= m; j++) {\n                prefix[j+1] = (prefix[j] + dp[length][j][cost]) % MOD;\n            }\n            for (let j = 1; j <= m; j++) {\n                // append value <= j, max stays j\n                dp[length+1][j][cost] = (dp[length+1][j][cost] + BigInt(j) * dp[length][j][cost]) % MOD;\n                // append value = j, prev max < j\n                if (cost + 1 <= k) {\n                    dp[length+1][j][cost+1] = (dp[length+1][j][cost+1] + prefix[j]) % MOD;\n                }\n            }\n        }\n    }\n    let ans = 0n;\n    for (let j = 1; j <= m; j++) ans = (ans + dp[n][j][k]) % MOD;\n    return Number(ans);\n};\n"
+  },
+  "complexity": { "time": "O(n*m*k)", "space": "O(n*m*k)" }
+}

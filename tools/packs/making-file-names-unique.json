@@ -1,0 +1,73 @@
+{
+  "slug": "making-file-names-unique",
+  "judge": "exact",
+  "pattern": "Remembering the next suffix to try for every base name, instead of always restarting the search at (1), keeps each folder creation fast even across a long run of repeats.",
+  "hints": [
+    "Track, for every name that has been used (whether typed directly or produced as a suffixed name), that it is now taken.",
+    "When a requested name collides, don't always start the search at (1) - remember the next suffix you expect to need for that base name and resume from there next time.",
+    "The remembered suffix is only a starting guess: it might already be taken too (if that exact suffixed name was typed directly earlier), so keep incrementing until you find one that is free, then save both the new name and the updated next-guess for the base name."
+  ],
+  "constraints": [
+    { "param": "names", "kind": "string[]", "len": [1, 50000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "no collisions at all, every requested name passes through unchanged",
+      "input": [["red", "blue", "green"]]
+    },
+    {
+      "kind": "edge",
+      "description": "a repeated request suffixed twice in a row",
+      "input": [["doc", "doc", "doc"]]
+    },
+    {
+      "kind": "edge",
+      "description": "an explicit suffixed name is typed before the collision that would have produced it",
+      "input": [["log", "log(1)", "log"]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single request never needs a suffix",
+      "input": [["only"]]
+    },
+    {
+      "kind": "trap",
+      "description": "the remembered next-suffix guess collides with a directly-typed name and must keep searching",
+      "input": [["img", "img(1)", "img(2)", "img", "img"]]
+    },
+    {
+      "kind": "trap",
+      "description": "two independent base names must not interfere with each other's suffix counters",
+      "input": [["cat", "dog", "cat", "dog", "cat"]]
+    },
+    {
+      "kind": "trap",
+      "description": "a name that already looks suffixed is itself just a plain string to dedupe",
+      "input": [["a(1)", "a(1)", "a"]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-max count drawn from a small pool, forcing long suffix chains",
+      "seed": 15,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    pool = [f\"name{i}\" for i in range(20)]\n    return [[rng.choice(pool) for _ in range(n)]]\n"
+    },
+    {
+      "description": "mostly-unique names with occasional repeats and pre-typed suffixes",
+      "seed": 16,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    names = []\n    bases = [f\"b{i}\" for i in range(200)]\n    for _ in range(n):\n        base = rng.choice(bases)\n        if rng.random() < 0.3:\n            names.append(f\"{base}({rng.randint(1, 5)})\")\n        else:\n            names.append(base)\n    return [names]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getFolderNames(self, names):\n        used = set()\n        res = []\n        for name in names:\n            if name not in used:\n                res.append(name)\n                used.add(name)\n            else:\n                k = 1\n                while f'{name}({k})' in used:\n                    k += 1\n                new_name = f'{name}({k})'\n                res.append(new_name)\n                used.add(new_name)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def getFolderNames(self, names):\n        used = {}\n        res = []\n        for name in names:\n            if name not in used:\n                res.append(name)\n                used[name] = 1\n            else:\n                k = used[name]\n                new_name = f'{name}({k})'\n                while new_name in used:\n                    k += 1\n                    new_name = f'{name}({k})'\n                res.append(new_name)\n                used[new_name] = 1\n                used[name] = k + 1\n        return res\n",
+    "javascript": "var getFolderNames = function(names) {\n    const used = new Map();\n    const res = [];\n    for (const name of names) {\n        if (!used.has(name)) {\n            res.push(name);\n            used.set(name, 1);\n        } else {\n            let k = used.get(name);\n            let newName = `${name}(${k})`;\n            while (used.has(newName)) {\n                k += 1;\n                newName = `${name}(${k})`;\n            }\n            res.push(newName);\n            used.set(newName, 1);\n            used.set(name, k + 1);\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(total length of names) amortized",
+    "space": "O(n)"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "slug": "find-minimum-time-to-finish-all-jobs",
+  "judge": "exact",
+  "pattern": "Deciding, for every subset of the remaining jobs, the best possible finish time when it is handled by a fixed number of workers turns an assignment search into a bitmask dynamic program over subset sums.",
+  "hints": [
+    "Precompute, for every subset of jobs (as a bitmask), the total time those jobs would take on a single worker -- that's just the sum of the jobs in the subset.",
+    "Think recursively: given a set of jobs still unassigned and w workers left, try every way of carving off a subset for 'the next worker' and recurse on the rest with w-1 workers; the cost of a choice is the max of that subset's sum and whatever the remaining workers need.",
+    "Enumerate only the submasks of the current remaining set (a mask-of-a-mask trick) so you never try the same subset twice, memoize on (remaining set, workers left), and the answer is the value for (all jobs, k workers)."
+  ],
+  "constraints": [
+    { "param": "jobs", "kind": "int[]", "len": [1, 12], "value": [1, 10000000] },
+    { "param": "k", "kind": "int", "value": [1, 12] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three jobs three workers", "input": [[3, 2, 3], 3] },
+    { "kind": "edge", "description": "statement example, five jobs two workers", "input": [[1, 2, 4, 7, 8], 2] },
+    { "kind": "boundary", "description": "single job, single worker", "input": [[7], 1] },
+    { "kind": "boundary", "description": "workers equal job count, every job gets its own worker", "input": [[5, 1, 3, 2], 4] },
+    { "kind": "trap", "description": "single worker must absorb every job", "input": [[4, 4, 4, 4], 1] },
+    { "kind": "trap", "description": "equal jobs split evenly across fewer workers than jobs", "input": [[5, 5, 5, 5, 5, 5], 2] },
+    { "kind": "trap", "description": "one dominant job forces the answer regardless of how the rest are split", "input": [[1, 1, 1, 100], 3] },
+    { "kind": "edge", "description": "mixed small values with more workers than strictly needed", "input": [[2, 3, 1, 4, 1, 2], 4] },
+    { "kind": "boundary", "description": "maximum job value on a single job among small ones", "input": [[10000000, 1, 1, 1], 2] }
+  ],
+  "stress": [
+    {
+      "description": "near-maximum job counts with random values and a random worker count",
+      "seed": 5,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(8, 12)\n    jobs = [rng.randint(1, 10000000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [jobs, k]\n",
+      "note": "n capped at 12 to match the bitmask DP's exponential state space"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTimeRequired(self, jobs, k):\n        n = len(jobs)\n        order = sorted(range(n), key=lambda i: -jobs[i])\n        jobs_sorted = [jobs[i] for i in order]\n        loads = [0] * k\n        best = [sum(jobs)]\n        def backtrack(i):\n            if i == n:\n                m = max(loads)\n                if m < best[0]:\n                    best[0] = m\n                return\n            seen = set()\n            for w in range(k):\n                if loads[w] in seen:\n                    continue\n                seen.add(loads[w])\n                loads[w] += jobs_sorted[i]\n                if loads[w] < best[0]:\n                    backtrack(i + 1)\n                loads[w] -= jobs_sorted[i]\n        backtrack(0)\n        return best[0]\n",
+  "solutions": {
+    "python": "from functools import lru_cache\n\nclass Solution:\n    def minimumTimeRequired(self, jobs, k):\n        n = len(jobs)\n        full = (1 << n) - 1\n        subset_sum = [0] * (1 << n)\n        for mask in range(1, 1 << n):\n            lsb = mask & (-mask)\n            i = lsb.bit_length() - 1\n            subset_sum[mask] = subset_sum[mask ^ lsb] + jobs[i]\n\n        @lru_cache(maxsize=None)\n        def dp(remaining, workers):\n            if remaining == 0:\n                return 0\n            if workers == 1:\n                return subset_sum[remaining]\n            best = subset_sum[remaining]\n            sub = remaining\n            while sub:\n                cost = max(subset_sum[sub], dp(remaining ^ sub, workers - 1))\n                if cost < best:\n                    best = cost\n                sub = (sub - 1) & remaining\n            return best\n\n        result = dp(full, k)\n        dp.cache_clear()\n        return result\n",
+    "javascript": "var minimumTimeRequired = function(jobs, k) {\n    const n = jobs.length;\n    const full = (1 << n) - 1;\n    const subsetSum = new Array(1 << n).fill(0);\n    for (let mask = 1; mask <= full; mask++) {\n        const lsb = mask & (-mask);\n        const i = Math.round(Math.log2(lsb));\n        subsetSum[mask] = subsetSum[mask & (mask - 1)] + jobs[i];\n    }\n    const memo = new Map();\n    function dp(remaining, workers) {\n        if (remaining === 0) return 0;\n        if (workers === 1) return subsetSum[remaining];\n        const key = remaining + ':' + workers;\n        if (memo.has(key)) return memo.get(key);\n        let best = subsetSum[remaining];\n        for (let sub = remaining; sub > 0; sub = (sub - 1) & remaining) {\n            const cost = Math.max(subsetSum[sub], dp(remaining ^ sub, workers - 1));\n            if (cost < best) best = cost;\n        }\n        memo.set(key, best);\n        return best;\n    }\n    return dp(full, k);\n};\n"
+  },
+  "complexity": { "time": "O(3^n) via submask enumeration", "space": "O(2^n * k)" }
+}

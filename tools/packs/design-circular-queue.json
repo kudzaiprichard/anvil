@@ -1,0 +1,40 @@
+{
+  "slug": "design-circular-queue",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A fixed-size ring buffer reuses freed slots by wrapping head and tail indices modulo the capacity, giving constant-time FIFO enqueue and dequeue without shifting elements.",
+  "hints": [
+    "You only need a fixed array of size k plus a couple of integers; nothing has to move when you enqueue or dequeue.",
+    "Track where the queue starts and how many items it holds; the end position is derivable from those two.",
+    "Store a buffer, a head index, and a count. enQueue writes at (head + count) % k when not full; deQueue advances head modulo k and decrements count; Front and Rear read the appropriate slots or return -1 when empty."
+  ],
+  "constraints": [
+    { "param": "k", "kind": "int", "value": [1, 1000] },
+    { "param": "value", "kind": "int", "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "fill the queue, overflow, peek rear, then dequeue and reuse the freed slot",
+      "input": [["MyCircularQueue", "enQueue", "enQueue", "enQueue", "enQueue", "Rear", "isFull", "deQueue", "enQueue", "Rear"], [[3], [1], [2], [3], [4], [], [], [], [4], []]] },
+    { "kind": "boundary", "description": "capacity one toggles between empty and full on each operation",
+      "input": [["MyCircularQueue", "isEmpty", "enQueue", "isFull", "Front", "Rear", "deQueue", "isEmpty", "enQueue", "Front"], [[1], [], [7], [], [], [], [], [], [9], []]] },
+    { "kind": "trap", "description": "Front and Rear on an empty queue return -1, and deQueue on empty fails",
+      "input": [["MyCircularQueue", "deQueue", "Front", "Rear", "isEmpty"], [[2], [], [], [], []]] },
+    { "kind": "trap", "description": "wrap-around: many enqueue/dequeue cycles must keep head and tail consistent past the array end",
+      "input": [["MyCircularQueue", "enQueue", "enQueue", "deQueue", "enQueue", "deQueue", "enQueue", "Front", "Rear"], [[2], [10], [20], [], [30], [], [40], [], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of all operations against a small capacity",
+      "seed": 41,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    cap = rng.randint(1, 6)\n    ops = ['MyCircularQueue']\n    args = [[cap]]\n    methods = ['enQueue', 'deQueue', 'Front', 'Rear', 'isEmpty', 'isFull']\n    for _ in range(max(1, size)):\n        m = rng.choice(methods)\n        if m == 'enQueue':\n            ops.append(m); args.append([rng.randint(0, 1000)])\n        else:\n            ops.append(m); args.append([])\n    return [ops, args]\n",
+      "note": "small capacity forces frequent full/empty boundaries and wrap-around"
+    }
+  ],
+  "oracle_python": "class MyCircularQueue:\n    def __init__(self, k):\n        self.cap = k\n        self.data = []\n    def enQueue(self, value):\n        if len(self.data) >= self.cap:\n            return False\n        self.data.append(value)\n        return True\n    def deQueue(self):\n        if not self.data:\n            return False\n        self.data.pop(0)\n        return True\n    def Front(self):\n        return self.data[0] if self.data else -1\n    def Rear(self):\n        return self.data[-1] if self.data else -1\n    def isEmpty(self):\n        return len(self.data) == 0\n    def isFull(self):\n        return len(self.data) == self.cap\n",
+  "solutions": {
+    "python": "class MyCircularQueue:\n    def __init__(self, k):\n        self.cap = k\n        self.buf = [0] * k\n        self.head = 0\n        self.count = 0\n    def enQueue(self, value):\n        if self.count == self.cap:\n            return False\n        self.buf[(self.head + self.count) % self.cap] = value\n        self.count += 1\n        return True\n    def deQueue(self):\n        if self.count == 0:\n            return False\n        self.head = (self.head + 1) % self.cap\n        self.count -= 1\n        return True\n    def Front(self):\n        if self.count == 0:\n            return -1\n        return self.buf[self.head]\n    def Rear(self):\n        if self.count == 0:\n            return -1\n        return self.buf[(self.head + self.count - 1) % self.cap]\n    def isEmpty(self):\n        return self.count == 0\n    def isFull(self):\n        return self.count == self.cap\n",
+    "javascript": "class MyCircularQueue {\n    constructor(k) {\n        this.cap = k;\n        this.buf = new Array(k).fill(0);\n        this.head = 0;\n        this.count = 0;\n    }\n    enQueue(value) {\n        if (this.count === this.cap) return false;\n        this.buf[(this.head + this.count) % this.cap] = value;\n        this.count += 1;\n        return true;\n    }\n    deQueue() {\n        if (this.count === 0) return false;\n        this.head = (this.head + 1) % this.cap;\n        this.count -= 1;\n        return true;\n    }\n    Front() {\n        if (this.count === 0) return -1;\n        return this.buf[this.head];\n    }\n    Rear() {\n        if (this.count === 0) return -1;\n        return this.buf[(this.head + this.count - 1) % this.cap];\n    }\n    isEmpty() {\n        return this.count === 0;\n    }\n    isFull() {\n        return this.count === this.cap;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(k)" }
+}

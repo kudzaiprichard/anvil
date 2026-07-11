@@ -1,0 +1,230 @@
+{
+  "slug": "maximum-path-quality-of-a-graph",
+  "judge": "exact",
+  "pattern": "Because every edge costs at least 10 seconds out of a small time budget, a path can only be a handful of edges long, so backtracking from node 0 while tracking which nodes have been visited (to avoid double-counting value) can afford to explore every such path.",
+  "hints": [
+    "The time budget and minimum edge weight together bound how many edges a path can ever use, so a full depth-first search from node 0 is cheap enough despite the graph having up to 1000 nodes.",
+    "Track how many times the current path has visited each node so a value is only added to the running quality the first time its node is reached, and undo that bookkeeping on backtrack.",
+    "Only update the best answer when the search is standing back at node 0, since a valid path must start and end there; a path that never returns doesn't count."
+  ],
+  "constraints": [
+    {
+      "param": "values",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        0,
+        100000000
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        0,
+        2000
+      ],
+      "value": [
+        0,
+        1000
+      ]
+    },
+    {
+      "param": "maxTime",
+      "kind": "int",
+      "value": [
+        10,
+        100
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "small star-shaped graph with room to visit every branch and return",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          [
+            0,
+            1,
+            10
+          ],
+          [
+            1,
+            2,
+            10
+          ],
+          [
+            0,
+            3,
+            10
+          ]
+        ],
+        40
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "simple three-node path graph",
+      "input": [
+        [
+          10,
+          20,
+          30
+        ],
+        [
+          [
+            0,
+            1,
+            10
+          ],
+          [
+            1,
+            2,
+            10
+          ]
+        ],
+        20
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node, no edges at all",
+      "input": [
+        [
+          5
+        ],
+        [],
+        10
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum time budget exactly matching one edge",
+      "input": [
+        [
+          1,
+          100
+        ],
+        [
+          [
+            0,
+            1,
+            10
+          ]
+        ],
+        10
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a node unreachable within the graph must never contribute",
+      "input": [
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          [
+            0,
+            1,
+            10
+          ]
+        ],
+        50
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a triangle whose full loop back to 0 doesn't fit the time budget",
+      "input": [
+        [
+          5,
+          5,
+          5
+        ],
+        [
+          [
+            0,
+            1,
+            10
+          ],
+          [
+            1,
+            2,
+            10
+          ],
+          [
+            2,
+            0,
+            10
+          ]
+        ],
+        25
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "multiple routes to the same high-value node, must not double count it",
+      "input": [
+        [
+          100,
+          1,
+          1,
+          1
+        ],
+        [
+          [
+            0,
+            1,
+            10
+          ],
+          [
+            0,
+            2,
+            10
+          ],
+          [
+            0,
+            3,
+            10
+          ],
+          [
+            1,
+            2,
+            10
+          ]
+        ],
+        40
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small random graphs (bounded node count and degree) with random weights and time budgets",
+      "seed": 131,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 30))\n    max_time = rng.randint(10, 100)\n    values = [rng.randint(0, 1000) for _ in range(n)]\n    degree = [0] * n\n    edges = []\n    edge_set = set()\n    attempts = 0\n    max_edges = min(2000, n * 2)\n    while len(edges) < max_edges and attempts < max_edges * 10:\n        attempts += 1\n        u = rng.randint(0, n - 1)\n        v = rng.randint(0, n - 1)\n        if u == v or degree[u] >= 4 or degree[v] >= 4:\n            continue\n        key = (min(u, v), max(u, v))\n        if key in edge_set:\n            continue\n        edge_set.add(key)\n        t = rng.randint(10, 100)\n        edges.append([key[0], key[1], t])\n        degree[u] += 1\n        degree[v] += 1\n    return [values, edges, max_time]\n",
+      "note": "node count kept modest (<=30) so the exhaustive DFS oracle and solution both stay fast regardless of branching"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximalPathQuality(self, values, edges, maxTime):\n        n = len(values)\n        graph = [[] for _ in range(n)]\n        for u, v, t in edges:\n            graph[u].append((v, t))\n            graph[v].append((u, t))\n        best = values[0]\n        stack = [(0, maxTime, values[0], frozenset({0}))]\n        while stack:\n            node, time_left, quality, visited = stack.pop()\n            if node == 0:\n                best = max(best, quality)\n            for nxt, t in graph[node]:\n                if t <= time_left:\n                    if nxt in visited:\n                        stack.append((nxt, time_left - t, quality, visited))\n                    else:\n                        stack.append((nxt, time_left - t, quality + values[nxt], visited | {nxt}))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximalPathQuality(self, values, edges, maxTime):\n        n = len(values)\n        graph = [[] for _ in range(n)]\n        for u, v, t in edges:\n            graph[u].append((v, t))\n            graph[v].append((u, t))\n        visited = [0] * n\n        visited[0] = 1\n        best = values[0]\n\n        def dfs(node, time_left, quality):\n            nonlocal best\n            if node == 0:\n                best = max(best, quality)\n            for nxt, t in graph[node]:\n                if t <= time_left:\n                    first_visit = visited[nxt] == 0\n                    visited[nxt] += 1\n                    dfs(nxt, time_left - t, quality + (values[nxt] if first_visit else 0))\n                    visited[nxt] -= 1\n\n        dfs(0, maxTime, values[0])\n        return best\n",
+    "javascript": "var maximalPathQuality = function(values, edges, maxTime) {\n    const n = values.length;\n    const graph = Array.from({ length: n }, () => []);\n    for (const [u, v, t] of edges) {\n        graph[u].push([v, t]);\n        graph[v].push([u, t]);\n    }\n    const visited = new Array(n).fill(0);\n    visited[0] = 1;\n    let best = values[0];\n\n    function dfs(node, timeLeft, quality) {\n        if (node === 0) best = Math.max(best, quality);\n        for (const [nxt, t] of graph[node]) {\n            if (t <= timeLeft) {\n                const firstVisit = visited[nxt] === 0;\n                visited[nxt]++;\n                dfs(nxt, timeLeft - t, quality + (firstVisit ? values[nxt] : 0));\n                visited[nxt]--;\n            }\n        }\n    }\n\n    dfs(0, maxTime, values[0]);\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(4^(maxTime/10))",
+    "space": "O(n + maxTime/10)"
+  }
+}

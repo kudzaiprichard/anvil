@@ -1,0 +1,37 @@
+{
+  "slug": "make-the-xor-of-all-segments-equal-to-zero",
+  "judge": "exact",
+  "pattern": "Every length-k window having xor zero forces the array to be periodic with period k and one period to xor to zero, reducing the task to a column-wise knapsack over achievable xor values.",
+  "hints": [
+    "Two adjacent windows of size k differ by one element entering and one leaving, so all windows share the same xor only if positions k apart are equal.",
+    "Group the indices by their remainder modulo k into k columns; within a column every value should become the same, and the k chosen column values must xor to zero.",
+    "Run a DP over columns where state is the running xor of chosen column values and the cost is how many entries you must change; combine a per-column frequency table with the best result so far to fill in the cheapest assignment."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 2000], "value": [0, 1023] },
+    { "param": "k", "kind": "int", "value": [1, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "k equals one, every element must become zero except keep the most frequent", "input": [[1, 2, 0, 3, 0], 1] },
+    { "kind": "edge", "description": "period three needs three changes", "input": [[3, 4, 5, 2, 1, 7, 3, 4, 7], 3] },
+    { "kind": "edge", "description": "another period three case", "input": [[1, 2, 4, 1, 2, 5, 1, 2, 6], 3] },
+    { "kind": "boundary", "description": "single element with k one already xors to zero only if zero", "input": [[0], 1] },
+    { "kind": "trap", "description": "single nonzero element must change to zero", "input": [[5], 1] },
+    { "kind": "trap", "description": "already periodic and xor zero needs no change", "input": [[1, 2, 3, 1, 2, 3], 3] },
+    { "kind": "edge", "description": "k equals length, only need the whole xor to be zero", "input": [[1, 2, 3], 3] }
+  ],
+  "stress": [
+    {
+      "description": "small array over the full value domain with a moderate period",
+      "seed": 17,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    nums = [rng.randrange(0, 1024) for _ in range(n)]\n    k = rng.randrange(1, n + 1)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "from collections import Counter\nclass Solution:\n    def minChanges(self, nums, k):\n        MAXX = 1024\n        n = len(nums)\n        cols = [Counter() for _ in range(k)]\n        sizes = [0] * k\n        for i, v in enumerate(nums):\n            cols[i % k][v] += 1\n            sizes[i % k] += 1\n        INF = float('inf')\n        dp = [INF] * MAXX\n        dp[0] = 0\n        for j in range(k):\n            ndp = [INF] * MAXX\n            for x in range(MAXX):\n                if dp[x] == INF:\n                    continue\n                for val, cnt in cols[j].items():\n                    nx = x ^ val\n                    cost = dp[x] + (sizes[j] - cnt)\n                    if cost < ndp[nx]:\n                        ndp[nx] = cost\n                base = dp[x] + sizes[j]\n                for nx in range(MAXX):\n                    if base < ndp[nx]:\n                        ndp[nx] = base\n            dp = ndp\n        return dp[0]\n",
+  "solutions": {
+    "python": "from collections import Counter\nclass Solution:\n    def minChanges(self, nums, k):\n        MAXX = 1024\n        n = len(nums)\n        cols = [Counter() for _ in range(k)]\n        sizes = [0] * k\n        for i, v in enumerate(nums):\n            cols[i % k][v] += 1\n            sizes[i % k] += 1\n        INF = float('inf')\n        dp = [INF] * MAXX\n        dp[0] = 0\n        for j in range(k):\n            best = min(dp)\n            ndp = [best + sizes[j]] * MAXX\n            for x in range(MAXX):\n                if dp[x] == INF:\n                    continue\n                for val, cnt in cols[j].items():\n                    nx = x ^ val\n                    cost = dp[x] + (sizes[j] - cnt)\n                    if cost < ndp[nx]:\n                        ndp[nx] = cost\n            dp = ndp\n        return dp[0]\n",
+    "javascript": "var minChanges = function(nums, k) {\n    const MAXX = 1024;\n    const n = nums.length;\n    const cols = Array.from({length: k}, () => new Map());\n    const sizes = new Array(k).fill(0);\n    for (let i = 0; i < n; i++) {\n        const c = cols[i % k];\n        c.set(nums[i], (c.get(nums[i]) || 0) + 1);\n        sizes[i % k]++;\n    }\n    const INF = Infinity;\n    let dp = new Array(MAXX).fill(INF);\n    dp[0] = 0;\n    for (let j = 0; j < k; j++) {\n        let best = INF;\n        for (let x = 0; x < MAXX; x++) if (dp[x] < best) best = dp[x];\n        const ndp = new Array(MAXX).fill(best + sizes[j]);\n        for (let x = 0; x < MAXX; x++) {\n            if (dp[x] === INF) continue;\n            for (const [val, cnt] of cols[j]) {\n                const nx = x ^ val;\n                const cost = dp[x] + (sizes[j] - cnt);\n                if (cost < ndp[nx]) ndp[nx] = cost;\n            }\n        }\n        dp = ndp;\n    }\n    return dp[0];\n};\n"
+  },
+  "complexity": { "time": "O(k * 1024 + n)", "space": "O(1024)" }
+}

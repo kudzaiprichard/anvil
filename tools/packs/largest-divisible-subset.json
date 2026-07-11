@@ -1,0 +1,40 @@
+{
+  "slug": "largest-divisible-subset",
+  "judge": { "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    nums = args[0]\n    avail = list(nums)\n    if not isinstance(output, list):\n        return False\n    # every element must come from nums (distinct values, used at most once)\n    pool = {}\n    for v in nums:\n        pool[v] = pool.get(v, 0) + 1\n    for v in output:\n        if pool.get(v, 0) <= 0:\n            return False\n        pool[v] -= 1\n    # pairwise divisibility\n    s = sorted(output)\n    for i in range(1, len(s)):\n        if s[i] % s[i - 1] != 0:\n            return False\n    # completeness: size must equal the true maximum\n    arr = sorted(set(nums))\n    n = len(arr)\n    if n == 0:\n        return len(output) == 0\n    dp = [1] * n\n    for i in range(n):\n        for j in range(i):\n            if arr[i] % arr[j] == 0 and dp[j] + 1 > dp[i]:\n                dp[i] = dp[j] + 1\n    best = max(dp)\n    return len(output) == best\n",
+    "validator_javascript": "function validate(args, output) {\n    const nums = args[0];\n    if (!Array.isArray(output)) return false;\n    const pool = new Map();\n    for (const v of nums) pool.set(v, (pool.get(v) || 0) + 1);\n    for (const v of output) {\n        const c = pool.get(v) || 0;\n        if (c <= 0) return false;\n        pool.set(v, c - 1);\n    }\n    const s = output.slice().sort((a, b) => a - b);\n    for (let i = 1; i < s.length; i++) {\n        if (s[i] % s[i - 1] !== 0) return false;\n    }\n    const arr = Array.from(new Set(nums)).sort((a, b) => a - b);\n    const n = arr.length;\n    if (n === 0) return output.length === 0;\n    const dp = new Array(n).fill(1);\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < i; j++) {\n            if (arr[i] % arr[j] === 0 && dp[j] + 1 > dp[i]) dp[i] = dp[j] + 1;\n        }\n    }\n    let best = 0;\n    for (const d of dp) if (d > best) best = d;\n    return output.length === best;\n}\n"
+  },
+  "pattern": "Sorting the numbers turns divisibility into a one-directional chain, so the largest mutually divisible subset is a longest chain found by dynamic programming with parent pointers that reconstruct the actual elements.",
+  "hints": [
+    "If the values are sorted, a smaller number can only divide a larger one, so the subset you want is a chain where each element divides the next.",
+    "This is a longest-increasing-subsequence style problem: dp[i] is the longest divisible chain ending at the i-th sorted value.",
+    "While computing dp[i] over earlier indices whose value divides nums[i], remember the predecessor index so you can walk the parent links back from the best endpoint to rebuild the subset."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 1000], "value": [1, 2000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small set with more than one valid maximal chain", "input": [[1, 2, 3]] },
+    { "kind": "edge", "description": "a single long chain of powers of two", "input": [[1, 2, 4, 8]] },
+    { "kind": "boundary", "description": "single element is its own subset", "input": [[7]] },
+    { "kind": "trap", "description": "pairwise coprime values, no two divide so answer has size one", "input": [[3, 5, 7, 11]] },
+    { "kind": "trap", "description": "unsorted input with a chain hidden across positions", "input": [[8, 1, 16, 4, 2]] },
+    { "kind": "edge", "description": "two disjoint chains of equal length, either is acceptable", "input": [[2, 4, 3, 9]] },
+    { "kind": "trap", "description": "a large branching factor where a shorter branch tempts a wrong pick", "input": [[1, 2, 4, 8, 3, 9, 27]] }
+  ],
+  "stress": [
+    {
+      "description": "construct a guaranteed long divisible chain mixed with distractor values",
+      "seed": 21,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    chain = [1]\n    while chain[-1] * 2 <= 2000000000 and len(chain) < 25:\n        chain.append(chain[-1] * rng.choice([2, 3]))\n    vals = set(chain)\n    while len(vals) < min(size, 60):\n        vals.add(rng.randint(1, 2000000000))\n    out = list(vals)\n    rng.shuffle(out)\n    return [out]\n",
+    "note": "distinct values required; a long power-chain seeds a clear maximum the references must all reconstruct identically"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestDivisibleSubset(self, nums):\n        arr = sorted(nums)\n        n = len(arr)\n        if n == 0:\n            return []\n        best_chain = []\n        def dfs(idx, chain):\n            nonlocal best_chain\n            if len(chain) > len(best_chain):\n                best_chain = chain[:]\n            for j in range(idx, n):\n                if not chain or arr[j] % chain[-1] == 0:\n                    chain.append(arr[j])\n                    dfs(j + 1, chain)\n                    chain.pop()\n        # bounded brute search is only safe for small inputs; use DP reconstruction instead\n        dp = [1] * n\n        parent = [-1] * n\n        for i in range(n):\n            for j in range(i):\n                if arr[i] % arr[j] == 0 and dp[j] + 1 > dp[i]:\n                    dp[i] = dp[j] + 1\n                    parent[i] = j\n        end = max(range(n), key=lambda i: dp[i])\n        res = []\n        while end != -1:\n            res.append(arr[end])\n            end = parent[end]\n        res.reverse()\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestDivisibleSubset(self, nums):\n        arr = sorted(nums)\n        n = len(arr)\n        if n == 0:\n            return []\n        dp = [1] * n\n        parent = [-1] * n\n        best = 0\n        for i in range(n):\n            for j in range(i):\n                if arr[i] % arr[j] == 0 and dp[j] + 1 > dp[i]:\n                    dp[i] = dp[j] + 1\n                    parent[i] = j\n            if dp[i] > dp[best]:\n                best = i\n        res = []\n        k = best\n        while k != -1:\n            res.append(arr[k])\n            k = parent[k]\n        res.reverse()\n        return res\n",
+    "javascript": "var largestDivisibleSubset = function(nums) {\n    const arr = nums.slice().sort((a, b) => a - b);\n    const n = arr.length;\n    if (n === 0) return [];\n    const dp = new Array(n).fill(1);\n    const parent = new Array(n).fill(-1);\n    let best = 0;\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < i; j++) {\n            if (arr[i] % arr[j] === 0 && dp[j] + 1 > dp[i]) {\n                dp[i] = dp[j] + 1;\n                parent[i] = j;\n            }\n        }\n        if (dp[i] > dp[best]) best = i;\n    }\n    const res = [];\n    let k = best;\n    while (k !== -1) {\n        res.push(arr[k]);\n        k = parent[k];\n    }\n    res.reverse();\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

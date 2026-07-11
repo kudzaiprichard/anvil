@@ -1,0 +1,43 @@
+{
+  "slug": "find-median-from-data-stream",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Splitting the stream into a max-heap of the lower half and a min-heap of the upper half keeps the median at the heap tops, so each insert is logarithmic and each query is constant.",
+  "hints": [
+    "You never need the whole sorted order — only the one or two values sitting in the middle.",
+    "Keep the smaller half and the larger half in two separate balanced collections so the boundary between them is always reachable in O(1).",
+    "Use a max-heap for the lower half and a min-heap for the upper half; after each insert rebalance so their sizes differ by at most one, then read the median from one top or the average of both."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "int", "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the statement's own sequence: median of one, then average of two, then middle of three",
+      "input": [["MedianFinder", "addNum", "addNum", "findMedian", "addNum", "findMedian"], [[], [1], [2], [], [3], []]] },
+    { "kind": "boundary", "description": "a single element is its own median",
+      "input": [["MedianFinder", "addNum", "findMedian"], [[], [5], []]] },
+    { "kind": "trap", "description": "two equal values average to a whole number, returned as an int not a float",
+      "input": [["MedianFinder", "addNum", "addNum", "findMedian"], [[], [4], [4], []]] },
+    { "kind": "trap", "description": "two values one apart give a .5 median",
+      "input": [["MedianFinder", "addNum", "addNum", "findMedian"], [[], [1], [2], []]] },
+    { "kind": "edge", "description": "negatives and out-of-order inserts still find the true middle",
+      "input": [["MedianFinder", "addNum", "addNum", "addNum", "addNum", "findMedian"], [[], [-5], [10], [-1], [3], []]] },
+    { "kind": "trap", "description": "duplicates clustered around the median",
+      "input": [["MedianFinder", "addNum", "addNum", "addNum", "addNum", "addNum", "findMedian"], [[], [2], [2], [2], [2], [2], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long interleaved insert/query stream over a small integer range so many medians are whole or half",
+      "seed": 11,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    ops = ['MedianFinder']\n    args = [[]]\n    count = 0\n    for _ in range(max(1, size)):\n        if count == 0 or rng.random() < 0.6:\n            ops.append('addNum'); args.append([rng.randint(-50, 50)]); count += 1\n        else:\n            ops.append('findMedian'); args.append([])\n    return [ops, args]\n",
+      "note": "small value range keeps medians exact whole or half values; queries only after at least one insert"
+    }
+  ],
+  "oracle_python": "class MedianFinder:\n    def __init__(self):\n        self.a = []\n    def addNum(self, num):\n        self.a.append(num)\n    def findMedian(self):\n        s = sorted(self.a)\n        n = len(s)\n        if n % 2 == 1:\n            return s[n // 2]\n        total = s[n // 2 - 1] + s[n // 2]\n        return total // 2 if total % 2 == 0 else total / 2\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass MedianFinder:\n    def __init__(self):\n        self.lo = []\n        self.hi = []\n    def addNum(self, num):\n        heapq.heappush(self.lo, -num)\n        heapq.heappush(self.hi, -heapq.heappop(self.lo))\n        if len(self.hi) > len(self.lo):\n            heapq.heappush(self.lo, -heapq.heappop(self.hi))\n    def findMedian(self):\n        if len(self.lo) > len(self.hi):\n            return -self.lo[0]\n        total = -self.lo[0] + self.hi[0]\n        return total // 2 if total % 2 == 0 else total / 2\n",
+    "javascript": "class MedianFinder {\n    constructor() {\n        this.lo = new MaxHeap();\n        this.hi = new MinHeap();\n    }\n    addNum(num) {\n        this.lo.push(num);\n        this.hi.push(this.lo.pop());\n        if (this.hi.size() > this.lo.size()) {\n            this.lo.push(this.hi.pop());\n        }\n    }\n    findMedian() {\n        if (this.lo.size() > this.hi.size()) {\n            return this.lo.peek();\n        }\n        const total = this.lo.peek() + this.hi.peek();\n        return total / 2;\n    }\n}\n\nclass Heap {\n    constructor(cmp) { this.h = []; this.cmp = cmp; }\n    size() { return this.h.length; }\n    peek() { return this.h[0]; }\n    push(v) {\n        const h = this.h;\n        h.push(v);\n        let i = h.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (this.cmp(h[i], h[p]) < 0) { [h[i], h[p]] = [h[p], h[i]]; i = p; } else break;\n        }\n    }\n    pop() {\n        const h = this.h;\n        const top = h[0];\n        const last = h.pop();\n        if (h.length > 0) {\n            h[0] = last;\n            let i = 0;\n            const n = h.length;\n            while (true) {\n                let s = i;\n                const l = 2 * i + 1, r = 2 * i + 2;\n                if (l < n && this.cmp(h[l], h[s]) < 0) s = l;\n                if (r < n && this.cmp(h[r], h[s]) < 0) s = r;\n                if (s === i) break;\n                [h[i], h[s]] = [h[s], h[i]]; i = s;\n            }\n        }\n        return top;\n    }\n}\n\nclass MinHeap extends Heap { constructor() { super((a, b) => a - b); } }\nclass MaxHeap extends Heap { constructor() { super((a, b) => b - a); } }\n"
+  },
+  "complexity": { "time": "O(log n) per addNum, O(1) per findMedian", "space": "O(n)" }
+}

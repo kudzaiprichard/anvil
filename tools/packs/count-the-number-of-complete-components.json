@@ -1,0 +1,205 @@
+{
+  "slug": "count-the-number-of-complete-components",
+  "judge": "exact",
+  "pattern": "Union-Find groups vertices into components in near-linear time, and a component is complete exactly when its edge count matches the maximum possible for its size.",
+  "hints": [
+    "Union every edge's two endpoints with a disjoint-set (union-find) structure so each vertex ends up tagged with its component's root.",
+    "While you union, or in a second pass, tally two numbers per root: how many vertices belong to that component and how many edges landed inside it.",
+    "A component with v vertices is complete exactly when its edge count equals v*(v-1)/2 -- the count of all possible pairs -- so compare that formula against your tally for every root."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        50
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        0,
+        1225
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "six vertices, three complete components",
+      "input": [
+        6,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "six vertices, one incomplete component",
+      "input": [
+        6,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            3,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single vertex, no edges -- trivially complete",
+      "input": [
+        1,
+        []
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two isolated vertices, no edges",
+      "input": [
+        2,
+        []
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "fully connected component using every possible edge",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a path graph, never complete",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one complete pair plus several isolated vertices",
+      "input": [
+        5,
+        [
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a complete triangle plus one isolated vertex",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random graphs with a random subset of all possible edges",
+      "seed": 17,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 50))\n    all_pairs = [(a, b) for a in range(n) for b in range(a + 1, n)]\n    rng.shuffle(all_pairs)\n    k = rng.randint(0, len(all_pairs))\n    edges = [[a, b] for a, b in all_pairs[:k]]\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countCompleteComponents(self, n, edges):\n        adj = [set() for _ in range(n)]\n        for a, b in edges:\n            adj[a].add(b)\n            adj[b].add(a)\n        visited = [False] * n\n        count = 0\n        for i in range(n):\n            if visited[i]:\n                continue\n            comp = []\n            stack = [i]\n            visited[i] = True\n            while stack:\n                u = stack.pop()\n                comp.append(u)\n                for v in adj[u]:\n                    if not visited[v]:\n                        visited[v] = True\n                        stack.append(v)\n            ok = True\n            for x in comp:\n                for y in comp:\n                    if x != y and y not in adj[x]:\n                        ok = False\n            if ok:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countCompleteComponents(self, n, edges):\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for a, b in edges:\n            union(a, b)\n        verts = {}\n        edgs = {}\n        for i in range(n):\n            r = find(i)\n            verts[r] = verts.get(r, 0) + 1\n        for a, b in edges:\n            r = find(a)\n            edgs[r] = edgs.get(r, 0) + 1\n        count = 0\n        for root, v in verts.items():\n            if edgs.get(root, 0) == v * (v - 1) // 2:\n                count += 1\n        return count\n",
+    "javascript": "var countCompleteComponents = function(n, edges) {\n    const parent = Array.from({ length: n }, (_, i) => i);\n    function find(x) {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    }\n    function union(a, b) {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent[ra] = rb;\n    }\n    for (const [a, b] of edges) union(a, b);\n    const verts = new Map();\n    const edgs = new Map();\n    for (let i = 0; i < n; i++) {\n        const r = find(i);\n        verts.set(r, (verts.get(r) || 0) + 1);\n    }\n    for (const [a] of edges) {\n        const r = find(a);\n        edgs.set(r, (edgs.get(r) || 0) + 1);\n    }\n    let count = 0;\n    for (const [root, v] of verts) {\n        if ((edgs.get(root) || 0) === (v * (v - 1)) / 2) count++;\n    }\n    return count;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + e)",
+    "space": "O(n)"
+  }
+}

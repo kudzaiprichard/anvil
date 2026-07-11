@@ -1,0 +1,38 @@
+{
+  "slug": "number-of-ways-to-arrive-at-destination",
+  "judge": "exact",
+  "pattern": "Run Dijkstra from the start while carrying a count of shortest paths: relaxing to a strictly shorter distance resets the count, and tying the best distance adds to it.",
+  "hints": [
+    "You need both the shortest travel time to the destination and how many distinct routes achieve it.",
+    "Augment shortest-path search with a parallel count array; when you settle a node its count is final.",
+    "During each relaxation: if the new distance beats the stored one, copy the predecessor's count; if it equals it, add the predecessor's count modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 200] },
+    { "param": "roads", "kind": "int[][]", "len": [0, 19900] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "four shortest routes of equal time", "input": [7, [[0, 6, 7], [0, 1, 2], [1, 2, 3], [1, 3, 3], [6, 3, 3], [3, 5, 1], [6, 5, 1], [2, 5, 1], [0, 4, 5], [4, 6, 2]]] },
+    { "kind": "boundary", "description": "single direct road", "input": [2, [[1, 0, 10]]] },
+    { "kind": "trap", "description": "two equal-length parallel detours", "input": [3, [[0, 1, 1], [1, 2, 1], [0, 2, 2]]] },
+    { "kind": "trap", "description": "a longer alternative does not add to the count", "input": [3, [[0, 1, 1], [1, 2, 1], [0, 2, 5]]] },
+    { "kind": "edge", "description": "diamond with two shortest paths", "input": [4, [[0, 1, 1], [0, 2, 1], [1, 3, 1], [2, 3, 1]]] },
+    { "kind": "boundary", "description": "single node is its own destination", "input": [1, []] },
+    { "kind": "edge", "description": "chain has exactly one path", "input": [4, [[0, 1, 1], [1, 2, 1], [2, 3, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random connected weighted graphs forming a spanning chain plus extra edges",
+      "seed": 83,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    edges = []\n    seen = set()\n    perm = list(range(n))\n    rng.shuffle(perm)\n    for i in range(n - 1):\n        u, v = perm[i], perm[i + 1]\n        key = (min(u, v), max(u, v))\n        seen.add(key)\n        edges.append([u, v, rng.randint(1, 1000)])\n    extra = rng.randint(0, min(n * 2, 300))\n    for _ in range(extra):\n        u = rng.randrange(n)\n        v = rng.randrange(n)\n        if u == v:\n            continue\n        key = (min(u, v), max(u, v))\n        if key in seen:\n            continue\n        seen.add(key)\n        edges.append([u, v, rng.randint(1, 1000)])\n    return [n, edges]\n",
+      "note": "spanning chain guarantees connectivity as required"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPaths(self, n, roads):\n        MOD = 10**9 + 7\n        INF = float('inf')\n        adj = [[] for _ in range(n)]\n        for u, v, w in roads:\n            adj[u].append((v, w))\n            adj[v].append((u, w))\n        dist = [INF] * n\n        ways = [0] * n\n        done = [False] * n\n        dist[0] = 0\n        ways[0] = 1\n        for _ in range(n):\n            u = -1\n            best = INF\n            for i in range(n):\n                if not done[i] and dist[i] < best:\n                    best = dist[i]\n                    u = i\n            if u == -1:\n                break\n            done[u] = True\n            for v, w in adj[u]:\n                nd = dist[u] + w\n                if nd < dist[v]:\n                    dist[v] = nd\n                    ways[v] = ways[u]\n                elif nd == dist[v]:\n                    ways[v] = (ways[v] + ways[u]) % MOD\n        return ways[n - 1] % MOD\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def countPaths(self, n, roads):\n        MOD = 10**9 + 7\n        INF = float('inf')\n        adj = [[] for _ in range(n)]\n        for u, v, w in roads:\n            adj[u].append((v, w))\n            adj[v].append((u, w))\n        dist = [INF] * n\n        ways = [0] * n\n        dist[0] = 0\n        ways[0] = 1\n        pq = [(0, 0)]\n        while pq:\n            d, u = heapq.heappop(pq)\n            if d > dist[u]:\n                continue\n            for v, w in adj[u]:\n                nd = d + w\n                if nd < dist[v]:\n                    dist[v] = nd\n                    ways[v] = ways[u]\n                    heapq.heappush(pq, (nd, v))\n                elif nd == dist[v]:\n                    ways[v] = (ways[v] + ways[u]) % MOD\n        return ways[n - 1] % MOD\n",
+    "javascript": "var countPaths = function(n, roads) {\n    const MOD = 1000000007n;\n    const INF = Infinity;\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v, w] of roads) {\n        adj[u].push([v, w]);\n        adj[v].push([u, w]);\n    }\n    const dist = new Array(n).fill(INF);\n    const ways = new Array(n).fill(0n);\n    const done = new Array(n).fill(false);\n    dist[0] = 0;\n    ways[0] = 1n;\n    for (let it = 0; it < n; it++) {\n        let u = -1, best = INF;\n        for (let i = 0; i < n; i++) {\n            if (!done[i] && dist[i] < best) { best = dist[i]; u = i; }\n        }\n        if (u === -1) break;\n        done[u] = true;\n        for (const [v, w] of adj[u]) {\n            const nd = dist[u] + w;\n            if (nd < dist[v]) { dist[v] = nd; ways[v] = ways[u]; }\n            else if (nd === dist[v]) ways[v] = (ways[v] + ways[u]) % MOD;\n        }\n    }\n    return Number(ways[n - 1] % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n + e)" }
+}

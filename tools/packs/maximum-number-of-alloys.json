@@ -1,0 +1,41 @@
+{
+  "slug": "maximum-number-of-alloys",
+  "judge": "exact",
+  "pattern": "For a single machine, affordability is monotonic in the quantity you attempt -- if x alloys fit the budget then so does any smaller x -- so binary search the largest affordable quantity per machine instead of simulating purchases one unit at a time.",
+  "hints": [
+    "Every machine can be scored on its own: work out the most alloys that single machine could produce, then take the best machine's score as the final answer.",
+    "For one machine, if you can afford to build x alloys you can always afford fewer, so the set of affordable quantities is an unbroken prefix -- that shape is what makes binary search over the quantity valid.",
+    "To price a candidate quantity x for a machine, only pay for the metal you don't already have in stock: for each metal type sum max(0, needed - stock) times its unit cost, and compare that total against the budget."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "k", "kind": "int", "value": [1, 100] },
+    { "param": "budget", "kind": "int", "value": [0, 100000000] },
+    { "param": "composition", "kind": "int[][]", "len": [1, 100], "value": [1, 100] },
+    { "param": "stock", "kind": "int[]", "len": [1, 100], "value": [0, 100000000] },
+    { "param": "cost", "kind": "int[]", "len": [1, 100], "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "zero budget but existing stock alone already covers several alloys", "input": [2, 1, 0, [[1, 1]], [5, 5], [3, 3]] },
+    { "kind": "edge", "description": "no starting stock at all, every unit must be purchased", "input": [1, 1, 100, [[5]], [0], [2]] },
+    { "kind": "boundary", "description": "zero budget and zero stock together yield nothing", "input": [2, 1, 0, [[1, 2]], [0, 0], [1, 1]] },
+    { "kind": "boundary", "description": "a single metal and a single machine, the smallest possible shape", "input": [1, 1, 0, [[1]], [1], [1]] },
+    { "kind": "trap", "description": "two machines where uneven stock across metals flips which machine is actually better", "input": [2, 2, 20, [[1, 3], [3, 1]], [10, 0], [1, 5]] },
+    { "kind": "trap", "description": "budget lands on an exact equality boundary rather than strictly under", "input": [1, 1, 9, [[1]], [0], [1]] },
+    { "kind": "edge", "description": "three machines and three metal types with moderate shared stock", "input": [3, 3, 50, [[2, 1, 1], [1, 2, 1], [1, 1, 2]], [5, 5, 5], [2, 3, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random machines/metals near the maximum dimensions with random stock, cost, and budget",
+      "seed": 11,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    k = max(1, min(size, 100))\n    budget = rng.randint(0, 10**8)\n    composition = [[rng.randint(1, 100) for _ in range(n)] for _ in range(k)]\n    stock = [rng.randint(0, 10**8) for _ in range(n)]\n    cost = [rng.randint(1, 100) for _ in range(n)]\n    return [n, k, budget, composition, stock, cost]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxNumberOfAlloys(self, n, k, budget, composition, stock, cost):\n        best = 0\n        for i in range(k):\n            comp = composition[i]\n            x = 0\n            while True:\n                nxt = x + 1\n                total = 0\n                for j in range(n):\n                    need = comp[j] * nxt - stock[j]\n                    if need > 0:\n                        total += need * cost[j]\n                if total <= budget:\n                    x = nxt\n                else:\n                    break\n            if x > best:\n                best = x\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxNumberOfAlloys(self, n, k, budget, composition, stock, cost):\n        best = 0\n        hi_bound = budget + max(stock) + 2\n        for i in range(k):\n            comp = composition[i]\n            def feasible(x):\n                total = 0\n                for j in range(n):\n                    need = comp[j] * x - stock[j]\n                    if need > 0:\n                        total += need * cost[j]\n                        if total > budget:\n                            return False\n                return True\n            lo, hi = 0, hi_bound\n            while lo < hi:\n                mid = (lo + hi + 1) // 2\n                if feasible(mid):\n                    lo = mid\n                else:\n                    hi = mid - 1\n            if lo > best:\n                best = lo\n        return best\n",
+    "javascript": "var maxNumberOfAlloys = function(n, k, budget, composition, stock, cost) {\n    let best = 0;\n    const hiBound = budget + Math.max(...stock) + 2;\n    for (let i = 0; i < k; i++) {\n        const comp = composition[i];\n        const feasible = (x) => {\n            let total = 0;\n            for (let j = 0; j < n; j++) {\n                const need = comp[j] * x - stock[j];\n                if (need > 0) {\n                    total += need * cost[j];\n                    if (total > budget) return false;\n                }\n            }\n            return true;\n        };\n        let lo = 0, hi = hiBound;\n        while (lo < hi) {\n            const mid = Math.floor((lo + hi + 1) / 2);\n            if (feasible(mid)) lo = mid;\n            else hi = mid - 1;\n        }\n        if (lo > best) best = lo;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(k * n * log(budget + maxStock))", "space": "O(1)" }
+}

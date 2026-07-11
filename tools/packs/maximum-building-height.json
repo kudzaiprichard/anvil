@@ -1,0 +1,39 @@
+{
+  "slug": "maximum-building-height",
+  "judge": "exact",
+  "pattern": "Tighten each restriction by sweeping the slope limits forward and backward, then find the tallest peak each gap between adjacent restrictions can support.",
+  "hints": [
+    "Building 1 is fixed at height 0 and neighbors differ by at most one, so each restriction also caps its neighbors transitively.",
+    "Sort restrictions by position and relax each cap using its neighbors on the left, then on the right, to get the true achievable heights.",
+    "Between two adjacent fixed buildings the height can rise then fall in a tent; the peak is (gap + leftHeight + rightHeight) // 2, and also check the open end after the last restriction."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 1000000000] },
+    { "param": "restrictions", "kind": "int[][]", "len": [0, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two restrictions force a low profile", "input": [5, [[2, 1], [4, 1]]] },
+    { "kind": "edge", "description": "no restrictions, height grows freely", "input": [6, []] },
+    { "kind": "trap", "description": "restrictions out of order with a tall interior peak", "input": [10, [[5, 3], [2, 5], [7, 4], [10, 3]]] },
+    { "kind": "boundary", "description": "minimum n with no restriction", "input": [2, []] },
+    { "kind": "edge", "description": "a single restriction at the far end", "input": [8, [[8, 0]]] },
+    { "kind": "trap", "description": "a high cap is limited by the slope from building 1", "input": [5, [[5, 1000000000]]] },
+    { "kind": "trap", "description": "two restrictions where the tent peaks between them", "input": [20, [[3, 1], [15, 1]]] },
+    { "kind": "edge", "description": "restriction at building 2 caps everything", "input": [10, [[2, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "small n with random restrictions so a direct simulation oracle stays fast",
+      "seed": 31,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 600))\n    cnt = rng.randrange(0, min(n - 1, 40) + 1)\n    if cnt == 0:\n        return [n, []]\n    ids = rng.sample(range(2, n + 1), cnt)\n    res = [[i, rng.randrange(0, n + 5)] for i in ids]\n    return [n, res]\n",
+      "note": "n bounded so the O(n) simulation oracle is cheap; the optimal handles huge n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxBuilding(self, n, restrictions):\n        cap = [n] * (n + 1)\n        cap[1] = 0\n        for idi, mh in restrictions:\n            if mh < cap[idi]:\n                cap[idi] = mh\n        h = [0] * (n + 1)\n        for i in range(2, n + 1):\n            h[i] = min(cap[i], h[i - 1] + 1)\n        for i in range(n - 1, 0, -1):\n            h[i] = min(h[i], h[i + 1] + 1)\n        return max(h[1:])\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxBuilding(self, n, restrictions):\n        r = sorted(restrictions)\n        r = [[1, 0]] + r\n        if not r or r[-1][0] != n:\n            r.append([n, n - 1])\n        m = len(r)\n        for i in range(1, m):\n            r[i][1] = min(r[i][1], r[i - 1][1] + (r[i][0] - r[i - 1][0]))\n        for i in range(m - 2, -1, -1):\n            r[i][1] = min(r[i][1], r[i + 1][1] + (r[i + 1][0] - r[i][0]))\n        ans = 0\n        for i in range(1, m):\n            left = r[i - 1][1]\n            right = r[i][1]\n            dist = r[i][0] - r[i - 1][0]\n            peak = (left + right + dist) // 2\n            if peak > ans:\n                ans = peak\n        return ans\n",
+    "javascript": "var maxBuilding = function(n, restrictions) {\n    const r = restrictions.map(x => x.slice()).sort((a, b) => a[0] - b[0]);\n    r.unshift([1, 0]);\n    if (r[r.length - 1][0] !== n) r.push([n, n - 1]);\n    const m = r.length;\n    for (let i = 1; i < m; i++) {\n        r[i][1] = Math.min(r[i][1], r[i - 1][1] + (r[i][0] - r[i - 1][0]));\n    }\n    for (let i = m - 2; i >= 0; i--) {\n        r[i][1] = Math.min(r[i][1], r[i + 1][1] + (r[i + 1][0] - r[i][0]));\n    }\n    let ans = 0;\n    for (let i = 1; i < m; i++) {\n        const left = r[i - 1][1];\n        const right = r[i][1];\n        const dist = r[i][0] - r[i - 1][0];\n        const peak = Math.floor((left + right + dist) / 2);\n        if (peak > ans) ans = peak;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(m log m)", "space": "O(m)" }
+}

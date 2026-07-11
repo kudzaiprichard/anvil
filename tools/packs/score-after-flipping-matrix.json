@@ -1,0 +1,37 @@
+{
+  "slug": "score-after-flipping-matrix",
+  "judge": "exact",
+  "pattern": "Greedily force every row to start with a one (the most valuable bit), then flip each remaining column to whichever orientation gives it more ones, and sum the resulting binary rows.",
+  "hints": [
+    "The leading bit of each row is worth more than all the others combined, so every row should be made to start with a one.",
+    "Once the first column is all ones, flipping any other column is independent: pick the orientation of that column that maximizes its count of ones.",
+    "For each row, if its first entry is zero toggle the whole row. Then for each remaining column count the ones; if fewer than half are set, toggle that column. Finally interpret each row as binary and add them up."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 20], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example: three by four grid", "input": [[[0, 0, 1, 1], [1, 0, 1, 0], [1, 1, 0, 0]]] },
+    { "kind": "boundary", "description": "second example: single zero cell flips to one", "input": [[[0]]] },
+    { "kind": "edge", "description": "single one cell needs no flips", "input": [[[1]]] },
+    { "kind": "trap", "description": "rows already leading with one but a column should flip", "input": [[[1, 0, 0], [1, 0, 0]]] },
+    { "kind": "edge", "description": "all zeros: every row flips, then columns settle", "input": [[[0, 0], [0, 0]]] },
+    { "kind": "trap", "description": "tie in a column with even row count keeps it as-is after the flip rule", "input": [[[1, 1, 0], [1, 0, 1]]] },
+    { "kind": "edge", "description": "single column forces all rows to one", "input": [[[0], [1], [0], [1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random binary matrices of varying shape up to the size bound",
+      "seed": 71,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 10)\n    n = rng.randint(1, 20)\n    grid = [[rng.randint(0, 1) for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "rows capped at ten so the 2^m brute oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def matrixScore(self, grid):\n        m, n = len(grid), len(grid[0])\n        best = 0\n        for rmask in range(1 << m):\n            rows = []\n            for i in range(m):\n                flip = (rmask >> i) & 1\n                rows.append([c ^ flip for c in grid[i]])\n            total = 0\n            for j in range(n):\n                ones = sum(rows[i][j] for i in range(m))\n                ones = max(ones, m - ones)\n                total += ones * (1 << (n - 1 - j))\n            best = max(best, total)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def matrixScore(self, grid):\n        m, n = len(grid), len(grid[0])\n        g = [row[:] for row in grid]\n        for i in range(m):\n            if g[i][0] == 0:\n                g[i] = [1 - c for c in g[i]]\n        total = 0\n        for j in range(n):\n            ones = sum(g[i][j] for i in range(m))\n            ones = max(ones, m - ones)\n            total += ones * (1 << (n - 1 - j))\n        return total\n",
+    "javascript": "var matrixScore = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const g = grid.map(r => r.slice());\n    for (let i = 0; i < m; i++) {\n        if (g[i][0] === 0) g[i] = g[i].map(c => 1 - c);\n    }\n    let total = 0;\n    for (let j = 0; j < n; j++) {\n        let ones = 0;\n        for (let i = 0; i < m; i++) ones += g[i][j];\n        ones = Math.max(ones, m - ones);\n        total += ones * (1 << (n - 1 - j));\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

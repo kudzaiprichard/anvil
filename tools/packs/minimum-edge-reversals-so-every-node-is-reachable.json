@@ -1,0 +1,83 @@
+{
+  "slug": "minimum-edge-reversals-so-every-node-is-reachable",
+  "judge": "exact",
+  "pattern": "Once you know how many reversals node 0 needs, moving the root one edge at a time only ever changes the count by the cost of that single crossed edge, so the whole array falls out of one pass down and one pass back up the tree.",
+  "hints": [
+    "Ignore direction first: build the undirected tree structure, then note for each edge which of its two directed traversals matches the original input and which would need a reversal.",
+    "Compute the answer for a single starting node by walking the tree once outward from it and adding up how many of the edges you cross would need to be flipped to point away from that node.",
+    "To get every other node's answer without redoing that whole walk, re-root: moving the root across one edge only flips that edge's own contribution, so a neighbor's answer is the current node's answer, plus one if that edge originally pointed toward the new root, minus one if it already pointed away."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [2, 100000]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [1, 99999],
+      "value": [0, 99999]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, a small graph with one clear branch point",
+      "input": [4, [[2, 0], [2, 1], [1, 3]]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a three-node graph forming a directed cycle-like shape",
+      "input": [3, [[1, 2], [2, 0]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible tree, two nodes with the edge pointing away from the root",
+      "input": [2, [[0, 1]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible tree, two nodes with the edge pointing toward the root",
+      "input": [2, [[1, 0]]]
+    },
+    {
+      "kind": "trap",
+      "description": "a star shape centered on a non-zero node, checking the answer is not biased toward node 0",
+      "input": [4, [[3, 0], [3, 1], [3, 2]]]
+    },
+    {
+      "kind": "trap",
+      "description": "a chain where every edge already points forward from 0, so only farther nodes pay an increasing cost",
+      "input": [5, [[0, 1], [1, 2], [2, 3], [3, 4]]]
+    },
+    {
+      "kind": "trap",
+      "description": "the same chain shape but with every edge pointing backward, so node 0 pays the most and the cost decreases with distance",
+      "input": [5, [[1, 0], [2, 1], [3, 2], [4, 3]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small random directed trees built from random parent pointers with random edge orientation",
+      "seed": 21,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 300))\n    parent = [0] * n\n    for i in range(1, n):\n        parent[i] = rng.randint(0, i - 1)\n    edges = []\n    for i in range(1, n):\n        u, v = i, parent[i]\n        if rng.random() < 0.5:\n            edges.append([u, v])\n        else:\n            edges.append([v, u])\n    rng.shuffle(edges)\n    return [n, edges]\n"
+    },
+    {
+      "description": "larger random directed trees, same construction with more nodes",
+      "seed": 22,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 300))\n    parent = [0] * n\n    for i in range(1, n):\n        parent[i] = rng.randint(0, i - 1)\n    edges = []\n    for i in range(1, n):\n        u, v = i, parent[i]\n        if rng.random() < 0.5:\n            edges.append([u, v])\n        else:\n            edges.append([v, u])\n    rng.shuffle(edges)\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\n\nclass Solution:\n    def minEdgeReversals(self, n, edges):\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append((v, 0))\n            adj[v].append((u, 1))\n        ans = [0] * n\n        for src in range(n):\n            visited = [False] * n\n            visited[src] = True\n            total = 0\n            dq = deque([src])\n            while dq:\n                u = dq.popleft()\n                for v, w in adj[u]:\n                    if not visited[v]:\n                        visited[v] = True\n                        total += w\n                        dq.append(v)\n            ans[src] = total\n        return ans\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def minEdgeReversals(self, n, edges):\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append((v, 0))\n            adj[v].append((u, 1))\n        visited = [False] * n\n        visited[0] = True\n        parent = [-1] * n\n        weight_to_parent = [0] * n\n        order = [0]\n        total = 0\n        dq = deque([0])\n        while dq:\n            u = dq.popleft()\n            for v, w in adj[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    parent[v] = u\n                    weight_to_parent[v] = w\n                    total += w\n                    order.append(v)\n                    dq.append(v)\n        ans = [0] * n\n        ans[0] = total\n        for v in order[1:]:\n            p = parent[v]\n            w = weight_to_parent[v]\n            ans[v] = ans[p] + (1 - 2 * w)\n        return ans\n",
+    "javascript": "var minEdgeReversals = function(n, edges) {\n    const adj = Array.from({ length: n }, () => []);\n    for (const [u, v] of edges) {\n        adj[u].push([v, 0]);\n        adj[v].push([u, 1]);\n    }\n    const visited = new Array(n).fill(false);\n    visited[0] = true;\n    const parent = new Array(n).fill(-1);\n    const weightToParent = new Array(n).fill(0);\n    const order = [0];\n    let total = 0;\n    const queue = [0];\n    let head = 0;\n    while (head < queue.length) {\n        const u = queue[head++];\n        for (const [v, w] of adj[u]) {\n            if (!visited[v]) {\n                visited[v] = true;\n                parent[v] = u;\n                weightToParent[v] = w;\n                total += w;\n                order.push(v);\n                queue.push(v);\n            }\n        }\n    }\n    const ans = new Array(n).fill(0);\n    ans[0] = total;\n    for (let i = 1; i < order.length; i++) {\n        const v = order[i];\n        const p = parent[v];\n        const w = weightToParent[v];\n        ans[v] = ans[p] + (1 - 2 * w);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

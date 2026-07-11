@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-score-of-a-node-sequence",
+  "judge": "exact",
+  "pattern": "A four-node path is a middle edge plus one extra neighbor on each end, so for every edge try only its endpoints' few highest-scoring neighbors and respect distinctness.",
+  "hints": [
+    "Think of the sequence as a central edge with one more node attached to each of its two endpoints.",
+    "For each endpoint of an edge you only ever need its top few highest-scoring neighbors, since a better-scoring neighbor is always preferable unless it collides with another chosen node.",
+    "Keep, per node, its three best neighbors by score; then for every edge combine a best neighbor of one end with a best neighbor of the other, skipping picks that reuse a node, and take the maximum total."
+  ],
+  "constraints": [
+    { "param": "scores", "kind": "int[]", "len": [4, 1000], "value": [1, 100000000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 4000], "value": [0, 999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small graph with a clear best path", "input": [[5, 2, 9, 8, 4], [[0, 1], [1, 2], [2, 3], [0, 2], [1, 3], [2, 4]]] },
+    { "kind": "trap", "description": "no length-four path exists, returns -1", "input": [[9, 20, 6, 4, 11, 12], [[0, 3], [5, 3], [2, 4], [1, 3]]] },
+    { "kind": "boundary", "description": "exactly four nodes in a simple path", "input": [[1, 2, 3, 4], [[0, 1], [1, 2], [2, 3]]] },
+    { "kind": "trap", "description": "star center forces neighbor collisions, no valid path of four distinct", "input": [[10, 10, 10, 10], [[0, 1], [0, 2], [0, 3]]] },
+    { "kind": "edge", "description": "complete-ish small graph picks the four largest", "input": [[1, 100, 2, 100, 100, 100], [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [1, 3], [1, 4], [3, 5]]] },
+    { "kind": "boundary", "description": "no edges at all", "input": [[7, 8, 9, 10], []] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse graph on up to ~120 nodes; brute force over length-four paths stays fast",
+      "seed": 29,
+      "size": 120,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(size, 120))\n    scores = [rng.randint(1, 100000000) for _ in range(n)]\n    seen = set()\n    edges = []\n    m = rng.randint(0, min(3 * n, n * (n - 1) // 2))\n    attempts = 0\n    while len(edges) < m and attempts < 10 * m + 50:\n        attempts += 1\n        a = rng.randrange(n)\n        b = rng.randrange(n)\n        if a == b:\n            continue\n        key = (min(a, b), max(a, b))\n        if key in seen:\n            continue\n        seen.add(key)\n        edges.append([a, b])\n    return [scores, edges]\n",
+      "note": "node count capped so the O(n + E*deg^2) reference and the brute force both finish quickly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumScore(self, scores, edges):\n        from collections import defaultdict\n        adj = defaultdict(set)\n        for a, b in edges:\n            adj[a].add(b)\n            adj[b].add(a)\n        best = -1\n        for b, c in edges:\n            for a in adj[b]:\n                if a == c:\n                    continue\n                for d in adj[c]:\n                    if d == a or d == b:\n                        continue\n                    total = scores[a] + scores[b] + scores[c] + scores[d]\n                    if total > best:\n                        best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumScore(self, scores, edges):\n        import heapq\n        from collections import defaultdict\n        nb = defaultdict(list)\n        for a, b in edges:\n            nb[a].append((scores[b], b))\n            nb[b].append((scores[a], a))\n        top = {}\n        for node, lst in nb.items():\n            top[node] = heapq.nlargest(3, lst)\n        best = -1\n        for u, v in edges:\n            for su, a in top.get(u, []):\n                if a == v:\n                    continue\n                for sv, d in top.get(v, []):\n                    if d == u or d == a:\n                        continue\n                    total = scores[u] + scores[v] + su + sv\n                    if total > best:\n                        best = total\n        return best\n",
+    "javascript": "var maximumScore = function(scores, edges) {\n    const nb = new Map();\n    const push = (x, y) => {\n        if (!nb.has(x)) nb.set(x, []);\n        nb.get(x).push([scores[y], y]);\n    };\n    for (const [a, b] of edges) { push(a, b); push(b, a); }\n    const top = new Map();\n    for (const [node, lst] of nb) {\n        lst.sort((p, q) => q[0] - p[0]);\n        top.set(node, lst.slice(0, 3));\n    }\n    let best = -1;\n    for (const [u, v] of edges) {\n        const tu = top.get(u) || [];\n        const tv = top.get(v) || [];\n        for (const [su, a] of tu) {\n            if (a === v) continue;\n            for (const [sv, d] of tv) {\n                if (d === u || d === a) continue;\n                const total = scores[u] + scores[v] + su + sv;\n                if (total > best) best = total;\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n + E)", "space": "O(n + E)" }
+}

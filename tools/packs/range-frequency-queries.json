@@ -1,0 +1,42 @@
+{
+  "slug": "range-frequency-queries",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A value's occurrences only need to be listed once, in order, at construction time; after that, counting how many fall inside a range is just finding two boundaries in that already-sorted list.",
+  "hints": [
+    "Group the array's indices by the value stored there, once, when the structure is built -- each group comes out already sorted since you scan left to right.",
+    "A query only cares about one value's group; if that value never appeared, the answer is immediately zero.",
+    "Within that value's sorted index list, binary search for the first index not less than the query's left bound and the first index past the query's right bound -- the gap between those two positions is the count."
+  ],
+  "constraints": [
+    { "param": "arr", "kind": "int[]", "len": [1, 100000], "value": [1, 10000] },
+    { "param": "left", "kind": "int", "value": [0, 99999] },
+    { "param": "right", "kind": "int", "value": [0, 99999] },
+    { "param": "value", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "several queries against one small array, mixing a full scan and a tight window",
+      "input": [["RangeFreqQuery", "query", "query", "query"], [[[4, 7, 4, 7, 7, 4, 7]], [0, 6, 7], [2, 2, 4], [5, 6, 4]]] },
+    { "kind": "boundary", "description": "a value that never appears anywhere in the array", "input": [["RangeFreqQuery", "query"], [[[1, 1, 1, 1]], [0, 3, 9]]] },
+    { "kind": "boundary", "description": "single-cell subarray queries where left equals right", "input": [["RangeFreqQuery", "query", "query"], [[[5, 6, 7, 6, 5]], [2, 2, 7], [0, 0, 5]]] },
+    { "kind": "edge", "description": "the same value once clustered at the start and once scattered later, queried separately", "input": [["RangeFreqQuery", "query", "query"], [[[2, 2, 2, 9, 9, 2, 2]], [0, 2, 2], [3, 6, 2]]] },
+    { "kind": "edge", "description": "a query spanning the entire array", "input": [["RangeFreqQuery", "query"], [[[3, 1, 4, 1, 5, 9, 2, 6]], [0, 7, 1]]] },
+    { "kind": "trap", "description": "back-to-back queries reuse the same value across disjoint and overlapping ranges", "input": [["RangeFreqQuery", "query", "query", "query"], [[[8, 8, 3, 8, 3, 8, 3, 8]], [0, 3, 8], [4, 7, 8], [0, 7, 8]]] },
+    { "kind": "boundary", "description": "a single-element array queried for a present and an absent value", "input": [["RangeFreqQuery", "query", "query"], [[[42]], [0, 0, 42], [0, 0, 7]]] }
+  ],
+  "stress": [
+    {
+      "description": "a moderately large random array followed by many random range queries mixing present and absent values",
+      "seed": 53,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 2000)\n    arr = [rng.randint(1, 10000) for _ in range(n)]\n    ops = ['RangeFreqQuery']\n    args = [[arr]]\n    num_queries = min(max(1, size), 400)\n    for _ in range(num_queries):\n        left = rng.randint(0, n - 1)\n        right = rng.randint(left, n - 1)\n        if rng.random() < 0.2:\n            value = rng.randint(1, 10000)\n        else:\n            value = arr[rng.randint(0, n - 1)]\n        ops.append('query')\n        args.append([left, right, value])\n    return [ops, args]\n",
+      "note": "about one in five queries asks for a value that may not be present, forcing the empty-group path"
+    }
+  ],
+  "oracle_python": "class RangeFreqQuery:\n    def __init__(self, arr):\n        self.arr = arr\n    def query(self, left, right, value):\n        return sum(1 for i in range(left, right + 1) if self.arr[i] == value)\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass RangeFreqQuery:\n    def __init__(self, arr):\n        self.pos = {}\n        for i, v in enumerate(arr):\n            self.pos.setdefault(v, []).append(i)\n    def query(self, left, right, value):\n        lst = self.pos.get(value)\n        if not lst:\n            return 0\n        lo = bisect.bisect_left(lst, left)\n        hi = bisect.bisect_right(lst, right)\n        return hi - lo\n",
+    "javascript": "var RangeFreqQuery = function(arr) {\n    this.pos = new Map();\n    for (let i = 0; i < arr.length; i++) {\n        const v = arr[i];\n        if (!this.pos.has(v)) this.pos.set(v, []);\n        this.pos.get(v).push(i);\n    }\n};\nRangeFreqQuery.prototype.query = function(left, right, value) {\n    const list = this.pos.get(value);\n    if (!list) return 0;\n    let lo = 0, hi = list.length;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (list[mid] < left) lo = mid + 1; else hi = mid;\n    }\n    const start = lo;\n    lo = 0; hi = list.length;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (list[mid] <= right) lo = mid + 1; else hi = mid;\n    }\n    return lo - start;\n};\n"
+  },
+  "complexity": { "time": "O(n) build, O(log n) per query", "space": "O(n)" }
+}

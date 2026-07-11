@@ -1,0 +1,38 @@
+{
+  "slug": "restore-ip-addresses",
+  "judge": "unordered",
+  "pattern": "Reconstructing every legal IPv4 address from a digit string is a bounded backtracking that places exactly four segments, each a 1-to-3 digit value in range with no superfluous leading zero.",
+  "hints": [
+    "A valid address is exactly four parts separated by dots, so the search places four segments and must consume the whole string.",
+    "Each segment is one to three digits, is at most 255, and may be a lone zero but never a multi-digit number starting with zero.",
+    "Backtrack over the cut after each segment, pruning when remaining digits cannot fill the rest within one-to-three per part, and record the dotted join once four valid segments exactly exhaust the string."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "string with two valid placements", "input": ["25525511135"] },
+    { "kind": "trap", "description": "all zeros must split into single zeros", "input": ["0000"] },
+    { "kind": "edge", "description": "several valid segmentations", "input": ["101023"] },
+    { "kind": "trap", "description": "too short to ever form four parts", "input": ["1"] },
+    { "kind": "trap", "description": "too long to fit in four parts of at most three digits", "input": ["123456789012345678"] },
+    { "kind": "trap", "description": "leading zeros forbid a multi-digit zero-prefixed part", "input": ["010010"] },
+    { "kind": "edge", "description": "exactly four single digits", "input": ["1111"] },
+    { "kind": "boundary", "description": "twelve digits with values forcing the 255 cap", "input": ["255255255255"] }
+  ],
+  "stress": [
+    {
+      "description": "random short digit strings within the four-part feasible length window",
+      "seed": 71,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(4, 12)\n    return [''.join(rng.choice('0123456789') for _ in range(n))]\n",
+      "note": "length 4..12 keeps strings inside the range that can plausibly form addresses"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def restoreIpAddresses(self, s):\n        n = len(s)\n        res = []\n        def ok(part):\n            if not (1 <= len(part) <= 3):\n                return False\n            if len(part) > 1 and part[0] == '0':\n                return False\n            return int(part) <= 255\n        for a in range(1, 4):\n            for b in range(a + 1, a + 4):\n                for c in range(b + 1, b + 4):\n                    if c >= n:\n                        continue\n                    p1, p2, p3, p4 = s[:a], s[a:b], s[b:c], s[c:]\n                    if ok(p1) and ok(p2) and ok(p3) and ok(p4):\n                        res.append(p1 + '.' + p2 + '.' + p3 + '.' + p4)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def restoreIpAddresses(self, s):\n        res = []\n        n = len(s)\n        def ok(part):\n            if len(part) > 1 and part[0] == '0':\n                return False\n            return int(part) <= 255\n        def back(start, parts):\n            if len(parts) == 4:\n                if start == n:\n                    res.append('.'.join(parts))\n                return\n            for length in range(1, 4):\n                if start + length > n:\n                    break\n                seg = s[start:start + length]\n                if ok(seg):\n                    back(start + length, parts + [seg])\n        back(0, [])\n        return res\n",
+    "javascript": "var restoreIpAddresses = function(s) {\n    const res = [];\n    const n = s.length;\n    const ok = function(part) {\n        if (part.length > 1 && part[0] === '0') return false;\n        return parseInt(part, 10) <= 255;\n    };\n    const back = function(start, parts) {\n        if (parts.length === 4) {\n            if (start === n) res.push(parts.join('.'));\n            return;\n        }\n        for (let len = 1; len <= 3; len++) {\n            if (start + len > n) break;\n            const seg = s.slice(start, start + len);\n            if (ok(seg)) back(start + len, parts.concat([seg]));\n        }\n    };\n    back(0, []);\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(1)", "space": "O(1)" }
+}

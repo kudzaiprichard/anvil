@@ -1,0 +1,35 @@
+{
+  "slug": "car-fleet-ii",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "Process cars right-to-left with a monotonic stack, discarding any car ahead that the current car can never catch before that car itself slows down.",
+  "hints": [
+    "A car can only ever collide with the car immediately in front of it, but that car may have already merged into a fleet and slowed.",
+    "Work from the last car backward, keeping a stack of the cars still relevant ahead.",
+    "Pop a car ahead if it is faster (never caught) or if it would itself collide before the current car could reach it; the surviving top gives the collision time."
+  ],
+  "constraints": [
+    { "param": "cars", "kind": "int[][]", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "alternating collisions", "input": [[[1, 2], [2, 1], [4, 3], [7, 2]]] },
+    { "kind": "edge", "description": "chained collisions", "input": [[[3, 4], [5, 4], [6, 3], [9, 1]]] },
+    { "kind": "boundary", "description": "single car never collides", "input": [[[5, 3]]] },
+    { "kind": "trap", "description": "all increasing speeds, none collide", "input": [[[1, 1], [2, 2], [3, 3]]] },
+    { "kind": "trap", "description": "all decreasing speeds, each catches the next", "input": [[[1, 4], [3, 3], [5, 2], [7, 1]]] },
+    { "kind": "edge", "description": "two cars, slower in front, collision happens", "input": [[[0, 5], [2, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "many cars with strictly increasing positions and random speeds",
+      "seed": 43,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    cars = []\n    pos = rng.randrange(1, 5)\n    for _ in range(n):\n        speed = rng.randrange(1, 1000001)\n        cars.append([pos, speed])\n        pos += rng.randrange(1, 50)\n    return [cars]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getCollisionTimes(self, cars):\n        n = len(cars)\n        ans = [-1.0] * n\n        from fractions import Fraction\n        for i in range(n - 1):\n            pi, si = cars[i]\n            best = None\n            for j in range(i + 1, n):\n                pj, sj = cars[j]\n                if sj >= si:\n                    continue\n                t = Fraction(pj - pi, si - sj)\n                if ans[j] != -1 and t > ans[j]:\n                    continue\n                if best is None or t < best:\n                    best = t\n            if best is not None:\n                ans[i] = best\n        return [float(x) if x != -1 else -1.0 for x in ans]\n",
+  "solutions": {
+    "python": "class Solution:\n    def getCollisionTimes(self, cars):\n        n = len(cars)\n        ans = [-1.0] * n\n        stack = []\n        for i in range(n - 1, -1, -1):\n            pi, si = cars[i]\n            while stack:\n                j = stack[-1]\n                pj, sj = cars[j]\n                if sj >= si:\n                    stack.pop()\n                    continue\n                t = (pj - pi) / (si - sj)\n                if ans[j] > 0 and t > ans[j]:\n                    stack.pop()\n                    continue\n                ans[i] = t\n                break\n            stack.append(i)\n        return ans\n",
+    "javascript": "var getCollisionTimes = function(cars) {\n    const n = cars.length;\n    const ans = new Array(n).fill(-1);\n    const stack = [];\n    for (let i = n - 1; i >= 0; i--) {\n        const [pi, si] = cars[i];\n        while (stack.length) {\n            const j = stack[stack.length - 1];\n            const [pj, sj] = cars[j];\n            if (sj >= si) { stack.pop(); continue; }\n            const t = (pj - pi) / (si - sj);\n            if (ans[j] > 0 && t > ans[j]) { stack.pop(); continue; }\n            ans[i] = t;\n            break;\n        }\n        stack.push(i);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

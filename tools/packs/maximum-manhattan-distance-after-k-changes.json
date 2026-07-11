@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-manhattan-distance-after-k-changes",
+  "judge": "exact",
+  "pattern": "Manhattan distance splits into two independent +1/-1 walks along the two diagonals, and since a change lets you replace any step with whichever direction you like, greedily 'spending' a change on the very next unhelpful step (as soon as you still have budget) maximizes every running total simultaneously.",
+  "hints": [
+    "|x| + |y| equals the largest of four combinations: (x+y), (x-y), (-x+y), (-x-y). Each combination turns into a running +1/-1 tally over the string if you assign +1 to two of the four directions and -1 to the other two.",
+    "For one such tally, you're allowed to change up to k characters to whichever direction is best; the best move for maximizing every running prefix total is to flip the very first k steps that would otherwise contribute -1, turning them into +1 as soon as you encounter them and still have budget left.",
+    "Run this greedy left-to-right scan for all four +1/-1 assignments and take the largest running maximum seen across all four; that is the answer."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example 1", "input": ["NWSE", 1] },
+    { "kind": "edge", "description": "statement example 2", "input": ["NSWWEW", 3] },
+    { "kind": "edge", "description": "single character, no changes", "input": ["N", 0] },
+    { "kind": "boundary", "description": "zero changes allowed, just the raw walk", "input": ["NNSSEW", 0] },
+    { "kind": "boundary", "description": "k covers the whole string, every step can be chosen freely", "input": ["SSSS", 4] },
+    { "kind": "trap", "description": "the walk already cancels itself out without any changes", "input": ["NESW", 0] },
+    { "kind": "trap", "description": "changes are best spent early, not on the single worst step overall", "input": ["SNSNSNSN", 2] }
+  ],
+  "stress": [
+    {
+      "description": "random walks over N/S/E/W with a random change budget",
+      "seed": 41,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 100000)))\n    s = ''.join(rng.choice('NSEW') for _ in range(n))\n    k = rng.randint(0, n)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxDistance(self, s, k):\n        n = len(s)\n        best = 0\n        moves = {'N': (0, 1), 'S': (0, -1), 'E': (1, 0), 'W': (-1, 0)}\n        dirs = list(moves.values())\n        def solve(i, x, y, changes_left):\n            nonlocal best\n            dist = abs(x) + abs(y)\n            if dist > best:\n                best = dist\n            if i == n:\n                return\n            dx, dy = moves[s[i]]\n            solve(i + 1, x + dx, y + dy, changes_left)\n            if changes_left > 0:\n                for ddx, ddy in dirs:\n                    if (ddx, ddy) != (dx, dy):\n                        solve(i + 1, x + ddx, y + ddy, changes_left - 1)\n        solve(0, 0, 0, min(k, n))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxDistance(self, s, k):\n        def best_for(plus_set):\n            cur = 0\n            used = 0\n            best = 0\n            for ch in s:\n                val = 1 if ch in plus_set else -1\n                if val == -1 and used < k:\n                    val = 1\n                    used += 1\n                cur += val\n                if cur > best:\n                    best = cur\n            return best\n        combos = [set('NE'), set('SW'), set('WN'), set('ES')]\n        return max(best_for(c) for c in combos)\n",
+    "javascript": "var maxDistance = function(s, k) {\n    function bestFor(plusSet) {\n        let cur = 0, used = 0, best = 0;\n        for (const ch of s) {\n            let val = plusSet.has(ch) ? 1 : -1;\n            if (val === -1 && used < k) { val = 1; used++; }\n            cur += val;\n            if (cur > best) best = cur;\n        }\n        return best;\n    }\n    const combos = [new Set(['N', 'E']), new Set(['S', 'W']), new Set(['W', 'N']), new Set(['E', 'S'])];\n    let best = 0;\n    for (const c of combos) {\n        const v = bestFor(c);\n        if (v > best) best = v;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

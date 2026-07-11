@@ -1,0 +1,43 @@
+{
+  "slug": "split-array-into-maximum-number-of-subarrays",
+  "judge": "exact",
+  "pattern": "Bitwise AND only ever stays the same or loses bits as you fold in more numbers, so the cheapest possible total is bounded below by zero the moment a running AND hits zero -- greedily cutting there whenever possible maximizes how many pieces you get without ever paying more than the unavoidable minimum.",
+  "hints": [
+    "AND-ing more numbers together can never raise the result, only keep it the same or clear more bits -- so once a running AND reaches zero it can never do better than zero no matter what else you fold in.",
+    "Walk the array left to right keeping a running AND of the current piece. The instant that running AND becomes zero, that piece is already as cheap as any piece can be (zero), so close it off right there, start a fresh running AND, and count one more piece.",
+    "If the running AND of the whole array never once reaches zero along the way, the cheapest possible total is just the AND of everything, and that can only be achieved by keeping the entire array as a single piece -- so the answer collapses to exactly one subarray in that case."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element that is already zero", "input": [[0]] },
+    { "kind": "edge", "description": "single nonzero element", "input": [[9]] },
+    { "kind": "trap", "description": "every element already zero, each can stand alone", "input": [[0, 0, 0, 0]] },
+    { "kind": "trap", "description": "no subarray AND ever reaches zero", "input": [[1, 1, 1]] },
+    { "kind": "boundary", "description": "two elements each at the maximum allowed value", "input": [[1000000, 1000000]] },
+    { "kind": "trap", "description": "zero only reachable by combining all three elements together", "input": [[3, 1, 2]] },
+    { "kind": "trap", "description": "a trailing nonzero element after two zero-producing runs", "input": [[2, 0, 0, 3]] },
+    { "kind": "edge", "description": "shares no bits pairwise but never individually zero on its own", "input": [[7, 7, 7, 0]] }
+  ],
+  "stress": [
+    {
+      "description": "large array with zeros sprinkled in often enough to force many cuts",
+      "seed": 511,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = []\n    for _ in range(n):\n        if rng.random() < 0.15:\n            nums.append(0)\n        else:\n            nums.append(rng.randint(0, 1000000))\n    return [nums]\n"
+    },
+    {
+      "description": "large array of mostly small values sharing many bits, few or no zeros",
+      "seed": 512,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 15) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSubarrays(self, nums):\n        n = len(nums)\n        best_sum = None\n        best_count = 0\n        for mask in range(1 << (n - 1)):\n            cuts = [i + 1 for i in range(n - 1) if (mask >> i) & 1]\n            bounds = [0] + cuts + [n]\n            total = 0\n            count = len(bounds) - 1\n            for b in range(count):\n                seg = nums[bounds[b]:bounds[b + 1]]\n                a = seg[0]\n                for v in seg[1:]:\n                    a &= v\n                total += a\n            if best_sum is None or total < best_sum or (total == best_sum and count > best_count):\n                best_sum = total\n                best_count = count\n        return best_count\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSubarrays(self, nums):\n        count = 0\n        cur = -1\n        for num in nums:\n            cur = num if cur == -1 else (cur & num)\n            if cur == 0:\n                count += 1\n                cur = -1\n        return count if count > 0 else 1\n",
+    "javascript": "var maxSubarrays = function(nums) {\n    let count = 0;\n    let cur = -1;\n    for (const num of nums) {\n        cur = (cur === -1) ? num : (cur & num);\n        if (cur === 0) {\n            count++;\n            cur = -1;\n        }\n    }\n    return count > 0 ? count : 1;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

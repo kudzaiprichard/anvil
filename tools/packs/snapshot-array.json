@@ -1,0 +1,43 @@
+{
+  "slug": "snapshot-array",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Storing per-index only the snapshot ids at which a value changed, then binary searching that history, makes snapshots cheap instead of copying the whole array each time.",
+  "hints": [
+    "Copying the entire array on every snap is wasteful when only a few cells change; record changes per index instead.",
+    "For each index keep a list of (snap_id, value) records, appended only when a set actually happens at the current snapshot.",
+    "A get becomes a predecessor search over that index's records for the largest snap_id at or below the requested one, defaulting to 0 when there is none."
+  ],
+  "constraints": [
+    { "param": "length", "kind": "int", "value": [1, 50000] },
+    { "param": "index", "kind": "int", "value": [0, 49999] },
+    { "param": "val", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "snapshot freezes a value before it is overwritten",
+      "input": [["SnapshotArray", "set", "snap", "set", "get"], [[3], [0, 5], [], [0, 6], [0, 0]]] },
+    { "kind": "boundary", "description": "untouched index reads as zero at an old snapshot",
+      "input": [["SnapshotArray", "snap", "snap", "get"], [[4], [], [], [2, 0]]] },
+    { "kind": "trap", "description": "multiple sets between snaps keep only the latest per snapshot",
+      "input": [["SnapshotArray", "set", "set", "snap", "get"], [[2], [1, 7], [1, 9], [], [1, 0]]] },
+    { "kind": "trap", "description": "later snapshots see newer writes, earlier ones do not",
+      "input": [["SnapshotArray", "set", "snap", "set", "snap", "get", "get"], [[1], [0, 1], [], [0, 2], [], [0, 0], [0, 1]]] },
+    { "kind": "edge", "description": "several indices tracked independently across snapshots",
+      "input": [["SnapshotArray", "set", "set", "snap", "set", "snap", "get", "get", "get"], [[3], [0, 10], [2, 20], [], [2, 30], [], [0, 0], [2, 0], [2, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random sets, snaps, and gets bounded to valid indices and snapshot ids",
+      "seed": 23,
+      "size": 700,
+      "generator_python": "def gen(rng, size):\n    length = rng.randint(1, 6)\n    ops = ['SnapshotArray']\n    args = [[length]]\n    snaps = 0\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.45:\n            ops.append('set'); args.append([rng.randint(0, length - 1), rng.randint(0, 1000)])\n        elif r < 0.7:\n            ops.append('snap'); args.append([]); snaps += 1\n        else:\n            if snaps == 0:\n                ops.append('set'); args.append([rng.randint(0, length - 1), rng.randint(0, 1000)])\n            else:\n                ops.append('get'); args.append([rng.randint(0, length - 1), rng.randint(0, snaps - 1)])\n    return [ops, args]\n",
+      "note": "get is only emitted once at least one snapshot exists so snap_id stays valid"
+    }
+  ],
+  "oracle_python": "class SnapshotArray:\n    def __init__(self, length):\n        self.cur = [0] * length\n        self.snaps = []\n    def set(self, index, val):\n        self.cur[index] = val\n    def snap(self):\n        self.snaps.append(list(self.cur))\n        return len(self.snaps) - 1\n    def get(self, index, snap_id):\n        return self.snaps[snap_id][index]\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass SnapshotArray:\n    def __init__(self, length):\n        self.snap_id = 0\n        self.hist = [[(-1, 0)] for _ in range(length)]\n    def set(self, index, val):\n        h = self.hist[index]\n        if h[-1][0] == self.snap_id:\n            h[-1] = (self.snap_id, val)\n        else:\n            h.append((self.snap_id, val))\n    def snap(self):\n        self.snap_id += 1\n        return self.snap_id - 1\n    def get(self, index, snap_id):\n        h = self.hist[index]\n        i = bisect.bisect_right(h, (snap_id, float('inf'))) - 1\n        return h[i][1]\n",
+    "javascript": "var SnapshotArray = function(length) {\n    this.snapId = 0;\n    this.hist = Array.from({length}, () => [[-1, 0]]);\n};\nSnapshotArray.prototype.set = function(index, val) {\n    const h = this.hist[index];\n    if (h[h.length - 1][0] === this.snapId) h[h.length - 1] = [this.snapId, val];\n    else h.push([this.snapId, val]);\n};\nSnapshotArray.prototype.snap = function() {\n    this.snapId += 1;\n    return this.snapId - 1;\n};\nSnapshotArray.prototype.get = function(index, snap_id) {\n    const h = this.hist[index];\n    let lo = 0, hi = h.length;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (h[mid][0] <= snap_id) lo = mid + 1; else hi = mid;\n    }\n    return h[lo - 1][1];\n};\n"
+  },
+  "complexity": { "time": "O(log m) per get", "space": "O(total sets)" }
+}

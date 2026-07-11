@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-adjacent-swaps-to-alternate-parity",
+  "judge": "exact",
+  "pattern": "Once you fix which parity class occupies the even-indexed slots, the answer is the sum of distances each chosen element must travel, computed by matching sorted source positions to their target slots.",
+  "hints": [
+    "Adjacent swaps that turn one arrangement into another cost exactly the number of inversions, so the absolute layout of the chosen positions is what matters, not the values.",
+    "The final layout has all evens on one set of indices and all odds on the other. Decide whether evens go to indices 0,2,4,... or 1,3,5,...; the counts of evens and odds dictate which (and whether it is possible at all).",
+    "For a chosen target, take the current indices of the evens in order and the target slots in order; the minimum swaps equal the sum of absolute differences. Try both feasible assignments and keep the smaller; return -1 if neither parity count fits."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed parities needing several moves", "input": [[2, 4, 6, 5, 7]] },
+    { "kind": "edge", "description": "single adjacent swap suffices", "input": [[2, 4, 5, 7]] },
+    { "kind": "edge", "description": "already alternating", "input": [[1, 2, 3]] },
+    { "kind": "trap", "description": "too many evens to alternate at all", "input": [[4, 5, 6, 8]] },
+    { "kind": "boundary", "description": "single element is trivially valid", "input": [[7]] },
+    { "kind": "trap", "description": "evens must shift but odds are placed already", "input": [[1, 3, 2, 4]] },
+    { "kind": "edge", "description": "all evens at the front, odds at the back", "input": [[2, 4, 6, 8, 1, 3, 5, 7]] }
+  ],
+  "stress": [
+    {
+      "description": "balanced even/odd counts over a moderate length to exercise both assignments",
+      "seed": 11,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    half = n // 2\n    vals = set()\n    evens = []\n    odds = []\n    while len(evens) < half:\n        v = rng.randrange(1, 10**9) * 2\n        if v not in vals:\n            vals.add(v); evens.append(v)\n    while len(odds) < n - half:\n        v = rng.randrange(0, 10**9) * 2 + 1\n        if v not in vals:\n            vals.add(v); odds.append(v)\n    arr = evens + odds\n    rng.shuffle(arr)\n    return [arr]\n",
+      "note": "near-equal parity counts so both target assignments are feasible"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSwaps(self, nums):\n        n = len(nums)\n        par = [x & 1 for x in nums]\n        ev = par.count(0)\n        od = n - ev\n        best = None\n        def cost(start_par):\n            # start_par is the parity occupying index 0\n            pos = [i for i in range(n) if par[i] == start_par]\n            targets = list(range(0, n, 2))\n            if len(pos) != len(targets):\n                return None\n            return sum(abs(p - t) for p, t in zip(pos, targets))\n        for sp in (0, 1):\n            c = cost(sp)\n            if c is not None:\n                best = c if best is None else min(best, c)\n        return -1 if best is None else best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSwaps(self, nums):\n        n = len(nums)\n        even_pos = [i for i, x in enumerate(nums) if x % 2 == 0]\n        odd_pos = [i for i, x in enumerate(nums) if x % 2 == 1]\n        e, o = len(even_pos), len(odd_pos)\n        if abs(e - o) > 1:\n            return -1\n        def assign(group, first_slot):\n            return sum(abs(p - t) for p, t in zip(group, range(first_slot, n, 2)))\n        res = None\n        if e >= o:\n            res = assign(even_pos, 0)\n        if o >= e:\n            c = assign(odd_pos, 0)\n            res = c if res is None else min(res, c)\n        return res\n",
+    "javascript": "var minSwaps = function(nums) {\n    const n = nums.length;\n    const evenPos = [], oddPos = [];\n    for (let i = 0; i < n; i++) {\n        if (nums[i] % 2 === 0) evenPos.push(i); else oddPos.push(i);\n    }\n    const e = evenPos.length, o = oddPos.length;\n    if (Math.abs(e - o) > 1) return -1;\n    const assign = (group) => {\n        let s = 0;\n        for (let k = 0; k < group.length; k++) s += Math.abs(group[k] - 2 * k);\n        return s;\n    };\n    let res = null;\n    if (e >= o) res = assign(evenPos);\n    if (o >= e) {\n        const c = assign(oddPos);\n        res = res === null ? c : Math.min(res, c);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

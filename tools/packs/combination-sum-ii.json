@@ -1,0 +1,40 @@
+{
+  "slug": "combination-sum-ii",
+  "judge": { "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    from collections import Counter\n    candidates, target = args[0], args[1]\n    avail = Counter(candidates)\n    items = sorted(avail.items())\n    correct = set()\n    def bt(i, remaining, cur):\n        if remaining == 0:\n            correct.add(tuple(cur)); return\n        if i >= len(items) or remaining < 0:\n            return\n        val, cnt = items[i]\n        k = 0\n        while k <= cnt and val * k <= remaining:\n            bt(i + 1, remaining - val * k, cur + [val] * k)\n            k += 1\n    bt(0, target, [])\n    seen = set()\n    for combo in output:\n        if not isinstance(combo, list):\n            return False\n        if sum(combo) != target:\n            return False\n        c = Counter(combo)\n        for v, k in c.items():\n            if avail.get(v, 0) < k:\n                return False\n        key = tuple(sorted(combo))\n        if key in seen:\n            return False\n        seen.add(key)\n    return seen == correct\n",
+    "validator_javascript": "function validate(args, output) {\n    const candidates = args[0], target = args[1];\n    const avail = {};\n    for (const x of candidates) avail[x] = (avail[x] || 0) + 1;\n    const items = Object.keys(avail).map(Number).sort((a, b) => a - b).map(v => [v, avail[v]]);\n    const correct = new Set();\n    function bt(i, remaining, cur) {\n        if (remaining === 0) { correct.add(cur.slice().sort((a, b) => a - b).join(',')); return; }\n        if (i >= items.length || remaining < 0) return;\n        const val = items[i][0], cnt = items[i][1];\n        let k = 0;\n        while (k <= cnt && val * k <= remaining) {\n            bt(i + 1, remaining - val * k, cur.concat(Array(k).fill(val)));\n            k++;\n        }\n    }\n    bt(0, target, []);\n    const seen = new Set();\n    for (const combo of output) {\n        if (!Array.isArray(combo)) return false;\n        if (combo.reduce((a, b) => a + b, 0) !== target) return false;\n        const c = {};\n        for (const v of combo) c[v] = (c[v] || 0) + 1;\n        for (const v in c) if ((avail[v] || 0) < c[v]) return false;\n        const key = combo.slice().sort((a, b) => a - b).join(',');\n        if (seen.has(key)) return false;\n        seen.add(key);\n    }\n    if (seen.size !== correct.size) return false;\n    for (const k of seen) if (!correct.has(k)) return false;\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Sorting first lets a backtracking search skip duplicate candidates at each level, so every unique combination is produced exactly once.",
+  "hints": [
+    "Each number may be used at most once, and the input can contain repeats, so the real challenge is avoiding duplicate combinations rather than finding sums.",
+    "Sort the candidates; then duplicates sit next to each other and you can decide, per recursion level, to skip a value you have already tried at that level.",
+    "Backtrack from a start index, adding candidates[i] and recursing from i+1; at a given level, if candidates[i] == candidates[i-1] skip it, and break once candidates[i] exceeds the remaining target."
+  ],
+  "constraints": [
+    { "param": "candidates", "kind": "int[]", "len": [1, 100], "value": [1, 50] },
+    { "param": "target", "kind": "int", "value": [1, 30] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "duplicates in input, multiple distinct combinations", "input": [[10, 1, 2, 7, 6, 1, 5], 8] },
+    { "kind": "edge", "description": "repeated value used to its available multiplicity", "input": [[2, 5, 2, 1, 2], 5] },
+    { "kind": "trap", "description": "no subset reaches the target", "input": [[3, 4, 5], 2] },
+    { "kind": "trap", "description": "a single element equals the target", "input": [[1, 1, 1], 1] },
+    { "kind": "boundary", "description": "all identical values, several reach target", "input": [[2, 2, 2, 2], 4] }
+  ],
+  "stress": [
+    {
+      "description": "small multiset with heavy duplication so the dedup logic is exercised",
+      "seed": 31,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(4, min(12, max(4, size)))\n    candidates = [rng.randint(1, 8) for _ in range(n)]\n    target = rng.randint(1, 20)\n    return [candidates, target]\n",
+      "note": "kept small because the brute-force oracle enumerates subsets"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def combinationSum2(self, candidates, target):\n        from itertools import combinations\n        cand = sorted(candidates)\n        seen = set()\n        for r in range(1, len(cand) + 1):\n            for combo in combinations(cand, r):\n                if sum(combo) == target:\n                    seen.add(combo)\n        res = [list(c) for c in seen]\n        res.sort()\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def combinationSum2(self, candidates, target):\n        candidates.sort()\n        res = []\n        def bt(start, remaining, path):\n            if remaining == 0:\n                res.append(path[:]); return\n            for i in range(start, len(candidates)):\n                if i > start and candidates[i] == candidates[i - 1]:\n                    continue\n                if candidates[i] > remaining:\n                    break\n                path.append(candidates[i])\n                bt(i + 1, remaining - candidates[i], path)\n                path.pop()\n        bt(0, target, [])\n        res.sort()\n        return res\n",
+    "javascript": "var combinationSum2 = function(candidates, target) {\n    candidates.sort((a, b) => a - b);\n    const res = [];\n    const path = [];\n    function bt(start, remaining) {\n        if (remaining === 0) { res.push(path.slice()); return; }\n        for (let i = start; i < candidates.length; i++) {\n            if (i > start && candidates[i] === candidates[i - 1]) continue;\n            if (candidates[i] > remaining) break;\n            path.push(candidates[i]);\n            bt(i + 1, remaining - candidates[i]);\n            path.pop();\n        }\n    }\n    bt(0, target);\n    res.sort((a, b) => {\n        const n = Math.min(a.length, b.length);\n        for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return a.length - b.length;\n    });\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(2^n)", "space": "O(n)" }
+}

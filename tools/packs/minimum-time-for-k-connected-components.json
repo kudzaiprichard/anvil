@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-time-for-k-connected-components",
+  "judge": "exact",
+  "pattern": "The number of components only grows as the time threshold rises, so binary search the threshold and count components with union-find on the surviving edges.",
+  "hints": [
+    "Removing edges with time at most t only ever increases the component count, so the count is monotonic in t.",
+    "For a fixed t, keep edges whose time strictly exceeds t and count components with a disjoint-set union.",
+    "Binary search over the candidate thresholds (zero plus every edge time) for the smallest t reaching k components."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000], "value": [0, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single edge removed splits into two", "input": [2, [[0, 1, 3]], 2] },
+    { "kind": "edge", "description": "chain removed sequentially", "input": [3, [[0, 1, 2], [1, 2, 4]], 3] },
+    { "kind": "edge", "description": "already enough components", "input": [3, [[0, 2, 5]], 2] },
+    { "kind": "boundary", "description": "no edges at all", "input": [4, [], 1] },
+    { "kind": "edge", "description": "needs only one component", "input": [3, [[0, 1, 2], [1, 2, 4]], 1] },
+    { "kind": "trap", "description": "parallel paths keep nodes joined until late", "input": [3, [[0, 1, 1], [1, 2, 1], [0, 2, 5]], 3] },
+    { "kind": "trap", "description": "isolated node already counts", "input": [3, [[0, 1, 10]], 2] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse graphs",
+      "seed": 41,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, size))\n    seen = set()\n    edges = []\n    m = rng.randint(0, min(2 * n, 400))\n    for _ in range(m):\n        u = rng.randint(0, n - 1)\n        v = rng.randint(0, n - 1)\n        if u == v:\n            continue\n        key = (min(u, v), max(u, v))\n        if key in seen:\n            continue\n        seen.add(key)\n        t = rng.randint(1, 1000000000)\n        edges.append([u, v, t])\n    k = rng.randint(1, n)\n    return [n, edges, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minTime(self, n, edges, k):\n        def components(t):\n            parent = list(range(n))\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n            cnt = n\n            for u, v, tm in edges:\n                if tm > t:\n                    ru, rv = find(u), find(v)\n                    if ru != rv:\n                        parent[ru] = rv\n                        cnt -= 1\n            return cnt\n        cands = sorted(set([0] + [e[2] for e in edges]))\n        for t in cands:\n            if components(t) >= k:\n                return t\n        return cands[-1] if cands else 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def minTime(self, n, edges, k):\n        def components(t):\n            parent = list(range(n))\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n            cnt = n\n            for u, v, tm in edges:\n                if tm > t:\n                    ru, rv = find(u), find(v)\n                    if ru != rv:\n                        parent[ru] = rv\n                        cnt -= 1\n            return cnt\n        cands = sorted(set([0] + [e[2] for e in edges]))\n        lo, hi = 0, len(cands) - 1\n        ans = cands[-1]\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if components(cands[mid]) >= k:\n                ans = cands[mid]\n                hi = mid - 1\n            else:\n                lo = mid + 1\n        return ans\n",
+    "javascript": "var minTime = function(n, edges, k) {\n    const components = (t) => {\n        const parent = Array.from({length: n}, (_, i) => i);\n        const find = (x) => {\n            while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }\n            return x;\n        };\n        let cnt = n;\n        for (const [u, v, tm] of edges) {\n            if (tm > t) {\n                const ru = find(u), rv = find(v);\n                if (ru !== rv) { parent[ru] = rv; cnt--; }\n            }\n        }\n        return cnt;\n    };\n    const set = new Set([0]);\n    for (const e of edges) set.add(e[2]);\n    const cands = Array.from(set).sort((a, b) => a - b);\n    let lo = 0, hi = cands.length - 1, ans = cands[cands.length - 1];\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (components(cands[mid]) >= k) { ans = cands[mid]; hi = mid - 1; }\n        else lo = mid + 1;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(E log E)", "space": "O(n)" }
+}

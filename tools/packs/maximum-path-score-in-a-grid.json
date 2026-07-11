@@ -1,0 +1,82 @@
+{
+  "slug": "maximum-path-score-in-a-grid",
+  "judge": "exact",
+  "pattern": "Since every path from corner to corner visits exactly the same number of cells, and each cell's cost is either 0 or 1, the total cost is bounded by the path length -- so tracking the best score reachable at each cell for every possible cost-so-far turns the search into a small table of running maxima.",
+  "hints": [
+    "Every monotone path from the top-left to the bottom-right corner passes through exactly the same number of cells, so the total cost of any path can never exceed that fixed cell count regardless of which route you take.",
+    "For each cell, and for every possible total cost you could have spent getting there, keep the best score achievable -- when moving to a neighbor, that cost only ever grows by 0 or 1.",
+    "Fill this table row by row (or in any order where a cell's neighbors above and to the left are already finalized), then read the best score at the destination whose cost does not exceed k, or -1 if no cost bucket there was ever reached."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [1, 200],
+      "value": [0, 2]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [0, 1000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single row, budget exactly enough for the costly cells",
+      "input": [[[0, 1, 2, 1]], 2]
+    },
+    {
+      "kind": "edge",
+      "description": "single column",
+      "input": [[[0], [2], [1]], 5]
+    },
+    {
+      "kind": "edge",
+      "description": "single cell grid, trivially reached with zero cost",
+      "input": [[[0]], 0]
+    },
+    {
+      "kind": "boundary",
+      "description": "budget of zero forces a path made only of zero-value cells",
+      "input": [[[0, 0], [1, 0]], 0]
+    },
+    {
+      "kind": "boundary",
+      "description": "every non-start cell costs 1 and budget equals the minimum path length",
+      "input": [[[0, 1, 1], [1, 1, 1], [1, 1, 1]], 4]
+    },
+    {
+      "kind": "trap",
+      "description": "the cheaper route is not the highest scoring one within budget",
+      "input": [[[0, 2, 1], [1, 1, 2], [2, 1, 0]], 3]
+    },
+    {
+      "kind": "trap",
+      "description": "a route exists but every route exceeds the tiny budget",
+      "input": [[[0, 1], [1, 1]], 0]
+    },
+    {
+      "kind": "trap",
+      "description": "value-2 cells cost the same as value-1 cells, so preferring 2s never costs extra",
+      "input": [[[0, 2, 2], [2, 2, 2]], 4]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random grid values with a random budget, sized toward the constraint maximum",
+      "seed": 21,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 200))\n    n = max(1, min(size, 200))\n    grid = [[rng.randint(0, 2) for _ in range(n)] for _ in range(m)]\n    grid[0][0] = 0\n    k = rng.randint(0, m + n)\n    return [grid, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPathScore(self, grid, k):\n        m, n = len(grid), len(grid[0])\n        best = [-1]\n        def dfs(i, j, cost, score):\n            if cost > k:\n                return\n            if i == m - 1 and j == n - 1:\n                if score > best[0]:\n                    best[0] = score\n                return\n            if i + 1 < m:\n                v = grid[i + 1][j]\n                c = 1 if v >= 1 else 0\n                dfs(i + 1, j, cost + c, score + v)\n            if j + 1 < n:\n                v = grid[i][j + 1]\n                c = 1 if v >= 1 else 0\n                dfs(i, j + 1, cost + c, score + v)\n        dfs(0, 0, 0, grid[0][0])\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPathScore(self, grid, k):\n        m, n = len(grid), len(grid[0])\n        capC = min(k, m + n - 2)\n        NEG = float('-inf')\n        if capC < 0:\n            return -1\n        dp = [[[NEG] * (capC + 1) for _ in range(n)] for _ in range(m)]\n        dp[0][0][0] = grid[0][0]\n        for i in range(m):\n            for j in range(n):\n                if i == 0 and j == 0:\n                    continue\n                val = grid[i][j]\n                cc = 1 if val >= 1 else 0\n                row = dp[i][j]\n                for c in range(capC + 1):\n                    src = NEG\n                    if i > 0 and dp[i - 1][j][c] != NEG:\n                        src = dp[i - 1][j][c]\n                    if j > 0 and dp[i][j - 1][c] != NEG and dp[i][j - 1][c] > src:\n                        src = dp[i][j - 1][c]\n                    if src == NEG:\n                        continue\n                    nc = c + cc\n                    if nc > capC:\n                        continue\n                    if src + val > row[nc]:\n                        row[nc] = src + val\n        result = max(dp[m - 1][n - 1])\n        return result if result != NEG else -1\n",
+    "javascript": "var maxPathScore = function(grid, k) {\n    const m = grid.length, n = grid[0].length;\n    const capC = Math.min(k, m + n - 2);\n    const NEG = -Infinity;\n    if (capC < 0) return -1;\n    const dp = [];\n    for (let i = 0; i < m; i++) {\n        dp.push([]);\n        for (let j = 0; j < n; j++) dp[i].push(new Array(capC + 1).fill(NEG));\n    }\n    dp[0][0][0] = grid[0][0];\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (i === 0 && j === 0) continue;\n            const val = grid[i][j];\n            const cc = val >= 1 ? 1 : 0;\n            const row = dp[i][j];\n            for (let c = 0; c <= capC; c++) {\n                let src = NEG;\n                if (i > 0 && dp[i - 1][j][c] !== NEG) src = dp[i - 1][j][c];\n                if (j > 0 && dp[i][j - 1][c] !== NEG && dp[i][j - 1][c] > src) src = dp[i][j - 1][c];\n                if (src === NEG) continue;\n                const nc = c + cc;\n                if (nc > capC) continue;\n                if (src + val > row[nc]) row[nc] = src + val;\n            }\n        }\n    }\n    const result = Math.max(...dp[m - 1][n - 1]);\n    return result !== NEG ? result : -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m * n * (m + n))",
+    "space": "O(m * n * (m + n))"
+  }
+}

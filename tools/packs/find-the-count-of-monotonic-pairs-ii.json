@@ -1,0 +1,38 @@
+{
+  "slug": "find-the-count-of-monotonic-pairs-ii",
+  "judge": "exact",
+  "pattern": "Count pairs of non-decreasing + non-increasing arrays summing to nums using DP with prefix sums over valid split values.",
+  "hints": [
+    "At each index, arr1[i] can range from arr1[i-1] to nums[i]; the number of valid continuations depends on the delta between consecutive nums elements.",
+    "Let dp[i][v] = number of ways to set arr1[i]=v. Transition: if nums[i] >= nums[i-1], dp[i][v] sums over arr1[i-1] <= v; use a prefix sum to do this in O(max_val) per step.",
+    "The total dp state is O(n * max_val) and each transition is O(1) with prefix sums, giving O(n * max_val) overall time."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 2000], "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element array: only (0, nums[0]) split", "input": [[5]] },
+    { "kind": "edge", "description": "two equal elements", "input": [[3, 3]] },
+    { "kind": "edge", "description": "strictly increasing pair", "input": [[1, 3]] },
+    { "kind": "edge", "description": "strictly decreasing pair forces arr1 fixed at 0", "input": [[3, 1]] },
+    { "kind": "edge", "description": "known example nums=[2,3,2]", "input": [[2, 3, 2]] },
+    { "kind": "edge", "description": "all same value", "input": [[5, 5, 5, 5]] },
+    { "kind": "boundary", "description": "minimum length n=1, value=1", "input": [[1]] },
+    { "kind": "boundary", "description": "maximum value in short array", "input": [[1000, 1000]] },
+    { "kind": "trap", "description": "decreasing then increasing forces zero contribution intermediate", "input": [[5, 2, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random array length up to 200, values up to 50",
+      "seed": 42,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = size\n    nums = [rng.randint(1, 50) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countOfPairs(self, nums):\n        MOD = 10**9 + 7\n        n = len(nums)\n        if n == 1:\n            return nums[0] + 1\n        max_val = max(nums)\n        # dp[v] = number of ways arr1[i] == v\n        dp = [1] * (nums[0] + 1)  # arr1[0] in [0..nums[0]]\n        for i in range(1, n):\n            new_dp = [0] * (nums[i] + 1)\n            for v in range(nums[i] + 1):\n                # arr1[i] = v, arr2[i] = nums[i] - v\n                # need arr1[i-1] <= v and arr2[i-1] >= arr2[i]\n                # arr2[i-1] = nums[i-1] - arr1[i-1] >= nums[i] - v\n                # arr1[i-1] <= nums[i-1] - nums[i] + v\n                upper = min(v, nums[i-1] - nums[i] + v)\n                if upper < 0:\n                    continue\n                upper = min(upper, nums[i-1])\n                for u in range(upper + 1):\n                    new_dp[v] = (new_dp[v] + dp[u]) % MOD\n            dp = new_dp\n        return sum(dp) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countOfPairs(self, nums):\n        MOD = 10**9 + 7\n        n = len(nums)\n        if n == 1:\n            return nums[0] + 1\n        # dp[v] = ways for arr1[i] == v, use prefix sums\n        dp = [1] * (nums[0] + 1)\n        for i in range(1, n):\n            # prefix[v] = sum(dp[0..v])\n            prefix = [0] * (nums[i-1] + 2)\n            for v in range(nums[i-1] + 1):\n                prefix[v+1] = (prefix[v] + dp[v]) % MOD\n            new_dp = [0] * (nums[i] + 1)\n            for v in range(nums[i] + 1):\n                # arr1[i-1] <= min(v, nums[i-1]-(nums[i]-v)) = min(v, nums[i-1]-nums[i]+v)\n                upper = min(v, nums[i-1] - nums[i] + v)\n                if upper < 0:\n                    continue\n                upper = min(upper, nums[i-1])\n                new_dp[v] = prefix[upper + 1]\n            dp = new_dp\n        return sum(dp) % MOD\n",
+    "javascript": "var countOfPairs = function(nums) {\n    const MOD = BigInt(10**9 + 7);\n    const n = nums.length;\n    if (n === 1) return (nums[0] + 1) % (10**9 + 7);\n    let dp = new Array(nums[0] + 1).fill(1n);\n    for (let i = 1; i < n; i++) {\n        const prefix = new Array(nums[i-1] + 2).fill(0n);\n        for (let v = 0; v <= nums[i-1]; v++) {\n            prefix[v+1] = (prefix[v] + dp[v]) % MOD;\n        }\n        const newDp = new Array(nums[i] + 1).fill(0n);\n        for (let v = 0; v <= nums[i]; v++) {\n            let upper = Math.min(v, nums[i-1] - nums[i] + v);\n            if (upper < 0) continue;\n            upper = Math.min(upper, nums[i-1]);\n            newDp[v] = prefix[upper + 1];\n        }\n        dp = newDp;\n    }\n    let ans = 0n;\n    for (const x of dp) ans = (ans + x) % MOD;\n    return Number(ans);\n};"
+  },
+  "complexity": { "time": "O(n * max_val)", "space": "O(max_val)" }
+}

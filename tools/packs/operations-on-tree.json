@@ -1,0 +1,46 @@
+{
+  "slug": "operations-on-tree",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Track only who currently holds each node's lock; ancestor and descendant checks are answered on demand by walking parent pointers upward or the children lists downward from the node in question, so no per-operation bookkeeping is needed beyond a single owner array.",
+  "hints": [
+    "Precompute each node's children list from the parent array once, in the constructor; you'll need to walk both up (to the root) and down (to the leaves) from arbitrary nodes.",
+    "lock and unlock only ever look at the single node's own owner; the interesting work is upgrade, which needs two independent checks: does any strict ancestor currently hold a lock, and does any strict descendant currently hold a lock.",
+    "For upgrade: first confirm the node itself is unlocked, then walk up via parent pointers checking for any locked ancestor (fail fast if found), then walk down the children tree (DFS/BFS) collecting every currently-locked descendant. If that collection is non-empty, unlock all of them, lock the node for the new user, and succeed; otherwise fail without changing anything."
+  ],
+  "constraints": [
+    { "param": "parent", "kind": "int[]", "len": [2, 2000], "value": [-1, 1999] },
+    { "param": "num", "kind": "int", "value": [0, 1999] },
+    { "param": "user", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: lock, a failed unlock by the wrong user, a successful unlock, then an upgrade that unlocks a descendant",
+      "input": [["LockingTree", "lock", "unlock", "unlock", "lock", "upgrade", "lock"], [[[-1, 0, 0, 1, 1, 2, 2]], [2, 2], [2, 3], [2, 2], [4, 5], [0, 1], [0, 1]]] },
+    { "kind": "trap", "description": "upgrade must fail when the node itself is already locked, even if it has locked descendants and no locked ancestors",
+      "input": [["LockingTree", "lock", "lock", "upgrade"], [[[-1, 0, 0]], [1, 5], [0, 9], [0, 9]]] },
+    { "kind": "trap", "description": "upgrade must fail when a strict ancestor is locked, even though a descendant is also locked",
+      "input": [["LockingTree", "lock", "lock", "upgrade"], [[[-1, 0, 1, 2]], [0, 1], [3, 2], [2, 2]]] },
+    { "kind": "trap", "description": "upgrade must fail when the node has no locked descendants at all, even though it is unlocked with no locked ancestor",
+      "input": [["LockingTree", "upgrade"], [[[-1, 0, 0, 1, 1, 2, 2]], [0, 1]]] },
+    { "kind": "trap", "description": "unlock fails for a user who never held the lock, and for a node that is already unlocked",
+      "input": [["LockingTree", "unlock", "lock", "unlock", "unlock"], [[[-1, 0, 0]], [1, 5], [1, 5], [1, 8], [1, 5]]] },
+    { "kind": "boundary", "description": "two-node tree, the minimum size allowed by the constraints", "input": [["LockingTree", "lock", "lock", "unlock"], [[[-1, 0]], [0, 1], [1, 1], [0, 1]]] },
+    { "kind": "edge", "description": "a successful upgrade with multiple locked descendants at different depths unlocks all of them at once",
+      "input": [["LockingTree", "lock", "lock", "lock", "upgrade", "lock", "lock"], [[[-1, 0, 0, 1, 1, 2, 2]], [3, 1], [4, 2], [5, 3], [0, 9], [3, 4], [4, 4]]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree of ~150 nodes with a long randomized mix of lock/unlock/upgrade calls among a small pool of users to force contention",
+      "seed": 23,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = 150\n    parent = [-1] + [rng.randint(0, i - 1) for i in range(1, n)]\n    ops = ['LockingTree']\n    args = [[parent]]\n    methods = ['lock', 'unlock', 'upgrade']\n    for _ in range(max(1, size)):\n        m = rng.choice(methods)\n        num = rng.randint(0, n - 1)\n        user = rng.randint(1, 40)\n        ops.append(m); args.append([num, user])\n    return [ops, args]\n",
+      "note": "a small tree with few users maximizes lock contention and exercises the ancestor/descendant checks in upgrade heavily"
+    }
+  ],
+  "oracle_python": "class LockingTree:\n    def __init__(self, parent):\n        self.parent = parent\n        self.n = len(parent)\n        self.locked_by = [-1] * self.n\n\n    def _is_ancestor(self, anc, node):\n        p = self.parent[node]\n        while p != -1:\n            if p == anc:\n                return True\n            p = self.parent[p]\n        return False\n\n    def lock(self, num, user):\n        if self.locked_by[num] != -1:\n            return False\n        self.locked_by[num] = user\n        return True\n\n    def unlock(self, num, user):\n        if self.locked_by[num] != user:\n            return False\n        self.locked_by[num] = -1\n        return True\n\n    def upgrade(self, num, user):\n        if self.locked_by[num] != -1:\n            return False\n        p = self.parent[num]\n        while p != -1:\n            if self.locked_by[p] != -1:\n                return False\n            p = self.parent[p]\n        descendants = [j for j in range(self.n) if self.locked_by[j] != -1 and self._is_ancestor(num, j)]\n        if not descendants:\n            return False\n        for d in descendants:\n            self.locked_by[d] = -1\n        self.locked_by[num] = user\n        return True\n",
+  "solutions": {
+    "python": "class LockingTree:\n    def __init__(self, parent):\n        self.parent = parent\n        self.n = len(parent)\n        self.children = [[] for _ in range(self.n)]\n        for i, p in enumerate(parent):\n            if p != -1:\n                self.children[p].append(i)\n        self.locked_by = [-1] * self.n\n\n    def lock(self, num, user):\n        if self.locked_by[num] != -1:\n            return False\n        self.locked_by[num] = user\n        return True\n\n    def unlock(self, num, user):\n        if self.locked_by[num] != user:\n            return False\n        self.locked_by[num] = -1\n        return True\n\n    def _has_locked_ancestor(self, num):\n        p = self.parent[num]\n        while p != -1:\n            if self.locked_by[p] != -1:\n                return True\n            p = self.parent[p]\n        return False\n\n    def _locked_descendants(self, num):\n        found = []\n        stack = list(self.children[num])\n        while stack:\n            node = stack.pop()\n            if self.locked_by[node] != -1:\n                found.append(node)\n            stack.extend(self.children[node])\n        return found\n\n    def upgrade(self, num, user):\n        if self.locked_by[num] != -1:\n            return False\n        if self._has_locked_ancestor(num):\n            return False\n        descendants = self._locked_descendants(num)\n        if not descendants:\n            return False\n        for d in descendants:\n            self.locked_by[d] = -1\n        self.locked_by[num] = user\n        return True\n",
+    "javascript": "class LockingTree {\n    constructor(parent) {\n        this.parent = parent;\n        this.n = parent.length;\n        this.children = Array.from({ length: this.n }, () => []);\n        for (let i = 0; i < this.n; i++) {\n            if (parent[i] !== -1) this.children[parent[i]].push(i);\n        }\n        this.lockedBy = new Array(this.n).fill(-1);\n    }\n\n    lock(num, user) {\n        if (this.lockedBy[num] !== -1) return false;\n        this.lockedBy[num] = user;\n        return true;\n    }\n\n    unlock(num, user) {\n        if (this.lockedBy[num] !== user) return false;\n        this.lockedBy[num] = -1;\n        return true;\n    }\n\n    _hasLockedAncestor(num) {\n        let p = this.parent[num];\n        while (p !== -1) {\n            if (this.lockedBy[p] !== -1) return true;\n            p = this.parent[p];\n        }\n        return false;\n    }\n\n    _lockedDescendants(num) {\n        const found = [];\n        const stack = [...this.children[num]];\n        while (stack.length) {\n            const node = stack.pop();\n            if (this.lockedBy[node] !== -1) found.push(node);\n            for (const c of this.children[node]) stack.push(c);\n        }\n        return found;\n    }\n\n    upgrade(num, user) {\n        if (this.lockedBy[num] !== -1) return false;\n        if (this._hasLockedAncestor(num)) return false;\n        const descendants = this._lockedDescendants(num);\n        if (descendants.length === 0) return false;\n        for (const d of descendants) this.lockedBy[d] = -1;\n        this.lockedBy[num] = user;\n        return true;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) worst case per lock/unlock/upgrade", "space": "O(n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "stickers-to-spell-word",
+  "judge": "exact",
+  "pattern": "A search over subsets of the target's remaining letters, applying one sticker at a time, finds the fewest stickers, with letter-count memoization pruning the state space.",
+  "hints": [
+    "Represent the part of the target still unspelled as a state; each sticker consumes some of those letters.",
+    "From a state, try every sticker, subtract the letters it provides, and recurse on what remains.",
+    "Use a bitmask of which target positions are still needed, or memoize on the remaining letter-count tuple. dp[state] is the minimum stickers; for each sticker greedily fill needed letters and take 1 + dp[next]. Unreachable states are infinity, reported as -1 at the end."
+  ],
+  "constraints": [
+    { "param": "stickers", "kind": "string[]", "len": [1, 50] },
+    { "param": "target", "kind": "string", "len": [1, 15] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three stickers combine to form the target", "input": [["with", "example", "science"], "thehat"] },
+    { "kind": "trap", "description": "impossible because a needed letter is absent", "input": [["notice", "possible"], "basicbasic"] },
+    { "kind": "boundary", "description": "single sticker equals the target", "input": [["abc"], "abc"] },
+    { "kind": "edge", "description": "one sticker reused to cover repeated letters", "input": [["ab"], "aabb"] },
+    { "kind": "trap", "description": "missing a single letter makes it impossible", "input": [["ab", "cd"], "abce"] },
+    { "kind": "edge", "description": "single character target", "input": [["a", "b"], "b"] },
+    { "kind": "trap", "description": "redundant sticker should not be chosen", "input": [["aa", "bb", "ab"], "ab"] }
+  ],
+  "stress": [
+    {
+      "description": "small random sticker set guaranteed to cover a short random target",
+      "seed": 88,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    alpha = 'abcde'\n    tlen = rng.randrange(1, 9)\n    target = ''.join(rng.choice(alpha) for _ in range(tlen))\n    ns = rng.randrange(2, 6)\n    stickers = []\n    for _ in range(ns):\n        sl = rng.randrange(1, 6)\n        stickers.append(''.join(rng.choice(alpha) for _ in range(sl)))\n    # 60% of the time guarantee solvability by adding stickers covering each letter\n    if rng.random() < 0.6:\n        for ch in set(target):\n            stickers.append(ch)\n    return [stickers, target]\n",
+      "note": "short targets and small alphabet keep the exponential DP fast; mix of solvable and impossible"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minStickers(self, stickers, target):\n        from collections import Counter\n        from functools import lru_cache\n        counts = [Counter(s) for s in stickers]\n        @lru_cache(maxsize=None)\n        def dp(rem):\n            if not rem:\n                return 0\n            need = Counter(rem)\n            best = float('inf')\n            first = rem[0]\n            for c in counts:\n                if c[first] == 0:\n                    continue\n                leftover = []\n                for ch, k in need.items():\n                    take = max(0, k - c[ch])\n                    leftover.append(ch * take)\n                nxt = ''.join(sorted(''.join(leftover)))\n                r = dp(nxt)\n                if r != float('inf'):\n                    best = min(best, 1 + r)\n            return best\n        ans = dp(''.join(sorted(target)))\n        return -1 if ans == float('inf') else ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def minStickers(self, stickers, target):\n        from functools import lru_cache\n        from collections import Counter\n        avail = [[0] * 26 for _ in stickers]\n        for i, s in enumerate(stickers):\n            for ch in s:\n                avail[i][ord(ch) - 97] += 1\n        @lru_cache(maxsize=None)\n        def dp(rem):\n            if not rem:\n                return 0\n            cnt = Counter(rem)\n            res = float('inf')\n            first = rem[0]\n            fi = ord(first) - 97\n            for a in avail:\n                if a[fi] == 0:\n                    continue\n                parts = []\n                for ch, k in cnt.items():\n                    rema = k - a[ord(ch) - 97]\n                    if rema > 0:\n                        parts.append(ch * rema)\n                sub = dp(''.join(sorted(''.join(parts))))\n                if sub + 1 < res:\n                    res = sub + 1\n            return res\n        ans = dp(''.join(sorted(target)))\n        return -1 if ans == float('inf') else ans\n",
+    "javascript": "var minStickers = function(stickers, target) {\n    const avail = stickers.map(s => {\n        const a = new Array(26).fill(0);\n        for (const ch of s) a[ch.charCodeAt(0) - 97]++;\n        return a;\n    });\n    const memo = new Map();\n    const dp = (rem) => {\n        if (rem.length === 0) return 0;\n        if (memo.has(rem)) return memo.get(rem);\n        const cnt = {};\n        for (const ch of rem) cnt[ch] = (cnt[ch] || 0) + 1;\n        const first = rem[0];\n        const fi = first.charCodeAt(0) - 97;\n        let res = Infinity;\n        for (const a of avail) {\n            if (a[fi] === 0) continue;\n            let parts = [];\n            for (const ch in cnt) {\n                const rema = cnt[ch] - a[ch.charCodeAt(0) - 97];\n                if (rema > 0) parts.push(ch.repeat(rema));\n            }\n            const next = parts.join('').split('').sort().join('');\n            const sub = dp(next);\n            if (sub + 1 < res) res = sub + 1;\n        }\n        memo.set(rem, res);\n        return res;\n    };\n    const ans = dp(target.split('').sort().join(''));\n    return ans === Infinity ? -1 : ans;\n};\n"
+  },
+  "complexity": { "time": "exponential in target length", "space": "O(distinct states)" }
+}

@@ -1,0 +1,169 @@
+{
+  "slug": "range-sum-of-bst",
+  "judge": "exact",
+  "io_types": {
+    "params": [
+      "tree",
+      "json",
+      "json"
+    ],
+    "returns": "json"
+  },
+  "pattern": "The ordering guarantee of a search tree means a value below the low bound rules out its entire left side, and a value above the high bound rules out its entire right side, so whole branches can be skipped without visiting them.",
+  "hints": [
+    "If the current node's value is below the low bound, nothing in its left branch can be in range either, so only its right branch needs checking.",
+    "Symmetrically, if the value is above the high bound, only its left branch can possibly contribute.",
+    "Otherwise the node itself is in range, so add its value and recurse into both children."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        1,
+        20000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "low",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "high",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "range covers a middle slice of the tree",
+      "input": [
+        [
+          10,
+          5,
+          15,
+          3,
+          7,
+          null,
+          18
+        ],
+        7,
+        15
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a denser tree with a narrower range",
+      "input": [
+        [
+          10,
+          5,
+          15,
+          3,
+          7,
+          13,
+          18,
+          1,
+          null,
+          6
+        ],
+        6,
+        10
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node exactly inside the range",
+      "input": [
+        [
+          5
+        ],
+        1,
+        10
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node entirely outside the range",
+      "input": [
+        [
+          5
+        ],
+        6,
+        10
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "low and high collapse onto a single node's value",
+      "input": [
+        [
+          10,
+          5,
+          15
+        ],
+        15,
+        15
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the range sits entirely above every value in the tree",
+      "input": [
+        [
+          10,
+          5,
+          15
+        ],
+        100,
+        200
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "range spans the full constraint value space, covering every node",
+      "input": [
+        [
+          10,
+          5,
+          15,
+          3,
+          7,
+          null,
+          18
+        ],
+        1,
+        100000
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random binary search tree from a shuffled permutation with a random in-range window",
+      "seed": 83,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 20000)))\n    vals = rng.sample(range(1, 100001), n)\n    order = vals[:]\n    rng.shuffle(order)\n    root = None\n    nodes = {}\n    def insert(v):\n        nonlocal root\n        if root is None:\n            root = v\n            nodes[v] = [None, None]\n            return\n        cur = root\n        while True:\n            l, r = nodes[cur]\n            if v < cur:\n                if l is None:\n                    nodes[cur][0] = v\n                    nodes[v] = [None, None]\n                    return\n                cur = l\n            else:\n                if r is None:\n                    nodes[cur][1] = v\n                    nodes[v] = [None, None]\n                    return\n                cur = r\n    for v in order:\n        insert(v)\n    from collections import deque\n    out = []\n    q = deque([root])\n    while q:\n        cur = q.popleft()\n        if cur is None:\n            out.append(None)\n            continue\n        out.append(cur)\n        cl, cr = nodes[cur]\n        q.append(cl)\n        q.append(cr)\n    while out and out[-1] is None:\n        out.pop()\n    a = rng.randint(1, 100000)\n    b = rng.randint(1, 100000)\n    low, high = min(a, b), max(a, b)\n    return [out, low, high]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def rangeSumBST(self, root, low, high):\n        total = 0\n        stack = [root] if root else []\n        while stack:\n            node = stack.pop()\n            if node is None:\n                continue\n            if low <= node.val <= high:\n                total += node.val\n            if node.left:\n                stack.append(node.left)\n            if node.right:\n                stack.append(node.right)\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def rangeSumBST(self, root, low, high):\n        if not root:\n            return 0\n        if root.val < low:\n            return self.rangeSumBST(root.right, low, high)\n        if root.val > high:\n            return self.rangeSumBST(root.left, low, high)\n        return root.val + self.rangeSumBST(root.left, low, high) + self.rangeSumBST(root.right, low, high)\n",
+    "javascript": "var rangeSumBST = function(root, low, high) {\n    if (!root) return 0;\n    if (root.val < low) return rangeSumBST(root.right, low, high);\n    if (root.val > high) return rangeSumBST(root.left, low, high);\n    return root.val + rangeSumBST(root.left, low, high) + rangeSumBST(root.right, low, high);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n) worst case, O(log n + k) for a balanced tree",
+    "space": "O(h)"
+  }
+}

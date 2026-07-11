@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-product-of-two-integers-with-no-common-bits",
+  "judge": "exact",
+  "pattern": "A sum-over-subsets max table lets you query, for any value, the largest array element whose set bits avoid it, turning the disjoint-bit pair search into a linear bitmask scan.",
+  "hints": [
+    "Two numbers share no set bits exactly when one's bit pattern is a subset of the other's complement.",
+    "If you could instantly ask \"what is the biggest array value whose bits all lie inside this mask?\", each element would just query the complement of its own bits.",
+    "Build f[mask] = largest array value whose set bits are a subset of mask using a sum-over-subsets DP, then for every element multiply it by f[FULL XOR element] and keep the best product (0 if none)."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed small values, best pair is 3 and 4", "input": [[1, 2, 3, 4, 5, 6, 7]] },
+    { "kind": "trap", "description": "every pair overlaps in bits, answer is 0", "input": [[5, 6, 4]] },
+    { "kind": "edge", "description": "all powers of two are mutually disjoint", "input": [[64, 8, 32]] },
+    { "kind": "boundary", "description": "minimum length, two disjoint powers of two", "input": [[1, 2]] },
+    { "kind": "trap", "description": "minimum length but the only pair overlaps", "input": [[3, 1]] },
+    { "kind": "edge", "description": "large disjoint values near the cap", "input": [[524288, 262144, 131072]] },
+    { "kind": "trap", "description": "duplicate large value cannot pair with itself (shares bits)", "input": [[1000000, 1000000, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "many values over a moderate range so disjoint pairs and overlaps both appear",
+      "seed": 71,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    return [[rng.randrange(1, 4096) for _ in range(n)]]\n",
+      "note": "moderate bit width keeps the SOS table small while exercising many disjoint pairs"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxProduct(self, nums):\n        ans = 0\n        n = len(nums)\n        for i in range(n):\n            for j in range(i + 1, n):\n                if nums[i] & nums[j] == 0:\n                    p = nums[i] * nums[j]\n                    if p > ans:\n                        ans = p\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxProduct(self, nums):\n        B = max(x.bit_length() for x in nums)\n        FULL = (1 << B) - 1\n        f = [0] * (1 << B)\n        for x in nums:\n            if x > f[x]:\n                f[x] = x\n        for b in range(B):\n            bit = 1 << b\n            for m in range(1 << B):\n                if m & bit and f[m ^ bit] > f[m]:\n                    f[m] = f[m ^ bit]\n        ans = 0\n        for x in nums:\n            partner = f[FULL ^ x]\n            if partner > 0:\n                p = x * partner\n                if p > ans:\n                    ans = p\n        return ans\n",
+    "javascript": "var maxProduct = function(nums) {\n    let B = 1;\n    for (const x of nums) B = Math.max(B, 32 - Math.clz32(x));\n    const FULL = (1 << B) - 1;\n    const f = new Array(1 << B).fill(0);\n    for (const x of nums) if (x > f[x]) f[x] = x;\n    for (let b = 0; b < B; b++) {\n        const bit = 1 << b;\n        for (let m = 0; m < (1 << B); m++) {\n            if ((m & bit) && f[m ^ bit] > f[m]) f[m] = f[m ^ bit];\n        }\n    }\n    let ans = 0;\n    for (const x of nums) {\n        const partner = f[FULL ^ x];\n        if (partner > 0) {\n            const p = x * partner;\n            if (p > ans) ans = p;\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n + W * 2^W)", "space": "O(2^W)" }
+}

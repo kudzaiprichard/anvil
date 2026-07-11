@@ -1,0 +1,36 @@
+{
+  "slug": "pizza-with-3n-slices",
+  "judge": "exact",
+  "pattern": "Circular maximum-sum of n/3 non-adjacent elements using two linear DP runs that exclude the first or last element.",
+  "hints": [
+    "The constraint that your neighbours always take adjacent slices means you can never pick two consecutive slices; this reduces to: pick exactly n/3 non-adjacent elements from a circular array for maximum sum.",
+    "Circular non-adjacency is handled by running two standard 'max non-adjacent elements' DPs: one on slices[0..3n-2] and one on slices[1..3n-1], taking the best.",
+    "The inner DP is dp[i][j] = best sum using exactly j elements from the first i, where dp[i][j] = max(dp[i-1][j], dp[i-2][j-1] + slices[i-1])."
+  ],
+  "constraints": [
+    { "param": "slices", "kind": "int[]", "len": [3, 500], "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "n=3, pick exactly 1 slice", "input": [[3, 2, 1]] },
+    { "kind": "edge", "description": "example 1: slices of size 6", "input": [[1, 2, 3, 4, 5, 6]] },
+    { "kind": "edge", "description": "example 2: repeated values", "input": [[8, 9, 8, 6, 1, 1]] },
+    { "kind": "boundary", "description": "all equal values", "input": [[5, 5, 5, 5, 5, 5]] },
+    { "kind": "boundary", "description": "single valid pick from 3 slices", "input": [[10, 1, 2]] },
+    { "kind": "trap", "description": "greedy picking largest first fails; DP needed", "input": [[6, 2, 6, 2, 6, 2]] },
+    { "kind": "trap", "description": "circular adjacency: first and last are neighbours", "input": [[9, 1, 9, 1, 9, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "slices of length 498 (3*166) with random values 1-1000",
+      "seed": 13,
+      "size": 498,
+      "generator_python": "def gen(rng, size):\n    n = size if size % 3 == 0 else size - (size % 3)\n    n = max(3, n)\n    return [[rng.randint(1, 1000) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSizeSlices(self, slices):\n        # Brute force via backtracking for small inputs; use DP fallback for larger\n        total = len(slices)\n        pick = total // 3\n        best = [0]\n        def bt(start, remaining, current_sum, last_idx, count):\n            if count == pick:\n                best[0] = max(best[0], current_sum)\n                return\n            for i in range(start, total - (pick - count - 1)):\n                if i == last_idx + 1:\n                    continue\n                # Circular: can't pick index 0 if last_idx is total-1\n                if last_idx == total - 1 and i == 0:\n                    continue\n                bt(i + 1, remaining - 1, current_sum + slices[i], i, count + 1)\n        # Only use brute force for small sizes; otherwise use the DP\n        if total <= 12:\n            bt(0, pick, 0, -2, 0)\n            return best[0]\n        # DP fallback for oracle on larger sizes\n        def dp_linear(arr, k):\n            n = len(arr)\n            INF = float('-inf')\n            dp = [[INF] * (k + 1) for _ in range(n + 1)]\n            dp[0][0] = 0\n            dp[1][0] = 0\n            dp[1][1] = arr[0]\n            for i in range(2, n + 1):\n                dp[i][0] = 0\n                for j in range(1, min(i, k) + 1):\n                    dp[i][j] = max(dp[i-1][j], dp[i-2][j-1] + arr[i-1])\n            return dp[n][k]\n        n = total\n        return max(dp_linear(slices[:-1], pick), dp_linear(slices[1:], pick))\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSizeSlices(self, slices):\n        def dp(arr, k):\n            n = len(arr)\n            INF = float('-inf')\n            prev2 = [INF] * (k + 1)\n            prev1 = [INF] * (k + 1)\n            prev2[0] = 0\n            prev1[0] = 0\n            prev1[1] = arr[0]\n            for i in range(2, n + 1):\n                curr = [INF] * (k + 1)\n                curr[0] = 0\n                for j in range(1, min(i, k) + 1):\n                    curr[j] = max(prev1[j], prev2[j-1] + arr[i-1] if j >= 1 else INF)\n                prev2, prev1 = prev1, curr\n            return prev1[k]\n        n = len(slices)\n        return max(dp(slices[:-1], n // 3), dp(slices[1:], n // 3))\n",
+    "javascript": "var maxSizeSlices = function(slices) {\n    function dp(arr, k) {\n        const n = arr.length;\n        const INF = -Infinity;\n        let prev2 = new Array(k + 1).fill(INF);\n        let prev1 = new Array(k + 1).fill(INF);\n        prev2[0] = 0;\n        prev1[0] = 0;\n        if (k >= 1) prev1[1] = arr[0];\n        for (let i = 2; i <= n; i++) {\n            const curr = new Array(k + 1).fill(INF);\n            curr[0] = 0;\n            for (let j = 1; j <= Math.min(i, k); j++) {\n                curr[j] = Math.max(prev1[j], j >= 1 && prev2[j-1] !== INF ? prev2[j-1] + arr[i-1] : INF);\n            }\n            prev2 = prev1;\n            prev1 = curr;\n        }\n        return prev1[k];\n    }\n    const n = slices.length;\n    const k = Math.floor(n / 3);\n    return Math.max(dp(slices.slice(0, n - 1), k), dp(slices.slice(1), k));\n};\n"
+  },
+  "complexity": { "time": "O(n*k)", "space": "O(k)" }
+}

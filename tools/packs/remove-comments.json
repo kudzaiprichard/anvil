@@ -1,0 +1,38 @@
+{
+  "slug": "remove-comments",
+  "judge": "exact",
+  "pattern": "A single left-to-right scan with a block-comment flag strips C-style line and block comments while joining lines that a block comment spans.",
+  "hints": [
+    "Track one boolean: are we currently inside a block comment that opened on an earlier line?",
+    "When not in a block comment, look for the first '//' or '/*' on the line; line comments end the line, block comments switch on the flag.",
+    "Scan character by character. Outside a block: '//' skips the rest of the line, '/*' enters block mode, otherwise append the char to a buffer. Inside a block: only '*/' exits. Flush the buffer to the output when a line ends and you are not inside a block; emit only non-empty buffers."
+  ],
+  "constraints": [
+    { "param": "source", "kind": "string[]", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "block comment spanning many lines joins surrounding code", "input": [["/*Test program */", "int main()", "{ ", "  // variable declaration ", "int a, b, c;", "/* This is a test", "   multiline  ", "   comment for ", "   testing */", "a = b + c;", "}"]] },
+    { "kind": "trap", "description": "block comment merges across implicit newlines into one output line", "input": [["a/*comment", "line", "more_comment*/b"]] },
+    { "kind": "trap", "description": "the '/*/' sequence does not close the block it opens", "input": [["a/*/b"]] },
+    { "kind": "edge", "description": "line comment removes trailing code only", "input": [["int x = 5; // assign", "int y = 6;"]] },
+    { "kind": "edge", "description": "block comment fully consumes a line so it is dropped", "input": [["/* whole line */", "kept"]] },
+    { "kind": "boundary", "description": "single empty line produces empty output", "input": [[""]] },
+    { "kind": "trap", "description": "slash that is not a comment opener is preserved", "input": [["a/b", "c/d"]] },
+    { "kind": "edge", "description": "block end and a new line comment on the same line", "input": [["x/* a", "b */// trailing", "y"]] }
+  ],
+  "stress": [
+    {
+      "description": "random C-like lines with scattered comment tokens, occasionally crossing lines",
+      "seed": 7,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    toks = ['a', 'b', 'c', ' ', ';', '{', '}', 'x=1', '//c', '/*', '*/', '/']\n    lines = []\n    for _ in range(n):\n        length = rng.randrange(0, 9)\n        parts = [rng.choice(toks) for _ in range(length)]\n        line = ''.join(parts)[:80]\n        lines.append(line)\n    # ensure any open block eventually closes: append a closer line\n    lines.append('*/end')\n    return [lines[:100]]\n",
+      "note": "comment tokens may straddle lines; trailing closer guarantees every open block closes"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def removeComments(self, source):\n        joined = '\\n'.join(source)\n        out = []\n        i = 0\n        n = len(joined)\n        cur = []\n        in_block = False\n        while i < n:\n            ch = joined[i]\n            two = joined[i:i+2]\n            if in_block:\n                if two == '*/':\n                    in_block = False\n                    i += 2\n                else:\n                    i += 1\n            else:\n                if two == '/*':\n                    in_block = True\n                    i += 2\n                elif two == '//':\n                    # skip until newline\n                    while i < n and joined[i] != '\\n':\n                        i += 1\n                elif ch == '\\n':\n                    if cur:\n                        out.append(''.join(cur))\n                        cur = []\n                    i += 1\n                else:\n                    cur.append(ch)\n                    i += 1\n        if cur and not in_block:\n            out.append(''.join(cur))\n        return out\n",
+  "solutions": {
+    "python": "class Solution:\n    def removeComments(self, source):\n        out = []\n        buf = []\n        in_block = False\n        for line in source:\n            i = 0\n            m = len(line)\n            while i < m:\n                if not in_block:\n                    if line[i:i+2] == '//':\n                        break\n                    elif line[i:i+2] == '/*':\n                        in_block = True\n                        i += 2\n                    else:\n                        buf.append(line[i])\n                        i += 1\n                else:\n                    if line[i:i+2] == '*/':\n                        in_block = False\n                        i += 2\n                    else:\n                        i += 1\n            if not in_block and buf:\n                out.append(''.join(buf))\n                buf = []\n        return out\n",
+    "javascript": "var removeComments = function(source) {\n    const out = [];\n    let buf = [];\n    let inBlock = false;\n    for (const line of source) {\n        let i = 0;\n        const m = line.length;\n        while (i < m) {\n            if (!inBlock) {\n                if (line.substr(i, 2) === '//') {\n                    break;\n                } else if (line.substr(i, 2) === '/*') {\n                    inBlock = true;\n                    i += 2;\n                } else {\n                    buf.push(line[i]);\n                    i += 1;\n                }\n            } else {\n                if (line.substr(i, 2) === '*/') {\n                    inBlock = false;\n                    i += 2;\n                } else {\n                    i += 1;\n                }\n            }\n        }\n        if (!inBlock && buf.length) {\n            out.push(buf.join(''));\n            buf = [];\n        }\n    }\n    return out;\n};\n"
+  },
+  "complexity": { "time": "O(total characters)", "space": "O(total characters)" }
+}

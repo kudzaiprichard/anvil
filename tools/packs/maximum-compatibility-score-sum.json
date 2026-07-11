@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-compatibility-score-sum",
+  "judge": "exact",
+  "pattern": "A bitmask assignment DP pairs each student with an unused mentor to maximize the total count of matching answers.",
+  "hints": [
+    "First precompute the compatibility score between every student and every mentor as the number of equal answers.",
+    "This is an optimal one-to-one assignment problem on a small square cost matrix.",
+    "Use DP over a bitmask of used mentors: dp[mask] is the best score after assigning the first popcount(mask) students, trying each unused mentor for the next student."
+  ],
+  "constraints": [
+    { "param": "students", "kind": "int[][]", "len": [1, 8], "value": [0, 1] },
+    { "param": "mentors", "kind": "int[][]", "len": [1, 8], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three-way assignment with a clear optimum", "input": [[[1, 1, 0], [1, 0, 1], [0, 0, 1]], [[1, 0, 0], [0, 0, 1], [1, 1, 0]]] },
+    { "kind": "trap", "description": "every pair scores zero", "input": [[[0, 0], [0, 0], [0, 0]], [[1, 1], [1, 1], [1, 1]]] },
+    { "kind": "boundary", "description": "single student and mentor matching fully", "input": [[[1]], [[1]]] },
+    { "kind": "boundary", "description": "single student and mentor mismatching", "input": [[[0]], [[1]]] },
+    { "kind": "edge", "description": "identical sets give perfect matching", "input": [[[1, 0, 1], [0, 1, 0]], [[1, 0, 1], [0, 1, 0]]] },
+    { "kind": "trap", "description": "swapping the obvious pairing is better", "input": [[[1, 1], [0, 0]], [[0, 0], [1, 1]]] },
+    { "kind": "edge", "description": "all answers equal so any assignment is maximal", "input": [[[1, 1, 1], [1, 1, 1]], [[1, 1, 1], [1, 1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "maximum size random binary matrices",
+      "seed": 53,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 8))\n    n = rng.randrange(1, 9)\n    students = [[rng.randrange(0, 2) for _ in range(n)] for _ in range(m)]\n    mentors = [[rng.randrange(0, 2) for _ in range(n)] for _ in range(m)]\n    return [students, mentors]\n",
+      "note": "m,n capped at 8"
+    }
+  ],
+  "oracle_python": "from itertools import permutations\n\nclass Solution:\n    def maxCompatibilitySum(self, students, mentors):\n        m = len(students)\n        score = [[sum(1 for a, b in zip(students[i], mentors[j]) if a == b) for j in range(m)] for i in range(m)]\n        best = 0\n        for perm in permutations(range(m)):\n            best = max(best, sum(score[i][perm[i]] for i in range(m)))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxCompatibilitySum(self, students, mentors):\n        m = len(students)\n        score = [[sum(1 for a, b in zip(students[i], mentors[j]) if a == b) for j in range(m)] for i in range(m)]\n        full = 1 << m\n        dp = [-1] * full\n        dp[0] = 0\n        for mask in range(full):\n            if dp[mask] < 0:\n                continue\n            i = bin(mask).count('1')\n            if i >= m:\n                continue\n            for j in range(m):\n                if not (mask >> j) & 1:\n                    nm = mask | (1 << j)\n                    val = dp[mask] + score[i][j]\n                    if val > dp[nm]:\n                        dp[nm] = val\n        return dp[full - 1]\n",
+    "javascript": "var maxCompatibilitySum = function(students, mentors) {\n    const m = students.length;\n    const score = [];\n    for (let i = 0; i < m; i++) {\n        score.push([]);\n        for (let j = 0; j < m; j++) {\n            let s = 0;\n            for (let k = 0; k < students[i].length; k++) if (students[i][k] === mentors[j][k]) s++;\n            score[i].push(s);\n        }\n    }\n    const full = 1 << m;\n    const dp = new Array(full).fill(-1);\n    dp[0] = 0;\n    for (let mask = 0; mask < full; mask++) {\n        if (dp[mask] < 0) continue;\n        let i = 0, t = mask;\n        while (t) { i += t & 1; t >>= 1; }\n        if (i >= m) continue;\n        for (let j = 0; j < m; j++) {\n            if (!((mask >> j) & 1)) {\n                const nm = mask | (1 << j);\n                const val = dp[mask] + score[i][j];\n                if (val > dp[nm]) dp[nm] = val;\n            }\n        }\n    }\n    return dp[full - 1];\n};\n"
+  },
+  "complexity": { "time": "O(m^2 * 2^m + m^2 n)", "space": "O(2^m)" }
+}

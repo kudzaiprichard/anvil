@@ -1,0 +1,42 @@
+{
+  "slug": "subsets-ii",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    nums = args[0]\n    if not isinstance(output, list):\n        return False\n    from collections import Counter\n    avail = Counter(nums)\n    seen = set()\n    for sub in output:\n        if not isinstance(sub, list):\n            return False\n        c = Counter(sub)\n        for v, k in c.items():\n            if avail.get(v, 0) < k:\n                return False\n        key = tuple(sorted(sub))\n        if key in seen:\n            return False\n        seen.add(key)\n    correct = set()\n    items = sorted(avail.items())\n    def build(i, cur):\n        if i == len(items):\n            correct.add(tuple(cur))\n            return\n        v, cnt = items[i]\n        for take in range(cnt + 1):\n            build(i + 1, cur + [v] * take)\n    build(0, [])\n    return seen == correct\n",
+    "validator_javascript": "function validate(args, output) {\n    const nums = args[0];\n    if (!Array.isArray(output)) return false;\n    const counts = function(arr) {\n        const m = new Map();\n        for (const v of arr) m.set(v, (m.get(v) || 0) + 1);\n        return m;\n    };\n    const avail = counts(nums);\n    const seen = new Set();\n    for (const sub of output) {\n        if (!Array.isArray(sub)) return false;\n        const c = counts(sub);\n        for (const [v, k] of c) {\n            if ((avail.get(v) || 0) < k) return false;\n        }\n        const key = sub.slice().sort((a, b) => a - b).join(',');\n        if (seen.has(key)) return false;\n        seen.add(key);\n    }\n    const correct = new Set();\n    const items = Array.from(avail.entries()).sort((a, b) => a[0] - b[0]);\n    const build = function(i, cur) {\n        if (i === items.length) {\n            correct.add(cur.join(','));\n            return;\n        }\n        const [v, cnt] = items[i];\n        for (let take = 0; take <= cnt; take++) {\n            build(i + 1, cur.concat(new Array(take).fill(v)));\n        }\n    };\n    build(0, []);\n    if (seen.size !== correct.size) return false;\n    for (const k of seen) if (!correct.has(k)) return false;\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Enumerating the distinct subsets of a multiset means sorting, then at each value choosing how many copies to include while skipping the branches that would re-create an already-formed subset.",
+  "hints": [
+    "Duplicate values let two different choices produce the same subset, so the enumeration must be ordered to avoid repeats.",
+    "Sorting groups equal values together, after which each subset is determined by how many copies of each distinct value it takes.",
+    "Either iterate per distinct value over taking zero up to all of its copies, or backtrack adding elements and skip a duplicate at the same depth when its predecessor was not chosen in this branch."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10], "value": [-10, 10] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one duplicated value collapses repeated subsets", "input": [[1, 2, 2]] },
+    { "kind": "boundary", "description": "single element", "input": [[0]] },
+    { "kind": "trap", "description": "all identical values", "input": [[3, 3, 3]] },
+    { "kind": "edge", "description": "all distinct behaves like plain subsets", "input": [[1, 2, 3]] },
+    { "kind": "trap", "description": "two separate duplicated pairs", "input": [[4, 4, 5, 5]] },
+    { "kind": "edge", "description": "negatives with a duplicate", "input": [[-1, -1, 2]] },
+    { "kind": "boundary", "description": "largest length heavy with duplicates", "input": [[2, 2, 2, 1, 1, 0, 0, 3, 3, 3]] }
+  ],
+  "stress": [
+    {
+      "description": "short arrays from a tiny value pool so duplicates dominate",
+      "seed": 38,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 10)))\n    return [[rng.randint(0, 3) for _ in range(n)]]\n",
+      "note": "small pool maximizes duplicate suppression while keeping the subset count bounded"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def subsetsWithDup(self, nums):\n        from itertools import combinations\n        nums = sorted(nums)\n        seen = set()\n        res = []\n        for r in range(len(nums) + 1):\n            for combo in combinations(nums, r):\n                if combo not in seen:\n                    seen.add(combo)\n                    res.append(list(combo))\n        res.sort()\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def subsetsWithDup(self, nums):\n        nums = sorted(nums)\n        res = []\n        cur = []\n        def back(start):\n            res.append(cur[:])\n            for i in range(start, len(nums)):\n                if i > start and nums[i] == nums[i - 1]:\n                    continue\n                cur.append(nums[i])\n                back(i + 1)\n                cur.pop()\n        back(0)\n        for s in res:\n            s.sort()\n        res.sort()\n        return res\n",
+    "javascript": "var subsetsWithDup = function(nums) {\n    nums = nums.slice().sort((a, b) => a - b);\n    const res = [];\n    const cur = [];\n    const back = function(start) {\n        res.push(cur.slice());\n        for (let i = start; i < nums.length; i++) {\n            if (i > start && nums[i] === nums[i - 1]) continue;\n            cur.push(nums[i]);\n            back(i + 1);\n            cur.pop();\n        }\n    };\n    back(0);\n    for (const s of res) s.sort((a, b) => a - b);\n    res.sort((a, b) => {\n        const n = Math.min(a.length, b.length);\n        for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return a.length - b.length;\n    });\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n*2^n)", "space": "O(n)" }
+}

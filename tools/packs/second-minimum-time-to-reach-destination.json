@@ -1,0 +1,220 @@
+{
+  "slug": "second-minimum-time-to-reach-destination",
+  "judge": "exact",
+  "pattern": "A modified BFS that remembers, for every vertex, both the shortest and the next distinct arrival distance gives the second-shortest hop count to the destination in one pass; a short simulation over that many hops then turns hop count into minutes by waiting out red lights.",
+  "hints": [
+    "Run a BFS from vertex 1, but for every vertex track not just the shortest distance found so far -- also remember the very next distance value that differs from it.",
+    "Once you know the second-shortest number of hops to vertex n, simulate walking that many edges one at a time.",
+    "Before departing a vertex you must wait out a red signal if you'd otherwise leave while it's red: the signal is red whenever elapsed-time-so-far divided by `change` (floored) is odd, so jump to the start of the next green window before adding the next `time` minutes of travel."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        2,
+        10000
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        1,
+        20000
+      ],
+      "value": [
+        1,
+        10000
+      ]
+    },
+    {
+      "param": "time",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "change",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two vertices with a single edge, forcing multiple bounces back and forth",
+      "input": [
+        2,
+        [
+          [
+            1,
+            2
+          ]
+        ],
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a triangle (odd cycle) so the second shortest path differs by exactly one hop",
+      "input": [
+        3,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            3
+          ]
+        ],
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "change value of 1 forces the signal to flicker every minute",
+      "input": [
+        4,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        5,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "time and change both at their minimum values",
+      "input": [
+        3,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a bipartite square graph needs a full two extra hops for the second minimum",
+      "input": [
+        4,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            1
+          ]
+        ],
+        3,
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the round trip time exactly equals the change interval",
+      "input": [
+        2,
+        [
+          [
+            1,
+            2
+          ]
+        ],
+        2,
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a longer chain to exercise larger hop counts",
+      "input": [
+        6,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ]
+        ],
+        4,
+        6
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random connected graph (spanning tree plus extra edges) with random time and change",
+      "seed": 13,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 10000))\n    nodes = list(range(1, n + 1))\n    rng.shuffle(nodes)\n    edges = set()\n    for i in range(1, n):\n        u = nodes[i]\n        v = nodes[rng.randint(0, i - 1)]\n        edges.add((min(u, v), max(u, v)))\n    extra = rng.randint(0, min(n, 50))\n    attempts = 0\n    while len(edges) < (n - 1) + extra and attempts < extra * 5 + 10:\n        a = rng.randint(1, n)\n        b = rng.randint(1, n)\n        attempts += 1\n        if a != b:\n            edges.add((min(a, b), max(a, b)))\n    time_ = rng.randint(1, 1000)\n    change = rng.randint(1, 1000)\n    return [n, [list(e) for e in edges], time_, change]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque, defaultdict\n\nclass Solution:\n    def secondMinimum(self, n, edges, time, change):\n        graph = defaultdict(list)\n        for u, v in edges:\n            graph[u].append(v)\n            graph[v].append(u)\n        INF = float('inf')\n        dist = [[INF, INF] for _ in range(n + 1)]\n        dist[1][0] = 0\n        q = deque([(1, 0)])\n        while q:\n            u, p = q.popleft()\n            d = dist[u][p]\n            for v in graph[u]:\n                np_ = 1 - p\n                if dist[v][np_] == INF:\n                    dist[v][np_] = d + 1\n                    q.append((v, np_))\n        even, odd = dist[n][0], dist[n][1]\n        m = min(even, odd)\n        other = max(even, odd) if min(even, odd) != INF else INF\n        moves = min(m + 2, other)\n        result = 0\n        for _ in range(moves):\n            if (result // change) % 2 == 1:\n                result = (result // change + 1) * change\n            result += time\n        return result\n",
+  "solutions": {
+    "python": "from collections import deque, defaultdict\n\nclass Solution:\n    def secondMinimum(self, n, edges, time, change):\n        graph = defaultdict(list)\n        for u, v in edges:\n            graph[u].append(v)\n            graph[v].append(u)\n        dist1 = [-1] * (n + 1)\n        dist2 = [-1] * (n + 1)\n        dist1[1] = 0\n        q = deque([(1, 0)])\n        while q:\n            u, d = q.popleft()\n            for v in graph[u]:\n                if dist1[v] == -1:\n                    dist1[v] = d + 1\n                    q.append((v, d + 1))\n                elif dist2[v] == -1 and d + 1 != dist1[v]:\n                    dist2[v] = d + 1\n                    q.append((v, d + 1))\n        moves = dist2[n]\n        result = 0\n        for _ in range(moves):\n            if (result // change) % 2 == 1:\n                result = (result // change + 1) * change\n            result += time\n        return result\n",
+    "javascript": "var secondMinimum = function(n, edges, time, change) {\n    const graph = Array.from({length: n + 1}, () => []);\n    for (const [u, v] of edges) {\n        graph[u].push(v);\n        graph[v].push(u);\n    }\n    const dist1 = new Array(n + 1).fill(-1);\n    const dist2 = new Array(n + 1).fill(-1);\n    dist1[1] = 0;\n    const queue = [[1, 0]];\n    let head = 0;\n    while (head < queue.length) {\n        const [u, d] = queue[head++];\n        for (const v of graph[u]) {\n            if (dist1[v] === -1) {\n                dist1[v] = d + 1;\n                queue.push([v, d + 1]);\n            } else if (dist2[v] === -1 && d + 1 !== dist1[v]) {\n                dist2[v] = d + 1;\n                queue.push([v, d + 1]);\n            }\n        }\n    }\n    const moves = dist2[n];\n    let result = 0;\n    for (let i = 0; i < moves; i++) {\n        if (Math.floor(result / change) % 2 === 1) {\n            result = (Math.floor(result / change) + 1) * change;\n        }\n        result += time;\n    }\n    return result;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + m)",
+    "space": "O(n + m)"
+  }
+}

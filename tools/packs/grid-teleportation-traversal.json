@@ -1,0 +1,37 @@
+{
+  "slug": "grid-teleportation-traversal",
+  "judge": "exact",
+  "pattern": "Treating portal jumps as zero-cost edges turns shortest path on a grid into a 0-1 breadth-first search.",
+  "hints": [
+    "Ordinary steps cost one move while teleporting between same-letter cells costs nothing, so not all edges weigh the same.",
+    "A 0-1 BFS (deque: push zero-cost moves to the front, unit moves to the back) finds the minimum number of moves.",
+    "When you first land on a letter cell, expand to every other cell of that letter at zero cost and never use that letter group again; relax the four neighbors at cost one, and read the distance to the bottom-right."
+  ],
+  "constraints": [
+    { "param": "matrix", "kind": "str[]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "teleport shortcut beats walking", "input": [["A..", ".A.", "..."]] },
+    { "kind": "edge", "description": "walls force a long detour with no portals", "input": [[".#...", ".#.#.", ".#.#.", "...#."]] },
+    { "kind": "edge", "description": "single cell is already the goal", "input": [["."]] },
+    { "kind": "trap", "description": "destination unreachable returns minus one", "input": [["..", "#.", ".#"]] },
+    { "kind": "trap", "description": "lone portal letter cannot teleport anywhere", "input": [["A.", ".."]] },
+    { "kind": "edge", "description": "straight corridor", "input": [["....."]] },
+    { "kind": "trap", "description": "two portal letters chain to skip walls", "input": [["A#B", "..#", "A#B"]] }
+  ],
+  "stress": [
+    {
+      "description": "random small grid with portals and walls, start always open",
+      "seed": 11,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = rng.randrange(1, 9)\n    n = rng.randrange(1, 9)\n    letters = 'ABC'\n    rows = []\n    for i in range(m):\n        row = []\n        for j in range(n):\n            r = rng.random()\n            if r < 0.55:\n                row.append('.')\n            elif r < 0.75:\n                row.append('#')\n            else:\n                row.append(rng.choice(letters))\n        rows.append(''.join(row))\n    rows[0] = ('.' + rows[0][1:]) if len(rows[0]) > 0 else '.'\n    if rows[0][0] == '#':\n        rows[0] = '.' + rows[0][1:]\n    return [rows]\n",
+      "note": "top-left guaranteed not an obstacle per the constraint"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def minMoves(self, matrix):\n        m = len(matrix)\n        n = len(matrix[0])\n        from collections import defaultdict\n        groups = defaultdict(list)\n        for i in range(m):\n            for j in range(n):\n                c = matrix[i][j]\n                if 'A' <= c <= 'Z':\n                    groups[c].append((i, j))\n        INF = float('inf')\n        dist = [[INF] * n for _ in range(m)]\n        dist[0][0] = 0\n        used = set()\n        pq = [(0, 0, 0)]\n        while pq:\n            d, i, j = heapq.heappop(pq)\n            if d > dist[i][j]:\n                continue\n            c = matrix[i][j]\n            if 'A' <= c <= 'Z' and c not in used:\n                used.add(c)\n                for (ti, tj) in groups[c]:\n                    if d < dist[ti][tj]:\n                        dist[ti][tj] = d\n                        heapq.heappush(pq, (d, ti, tj))\n            for di, dj in ((1,0),(-1,0),(0,1),(0,-1)):\n                ni, nj = i + di, j + dj\n                if 0 <= ni < m and 0 <= nj < n and matrix[ni][nj] != '#':\n                    if d + 1 < dist[ni][nj]:\n                        dist[ni][nj] = d + 1\n                        heapq.heappush(pq, (d + 1, ni, nj))\n        return -1 if dist[m-1][n-1] == INF else dist[m-1][n-1]\n",
+  "solutions": {
+    "python": "from collections import deque, defaultdict\nclass Solution:\n    def minMoves(self, matrix):\n        m = len(matrix)\n        n = len(matrix[0])\n        groups = defaultdict(list)\n        for i in range(m):\n            for j in range(n):\n                c = matrix[i][j]\n                if 'A' <= c <= 'Z':\n                    groups[c].append((i, j))\n        INF = float('inf')\n        dist = [[INF] * n for _ in range(m)]\n        dist[0][0] = 0\n        used = set()\n        dq = deque([(0, 0)])\n        while dq:\n            i, j = dq.popleft()\n            d = dist[i][j]\n            c = matrix[i][j]\n            if 'A' <= c <= 'Z' and c not in used:\n                used.add(c)\n                for (ti, tj) in groups[c]:\n                    if d < dist[ti][tj]:\n                        dist[ti][tj] = d\n                        dq.appendleft((ti, tj))\n            for di, dj in ((1,0),(-1,0),(0,1),(0,-1)):\n                ni, nj = i + di, j + dj\n                if 0 <= ni < m and 0 <= nj < n and matrix[ni][nj] != '#':\n                    if d + 1 < dist[ni][nj]:\n                        dist[ni][nj] = d + 1\n                        dq.append((ni, nj))\n        return -1 if dist[m-1][n-1] == INF else dist[m-1][n-1]\n",
+    "javascript": "var minMoves = function(matrix) {\n    const m = matrix.length, n = matrix[0].length;\n    const groups = new Map();\n    for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) {\n        const c = matrix[i][j];\n        if (c >= 'A' && c <= 'Z') {\n            if (!groups.has(c)) groups.set(c, []);\n            groups.get(c).push([i, j]);\n        }\n    }\n    const INF = Infinity;\n    const dist = Array.from({length: m}, () => new Array(n).fill(INF));\n    dist[0][0] = 0;\n    const used = new Set();\n    let dq = [[0, 0]];\n    while (dq.length) {\n        const [i, j] = dq.shift();\n        const d = dist[i][j];\n        const c = matrix[i][j];\n        if (c >= 'A' && c <= 'Z' && !used.has(c)) {\n            used.add(c);\n            for (const [ti, tj] of groups.get(c)) {\n                if (d < dist[ti][tj]) { dist[ti][tj] = d; dq.unshift([ti, tj]); }\n            }\n        }\n        const dirs = [[1,0],[-1,0],[0,1],[0,-1]];\n        for (const [di, dj] of dirs) {\n            const ni = i + di, nj = j + dj;\n            if (ni >= 0 && ni < m && nj >= 0 && nj < n && matrix[ni][nj] !== '#') {\n                if (d + 1 < dist[ni][nj]) { dist[ni][nj] = d + 1; dq.push([ni, nj]); }\n            }\n        }\n    }\n    return dist[m-1][n-1] === INF ? -1 : dist[m-1][n-1];\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-number-of-subsequences-after-one-inserting",
+  "judge": "exact",
+  "pattern": "Counting the target pattern by its middle letter, then asking what a single inserted letter could add, reduces the optimization to a few prefix/suffix tallies.",
+  "hints": [
+    "Count the base occurrences by summing, for each middle letter, the matching letters before it times the matching letters after it.",
+    "A single inserted letter helps most as a leading first-letter, a trailing last-letter, or a middle letter placed where it sees the most pairs.",
+    "Take the base count plus the best of: total (second,third) pairs, total (first,second) pairs, or the max prefix-firsts times suffix-thirds over all gaps."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "insert a leading L", "input": ["LMCT"] },
+    { "kind": "edge", "description": "two C choices", "input": ["LCCT"] },
+    { "kind": "edge", "description": "too short to ever form the pattern", "input": ["L"] },
+    { "kind": "boundary", "description": "single unrelated letter", "input": ["Z"] },
+    { "kind": "edge", "description": "already complete pattern", "input": ["LCT"] },
+    { "kind": "trap", "description": "many L then C then T benefits a middle C", "input": ["LLLCTTT"] },
+    { "kind": "trap", "description": "order wrong, insertion cannot fix", "input": ["TCL"] },
+    { "kind": "edge", "description": "repeated full patterns", "input": ["LCTLCT"] }
+  ],
+  "stress": [
+    {
+      "description": "random letters drawn mostly from L, C, T",
+      "seed": 43,
+      "size": 36,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 36))\n    pool = 'LCTLCTABZ'\n    s = ''.join(pool[rng.randrange(len(pool))] for _ in range(n))\n    return [s]\n",
+      "note": "biased toward the relevant letters"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numOfSubsequences(self, s):\n        def count(t):\n            tot = 0\n            n = len(t)\n            for i in range(n):\n                if t[i] != 'L':\n                    continue\n                for j in range(i + 1, n):\n                    if t[j] != 'C':\n                        continue\n                    for k in range(j + 1, n):\n                        if t[k] == 'T':\n                            tot += 1\n            return tot\n        best = count(s)\n        for pos in range(len(s) + 1):\n            for ch in 'LCT':\n                cand = s[:pos] + ch + s[pos:]\n                c = count(cand)\n                if c > best:\n                    best = c\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def numOfSubsequences(self, s):\n        n = len(s)\n        suffT = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            suffT[i] = suffT[i + 1] + (1 if s[i] == 'T' else 0)\n        base = 0\n        prefL = 0\n        totalCT = 0\n        countC = 0\n        for i in range(n):\n            if s[i] == 'C':\n                base += prefL * suffT[i + 1]\n                totalCT += suffT[i + 1]\n            if s[i] == 'L':\n                prefL += 1\n        totalLC = 0\n        cntL = 0\n        for i in range(n):\n            if s[i] == 'L':\n                cntL += 1\n            elif s[i] == 'C':\n                totalLC += cntL\n        best_c = 0\n        pl = 0\n        for pos in range(n + 1):\n            g = pl * suffT[pos]\n            if g > best_c:\n                best_c = g\n            if pos < n and s[pos] == 'L':\n                pl += 1\n        gain = max(0, totalCT, totalLC, best_c)\n        return base + gain\n",
+    "javascript": "var numOfSubsequences = function(s) {\n    const n = s.length;\n    const suffT = new Array(n + 1).fill(0);\n    for (let i = n - 1; i >= 0; i--) suffT[i] = suffT[i + 1] + (s[i] === 'T' ? 1 : 0);\n    let base = 0, prefL = 0, totalCT = 0;\n    for (let i = 0; i < n; i++) {\n        if (s[i] === 'C') { base += prefL * suffT[i + 1]; totalCT += suffT[i + 1]; }\n        if (s[i] === 'L') prefL += 1;\n    }\n    let totalLC = 0, cntL = 0;\n    for (let i = 0; i < n; i++) {\n        if (s[i] === 'L') cntL += 1;\n        else if (s[i] === 'C') totalLC += cntL;\n    }\n    let bestC = 0, pl = 0;\n    for (let pos = 0; pos <= n; pos++) {\n        const g = pl * suffT[pos];\n        if (g > bestC) bestC = g;\n        if (pos < n && s[pos] === 'L') pl += 1;\n    }\n    const gain = Math.max(0, totalCT, totalLC, bestC);\n    return base + gain;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,40 @@
+{
+  "slug": "add-one-row-to-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json", "json"], "returns": "tree" },
+  "pattern": "Inserting a whole level means finding every node one above the target depth and splicing two new nodes between each parent and its original children, with the root case handled specially.",
+  "hints": [
+    "When the target depth is 1 there is no parent level, so the whole existing tree just becomes a child of a brand new root.",
+    "Otherwise you want to stop at the nodes sitting at depth minus one and rebuild their links.",
+    "At each such parent, the old left child must hang off the new left node and the old right child off the new right node, preserving order."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 10000], "value": [-100, 100] },
+    { "param": "val", "kind": "int", "value": [-100000, 100000] },
+    { "param": "depth", "kind": "int", "value": [1, 10001] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "insert at depth 2 below the root", "input": [[4, 2, 6, 3, 1, 5], 1, 2] },
+    { "kind": "edge", "description": "insert deeper where some branches are missing", "input": [[4, 2, null, 3, 1], 1, 3] },
+    { "kind": "boundary", "description": "depth 1 wraps the whole tree under a new root", "input": [[5, 3, 7], 9, 1] },
+    { "kind": "boundary", "description": "single-node tree, new root", "input": [[1], 8, 1] },
+    { "kind": "trap", "description": "single node, insert as its children", "input": [[1], 2, 2] },
+    { "kind": "trap", "description": "skewed left chain, insert at the bottom", "input": [[1, 2, null, 3], 9, 4] },
+    { "kind": "edge", "description": "negative value inserted in the middle", "input": [[10, 5, 15, 3, 7], -50, 2] }
+  ],
+  "stress": [
+    {
+      "description": "random level-order tree; pick a valid depth within the tree's height plus one",
+      "seed": 33,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1500))\n    arr = [rng.randint(-100, 100)]\n    for _ in range(n - 1):\n        arr.append(rng.randint(-100, 100) if rng.random() < 0.7 else None)\n    while arr and arr[-1] is None:\n        arr.pop()\n    # estimate height by simulating level-order parent/child layout\n    idx = 0\n    children = [i for i, v in enumerate(arr) if v is not None]\n    # crude depth bound: number of nodes is enough as an upper bound on depth\n    depth = rng.randint(1, max(1, len([v for v in arr if v is not None])))\n    val = rng.randint(-100000, 100000)\n    return [arr, val, depth]\n",
+      "note": "depth bounded by node count keeps it valid for any shape"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def addOneRow(self, root, val, depth):\n        if depth == 1:\n            new_root = TreeNode(val)\n            new_root.left = root\n            return new_root\n        # collect parents at level depth-1 via BFS\n        level = [root] if root else []\n        cur_depth = 1\n        while cur_depth < depth - 1:\n            nxt = []\n            for node in level:\n                if node.left:\n                    nxt.append(node.left)\n                if node.right:\n                    nxt.append(node.right)\n            level = nxt\n            cur_depth += 1\n        for node in level:\n            old_left, old_right = node.left, node.right\n            node.left = TreeNode(val)\n            node.left.left = old_left\n            node.right = TreeNode(val)\n            node.right.right = old_right\n        return root\n",
+  "solutions": {
+    "python": "class Solution:\n    def addOneRow(self, root, val, depth):\n        if depth == 1:\n            return TreeNode(val, root, None)\n        def dfs(node, d):\n            if node is None:\n                return\n            if d == depth - 1:\n                node.left = TreeNode(val, node.left, None)\n                node.right = TreeNode(val, None, node.right)\n                return\n            dfs(node.left, d + 1)\n            dfs(node.right, d + 1)\n        dfs(root, 1)\n        return root\n",
+    "javascript": "var addOneRow = function(root, val, depth) {\n    if (depth === 1) {\n        return new TreeNode(val, root, null);\n    }\n    const dfs = (node, d) => {\n        if (node === null) return;\n        if (d === depth - 1) {\n            node.left = new TreeNode(val, node.left, null);\n            node.right = new TreeNode(val, null, node.right);\n            return;\n        }\n        dfs(node.left, d + 1);\n        dfs(node.right, d + 1);\n    };\n    dfs(root, 1);\n    return root;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

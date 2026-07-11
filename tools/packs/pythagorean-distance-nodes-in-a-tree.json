@@ -1,0 +1,268 @@
+{
+  "slug": "pythagorean-distance-nodes-in-a-tree",
+  "judge": "exact",
+  "pattern": "Three breadth-first searches from the three target nodes give every node's distance triple in linear time, and each triple is checked against the Pythagorean condition after sorting.",
+  "hints": [
+    "You need, for every node, its distance to three fixed nodes - what single-source technique gives all distances from one node in a tree in linear time, and how many times do you need to run it?",
+    "Run breadth-first search once from x, once from y, and once from z; combine the three distance arrays index by index.",
+    "For each node sort its three distances ascending as (a, b, c) and count it when a*a + b*b == c*c - remember a node can equal one of x, y, z, giving a distance of zero."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        4,
+        100000
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        3,
+        99999
+      ],
+      "note": "n-1 undirected edges forming a valid tree, 0<=u,v<n"
+    },
+    {
+      "param": "x",
+      "kind": "int",
+      "value": [
+        0,
+        99999
+      ]
+    },
+    {
+      "param": "y",
+      "kind": "int",
+      "value": [
+        0,
+        99999
+      ]
+    },
+    {
+      "param": "z",
+      "kind": "int",
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a straight path graph",
+      "input": [
+        5,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        0,
+        4,
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a star graph with the hub excluded from the targets",
+      "input": [
+        6,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ]
+        ],
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the minimum tree size",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ]
+        ],
+        0,
+        2,
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one target node is the hub, forcing many zero distances",
+      "input": [
+        5,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ]
+        ],
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an unbalanced caterpillar-shaped tree",
+      "input": [
+        7,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            6
+          ]
+        ],
+        2,
+        4,
+        6
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a slightly larger tree with targets at spread-out depths",
+      "input": [
+        10,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            3,
+            8
+          ],
+          [
+            8,
+            9
+          ]
+        ],
+        4,
+        7,
+        9
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large random tree built by attaching each new node to a random earlier node",
+      "seed": 3,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(4, size)\n    edges = []\n    for i in range(1, n):\n        parent = rng.randint(0, i - 1)\n        edges.append([parent, i])\n    x, y, z = rng.sample(range(n), 3)\n    return [n, edges, x, y, z]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def specialNodes(self, n, edges, x, y, z):\n        INF = float('inf')\n        dist = [[INF] * n for _ in range(n)]\n        for i in range(n):\n            dist[i][i] = 0\n        for u, v in edges:\n            dist[u][v] = 1\n            dist[v][u] = 1\n        for k in range(n):\n            dk = dist[k]\n            for i in range(n):\n                dik = dist[i][k]\n                if dik == INF:\n                    continue\n                di = dist[i]\n                for j in range(n):\n                    nd = dik + dk[j]\n                    if nd < di[j]:\n                        di[j] = nd\n        count = 0\n        for u in range(n):\n            a, b, c = sorted([dist[u][x], dist[u][y], dist[u][z]])\n            if a * a + b * b == c * c:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def specialNodes(self, n, edges, x, y, z):\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n\n        def bfs(src):\n            dist = [-1] * n\n            dist[src] = 0\n            q = deque([src])\n            while q:\n                cur = q.popleft()\n                for nxt in adj[cur]:\n                    if dist[nxt] == -1:\n                        dist[nxt] = dist[cur] + 1\n                        q.append(nxt)\n            return dist\n\n        dx = bfs(x)\n        dy = bfs(y)\n        dz = bfs(z)\n        count = 0\n        for u in range(n):\n            a, b, c = sorted((dx[u], dy[u], dz[u]))\n            if a * a + b * b == c * c:\n                count += 1\n        return count\n",
+    "javascript": "var specialNodes = function(n, edges, x, y, z) {\n    const adj = Array.from({ length: n }, () => []);\n    for (const [u, v] of edges) {\n        adj[u].push(v);\n        adj[v].push(u);\n    }\n\n    const bfs = (src) => {\n        const dist = new Array(n).fill(-1);\n        dist[src] = 0;\n        const queue = [src];\n        let head = 0;\n        while (head < queue.length) {\n            const cur = queue[head++];\n            for (const nxt of adj[cur]) {\n                if (dist[nxt] === -1) {\n                    dist[nxt] = dist[cur] + 1;\n                    queue.push(nxt);\n                }\n            }\n        }\n        return dist;\n    };\n\n    const dx = bfs(x), dy = bfs(y), dz = bfs(z);\n    let count = 0;\n    for (let u = 0; u < n; u++) {\n        const sorted = [dx[u], dy[u], dz[u]].sort((p, q) => p - q);\n        const [a, b, c] = sorted;\n        if (a * a + b * b === c * c) count++;\n    }\n    return count;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

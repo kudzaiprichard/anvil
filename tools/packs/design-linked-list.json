@@ -1,0 +1,46 @@
+{
+  "slug": "design-linked-list",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Implementing indexed access, head/tail insertion, positional insertion, and deletion from scratch shows how a node-chain supports list operations once you carefully handle the boundary indices.",
+  "hints": [
+    "Walk the chain node by node to reach an index; track the current length so you can validate indices cheaply.",
+    "Insertion before an index needs the node just before that position, so a dummy head node removes the special case for inserting at the front.",
+    "addAtIndex equal to the length appends; greater than the length does nothing; get and deleteAtIndex must reject indices that are negative or out of range."
+  ],
+  "constraints": [
+    { "param": "index", "kind": "int", "value": [0, 1000] },
+    { "param": "val", "kind": "int", "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: build 1->2->3, read, delete, read again",
+      "input": [["MyLinkedList", "addAtHead", "addAtTail", "addAtIndex", "get", "deleteAtIndex", "get"], [[], [1], [3], [1, 2], [1], [1], [1]]] },
+    { "kind": "boundary", "description": "get on an empty list returns -1",
+      "input": [["MyLinkedList", "get"], [[], [0]]] },
+    { "kind": "trap", "description": "addAtIndex equal to length appends, greater than length is ignored",
+      "input": [["MyLinkedList", "addAtTail", "addAtIndex", "addAtIndex", "get", "get"], [[], [5], [1, 6], [10, 99], [0], [1]]] },
+    { "kind": "trap", "description": "get with an out-of-range index returns -1",
+      "input": [["MyLinkedList", "addAtHead", "get", "get"], [[], [1], [1], [3]]] },
+    { "kind": "trap", "description": "deleteAtIndex on an invalid index is a no-op",
+      "input": [["MyLinkedList", "addAtHead", "deleteAtIndex", "get"], [[], [7], [5], [0]]] },
+    { "kind": "edge", "description": "addAtIndex zero behaves like addAtHead",
+      "input": [["MyLinkedList", "addAtTail", "addAtIndex", "get", "get"], [[], [2], [0, 1], [0], [1]]] },
+    { "kind": "edge", "description": "delete the head then read the new head",
+      "input": [["MyLinkedList", "addAtHead", "addAtHead", "deleteAtIndex", "get"], [[], [1], [2], [0], [0]]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of all five operations with both valid and out-of-range indices",
+      "seed": 29,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    ops = ['MyLinkedList']\n    args = [[]]\n    length = 0\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.25:\n            ops.append('addAtHead'); args.append([rng.randint(0, 1000)]); length += 1\n        elif r < 0.5:\n            ops.append('addAtTail'); args.append([rng.randint(0, 1000)]); length += 1\n        elif r < 0.7:\n            idx = rng.randint(0, length + 2)\n            ops.append('addAtIndex'); args.append([idx, rng.randint(0, 1000)])\n            if idx <= length:\n                length += 1\n        elif r < 0.85:\n            ops.append('get'); args.append([rng.randint(0, length + 2)])\n        else:\n            idx = rng.randint(0, length + 2)\n            ops.append('deleteAtIndex'); args.append([idx])\n            if 0 <= idx < length:\n                length -= 1\n    return [ops, args]\n",
+      "note": "intentionally probes indices just beyond the current length to exercise boundary handling"
+    }
+  ],
+  "oracle_python": "class MyLinkedList:\n    def __init__(self):\n        self.data = []\n    def get(self, index):\n        if 0 <= index < len(self.data):\n            return self.data[index]\n        return -1\n    def addAtHead(self, val):\n        self.data.insert(0, val)\n    def addAtTail(self, val):\n        self.data.append(val)\n    def addAtIndex(self, index, val):\n        if index <= len(self.data):\n            if index < 0:\n                index = 0\n            self.data.insert(index, val)\n    def deleteAtIndex(self, index):\n        if 0 <= index < len(self.data):\n            self.data.pop(index)\n",
+  "solutions": {
+    "python": "class _Node:\n    def __init__(self, val):\n        self.val = val\n        self.next = None\n\n\nclass MyLinkedList:\n    def __init__(self):\n        self.head = _Node(0)\n        self.size = 0\n    def get(self, index):\n        if index < 0 or index >= self.size:\n            return -1\n        cur = self.head.next\n        for _ in range(index):\n            cur = cur.next\n        return cur.val\n    def addAtIndex(self, index, val):\n        if index > self.size:\n            return\n        if index < 0:\n            index = 0\n        prev = self.head\n        for _ in range(index):\n            prev = prev.next\n        node = _Node(val)\n        node.next = prev.next\n        prev.next = node\n        self.size += 1\n    def addAtHead(self, val):\n        self.addAtIndex(0, val)\n    def addAtTail(self, val):\n        self.addAtIndex(self.size, val)\n    def deleteAtIndex(self, index):\n        if index < 0 or index >= self.size:\n            return\n        prev = self.head\n        for _ in range(index):\n            prev = prev.next\n        prev.next = prev.next.next\n        self.size -= 1\n",
+    "javascript": "class _Node {\n    constructor(val) { this.val = val; this.next = null; }\n}\n\nclass MyLinkedList {\n    constructor() {\n        this.head = new _Node(0);\n        this.size = 0;\n    }\n    get(index) {\n        if (index < 0 || index >= this.size) return -1;\n        let cur = this.head.next;\n        for (let i = 0; i < index; i++) cur = cur.next;\n        return cur.val;\n    }\n    addAtIndex(index, val) {\n        if (index > this.size) return;\n        if (index < 0) index = 0;\n        let prev = this.head;\n        for (let i = 0; i < index; i++) prev = prev.next;\n        const node = new _Node(val);\n        node.next = prev.next;\n        prev.next = node;\n        this.size++;\n    }\n    addAtHead(val) { this.addAtIndex(0, val); }\n    addAtTail(val) { this.addAtIndex(this.size, val); }\n    deleteAtIndex(index) {\n        if (index < 0 || index >= this.size) return;\n        let prev = this.head;\n        for (let i = 0; i < index; i++) prev = prev.next;\n        prev.next = prev.next.next;\n        this.size--;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(index) per op", "space": "O(n)" }
+}

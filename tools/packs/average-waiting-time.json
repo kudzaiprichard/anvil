@@ -1,0 +1,35 @@
+{
+  "slug": "average-waiting-time",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "The chef is only ever free at one running moment in time, so each customer's start time is just the later of their own arrival and that single running clock -- no scheduling structure beyond a running maximum is needed.",
+  "hints": [
+    "The chef handles orders strictly in the order customers arrive, so you never need to reorder anything -- just walk the list once.",
+    "Keep a single 'chef free at' timestamp. Each customer's cooking actually starts at max(their arrival, that timestamp), and finishes `time` minutes later.",
+    "A customer's wait is simply (their finish time) minus (their arrival time); accumulate that finish time as the new 'chef free at' value and average the waits at the end."
+  ],
+  "constraints": [
+    { "param": "customers", "kind": "int[][]", "len": [1, 100000], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three customers with idle gaps", "input": [[[1, 2], [2, 5], [4, 3]]] },
+    { "kind": "edge", "description": "statement example, four customers with a long queue building up", "input": [[[5, 2], [5, 4], [10, 3], [20, 1]]] },
+    { "kind": "boundary", "description": "single customer, chef starts immediately", "input": [[[1, 1]]] },
+    { "kind": "trap", "description": "several customers arrive at the exact same instant and must queue", "input": [[[3, 2], [3, 2], [3, 2]]] },
+    { "kind": "trap", "description": "arrivals are spaced far enough apart that the chef is always idle beforehand", "input": [[[1, 5], [100, 3], [200, 1]]] },
+    { "kind": "boundary", "description": "minimum and maximum prep/arrival values from the constraints", "input": [[[1, 10000], [1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "large customer list with non-decreasing arrivals within the value bounds",
+      "seed": 1,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    arrivals = sorted(rng.randint(1, 10000) for _ in range(n))\n    customers = [[a, rng.randint(1, 10000)] for a in arrivals]\n    return [customers]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def averageWaitingTime(self, customers):\n        finish_times = []\n        prev_finish = 0\n        for arrival, prep in customers:\n            begin = arrival if arrival > prev_finish else prev_finish\n            prev_finish = begin + prep\n            finish_times.append(prev_finish)\n        total_wait = sum(f - c[0] for f, c in zip(finish_times, customers))\n        return total_wait / len(customers)\n",
+  "solutions": {
+    "python": "class Solution:\n    def averageWaitingTime(self, customers):\n        current_time = 0\n        total_wait = 0\n        for arrival, prep in customers:\n            current_time = max(current_time, arrival) + prep\n            total_wait += current_time - arrival\n        return total_wait / len(customers)\n",
+    "javascript": "var averageWaitingTime = function(customers) {\n  let currentTime = 0;\n  let totalWait = 0;\n  for (const [arrival, prep] of customers) {\n    currentTime = Math.max(currentTime, arrival) + prep;\n    totalWait += currentTime - arrival;\n  }\n  return totalWait / customers.length;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

@@ -1,0 +1,39 @@
+{
+  "slug": "find-good-days-to-rob-the-bank",
+  "judge": "unordered",
+  "pattern": "Whether a day qualifies depends only on how far back a non-increasing run extends and how far forward a non-decreasing run extends, and both of those can be precomputed once in a single left-to-right and right-to-left pass instead of rechecked per day.",
+  "hints": [
+    "Checking the full window before and after every single day from scratch is wasteful -- the 'how far does this non-increasing run reach' question has a lot of overlap between neighboring days.",
+    "Build one array where entry i counts how many days in a row up to i have been non-increasing (comparing each day to the one right before it), and a second array counting how many days in a row from i onward are non-decreasing.",
+    "A day qualifies exactly when both of those run-lengths at that day are at least `time` long. Handle `time = 0` as a special case where every day automatically qualifies since there's nothing to check on either side."
+  ],
+  "constraints": [
+    { "param": "security", "kind": "int[]", "len": [1, 100000], "value": [0, 100000] },
+    { "param": "time", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, exactly two good days form a valley", "input": [[5, 3, 3, 3, 5, 6, 2], 2] },
+    { "kind": "edge", "description": "statement example, time = 0 means every day qualifies", "input": [[1, 1, 1, 1, 1], 0] },
+    { "kind": "edge", "description": "statement example, strictly increasing guards, no good day", "input": [[1, 2, 3, 4, 5, 6], 2] },
+    { "kind": "boundary", "description": "single day array with time = 0", "input": [[9], 0] },
+    { "kind": "boundary", "description": "time so large no day has enough room on either side", "input": [[3, 2, 1, 2, 3], 100000] },
+    { "kind": "trap", "description": "all equal values, every interior day within range qualifies since non-increasing and non-decreasing both hold trivially", "input": [[4, 4, 4, 4, 4, 4, 4], 2] },
+    { "kind": "trap", "description": "a single dip in the middle surrounded by flat plateaus", "input": [[6, 6, 6, 1, 6, 6, 6], 3] },
+    { "kind": "trap", "description": "strictly decreasing then strictly increasing, valley sits exactly at the minimum", "input": [[9, 7, 5, 3, 5, 7, 9], 3] },
+    { "kind": "edge", "description": "two separate valleys, both should qualify independently", "input": [[8, 4, 8, 1, 9, 0, 9], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random security levels with a random window size, sometimes larger than any valid position",
+      "seed": 31,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    security = [rng.randint(0, 100000) for _ in range(n)]\n    time = rng.randint(0, n)\n    return [security, time]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def goodDaysToRobBank(self, security, time):\n        n = len(security)\n        res = []\n        for i in range(n):\n            if i - time < 0 or i + time >= n:\n                continue\n            ok = True\n            for j in range(i - time, i):\n                if security[j] < security[j + 1]:\n                    ok = False\n                    break\n            if ok:\n                for j in range(i, i + time):\n                    if security[j] > security[j + 1]:\n                        ok = False\n                        break\n            if ok:\n                res.append(i)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def goodDaysToRobBank(self, security, time):\n        n = len(security)\n        if time == 0:\n            return list(range(n))\n        nonincreasing = [0] * n\n        nondecreasing = [0] * n\n        for i in range(1, n):\n            if security[i] <= security[i - 1]:\n                nonincreasing[i] = nonincreasing[i - 1] + 1\n        for i in range(n - 2, -1, -1):\n            if security[i] <= security[i + 1]:\n                nondecreasing[i] = nondecreasing[i + 1] + 1\n        return [i for i in range(n) if nonincreasing[i] >= time and nondecreasing[i] >= time]\n",
+    "javascript": "var goodDaysToRobBank = function(security, time) {\n    const n = security.length;\n    if (time === 0) {\n        const all = [];\n        for (let i = 0; i < n; i++) all.push(i);\n        return all;\n    }\n    const nonincreasing = new Array(n).fill(0);\n    const nondecreasing = new Array(n).fill(0);\n    for (let i = 1; i < n; i++) {\n        if (security[i] <= security[i - 1]) nonincreasing[i] = nonincreasing[i - 1] + 1;\n    }\n    for (let i = n - 2; i >= 0; i--) {\n        if (security[i] <= security[i + 1]) nondecreasing[i] = nondecreasing[i + 1] + 1;\n    }\n    const res = [];\n    for (let i = 0; i < n; i++) {\n        if (nonincreasing[i] >= time && nondecreasing[i] >= time) res.push(i);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

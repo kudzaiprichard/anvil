@@ -1,0 +1,40 @@
+{
+  "slug": "count-fertile-pyramids-in-a-land",
+  "judge": "exact",
+  "pattern": "The tallest pyramid rooted at a cell is capped by the tallest pyramids rooted at the three cells directly below it, so working from the bottom row upward turns a geometric counting problem into a single bottom-up DP pass (run twice, once on the grid and once flipped, for the two pyramid orientations).",
+  "hints": [
+    "A pyramid of height h rooted at a cell requires the row beneath it to already support a slightly narrower pyramid on each of the three cells below-left, below, and below-right -- so the tallest pyramid at any cell is bounded by the shortest of those three.",
+    "Process rows from the bottom upward. For a fertile cell, its max pyramid height is one more than the minimum of the heights already computed for the three cells beneath it (treating anything off the grid as height zero); a barren cell has height zero.",
+    "Every height from 2 up to a cell's max height is a distinct valid plot, so a cell with computed max height H contributes H-1 plots. Sum that over the whole grid for upright pyramids, then flip the grid upside down and repeat the exact same pass to count the inverse pyramids."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 1000], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, one upright pyramid, no inverse pyramids", "input": [[[0, 1, 1, 0], [1, 1, 1, 1]]] },
+    { "kind": "edge", "description": "statement example, one upright and one inverse pyramid", "input": [[[1, 1, 1], [1, 1, 1]]] },
+    { "kind": "edge", "description": "statement example, several plots of both orientations", "input": [[[1, 1, 1, 1, 0], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [0, 1, 0, 0, 1]]] },
+    { "kind": "boundary", "description": "single cell grid, too small for any pyramid", "input": [[[1]]] },
+    { "kind": "boundary", "description": "single row, no room for any pyramid to grow downward", "input": [[[1, 1, 1, 1, 1]]] },
+    { "kind": "boundary", "description": "single column, no room for any pyramid to widen", "input": [[[1], [1], [1], [1]]] },
+    { "kind": "edge", "description": "all barren grid, zero plots", "input": [[[0, 0, 0], [0, 0, 0], [0, 0, 0]]] },
+    { "kind": "trap", "description": "fully fertile square large enough for tall pyramids of both orientations", "input": [[[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]]] },
+    { "kind": "trap", "description": "a hole in the middle blocks growth even though the surrounding cells are fertile", "input": [[[1, 1, 1], [1, 0, 1], [1, 1, 1]]] },
+    { "kind": "trap", "description": "fertile cells only at the two edge columns, never wide enough to grow a pyramid", "input": [[[1, 0, 1], [1, 0, 1], [1, 0, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random binary grids with random fertility density, sized to keep the brute-force oracle fast",
+      "seed": 11,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 12))\n    n = max(1, min(size, 12))\n    density = rng.uniform(0.5, 0.95)\n    grid = [[1 if rng.random() < density else 0 for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "high fertility density so pyramids of nontrivial height actually occur"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPyramids(self, grid):\n        def count_upright(g):\n            m, n = len(g), len(g[0])\n            total = 0\n            for r in range(m):\n                for c in range(n):\n                    h = 1\n                    while True:\n                        nh = h + 1\n                        top = r + nh - 1\n                        if top >= m:\n                            break\n                        ok = True\n                        for i in range(r, top + 1):\n                            spread = i - r\n                            lo, hi = c - spread, c + spread\n                            if lo < 0 or hi >= n:\n                                ok = False\n                                break\n                            for j in range(lo, hi + 1):\n                                if g[i][j] != 1:\n                                    ok = False\n                                    break\n                            if not ok:\n                                break\n                        if not ok:\n                            break\n                        h = nh\n                        total += 1\n            return total\n        return count_upright(grid) + count_upright(grid[::-1])\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPyramids(self, grid):\n        def count_upright(g):\n            m, n = len(g), len(g[0])\n            dp = [row[:] for row in g]\n            total = 0\n            for i in range(m - 2, -1, -1):\n                for j in range(n):\n                    if dp[i][j] == 0:\n                        continue\n                    left = dp[i + 1][j - 1] if j - 1 >= 0 else 0\n                    right = dp[i + 1][j + 1] if j + 1 < n else 0\n                    mid = dp[i + 1][j]\n                    dp[i][j] = min(left, mid, right) + 1\n                    total += dp[i][j] - 1\n            return total\n        return count_upright(grid) + count_upright(grid[::-1])\n",
+    "javascript": "var countPyramids = function(grid) {\n    function countUpright(g) {\n        const m = g.length, n = g[0].length;\n        const dp = g.map(row => row.slice());\n        let total = 0;\n        for (let i = m - 2; i >= 0; i--) {\n            for (let j = 0; j < n; j++) {\n                if (dp[i][j] === 0) continue;\n                const left = j - 1 >= 0 ? dp[i + 1][j - 1] : 0;\n                const right = j + 1 < n ? dp[i + 1][j + 1] : 0;\n                const mid = dp[i + 1][j];\n                dp[i][j] = Math.min(left, mid, right) + 1;\n                total += dp[i][j] - 1;\n            }\n        }\n        return total;\n    }\n    const flipped = grid.slice().reverse();\n    return countUpright(grid) + countUpright(flipped);\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

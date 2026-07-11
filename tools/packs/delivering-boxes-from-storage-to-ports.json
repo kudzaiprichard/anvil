@@ -1,0 +1,39 @@
+{
+  "slug": "delivering-boxes-from-storage-to-ports",
+  "judge": "exact",
+  "pattern": "The minimum trips to deliver a prefix of boxes is a DP where each transition's cost only depends on port changes and a capacity window, so folding that window into a monotonic-minimum structure turns an O(n^2) DP into a linear scan.",
+  "hints": [
+    "Think of dp[i] as the fewest trips to deliver the first i boxes; a trip loads a contiguous run of boxes bounded by the ship's box-count and weight limits.",
+    "The cost of loading boxes[j..i-1] in one trip is 2 (one trip out, one trip back) plus the number of times consecutive boxes in that run go to different ports.",
+    "Because the leftmost valid start for a run only moves forward as the run's right end grows, maintain a sliding window of candidate start points and track the best (dp value minus its cumulative port-change count) with a monotonic structure so each new dp[i] is O(1) amortized."
+  ],
+  "constraints": [
+    { "param": "boxes", "kind": "int[][]", "len": [1, 100000] },
+    { "param": "portsCount", "kind": "int", "value": [1, 100000] },
+    { "param": "maxBoxes", "kind": "int", "value": [1, 100000] },
+    { "param": "maxWeight", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all boxes fit in one trip but ports differ, forcing extra port visits", "input": [[[1, 1], [2, 1], [1, 1]], 2, 3, 3] },
+    { "kind": "edge", "description": "capacity forces splitting into multiple loads", "input": [[[1, 2], [3, 3], [3, 1], [3, 1], [2, 4]], 3, 3, 6] },
+    { "kind": "boundary", "description": "a single box", "input": [[[1, 5]], 1, 1, 10] },
+    { "kind": "boundary", "description": "maxBoxes = 1, every box needs its own trip", "input": [[[1, 1], [2, 1], [3, 1], [1, 1]], 3, 1, 10] },
+    { "kind": "trap", "description": "weight limit forces a smaller group than box count would otherwise allow", "input": [[[1, 4], [1, 4], [1, 4]], 1, 3, 5] },
+    { "kind": "trap", "description": "consecutive boxes to the same port should not add an extra trip", "input": [[[1, 1], [1, 1], [1, 1], [2, 1]], 2, 4, 10] },
+    { "kind": "trap", "description": "many small port switches back and forth", "input": [[[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]], 2, 6, 10] }
+  ],
+  "stress": [
+    {
+      "description": "large random box list with random ports/capacity/weight limits",
+      "seed": 43,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    ports_count = rng.randint(1, 100)\n    max_boxes = rng.randint(1, min(n, 20))\n    max_weight = rng.randint(max_boxes, max_boxes * 10)\n    boxes = [[rng.randint(1, ports_count), rng.randint(1, max_weight)] for _ in range(n)]\n    return [boxes, ports_count, max_boxes, max_weight]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def boxDelivering(self, boxes, portsCount, maxBoxes, maxWeight):\n        n = len(boxes)\n        INF = float('inf')\n        dp = [INF] * (n + 1)\n        dp[0] = 0\n        for i in range(1, n + 1):\n            weight = 0\n            changes = 0\n            count = 0\n            j = i - 1\n            while j >= 0:\n                weight += boxes[j][1]\n                count += 1\n                if weight > maxWeight or count > maxBoxes:\n                    break\n                if j < i - 1 and boxes[j][0] != boxes[j + 1][0]:\n                    changes += 1\n                trips = 2 + changes\n                if dp[j] + trips < dp[i]:\n                    dp[i] = dp[j] + trips\n                j -= 1\n        return dp[n]\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def boxDelivering(self, boxes, portsCount, maxBoxes, maxWeight):\n        n = len(boxes)\n        change = [0] * n\n        for i in range(1, n):\n            change[i] = change[i - 1] + (1 if boxes[i][0] != boxes[i - 1][0] else 0)\n        prefix_w = [0] * (n + 1)\n        for i in range(n):\n            prefix_w[i + 1] = prefix_w[i] + boxes[i][1]\n        dp = [0] * (n + 1)\n        dq = deque([0])\n        left = 0\n        for i in range(1, n + 1):\n            while i - left > maxBoxes or prefix_w[i] - prefix_w[left] > maxWeight:\n                left += 1\n            while dq[0] < left:\n                dq.popleft()\n            dp[i] = dp[dq[0]] - change[dq[0]] + change[i - 1] + 2\n            if i < n:\n                val = dp[i] - change[i]\n                while dq and (dp[dq[-1]] - change[dq[-1]]) >= val:\n                    dq.pop()\n                dq.append(i)\n        return dp[n]\n",
+    "javascript": "var boxDelivering = function(boxes, portsCount, maxBoxes, maxWeight) {\n    const n = boxes.length;\n    const change = new Array(n).fill(0);\n    for (let i = 1; i < n; i++) {\n        change[i] = change[i - 1] + (boxes[i][0] !== boxes[i - 1][0] ? 1 : 0);\n    }\n    const prefixW = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefixW[i + 1] = prefixW[i] + boxes[i][1];\n    const dp = new Array(n + 1).fill(0);\n    const dq = [0];\n    let left = 0;\n    for (let i = 1; i <= n; i++) {\n        while (i - left > maxBoxes || prefixW[i] - prefixW[left] > maxWeight) left++;\n        while (dq[0] < left) dq.shift();\n        dp[i] = dp[dq[0]] - change[dq[0]] + change[i - 1] + 2;\n        if (i < n) {\n            const val = dp[i] - change[i];\n            while (dq.length && (dp[dq[dq.length - 1]] - change[dq[dq.length - 1]]) >= val) dq.pop();\n            dq.push(i);\n        }\n    }\n    return dp[n];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

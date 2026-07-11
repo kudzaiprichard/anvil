@@ -1,0 +1,101 @@
+{
+  "slug": "remove-colored-pieces-if-both-neighbors-are-the-same-color",
+  "judge": "exact",
+  "pattern": "Only interior runs of three or more same-colored pieces ever let a player move, so the winner is decided purely by counting how many 'A' triples and 'B' triples exist along the line.",
+  "hints": [
+    "Focus on runs of identical letters; a lone piece or a piece next to a differently-colored neighbor can never be removed by anyone.",
+    "Inside a maximal run of the same letter, walk it and count every interior position whose left and right neighbor both match it -- that count is exactly how many times that run can be played.",
+    "Sum those counts separately for 'A' and for 'B' across the whole string; Alice needs a strictly larger total than Bob, so return countA > countB."
+  ],
+  "constraints": [
+    {
+      "param": "colors",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single piece, no possible moves for either player",
+      "input": [
+        "A"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two same letters, both on the edge, no legal moves",
+      "input": [
+        "AA"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "one legal Alice move inside a short run of A",
+      "input": [
+        "AAAB"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length string of a single letter",
+      "input": [
+        "B"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "one long uninterrupted run so only one color ever gets to move",
+      "input": [
+        "AAAAAAAAAAAAAAA"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "strict alternation leaves no interior triple for anyone",
+      "input": [
+        "ABABABAB"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "Bob's run is longer than Alice's, so he ends up with more moves",
+      "input": [
+        "AAABBBB"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "equal-length runs of each color tie on move count, so Bob still wins",
+      "input": [
+        "AAABBB"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "uniform random A/B string up to the real length limit",
+      "seed": 7,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    s = ''.join(rng.choice('AB') for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "built from randomly sized runs so long same-color stretches are common, exercising the run-counting logic harder than pure noise",
+      "seed": 21,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    parts = []\n    total = 0\n    while total < n:\n        run_len = min(rng.randint(1, 6), n - total)\n        ch = rng.choice('AB')\n        parts.append(ch * run_len)\n        total += run_len\n    return [''.join(parts)]\n"
+    }
+  ],
+  "oracle_python": "from functools import lru_cache\n\nclass Solution:\n    def winnerOfGame(self, colors: str) -> bool:\n        @lru_cache(maxsize=None)\n        def solve(state, turn):\n            moves = []\n            for i in range(1, len(state) - 1):\n                if state[i] == turn and state[i-1] == turn and state[i+1] == turn:\n                    moves.append(state[:i] + state[i+1:])\n            if not moves:\n                return False\n            other = 'B' if turn == 'A' else 'A'\n            for m in moves:\n                if not solve(m, other):\n                    return True\n            return False\n        result = solve(colors, 'A')\n        solve.cache_clear()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def winnerOfGame(self, colors: str) -> bool:\n        n = len(colors)\n        countA = countB = 0\n        for i in range(1, n - 1):\n            if colors[i-1] == colors[i] == colors[i+1]:\n                if colors[i] == 'A':\n                    countA += 1\n                else:\n                    countB += 1\n        return countA > countB\n",
+    "javascript": "var winnerOfGame = function(colors) {\n    const n = colors.length;\n    let countA = 0, countB = 0;\n    for (let i = 1; i < n - 1; i++) {\n        if (colors[i-1] === colors[i] && colors[i] === colors[i+1]) {\n            if (colors[i] === 'A') countA++;\n            else countB++;\n        }\n    }\n    return countA > countB;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(1)"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "max-points-on-a-line",
+  "judge": "exact",
+  "pattern": "Anchoring on each point and grouping the others by their reduced slope counts collinear points without floating-point error.",
+  "hints": [
+    "Any line through the most points must pass through at least one of the points, so fix one point at a time.",
+    "Relative to the fixed point, two other points are collinear with it exactly when they share the same direction; represent that direction as a reduced fraction, not a float.",
+    "For each anchor, hash the slope of every other point as a normalized (dy, dx) pair divided by their gcd with a consistent sign, take the largest bucket, and add the anchor itself."
+  ],
+  "constraints": [
+    { "param": "points", "kind": "int[][]", "len": [1, 300], "value": [-10000, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three points on the main diagonal", "input": [[[1, 1], [2, 2], [3, 3]]] },
+    { "kind": "edge", "description": "best line holds four of six points", "input": [[[1, 1], [3, 2], [5, 3], [4, 1], [2, 3], [1, 4]]] },
+    { "kind": "boundary", "description": "single point", "input": [[[0, 0]]] },
+    { "kind": "edge", "description": "two points are trivially collinear", "input": [[[0, 0], [5, 5]]] },
+    { "kind": "trap", "description": "vertical line, undefined slope", "input": [[[1, 1], [1, 5], [1, 9], [2, 3]]] },
+    { "kind": "trap", "description": "negative-slope line versus a scatter", "input": [[[0, 0], [-1, 1], [-2, 2], [3, 7]]] },
+    { "kind": "trap", "description": "two parallel lines of equal size", "input": [[[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random points plus a planted collinear run, forcing slope bucketing",
+      "seed": 23,
+      "size": 120,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    pts = set()\n    line_len = min(n // 2, 40)\n    a = rng.randrange(-5, 6)\n    b = rng.randrange(-50, 51)\n    x = -line_len\n    while len(pts) < line_len and x <= line_len:\n        y = a * x + b\n        if -10000 <= y <= 10000:\n            pts.add((x, y))\n        x += 1\n    while len(pts) < n:\n        p = (rng.randrange(-10000, 10001), rng.randrange(-10000, 10001))\n        pts.add(p)\n    out = [list(p) for p in pts]\n    rng.shuffle(out)\n    return [out]\n",
+      "note": "unique points by construction"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPoints(self, points):\n        n = len(points)\n        if n <= 2:\n            return n\n        best = 1\n        for i in range(n):\n            for j in range(i + 1, n):\n                ax, ay = points[i]\n                bx, by = points[j]\n                cnt = 2\n                for k in range(n):\n                    if k == i or k == j:\n                        continue\n                    cx, cy = points[k]\n                    if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) == 0:\n                        cnt += 1\n                best = max(best, cnt)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPoints(self, points):\n        from math import gcd\n        n = len(points)\n        if n <= 2:\n            return n\n        best = 1\n        for i in range(n):\n            slopes = {}\n            ax, ay = points[i]\n            for j in range(n):\n                if j == i:\n                    continue\n                dx = points[j][0] - ax\n                dy = points[j][1] - ay\n                g = gcd(dx, dy)\n                if g != 0:\n                    dx //= g\n                    dy //= g\n                if dx < 0 or (dx == 0 and dy < 0):\n                    dx, dy = -dx, -dy\n                key = (dx, dy)\n                slopes[key] = slopes.get(key, 0) + 1\n            local = max(slopes.values()) + 1\n            best = max(best, local)\n        return best\n",
+    "javascript": "var maxPoints = function(points) {\n    const n = points.length;\n    if (n <= 2) return n;\n    const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a; };\n    let best = 1;\n    for (let i = 0; i < n; i++) {\n        const slopes = new Map();\n        const ax = points[i][0], ay = points[i][1];\n        for (let j = 0; j < n; j++) {\n            if (j === i) continue;\n            let dx = points[j][0] - ax;\n            let dy = points[j][1] - ay;\n            const g = gcd(dx, dy);\n            if (g !== 0) { dx = Math.trunc(dx / g); dy = Math.trunc(dy / g); }\n            if (dx < 0 || (dx === 0 && dy < 0)) { dx = -dx; dy = -dy; }\n            const key = dx + ',' + dy;\n            slopes.set(key, (slopes.get(key) || 0) + 1);\n        }\n        let local = 0;\n        for (const v of slopes.values()) local = Math.max(local, v);\n        best = Math.max(best, local + 1);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

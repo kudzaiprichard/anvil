@@ -1,0 +1,132 @@
+{
+  "slug": "number-of-effective-subsequences",
+  "judge": "exact",
+  "pattern": "A subsequence's removal only changes the strength if it carries every remaining copy of at least one set bit, so counting 'effective' removals is the complement of counting subsequences whose own OR still spans every one of those bits -- a classic bit-by-bit inclusion-exclusion.",
+  "hints": [
+    "Removing a subsequence is effective exactly when the elements left behind fail to reconstruct the full OR -- so first ask: for how many subsequences does the *complement* keep every bit of the full OR?",
+    "Every element's bits are a subset of the array's overall OR, so any subset's OR is automatically a submask of it; a submask differs from the full OR if and only if it is missing at least one of its bits.",
+    "Restrict attention to only the bits that are actually set in the full OR (there are at most 20 of them), and use inclusion-exclusion over that small bit set: for every combination of bits to 'miss', count how many elements avoid all of them, and combine with alternating signs to get the count of subsets whose OR covers every bit -- the answer is 2^n minus that."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example 1",
+      "input": [
+        [
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example 2",
+      "input": [
+        [
+          7,
+          4,
+          6
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example 3, repeated identical elements",
+      "input": [
+        [
+          8,
+          8
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example 4, mixed duplicates",
+      "input": [
+        [
+          2,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element, the only subsequence is the whole array",
+      "input": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one element carries a unique bit no one else has, forcing it into every effective subsequence",
+      "input": [
+        [
+          4,
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every element is identical, so only the full-removal subsequence is ever effective",
+      "input": [
+        [
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all elements share no common bit pattern overlap (each contributes a distinct bit)",
+      "input": [
+        [
+          1,
+          2,
+          4,
+          8
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large random array spanning the full bit width",
+      "seed": 303,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 1000000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countEffective(self, nums):\n        MOD = 10**9 + 7\n        n = len(nums)\n        orAll = 0\n        for x in nums:\n            orAll |= x\n        count = 0\n        for mask in range(1 << n):\n            rem = 0\n            for i in range(n):\n                if not (mask >> i) & 1:\n                    rem |= nums[i]\n            if rem < orAll:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countEffective(self, nums: List[int]) -> int:\n        MOD = 10**9 + 7\n        n = len(nums)\n        orAll = 0\n        for x in nums:\n            orAll |= x\n        if orAll == 0:\n            return 0\n        bits = [b for b in range(20) if (orAll >> b) & 1]\n        bcount = len(bits)\n        bitpos = {bit: i for i, bit in enumerate(bits)}\n        size = 1 << bcount\n        cnt = [0] * size\n        for x in nums:\n            v = x & orAll\n            m = 0\n            for bit in bits:\n                if (v >> bit) & 1:\n                    m |= (1 << bitpos[bit])\n            cnt[m] += 1\n        g = cnt[:]\n        for j in range(bcount):\n            bitmask = 1 << j\n            for mask in range(size):\n                if mask & bitmask:\n                    g[mask] += g[mask ^ bitmask]\n        full = size - 1\n        total_full_or = 0\n        for mask in range(size):\n            t = full ^ mask\n            sign = -1 if (bin(t).count('1') % 2) else 1\n            total_full_or = (total_full_or + sign * pow(2, g[mask], MOD)) % MOD\n        total_subsets = pow(2, n, MOD)\n        return (total_subsets - total_full_or) % MOD\n",
+    "javascript": "function anvilPow(base, exp, mod) {\n    base %= mod;\n    let result = 1n;\n    while (exp > 0n) {\n        if (exp & 1n) result = (result * base) % mod;\n        base = (base * base) % mod;\n        exp >>= 1n;\n    }\n    return result;\n}\n\nvar countEffective = function(nums) {\n    const MOD = 1000000007n;\n    let orAll = 0;\n    for (const x of nums) orAll |= x;\n    if (orAll === 0) return 0;\n    const bits = [];\n    for (let b = 0; b < 20; b++) if ((orAll >> b) & 1) bits.push(b);\n    const bcount = bits.length;\n    const bitpos = new Array(20).fill(-1);\n    bits.forEach((bit, i) => { bitpos[bit] = i; });\n    const size = 1 << bcount;\n    const cnt = new Array(size).fill(0);\n    for (const x of nums) {\n        const v = x & orAll;\n        let m = 0;\n        for (const bit of bits) {\n            if ((v >> bit) & 1) m |= (1 << bitpos[bit]);\n        }\n        cnt[m]++;\n    }\n    const g = cnt.slice();\n    for (let j = 0; j < bcount; j++) {\n        const bitmask = 1 << j;\n        for (let mask = 0; mask < size; mask++) {\n            if (mask & bitmask) g[mask] += g[mask ^ bitmask];\n        }\n    }\n    const full = size - 1;\n    let totalFullOr = 0n;\n    for (let mask = 0; mask < size; mask++) {\n        const t = full ^ mask;\n        let pc = 0, tt = t;\n        while (tt) { pc += tt & 1; tt >>= 1; }\n        const sign = (pc % 2) ? -1n : 1n;\n        totalFullOr = (totalFullOr + sign * anvilPow(2n, BigInt(g[mask]), MOD) + MOD) % MOD;\n    }\n    const n = nums.length;\n    const totalSubsets = anvilPow(2n, BigInt(n), MOD);\n    let ans = (totalSubsets - totalFullOr) % MOD;\n    if (ans < 0n) ans += MOD;\n    return Number(ans);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + 2^b * b) where b <= 20 is the popcount of the full OR",
+    "space": "O(2^b)"
+  }
+}

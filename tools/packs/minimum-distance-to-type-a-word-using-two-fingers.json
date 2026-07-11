@@ -1,0 +1,81 @@
+{
+  "slug": "minimum-distance-to-type-a-word-using-two-fingers",
+  "judge": "exact",
+  "pattern": "DP over (index, finger1_pos, finger2_pos) states collapses to (index, other_finger_pos) because one finger is always on the just-typed letter, reducing complexity to O(n * 27).",
+  "hints": [
+    "After typing position i, one finger must be on word[i]. Track only where the OTHER finger is — 26 letters or 'nowhere' (not yet placed).",
+    "From each state (i, other_pos) decide: move finger-on-word[i] to word[i+1], paying dist(word[i], word[i+1]); or move other-finger to word[i+1] for free (it becomes the new current finger) and the previous current-finger position becomes other_pos.",
+    "Use letter indices 0-25 for positions and 26 for 'unplaced'; the keyboard grid maps index c to row c//6, col c%6."
+  ],
+  "constraints": [
+    {
+      "param": "word",
+      "kind": "str",
+      "len": [
+        2,
+        300
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two-letter word, each finger handles one letter at zero cost",
+      "input": [
+        "AZ"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all same letter — one finger stays put, zero movement",
+      "input": [
+        "AAAA"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two letters that are neighbours on the keyboard",
+      "input": [
+        "AB"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "optimal assignment requires recognising when to switch fingers mid-word",
+      "input": [
+        "CAKE"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "repeated distant letters benefit from alternating fingers",
+      "input": [
+        "HAPPY"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "letters at the four keyboard corners",
+      "input": [
+        "AFZP"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random uppercase word of length up to 200",
+      "seed": 29,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(2, size)\n    return [''.join(rng.choice(string.ascii_uppercase) for _ in range(n))]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumDistance(self, word):\n        from functools import lru_cache\n        def dist(a, b):\n            if a == 26 or b == 26:\n                return 0\n            return abs(a // 6 - b // 6) + abs(a % 6 - b % 6)\n        letters = [ord(c) - 65 for c in word]\n        n = len(letters)\n        @lru_cache(maxsize=None)\n        def go(i, f1, f2):\n            if i == n:\n                return 0\n            c = letters[i]\n            return min(dist(f1, c) + go(i + 1, c, f2),\n                       dist(f2, c) + go(i + 1, f1, c))\n        return go(0, 26, 26)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumDistance(self, word):\n        def dist(a, b):\n            if a == 26 or b == 26:\n                return 0\n            return abs(a // 6 - b // 6) + abs(a % 6 - b % 6)\n        INF = float('inf')\n        dp = [INF] * 27\n        dp[26] = 0\n        for i in range(len(word) - 1):\n            cur = ord(word[i]) - 65\n            nxt = ord(word[i + 1]) - 65\n            ndp = [INF] * 27\n            for other in range(27):\n                if dp[other] == INF:\n                    continue\n                # move current finger\n                ndp[other] = min(ndp[other], dp[other] + dist(cur, nxt))\n                # move other finger\n                ndp[cur] = min(ndp[cur], dp[other] + dist(other, nxt))\n            dp = ndp\n        return min(dp)\n",
+    "javascript": "var minimumDistance = function(word) {\n    function dist(a, b) {\n        if (a === 26 || b === 26) return 0;\n        return Math.abs(Math.floor(a / 6) - Math.floor(b / 6)) + Math.abs(a % 6 - b % 6);\n    }\n    const INF = Infinity;\n    let dp = new Array(27).fill(INF);\n    dp[26] = 0;\n    for (let i = 0; i < word.length - 1; i++) {\n        const cur = word.charCodeAt(i) - 65;\n        const nxt = word.charCodeAt(i + 1) - 65;\n        const ndp = new Array(27).fill(INF);\n        for (let other = 0; other < 27; other++) {\n            if (dp[other] === INF) continue;\n            ndp[other] = Math.min(ndp[other], dp[other] + dist(cur, nxt));\n            ndp[cur] = Math.min(ndp[cur], dp[other] + dist(other, nxt));\n        }\n        dp = ndp;\n    }\n    return Math.min(...dp);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * 27)",
+    "space": "O(27)"
+  }
+}

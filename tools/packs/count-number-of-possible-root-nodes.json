@@ -1,0 +1,38 @@
+{
+  "slug": "count-number-of-possible-root-nodes",
+  "judge": "exact",
+  "pattern": "Root the tree once anywhere, count how many guesses that rooting satisfies, then re-root toward each neighbor in turn by updating only the two guesses whose orientation flips across that edge, instead of recomputing everything from scratch.",
+  "hints": [
+    "Pick any node as a temporary root, build parent pointers with one traversal, and count how many guesses already match that rooting.",
+    "Moving the root from a node to one of its neighbors only changes the parent/child relationship along that single edge — every other guess in the tree keeps the same correctness it had before.",
+    "So when the root slides from u to its neighbor v, adjust the running count by -1 if [u, v] was a guess and +1 if [v, u] was a guess, propagate that adjusted count to v, and repeat outward over the whole tree to get every node's count in one pass."
+  ],
+  "constraints": [
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000], "value": [0, 100000] },
+    { "param": "guesses", "kind": "int[][]", "len": [1, 100000], "value": [0, 100000] },
+    { "param": "k", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "path of four nodes, guesses matching one specific rooting exactly", "input": [[[0, 1], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 3]], 3] },
+    { "kind": "boundary", "description": "smallest possible tree, single edge, exactly one guess", "input": [[[0, 1]], [[0, 1]], 1] },
+    { "kind": "trap", "description": "k is zero, so every node qualifies as a root regardless of guess accuracy", "input": [[[0, 1], [1, 2]], [[0, 1]], 0] },
+    { "kind": "trap", "description": "guesses point the wrong direction for every rooting choice, so no root can reach a high threshold", "input": [[[0, 1], [1, 2], [1, 3]], [[1, 0], [2, 1], [3, 1]], 3] },
+    { "kind": "edge", "description": "star graph where the center is a natural root candidate", "input": [[[0, 1], [0, 2], [0, 3], [0, 4]], [[0, 1], [0, 2], [0, 3]], 2] },
+    { "kind": "edge", "description": "a slightly larger balanced tree with guesses scattered across branches", "input": [[[0, 1], [0, 2], [1, 3], [1, 4], [2, 5]], [[0, 1], [1, 3], [2, 5], [0, 2]], 2] },
+    { "kind": "boundary", "description": "k equals the total number of guesses, requiring every guess correct simultaneously", "input": [[[0, 1], [1, 2], [1, 3]], [[0, 1], [1, 2]], 2] }
+  ],
+  "stress": [
+    {
+      "description": "random tree built via a random parent for each new node, with a random subset of edges (in a random orientation) used as guesses",
+      "seed": 17,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(2000, size))\n    edges = []\n    for i in range(1, n):\n        p = rng.randint(0, i - 1)\n        edges.append([p, i])\n    guesses = []\n    for a, b in edges:\n        if rng.random() < 0.6:\n            if rng.random() < 0.5:\n                guesses.append([a, b])\n            else:\n                guesses.append([b, a])\n    if not guesses:\n        guesses.append(edges[0])\n    k = rng.randint(0, len(guesses))\n    return [edges, guesses, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def rootCount(self, edges, guesses, k):\n        from collections import defaultdict, deque\n        n = len(edges) + 1\n        adj = defaultdict(list)\n        for a, b in edges:\n            adj[a].append(b)\n            adj[b].append(a)\n        total = 0\n        for root in range(n):\n            parent = {root: -1}\n            dq = deque([root])\n            visited = {root}\n            while dq:\n                u = dq.popleft()\n                for v in adj[u]:\n                    if v not in visited:\n                        visited.add(v)\n                        parent[v] = u\n                        dq.append(v)\n            correct = sum(1 for u, v in guesses if parent.get(v) == u)\n            if correct >= k:\n                total += 1\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def rootCount(self, edges, guesses, k):\n        from collections import defaultdict, deque\n        n = len(edges) + 1\n        adj = defaultdict(list)\n        for a, b in edges:\n            adj[a].append(b)\n            adj[b].append(a)\n        guess_set = set((u, v) for u, v in guesses)\n        parent = [-1] * n\n        order = []\n        visited = [False] * n\n        visited[0] = True\n        stack = [0]\n        while stack:\n            u = stack.pop()\n            order.append(u)\n            for v in adj[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    parent[v] = u\n                    stack.append(v)\n        base = sum(1 for (u, v) in guess_set if parent[v] == u)\n        cnt = [0] * n\n        cnt[0] = base\n        dq = deque([0])\n        while dq:\n            u = dq.popleft()\n            for v in adj[u]:\n                if v == parent[u]:\n                    continue\n                delta = 0\n                if (u, v) in guess_set:\n                    delta -= 1\n                if (v, u) in guess_set:\n                    delta += 1\n                cnt[v] = cnt[u] + delta\n                dq.append(v)\n        return sum(1 for c in cnt if c >= k)\n",
+    "javascript": "var rootCount = function(edges, guesses, k) {\n    const n = edges.length + 1;\n    const adj = Array.from({ length: n }, () => []);\n    for (const [a, b] of edges) {\n        adj[a].push(b);\n        adj[b].push(a);\n    }\n    const guessSet = new Set(guesses.map(([u, v]) => u + ',' + v));\n    const parent = new Array(n).fill(-1);\n    const order = [];\n    const visited = new Array(n).fill(false);\n    visited[0] = true;\n    const stack = [0];\n    while (stack.length) {\n        const u = stack.pop();\n        order.push(u);\n        for (const v of adj[u]) {\n            if (!visited[v]) {\n                visited[v] = true;\n                parent[v] = u;\n                stack.push(v);\n            }\n        }\n    }\n    let base = 0;\n    for (const key of guessSet) {\n        const [u, v] = key.split(',').map(Number);\n        if (parent[v] === u) base += 1;\n    }\n    const cnt = new Array(n).fill(0);\n    cnt[0] = base;\n    const queue = [0];\n    let head = 0;\n    while (head < queue.length) {\n        const u = queue[head++];\n        for (const v of adj[u]) {\n            if (v === parent[u]) continue;\n            let delta = 0;\n            if (guessSet.has(u + ',' + v)) delta -= 1;\n            if (guessSet.has(v + ',' + u)) delta += 1;\n            cnt[v] = cnt[u] + delta;\n            queue.push(v);\n        }\n    }\n    return cnt.filter((c) => c >= k).length;\n};\n"
+  },
+  "complexity": { "time": "O(n + g)", "space": "O(n + g)" }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "find-the-kth-smallest-sum-of-a-matrix-with-sorted-rows",
+  "judge": "exact",
+  "pattern": "Merge rows one at a time by combining the current k-smallest sums with the next row's sorted values using a min-heap, keeping only the k smallest candidates.",
+  "hints": [
+    "Reduce the problem row by row: find the k smallest sums picking one element from each of the first i rows, then extend to row i+1.",
+    "When combining a sorted list of up to k sums with a sorted row of n values, a min-heap initialized with (sum + row[0]) for each existing sum and expanded via (sum + row[j+1]) explores candidates in order.",
+    "Because k is at most 200 and each row has at most 40 elements, the heap-based merge over m rows runs in manageable time."
+  ],
+  "constraints": [
+    { "param": "mat", "kind": "int[][]", "len": [1, 40] },
+    { "param": "k", "kind": "int", "value": [1, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single-row matrix — kth smallest is just the kth element", "input": [[[1, 3, 11]], 2] },
+    { "kind": "edge", "description": "single-column matrix — sum is fixed, only 1 combination", "input": [[[2],[5],[3]], 1] },
+    { "kind": "boundary", "description": "k=1 is always the minimum possible sum (first column of each row)", "input": [[[1,3,11],[2,4,6]], 1] },
+    { "kind": "trap", "description": "k=5 requires careful enumeration of combinations", "input": [[[1,3,11],[2,4,6]], 5] },
+    { "kind": "trap", "description": "three rows with overlapping sums", "input": [[[1,10,10],[1,4,5],[2,3,6]], 7] },
+    { "kind": "trap", "description": "k equals maximum possible — need the largest valid sum", "input": [[[1,3,11],[2,4,6]], 9] }
+  ],
+  "stress": [
+    {
+      "description": "40 rows, 40 columns each, k=200",
+      "seed": 13,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    m = size\n    n = 40\n    mat = []\n    for _ in range(m):\n        row = sorted(rng.randint(1, 5000) for _ in range(n))\n        mat.append(row)\n    k = 200\n    return [mat, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def kthSmallest(self, mat, k):\n        import heapq\n        # merge row by row keeping top-k sums\n        sums = [0]\n        for row in mat:\n            new_sums = []\n            heap = []\n            for s in sums:\n                heapq.heappush(heap, (s + row[0], 0, s))\n            while heap and len(new_sums) < k:\n                val, j, prev = heapq.heappop(heap)\n                new_sums.append(val)\n                if j + 1 < len(row):\n                    heapq.heappush(heap, (prev + row[j+1], j+1, prev))\n            sums = new_sums\n        return sums[k-1]\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def kthSmallest(self, mat, k):\n        sums = [0]\n        for row in mat:\n            heap = []\n            for s in sums:\n                heapq.heappush(heap, (s + row[0], 0, s))\n            new_sums = []\n            while heap and len(new_sums) < k:\n                val, j, prev = heapq.heappop(heap)\n                new_sums.append(val)\n                if j + 1 < len(row):\n                    heapq.heappush(heap, (prev + row[j+1], j+1, prev))\n            sums = new_sums\n        return sums[k-1]\n",
+    "javascript": "var kthSmallest = function(mat, k) {\n    // MinHeap helper\n    class MinHeap {\n        constructor() { this.h = []; }\n        push(item) {\n            this.h.push(item);\n            let i = this.h.length - 1;\n            while (i > 0) {\n                const p = (i - 1) >> 1;\n                if (this.h[p][0] <= this.h[i][0]) break;\n                [this.h[p], this.h[i]] = [this.h[i], this.h[p]];\n                i = p;\n            }\n        }\n        pop() {\n            const top = this.h[0];\n            const last = this.h.pop();\n            if (this.h.length > 0) {\n                this.h[0] = last;\n                let i = 0;\n                while (true) {\n                    let s = i, l = 2*i+1, r = 2*i+2;\n                    if (l < this.h.length && this.h[l][0] < this.h[s][0]) s = l;\n                    if (r < this.h.length && this.h[r][0] < this.h[s][0]) s = r;\n                    if (s === i) break;\n                    [this.h[i], this.h[s]] = [this.h[s], this.h[i]];\n                    i = s;\n                }\n            }\n            return top;\n        }\n        get size() { return this.h.length; }\n    }\n    let sums = [0];\n    for (const row of mat) {\n        const heap = new MinHeap();\n        for (const s of sums) heap.push([s + row[0], 0, s]);\n        const newSums = [];\n        while (heap.size > 0 && newSums.length < k) {\n            const [val, j, prev] = heap.pop();\n            newSums.push(val);\n            if (j + 1 < row.length) heap.push([prev + row[j+1], j+1, prev]);\n        }\n        sums = newSums;\n    }\n    return sums[k-1];\n};\n"
+  },
+  "complexity": { "time": "O(m * k * log k)", "space": "O(k)" }
+}

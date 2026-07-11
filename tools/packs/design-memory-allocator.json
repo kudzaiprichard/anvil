@@ -1,0 +1,47 @@
+{
+  "slug": "design-memory-allocator",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Track which id (if any) owns each memory unit in a single array; allocate scans left to right for the first run of free units long enough to hold the request, and freeMemory just clears every unit tagged with the given id and reports how many it cleared.",
+  "hints": [
+    "A single array of length n, where each cell holds either 0 (free) or the id currently occupying it, is enough state for the whole structure — no separate free-list bookkeeping is required at this scale.",
+    "allocate(size, mID) needs the leftmost run of `size` consecutive free cells; scan left to right tracking the length of the current run of free cells, and the moment a run reaches `size`, that run's start is your answer — claim those cells for mID and stop.",
+    "freeMemory(mID) doesn't need to know which specific blocks it granted earlier (multiple separate allocate calls can share the same mID); just scan every cell, clear any that currently belong to mID, and count how many you cleared."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000] },
+    { "param": "size", "kind": "int", "value": [1, 1000] },
+    { "param": "mID", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: several allocations, a partial free, a fragmented allocation, an allocation that fails, and a no-op free",
+      "input": [["Allocator", "allocate", "allocate", "allocate", "freeMemory", "allocate", "allocate", "allocate", "freeMemory", "allocate", "freeMemory"], [[10], [1, 1], [1, 2], [1, 3], [2], [3, 4], [1, 1], [1, 1], [1], [10, 2], [7]]] },
+    { "kind": "boundary", "description": "n = 1, the smallest memory array: one allocation fills it, a second fails, freeing reclaims it",
+      "input": [["Allocator", "allocate", "allocate", "freeMemory", "allocate"], [[1], [1, 5], [1, 6], [5], [1, 6]]] },
+    { "kind": "trap", "description": "allocating the entire array in one call, then a further allocation of even size 1 must fail until something is freed",
+      "input": [["Allocator", "allocate", "allocate", "freeMemory", "allocate"], [[4], [4, 1], [1, 2], [1], [1, 2]]] },
+    { "kind": "trap", "description": "freeMemory on an id that was never allocated returns 0 and changes nothing",
+      "input": [["Allocator", "allocate", "freeMemory", "allocate"], [[5], [2, 1], [99], [3, 2]]] },
+    { "kind": "trap", "description": "freeing an id must reclaim units from multiple separate, non-contiguous blocks allocated to it at different times",
+      "input": [["Allocator", "allocate", "allocate", "allocate", "freeMemory", "allocate"], [[10], [2, 7], [2, 8], [2, 7], [7], [6, 9]]] },
+    { "kind": "boundary", "description": "a request larger than the total array size always fails, even when completely empty",
+      "input": [["Allocator", "allocate"], [[5], [6, 1]]] },
+    { "kind": "trap", "description": "allocate must pick the leftmost eligible run (a single freed cell) even when a much larger free run exists further right",
+      "input": [["Allocator", "allocate", "allocate", "freeMemory", "allocate"], [[10], [1, 1], [1, 2], [1], [1, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random allocate/free calls over a modest memory array with a small id pool to force fragmentation and reuse",
+      "seed": 53,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = 200\n    ops = ['Allocator']\n    args = [[n]]\n    ids = list(range(1, 15))\n    for _ in range(max(1, size)):\n        if rng.random() < 0.7:\n            s = rng.randint(1, 30)\n            mid = rng.choice(ids)\n            ops.append('allocate'); args.append([s, mid])\n        else:\n            mid = rng.choice(ids)\n            ops.append('freeMemory'); args.append([mid])\n    return [ops, args]\n",
+      "note": "biasing toward allocate over free drives the array toward fragmentation, which is exactly what stresses the leftmost-run scan"
+    }
+  ],
+  "oracle_python": "class Allocator:\n    def __init__(self, n):\n        self.n = n\n        self.owner = {}\n\n    def allocate(self, size, mID):\n        n = self.n\n        i = 0\n        while i <= n - size:\n            j = i\n            while j < i + size and j not in self.owner:\n                j += 1\n            if j == i + size:\n                for k in range(i, i + size):\n                    self.owner[k] = mID\n                return i\n            i = j + 1\n        return -1\n\n    def freeMemory(self, mID):\n        freed = [k for k, v in self.owner.items() if v == mID]\n        for k in freed:\n            del self.owner[k]\n        return len(freed)\n",
+  "solutions": {
+    "python": "class Allocator:\n    def __init__(self, n):\n        self.mem = [0] * n\n        self.n = n\n\n    def allocate(self, size, mID):\n        n = self.n\n        run = 0\n        start = -1\n        for i in range(n):\n            if self.mem[i] == 0:\n                if run == 0:\n                    start = i\n                run += 1\n                if run == size:\n                    for j in range(start, start + size):\n                        self.mem[j] = mID\n                    return start\n            else:\n                run = 0\n                start = -1\n        return -1\n\n    def freeMemory(self, mID):\n        freed = 0\n        for i in range(self.n):\n            if self.mem[i] == mID:\n                self.mem[i] = 0\n                freed += 1\n        return freed\n",
+    "javascript": "class Allocator {\n    constructor(n) {\n        this.mem = new Array(n).fill(0);\n        this.n = n;\n    }\n\n    allocate(size, mID) {\n        const n = this.n;\n        let run = 0;\n        let start = -1;\n        for (let i = 0; i < n; i++) {\n            if (this.mem[i] === 0) {\n                if (run === 0) start = i;\n                run += 1;\n                if (run === size) {\n                    for (let j = start; j < start + size; j++) this.mem[j] = mID;\n                    return start;\n                }\n            } else {\n                run = 0;\n                start = -1;\n            }\n        }\n        return -1;\n    }\n\n    freeMemory(mID) {\n        let freed = 0;\n        for (let i = 0; i < this.n; i++) {\n            if (this.mem[i] === mID) {\n                this.mem[i] = 0;\n                freed += 1;\n            }\n        }\n        return freed;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) per op", "space": "O(n)" }
+}

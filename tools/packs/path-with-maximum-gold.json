@@ -1,0 +1,36 @@
+{
+  "slug": "path-with-maximum-gold",
+  "judge": "exact",
+  "pattern": "With at most a handful of gold cells, an exhaustive depth-first walk that marks cells visited and backtracks explores every connected pickup path and keeps the richest total.",
+  "hints": [
+    "You may start anywhere with gold, so every gold cell is a candidate starting point.",
+    "From a cell, recurse into its four neighbors that hold gold and are not already on the current path.",
+    "Backtrack: temporarily zero out the current cell so it cannot be revisited, sum the best of the four neighbor walks, then restore the cell before returning."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 15], "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "central plus-shape forces a three-cell path", "input": [[[0, 6, 0], [5, 8, 7], [0, 9, 0]]] },
+    { "kind": "trap", "description": "zeros split the grid so the path must snake around them", "input": [[[1, 0, 7], [2, 0, 6], [3, 4, 5], [0, 3, 0], [9, 0, 20]]] },
+    { "kind": "boundary", "description": "single gold cell", "input": [[[42]]] },
+    { "kind": "edge", "description": "all zeros yields nothing", "input": [[[0, 0], [0, 0]]] },
+    { "kind": "trap", "description": "a full row of gold should all be collected", "input": [[[1, 2, 3, 4, 5]]] },
+    { "kind": "edge", "description": "isolated gold cells, pick the single richest", "input": [[[10, 0, 30], [0, 0, 0], [20, 0, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "small grids with a limited number of gold cells so backtracking stays fast",
+      "seed": 59,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    m = rng.randrange(1, size + 1)\n    n = rng.randrange(1, size + 1)\n    grid = [[0] * n for _ in range(m)]\n    cells = [(i, j) for i in range(m) for j in range(n)]\n    rng.shuffle(cells)\n    k = min(len(cells), rng.randrange(0, 12))\n    for i, j in cells[:k]:\n        grid[i][j] = rng.randrange(1, 101)\n    return [grid]\n",
+      "note": "at most a dozen gold cells keeps the exponential search bounded"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getMaximumGold(self, grid):\n        m, n = len(grid), len(grid[0])\n        best = 0\n        def walk(i, j, visited, total):\n            nonlocal best\n            total += grid[i][j]\n            if total > best:\n                best = total\n            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                ni, nj = i + di, j + dj\n                if 0 <= ni < m and 0 <= nj < n and grid[ni][nj] != 0 and (ni, nj) not in visited:\n                    visited.add((ni, nj))\n                    walk(ni, nj, visited, total)\n                    visited.discard((ni, nj))\n        for i in range(m):\n            for j in range(n):\n                if grid[i][j] != 0:\n                    walk(i, j, {(i, j)}, 0)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def getMaximumGold(self, grid):\n        m, n = len(grid), len(grid[0])\n        def dfs(i, j):\n            if i < 0 or i >= m or j < 0 or j >= n or grid[i][j] == 0:\n                return 0\n            g = grid[i][j]\n            grid[i][j] = 0\n            best = 0\n            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                best = max(best, dfs(i + di, j + dj))\n            grid[i][j] = g\n            return g + best\n        ans = 0\n        for i in range(m):\n            for j in range(n):\n                if grid[i][j] != 0:\n                    ans = max(ans, dfs(i, j))\n        return ans\n",
+    "javascript": "var getMaximumGold = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const dfs = (i, j) => {\n        if (i < 0 || i >= m || j < 0 || j >= n || grid[i][j] === 0) return 0;\n        const g = grid[i][j];\n        grid[i][j] = 0;\n        let best = 0;\n        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {\n            best = Math.max(best, dfs(i + di, j + dj));\n        }\n        grid[i][j] = g;\n        return g + best;\n    };\n    let ans = 0;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (grid[i][j] !== 0) ans = Math.max(ans, dfs(i, j));\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(4^c) where c is the number of gold cells", "space": "O(c)" }
+}

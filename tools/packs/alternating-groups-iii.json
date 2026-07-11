@@ -1,0 +1,236 @@
+{
+  "slug": "alternating-groups-iii",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "A circle of alternating tiles is only ever broken at the handful of seams where two neighbors share a color, so the circle splits into a small number of maximal alternating runs -- counting windows of a given size becomes arithmetic over those run lengths instead of scanning every tile, and an edit only ever touches the one or two seams next to it.",
+  "hints": [
+    "Say there's a 'seam' at position i whenever tile i shares its color with the tile before it (wrapping around at the start). Seams are the only places an alternating run can end.",
+    "If there are zero seams the whole circle alternates perfectly, so every one of the n starting positions gives a valid window of any requested size up to n. Otherwise, cutting the circle at each seam gives you a handful of linear runs whose lengths sum to n.",
+    "For a run of length L, the number of windows of size s that fit entirely inside it is max(0, L - s + 1) -- sum that over every run for a size query. An update only ever flips the seam status at the edited tile and the tile right after it, so you don't need to rebuild anything else."
+  ],
+  "constraints": [
+    {
+      "param": "colors",
+      "kind": "int[]",
+      "len": [
+        4,
+        50000
+      ],
+      "value": [
+        0,
+        1
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        50000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "an update followed by a size query",
+      "input": [
+        [
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          [
+            2,
+            1,
+            0
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a size query, then an update that doesn't change anything, then another size query",
+      "input": [
+        [
+          0,
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3,
+            0
+          ],
+          [
+            1,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum-length circle, a single size query",
+      "input": [
+        [
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          [
+            1,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "perfectly alternating circle with zero seams -- every rotation counts",
+      "input": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all one color -- no alternating window of any size exists",
+      "input": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          [
+            1,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "query size equal to the full circle length",
+      "input": [
+        [
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          [
+            1,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several updates in a row before any size query is asked",
+      "input": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          [
+            2,
+            0,
+            1
+          ],
+          [
+            2,
+            2,
+            1
+          ],
+          [
+            1,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an update at index 0 must correctly affect the wraparound seam with the last tile",
+      "input": [
+        [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          [
+            2,
+            0,
+            0
+          ],
+          [
+            1,
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random colors with a random mix of size queries and updates, kept to a moderate circle length",
+      "seed": 53,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(size, 200))\n    colors = [rng.randint(0, 1) for _ in range(n)]\n    q_count = max(1, min(size, 200))\n    queries = []\n    for _ in range(q_count):\n        if rng.random() < 0.5:\n            s = rng.randint(3, n)\n            queries.append([1, s])\n        else:\n            idx = rng.randint(0, n - 1)\n            c = rng.randint(0, 1)\n            queries.append([2, idx, c])\n    return [colors, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfAlternatingGroups(self, colors, queries):\n        n = len(colors)\n        colors = list(colors)\n        answer = []\n        for q in queries:\n            if q[0] == 2:\n                idx, color = q[1], q[2]\n                colors[idx] = color\n            else:\n                s = q[1]\n                cnt = 0\n                for i in range(n):\n                    ok = True\n                    for step in range(1, s):\n                        a = colors[(i + step - 1) % n]\n                        b = colors[(i + step) % n]\n                        if a == b:\n                            ok = False\n                            break\n                    if ok:\n                        cnt += 1\n                answer.append(cnt)\n        return answer\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfAlternatingGroups(self, colors, queries):\n        n = len(colors)\n        colors = list(colors)\n        brk = [colors[i] == colors[i - 1] for i in range(n)]\n        answer = []\n        for q in queries:\n            if q[0] == 2:\n                idx, color = q[1], q[2]\n                colors[idx] = color\n                brk[idx] = (colors[idx] == colors[idx - 1])\n                nxt = (idx + 1) % n\n                brk[nxt] = (colors[nxt] == colors[(nxt - 1) % n])\n            else:\n                s = q[1]\n                positions = [i for i in range(n) if brk[i]]\n                if not positions:\n                    answer.append(n)\n                    continue\n                total = 0\n                k = len(positions)\n                for j in range(k):\n                    start = positions[j]\n                    end = positions[(j + 1) % k]\n                    length = end - start if end > start else end - start + n\n                    if length >= s:\n                        total += length - s + 1\n                answer.append(total)\n        return answer\n",
+    "javascript": "var numberOfAlternatingGroups = function(colors, queries) {\n    const n = colors.length;\n    colors = colors.slice();\n    const brk = new Array(n);\n    for (let i = 0; i < n; i++) {\n        brk[i] = colors[i] === colors[(i - 1 + n) % n];\n    }\n    const answer = [];\n    for (const q of queries) {\n        if (q[0] === 2) {\n            const idx = q[1], color = q[2];\n            colors[idx] = color;\n            brk[idx] = colors[idx] === colors[(idx - 1 + n) % n];\n            const nxt = (idx + 1) % n;\n            brk[nxt] = colors[nxt] === colors[(nxt - 1 + n) % n];\n        } else {\n            const s = q[1];\n            const positions = [];\n            for (let i = 0; i < n; i++) if (brk[i]) positions.push(i);\n            if (positions.length === 0) {\n                answer.push(n);\n                continue;\n            }\n            let total = 0;\n            const k = positions.length;\n            for (let j = 0; j < k; j++) {\n                const start = positions[j];\n                const end = positions[(j + 1) % k];\n                const length = end > start ? end - start : end - start + n;\n                if (length >= s) total += length - s + 1;\n            }\n            answer.push(total);\n        }\n    }\n    return answer;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n) per query in this implementation (a Fenwick-tree-over-run-lengths refinement gets updates and queries to O(log n))",
+    "space": "O(n)"
+  }
+}

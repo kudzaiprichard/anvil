@@ -1,0 +1,39 @@
+{
+  "slug": "shortest-subarray-with-sum-at-least-k",
+  "judge": "exact",
+  "pattern": "Over the prefix sums, a monotonic deque keeps candidate left endpoints in increasing order so each right endpoint can pop satisfied and dominated starts in amortized constant time.",
+  "hints": [
+    "Rewrite a subarray sum as the difference of two prefix sums; you want the closest earlier prefix that is small enough.",
+    "Because negatives exist a plain sliding window fails, but a deque of prefix indices kept increasing in value lets you both answer and prune greedily.",
+    "Compute prefix sums. Maintain a deque of indices with increasing prefix values: for each j pop from the front while prefix[j] minus the front prefix is at least k (recording the length), then pop from the back any index whose prefix is not less than prefix[j] before pushing j."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [-100000, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example: single element exactly meets k", "input": [[1], 1] },
+    { "kind": "trap", "description": "second example: total sum falls short of k", "input": [[1, 2], 4] },
+    { "kind": "trap", "description": "third example: a negative in the middle forces the full span", "input": [[2, -1, 2], 3] },
+    { "kind": "boundary", "description": "single element below k has no valid subarray", "input": [[5], 6] },
+    { "kind": "edge", "description": "a later short run beats an early long one", "input": [[2, -1, 2, 4], 4] },
+    { "kind": "trap", "description": "leading negatives must be skipped, not extended into", "input": [[-1, -1, 5], 5] },
+    { "kind": "edge", "description": "all negatives can never reach a positive k", "input": [[-2, -3, -1], 1] },
+    { "kind": "edge", "description": "best window sits in the middle after a dip", "input": [[3, -2, 5, -1, 4], 7] }
+  ],
+  "stress": [
+    {
+      "description": "moderate arrays with negatives over a small range so many windows compete",
+      "seed": 73,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(-20, 30) for _ in range(n)]\n    k = rng.randint(1, 200)\n    return [nums, k]\n",
+      "note": "size kept modest so the O(n^2) brute oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shortestSubarray(self, nums, k):\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        best = n + 1\n        for i in range(n):\n            s = 0\n            for j in range(i, n):\n                s += nums[j]\n                if s >= k:\n                    best = min(best, j - i + 1)\n                    break\n        return best if best <= n else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def shortestSubarray(self, nums, k):\n        from collections import deque\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        dq = deque()\n        best = n + 1\n        for j in range(n + 1):\n            while dq and prefix[j] - prefix[dq[0]] >= k:\n                best = min(best, j - dq.popleft())\n            while dq and prefix[dq[-1]] >= prefix[j]:\n                dq.pop()\n            dq.append(j)\n        return best if best <= n else -1\n",
+    "javascript": "var shortestSubarray = function(nums, k) {\n    const n = nums.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i];\n    const dq = [];\n    let best = n + 1;\n    for (let j = 0; j <= n; j++) {\n        while (dq.length && prefix[j] - prefix[dq[0]] >= k) {\n            best = Math.min(best, j - dq.shift());\n        }\n        while (dq.length && prefix[dq[dq.length - 1]] >= prefix[j]) {\n            dq.pop();\n        }\n        dq.push(j);\n    }\n    return best <= n ? best : -1;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

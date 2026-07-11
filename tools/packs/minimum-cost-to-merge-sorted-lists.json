@@ -1,0 +1,50 @@
+{
+  "slug": "minimum-cost-to-merge-sorted-lists",
+  "judge": "exact",
+  "pattern": "Because merging always produces the full sorted union regardless of order, a subset of the lists has one fixed length and one fixed median no matter how it gets assembled, so the cheapest way to build it can be found once and reused via a bitmask over which lists it contains.",
+  "hints": [
+    "However a group of lists gets merged together, the final sorted values in that group are always the same: just the union of everything in it. So precompute, for every possible subset of the lists, the length and median of its fully merged result.",
+    "The cheapest way to merge a subset into one list is to split it into two non-empty parts, pay the merge cost for combining the cheapest way to build each part, and try every way of splitting the subset in two.",
+    "Represent each subset as a bitmask over the lists and build up costs from smaller subsets to larger ones (a subset with only one list costs nothing to 'merge'); the answer is the cheapest cost for the subset containing every list."
+  ],
+  "constraints": [
+    { "param": "lists", "kind": "int[][]", "len": [2, 12], "note": "each lists[i] has length 1..500, is sorted in non-decreasing order, values in -1000000000..1000000000, and the sum of all lists[i].length is at most 2000" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the reference example merging three lists in two stages", "input": [[[1, 3, 5], [2, 4], [6, 7, 8]]] },
+    { "kind": "edge", "description": "the reference example with lists of very different lengths", "input": [[[1, 1, 5], [1, 4, 7, 8]]] },
+    { "kind": "edge", "description": "the reference example with the two smallest possible single-element lists", "input": [[[1], [3]]] },
+    { "kind": "edge", "description": "the reference example with identical single-element lists", "input": [[[1], [1]]] },
+    { "kind": "boundary", "description": "the minimum of two lists, each with a single element at opposite ends of the value range", "input": [[[-1000000000], [1000000000]]] },
+    { "kind": "boundary", "description": "the maximum count of twelve lists, each a single element, forcing every possible merge order to be considered", "input": [[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]]] },
+    { "kind": "trap", "description": "one list is far larger than the others, so naively merging it last is not necessarily optimal", "input": [[[100], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [200]]] },
+    { "kind": "trap", "description": "several lists share the exact same median, so merge order among them should not matter", "input": [[[5, 5, 5], [1, 5, 9], [4, 5, 6], [5]]] },
+    { "kind": "trap", "description": "all values identical across every list", "input": [[[7, 7], [7, 7, 7], [7]]] }
+  ],
+  "stress": [
+    {
+      "description": "several small random lists, exercising every subset split",
+      "seed": 101,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 12))\n    lists = []\n    for _ in range(n):\n        length = rng.randint(1, 15)\n        vals = sorted(rng.randint(-1000, 1000) for _ in range(length))\n        lists.append(vals)\n    return [lists]\n"
+    },
+    {
+      "description": "the maximum of twelve lists with moderate lengths summing well under the total element budget",
+      "seed": 102,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = 12\n    lists = []\n    for _ in range(n):\n        length = rng.randint(5, 40)\n        vals = sorted(rng.randint(-1000000, 1000000) for _ in range(length))\n        lists.append(vals)\n    return [lists]\n"
+    },
+    {
+      "description": "two lists near the maximum single-list length, stressing the merge step itself",
+      "seed": 103,
+      "size": 480,
+      "generator_python": "def gen(rng, size):\n    length = max(1, min(size, 480))\n    a = sorted(rng.randint(-1000000000, 1000000000) for _ in range(length))\n    b = sorted(rng.randint(-1000000000, 1000000000) for _ in range(length))\n    return [[a, b]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minMergeCost(self, lists):\n        n = len(lists)\n        full = 1 << n\n        length = [0] * full\n        median = [0] * full\n        for mask in range(1, full):\n            arr = []\n            for i in range(n):\n                if mask & (1 << i):\n                    arr.extend(lists[i])\n            arr.sort()\n            length[mask] = len(arr)\n            median[mask] = arr[(len(arr) - 1) // 2]\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(mask):\n            if mask & (mask - 1) == 0:\n                return 0\n            best = None\n            sub = (mask - 1) & mask\n            while sub > 0:\n                other = mask ^ sub\n                if sub < other:\n                    c = dp(sub) + dp(other) + length[sub] + length[other] + abs(median[sub] - median[other])\n                    if best is None or c < best:\n                        best = c\n                sub = (sub - 1) & mask\n            return best\n        result = dp(full - 1)\n        dp.cache_clear()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def minMergeCost(self, lists) -> int:\n        n = len(lists)\n        full = 1 << n\n        merged = [None] * full\n        length = [0] * full\n        median = [0] * full\n        for i in range(n):\n            bit = 1 << i\n            merged[bit] = lists[i]\n            length[bit] = len(lists[i])\n            median[bit] = lists[i][(len(lists[i]) - 1) // 2]\n        for mask in range(1, full):\n            if merged[mask] is not None:\n                continue\n            low = mask & (-mask)\n            rest = mask ^ low\n            a = merged[low]\n            b = merged[rest]\n            i = j = 0\n            out = []\n            la, lb = len(a), len(b)\n            while i < la and j < lb:\n                if a[i] <= b[j]:\n                    out.append(a[i]); i += 1\n                else:\n                    out.append(b[j]); j += 1\n            if i < la:\n                out.extend(a[i:])\n            if j < lb:\n                out.extend(b[j:])\n            merged[mask] = out\n            length[mask] = len(out)\n            median[mask] = out[(len(out) - 1) // 2]\n        dp = [0] * full\n        for mask in range(1, full):\n            if mask & (mask - 1) == 0:\n                continue\n            best = None\n            sub = (mask - 1) & mask\n            while sub > 0:\n                other = mask ^ sub\n                if sub < other:\n                    cost = dp[sub] + dp[other] + length[sub] + length[other] + abs(median[sub] - median[other])\n                    if best is None or cost < best:\n                        best = cost\n                sub = (sub - 1) & mask\n            dp[mask] = best\n        return dp[full - 1]\n",
+    "javascript": "var minMergeCost = function(lists) {\n    const n = lists.length;\n    const full = 1 << n;\n    const merged = new Array(full).fill(null);\n    const length = new Array(full).fill(0);\n    const median = new Array(full).fill(0);\n    for (let i = 0; i < n; i++) {\n        const bit = 1 << i;\n        merged[bit] = lists[i];\n        length[bit] = lists[i].length;\n        median[bit] = lists[i][Math.floor((lists[i].length - 1) / 2)];\n    }\n    for (let mask = 1; mask < full; mask++) {\n        if (merged[mask] !== null) continue;\n        const low = mask & (-mask);\n        const rest = mask ^ low;\n        const a = merged[low];\n        const b = merged[rest];\n        let i = 0, j = 0;\n        const out = [];\n        while (i < a.length && j < b.length) {\n            if (a[i] <= b[j]) out.push(a[i++]);\n            else out.push(b[j++]);\n        }\n        while (i < a.length) out.push(a[i++]);\n        while (j < b.length) out.push(b[j++]);\n        merged[mask] = out;\n        length[mask] = out.length;\n        median[mask] = out[Math.floor((out.length - 1) / 2)];\n    }\n    const dp = new Array(full).fill(0);\n    for (let mask = 1; mask < full; mask++) {\n        if ((mask & (mask - 1)) === 0) continue;\n        let best = null;\n        let sub = (mask - 1) & mask;\n        while (sub > 0) {\n            const other = mask ^ sub;\n            if (sub < other) {\n                const cost = dp[sub] + dp[other] + length[sub] + length[other] + Math.abs(median[sub] - median[other]);\n                if (best === null || cost < best) best = cost;\n            }\n            sub = (sub - 1) & mask;\n        }\n        dp[mask] = best;\n    }\n    return dp[full - 1];\n};\n"
+  },
+  "complexity": { "time": "O(3^n + 2^n * total_len)", "space": "O(2^n * total_len)" }
+}

@@ -1,0 +1,148 @@
+{
+  "slug": "find-the-string-with-lcp",
+  "judge": "exact",
+  "pattern": "The lcp matrix forces an equivalence-class structure on the positions (two positions must hold the same letter exactly when their mutual lcp value is positive), so the lexicographically smallest word is built by greedily assigning the next unused letter to each still-open class, then the guess must be checked by rebuilding its true lcp matrix from scratch.",
+  "hints": [
+    "Wherever lcp[i][j] is greater than zero, positions i and j must hold the same letter; wherever it is zero, they must differ. That already tells you which positions belong together.",
+    "To get the lexicographically smallest word, scan positions left to right; the first time you reach a position without a letter yet, give it the next unused letter and immediately assign that same letter to every other position sharing a positive lcp with it.",
+    "A guess is not automatically correct: rebuild the lcp matrix that your constructed word would actually produce (working from the last position backward) and compare it, cell by cell, against the one you were given; any mismatch, or running out of letters, means the answer is the empty string."
+  ],
+  "constraints": [
+    {
+      "param": "lcp",
+      "kind": "int[][]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        0,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single position",
+      "input": [
+        [
+          [
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two positions forced to the same letter",
+      "input": [
+        [
+          [
+            2,
+            0
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three positions all forced to distinct letters",
+      "input": [
+        [
+          [
+            3,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the diagonal value is inconsistent with the remaining length at that position",
+      "input": [
+        [
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the matrix is not symmetric, which no real string could produce",
+      "input": [
+        [
+          [
+            2,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a plausible-looking matrix whose implied chain of equal letters is inconsistent",
+      "input": [
+        [
+          [
+            3,
+            0,
+            1
+          ],
+          [
+            0,
+            2,
+            0
+          ],
+          [
+            1,
+            0,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "lcp matrices generated from real random strings, so a valid answer always exists",
+      "seed": 1201,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    alphabet = rng.randint(1, min(26, n))\n    word = [chr(ord('a') + rng.randrange(alphabet)) for _ in range(n)]\n    lcp = [[0] * n for _ in range(n)]\n    for i in range(n - 1, -1, -1):\n        for j in range(n - 1, -1, -1):\n            if word[i] == word[j]:\n                lcp[i][j] = (lcp[i + 1][j + 1] + 1) if i + 1 < n and j + 1 < n else 1\n    return [lcp]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findTheString(self, lcp):\n        n = len(lcp)\n\n        def rgs(i, maxval, cur):\n            if i == n:\n                yield cur[:]\n                return\n            for v in range(0, maxval + 2):\n                cur.append(v)\n                yield from rgs(i + 1, max(maxval, v), cur)\n                cur.pop()\n\n        best = None\n        for pattern in rgs(0, -1, []):\n            k = max(pattern) + 1 if pattern else 0\n            if k > 26:\n                continue\n            w = ''.join(chr(ord('a') + v) for v in pattern)\n            actual = [[0] * n for _ in range(n)]\n            ok = True\n            for i in range(n - 1, -1, -1):\n                for j in range(n - 1, -1, -1):\n                    if w[i] == w[j]:\n                        actual[i][j] = (actual[i + 1][j + 1] + 1) if i + 1 < n and j + 1 < n else 1\n                    if actual[i][j] != lcp[i][j]:\n                        ok = False\n            if ok and (best is None or w < best):\n                best = w\n        return best if best is not None else ''\n",
+  "solutions": {
+    "python": "class Solution:\n    def findTheString(self, lcp):\n        n = len(lcp)\n        word = [''] * n\n        letter = 'a'\n        for i in range(n):\n            if word[i] == '':\n                if letter > 'z':\n                    return ''\n                for j in range(i, n):\n                    if lcp[i][j] > 0:\n                        word[j] = letter\n                letter = chr(ord(letter) + 1)\n        w = ''.join(word)\n        actual = [[0] * n for _ in range(n)]\n        for i in range(n - 1, -1, -1):\n            for j in range(n - 1, -1, -1):\n                if w[i] == w[j]:\n                    actual[i][j] = (actual[i + 1][j + 1] + 1) if i + 1 < n and j + 1 < n else 1\n        for i in range(n):\n            for j in range(n):\n                if actual[i][j] != lcp[i][j]:\n                    return ''\n        return w\n",
+    "javascript": "var findTheString = function(lcp) {\n    const n = lcp.length;\n    const word = new Array(n).fill('');\n    let letter = 'a';\n    for (let i = 0; i < n; i++) {\n        if (word[i] === '') {\n            if (letter > 'z') return '';\n            for (let j = i; j < n; j++) {\n                if (lcp[i][j] > 0) word[j] = letter;\n            }\n            letter = String.fromCharCode(letter.charCodeAt(0) + 1);\n        }\n    }\n    const w = word.join('');\n    const actual = Array.from({ length: n }, () => new Array(n).fill(0));\n    for (let i = n - 1; i >= 0; i--) {\n        for (let j = n - 1; j >= 0; j--) {\n            if (w[i] === w[j]) {\n                actual[i][j] = (i + 1 < n && j + 1 < n) ? actual[i + 1][j + 1] + 1 : 1;\n            }\n        }\n    }\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < n; j++) {\n            if (actual[i][j] !== lcp[i][j]) return '';\n        }\n    }\n    return w;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2)",
+    "space": "O(n^2)"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "construct-binary-tree-from-preorder-and-inorder-traversal",
+  "judge": "exact",
+  "io_types": { "params": ["json", "json"], "returns": "tree" },
+  "pattern": "Preorder names the root first; locating that root inside inorder splits the remaining values into the left and right subtrees, recursively.",
+  "hints": [
+    "The first value of preorder is always the current subtree's root.",
+    "Find that root inside inorder: everything left of it is the left subtree, everything right is the right subtree, and their sizes tell you how to slice preorder.",
+    "Recurse on the matching preorder/inorder slices; a hash map from value to its inorder index turns each lookup into O(1)."
+  ],
+  "constraints": [
+    { "param": "preorder", "kind": "int[]", "len": [1, 3000], "value": [-3000, 3000] },
+    { "param": "inorder", "kind": "int[]", "len": [1, 3000], "value": [-3000, 3000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "balanced tree from the canonical traversals", "input": [[3, 9, 20, 15, 7], [9, 3, 15, 20, 7]] },
+    { "kind": "boundary", "description": "single node", "input": [[-1], [-1]] },
+    { "kind": "trap", "description": "fully left-skewed: each root has only a left child", "input": [[1, 2, 3, 4], [4, 3, 2, 1]] },
+    { "kind": "trap", "description": "fully right-skewed: each root has only a right child", "input": [[1, 2, 3, 4], [1, 2, 3, 4]] },
+    { "kind": "edge", "description": "mixed shape with negatives", "input": [[5, -2, 7, 1, 9], [-2, 5, 1, 7, 9]] }
+  ],
+  "stress": [
+    {
+      "description": "build a random tree, derive its preorder+inorder so they are consistent and the answer is unique",
+      "seed": 41,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    vals = rng.sample(range(-3000, 3001), n)\n    # assign values to a random binary tree shape by recursive split\n    def build(vs):\n        if not vs:\n            return None\n        i = rng.randrange(len(vs))\n        return (vs[i], build(vs[:i]), build(vs[i+1:]))\n    root = build(vals)\n    pre, ino = [], []\n    def pr(t):\n        if t is None:\n            return\n        pre.append(t[0]); pr(t[1]); pr(t[2])\n    def io(t):\n        if t is None:\n            return\n        io(t[1]); ino.append(t[0]); io(t[2])\n    pr(root); io(root)\n    return [pre, ino]\n",
+      "note": "values are distinct (sample) as the problem guarantees"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def buildTree(self, preorder, inorder):\n        # Brute force: no index map, linear search + list slicing each level.\n        def build(pre, ino):\n            if not pre:\n                return None\n            root_val = pre[0]\n            k = ino.index(root_val)\n            node = TreeNode(root_val)\n            node.left = build(pre[1:1 + k], ino[:k])\n            node.right = build(pre[1 + k:], ino[k + 1:])\n            return node\n        return build(preorder, inorder)\n",
+  "solutions": {
+    "python": "class Solution:\n    def buildTree(self, preorder, inorder):\n        idx = {v: i for i, v in enumerate(inorder)}\n        self.pre = 0\n        def build(lo, hi):\n            if lo > hi:\n                return None\n            root_val = preorder[self.pre]\n            self.pre += 1\n            node = TreeNode(root_val)\n            mid = idx[root_val]\n            node.left = build(lo, mid - 1)\n            node.right = build(mid + 1, hi)\n            return node\n        return build(0, len(inorder) - 1)\n",
+    "javascript": "var buildTree = function(preorder, inorder) {\n    const idx = new Map();\n    inorder.forEach((v, i) => idx.set(v, i));\n    let pre = 0;\n    function build(lo, hi) {\n        if (lo > hi) return null;\n        const rootVal = preorder[pre++];\n        const node = new TreeNode(rootVal);\n        const mid = idx.get(rootVal);\n        node.left = build(lo, mid - 1);\n        node.right = build(mid + 1, hi);\n        return node;\n    }\n    return build(0, inorder.length - 1);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

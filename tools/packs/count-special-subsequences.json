@@ -1,0 +1,153 @@
+{
+  "slug": "count-special-subsequences",
+  "judge": "exact",
+  "pattern": "Cross-multiplying the equality into a ratio shows the outer pair and the inner pair just need to share the same reduced fraction, so sweeping the array while matching left-side and right-side ratio tallies turns a four-index search into a running frequency count.",
+  "hints": [
+    "nums[p]*nums[r] == nums[q]*nums[s] is the same statement as nums[p]/nums[q] == nums[s]/nums[r], so express both sides as a fraction reduced by their gcd and look for matches.",
+    "For a fixed pair (q, r) with a gap between them, tally every earlier compatible p by its reduced fraction against q, and every later compatible s by its reduced fraction against r, then multiply matching tallies.",
+    "Sweep r left to right; each time r advances, fold the newly-eligible (p, q) fraction tallies (for q = r-2's own left side) into a global map, and separately maintain, for the current r, a running suffix tally of (s, r) fractions accumulated from the right so the two sides can be multiplied together per (q, r)."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        7,
+        1000
+      ],
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement-style single special subsequence",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          3,
+          6,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "repeated pattern producing several matches",
+      "input": [
+        [
+          3,
+          4,
+          3,
+          4,
+          3,
+          4,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length with no valid quadruple",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all equal values, every spaced quadruple qualifies",
+      "input": [
+        [
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "values present but gaps too tight to ever qualify",
+      "input": [
+        [
+          2,
+          4,
+          2,
+          4,
+          2,
+          4,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "distinct primes with one matching quadruple by ratio",
+      "input": [
+        [
+          2,
+          6,
+          3,
+          1,
+          4,
+          12,
+          6
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "all ones, maximum value range at the low end",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random moderate array with a mix of small repeated values to create real matches",
+      "seed": 11,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(7, min(size, 1000))\n    nums = [rng.randint(1, 12) for _ in range(n)]\n    return [nums]\n",
+      "note": "small value range keeps genuine ratio matches common"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfSubsequences(self, nums):\n        n = len(nums)\n        count = 0\n        for p in range(n):\n            for q in range(p + 2, n):\n                for r in range(q + 2, n):\n                    for s in range(r + 2, n):\n                        if nums[p] * nums[r] == nums[q] * nums[s]:\n                            count += 1\n        return count\n",
+  "solutions": {
+    "python": "import math\nfrom collections import Counter\n\nclass Solution:\n    def numberOfSubsequences(self, nums):\n        n = len(nums)\n\n        def key(x, y):\n            g = math.gcd(x, y)\n            return (x // g, y // g)\n\n        left_freq = [None] * n\n        for q in range(n):\n            c = Counter()\n            for p in range(0, q - 1):\n                c[key(nums[p], nums[q])] += 1\n            left_freq[q] = c\n\n        right_freq = [None] * n\n        for r in range(n):\n            c = Counter()\n            for s in range(r + 2, n):\n                c[key(nums[s], nums[r])] += 1\n            right_freq[r] = c\n\n        total = 0\n        acc = Counter()\n        for q in range(n - 1, -1, -1):\n            r2 = q + 2\n            if r2 <= n - 1:\n                for kk, vv in right_freq[r2].items():\n                    acc[kk] += vv\n            if left_freq[q]:\n                for kk, vv in left_freq[q].items():\n                    total += vv * acc.get(kk, 0)\n        return total\n",
+    "javascript": "var numberOfSubsequences = function(nums) {\n    const n = nums.length;\n    function gcd(a, b) { while (b) { [a, b] = [b, a % b]; } return a; }\n    function key(x, y) { const g = gcd(x, y); return (x / g) + \",\" + (y / g); }\n\n    const leftFreq = new Array(n);\n    for (let q = 0; q < n; q++) {\n        const m = new Map();\n        for (let p = 0; p < q - 1; p++) {\n            const k = key(nums[p], nums[q]);\n            m.set(k, (m.get(k) || 0) + 1);\n        }\n        leftFreq[q] = m;\n    }\n    const rightFreq = new Array(n);\n    for (let r = 0; r < n; r++) {\n        const m = new Map();\n        for (let s = r + 2; s < n; s++) {\n            const k = key(nums[s], nums[r]);\n            m.set(k, (m.get(k) || 0) + 1);\n        }\n        rightFreq[r] = m;\n    }\n    let total = 0;\n    const acc = new Map();\n    for (let q = n - 1; q >= 0; q--) {\n        const r2 = q + 2;\n        if (r2 <= n - 1) {\n            for (const [kk, vv] of rightFreq[r2]) {\n                acc.set(kk, (acc.get(kk) || 0) + vv);\n            }\n        }\n        for (const [kk, vv] of leftFreq[q]) {\n            total += vv * (acc.get(kk) || 0);\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2)",
+    "space": "O(n^2)"
+  }
+}

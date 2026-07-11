@@ -1,0 +1,37 @@
+{
+  "slug": "number-of-valid-words-for-each-puzzle",
+  "judge": "exact",
+  "pattern": "Collapsing each word to a 26-bit letter-set lets every puzzle count matches by enumerating only the subsets of its seven letters that include the first.",
+  "hints": [
+    "A word's identity for this problem is just its set of distinct letters, so represent each word as a bitmask and tally how many words share each mask.",
+    "A word is valid for a puzzle exactly when its mask is a subset of the puzzle's mask and contains the puzzle's first letter; the puzzle has only seven letters so it has few subsets.",
+    "Count word masks in a map, then for each puzzle enumerate the subsets of its mask that include the first-letter bit and sum the stored counts."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 100000] },
+    { "param": "puzzles", "kind": "string[]", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "canonical sample with a zero-match puzzle", "input": [["aaaa", "asas", "able", "ability", "actt", "actor", "access"], ["aboveyz", "abrodyz", "abslute", "absoryz", "actresz", "gaswxyz"]] },
+    { "kind": "edge", "description": "small word list, several puzzles", "input": [["apple", "pleas", "please"], ["aelwxyz", "aelpxyz", "aelpsxy", "saelpxy", "xaelpsy"]] },
+    { "kind": "trap", "description": "word missing the puzzle's first letter is invalid", "input": [["bcd"], ["abcdefg"]] },
+    { "kind": "trap", "description": "word with an extra letter outside the puzzle is invalid", "input": [["abx"], ["abcdefg"]] },
+    { "kind": "boundary", "description": "word using only the first letter repeated", "input": [["aaaa"], ["abcdefg"]] },
+    { "kind": "edge", "description": "duplicate words counted separately", "input": [["face", "face"], ["abcdefg"]] }
+  ],
+  "stress": [
+    {
+      "description": "many words and several puzzles over a small alphabet",
+      "seed": 81,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, min(size, 3000))\n    alpha = 'abcdefghij'\n    words = []\n    for _ in range(n):\n        L = rng.randint(4, 8)\n        words.append(''.join(rng.choice(alpha) for _ in range(L)))\n    pn = rng.randint(1, 50)\n    puzzles = []\n    for _ in range(pn):\n        letters = rng.sample(string.ascii_lowercase, 7)\n        puzzles.append(''.join(letters))\n    return [words, puzzles]\n",
+      "note": "small word alphabet plus random 7-letter puzzles ensures many subset hits"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findNumOfValidWords(self, words, puzzles):\n        wsets = [set(w) for w in words]\n        res = []\n        for p in puzzles:\n            first = p[0]\n            ps = set(p)\n            cnt = 0\n            for ws in wsets:\n                if first in ws and ws <= ps:\n                    cnt += 1\n            res.append(cnt)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def findNumOfValidWords(self, words, puzzles):\n        from collections import Counter\n        def mask(w):\n            m = 0\n            for c in w:\n                m |= 1 << (ord(c) - 97)\n            return m\n        wc = Counter(mask(w) for w in words)\n        res = []\n        for p in puzzles:\n            pm = mask(p)\n            first = 1 << (ord(p[0]) - 97)\n            total = 0\n            sub = pm\n            while sub:\n                if sub & first:\n                    total += wc.get(sub, 0)\n                sub = (sub - 1) & pm\n            res.append(total)\n        return res\n",
+    "javascript": "var findNumOfValidWords = function(words, puzzles) {\n    const mask = w => {\n        let m = 0;\n        for (const c of w) m |= 1 << (c.charCodeAt(0) - 97);\n        return m;\n    };\n    const wc = new Map();\n    for (const w of words) {\n        const m = mask(w);\n        wc.set(m, (wc.get(m) || 0) + 1);\n    }\n    return puzzles.map(p => {\n        const pm = mask(p);\n        const first = 1 << (p.charCodeAt(0) - 97);\n        let total = 0;\n        let sub = pm;\n        while (sub) {\n            if (sub & first) total += wc.get(sub) || 0;\n            sub = (sub - 1) & pm;\n        }\n        return total;\n    });\n};\n"
+  },
+  "complexity": { "time": "O(W + P * 128)", "space": "O(W)" }
+}

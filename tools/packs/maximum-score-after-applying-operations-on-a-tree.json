@@ -1,0 +1,222 @@
+{
+  "slug": "maximum-score-after-applying-operations-on-a-tree",
+  "judge": "exact",
+  "pattern": "Since every node value is strictly positive, a root-to-leaf path only ever sums to zero once EVERY node on it has been zeroed out -- so 'stays healthy' reduces to 'leave at least one untouched node on every root-to-leaf path', which is a minimum-weight blocking set that a bottom-up tree DP finds directly.",
+  "hints": [
+    "All values are positive, so a path's remaining sum can only hit zero if literally every node on that path has been zeroed -- healthy just means every root-to-leaf path keeps at least one untouched node.",
+    "You want to maximize the zeroed-out sum, which is the same as minimizing the total value of the untouched nodes you're forced to leave behind.",
+    "For each subtree, either leave just that subtree's root untouched (covering every path through it at the cost of its own value) or leave the minimum required inside every child subtree instead -- take whichever costs less, and the final answer is the tree's total value minus that minimum at the root."
+  ],
+  "constraints": [
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        1,
+        19999
+      ],
+      "value": [
+        0,
+        19999
+      ]
+    },
+    {
+      "param": "values",
+      "kind": "int[]",
+      "len": [
+        2,
+        20000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "minimal tree, two nodes",
+      "input": [
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "star with three leaf children of differing value",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ]
+        ],
+        [
+          10,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "keeping the root alone is cheaper than covering every child subtree separately",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        [
+          1,
+          100,
+          100
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "covering each child subtree separately is cheaper than keeping the expensive root",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        [
+          1000,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all node values identical, tie-breaking between root and children sums",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ]
+        ],
+        [
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "deep chain so the cheapest blocking node could be anywhere along the path",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        [
+          50,
+          1,
+          50,
+          1,
+          50
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "values at the maximum magnitude to check for overflow",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        [
+          1000000000,
+          1000000000,
+          1000000000
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random tree built by attaching each new node to a uniformly random earlier node, random positive values",
+      "seed": 5,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 20000))\n    edges = []\n    for i in range(1, n):\n        p = rng.randint(0, i - 1)\n        edges.append([p, i])\n    values = [rng.randint(1, 10**9) for _ in range(n)]\n    return [edges, values]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumScoreAfterOperations(self, edges, values):\n        n = len(values)\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        parent = [-1] * n\n        visited = [False] * n\n        order = []\n        stack = [0]\n        visited[0] = True\n        while stack:\n            node = stack.pop()\n            order.append(node)\n            for nxt in adj[node]:\n                if not visited[nxt]:\n                    visited[nxt] = True\n                    parent[nxt] = node\n                    stack.append(nxt)\n        leaves = [i for i in range(n) if all(c == parent[i] for c in adj[i])]\n        paths = []\n        for leaf in leaves:\n            path = []\n            cur = leaf\n            while cur != -1:\n                path.append(cur)\n                cur = parent[cur]\n            paths.append(path)\n        total = sum(values)\n        best_keep = None\n        for mask in range(1 << n):\n            kept = set(i for i in range(n) if mask & (1 << i))\n            if all(any(node in kept for node in path) for path in paths):\n                s = sum(values[i] for i in kept)\n                if best_keep is None or s < best_keep:\n                    best_keep = s\n        return total - best_keep\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumScoreAfterOperations(self, edges, values):\n        n = len(values)\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        total = sum(values)\n        parent = [-1] * n\n        visited = [False] * n\n        order = []\n        stack = [0]\n        visited[0] = True\n        while stack:\n            node = stack.pop()\n            order.append(node)\n            for nxt in adj[node]:\n                if not visited[nxt]:\n                    visited[nxt] = True\n                    parent[nxt] = node\n                    stack.append(nxt)\n        dp = [0] * n\n        for node in reversed(order):\n            children = [c for c in adj[node] if c != parent[node]]\n            if not children:\n                dp[node] = values[node]\n            else:\n                dp[node] = min(values[node], sum(dp[c] for c in children))\n        return total - dp[0]\n",
+    "javascript": "var maximumScoreAfterOperations = function(edges, values) {\n    const n = values.length;\n    const adj = Array.from({ length: n }, () => []);\n    for (const [u, v] of edges) {\n        adj[u].push(v);\n        adj[v].push(u);\n    }\n    let total = 0;\n    for (const v of values) total += v;\n    const parent = new Array(n).fill(-1);\n    const visited = new Array(n).fill(false);\n    const order = [];\n    const stack = [0];\n    visited[0] = true;\n    while (stack.length) {\n        const node = stack.pop();\n        order.push(node);\n        for (const nxt of adj[node]) {\n            if (!visited[nxt]) {\n                visited[nxt] = true;\n                parent[nxt] = node;\n                stack.push(nxt);\n            }\n        }\n    }\n    const dp = new Array(n).fill(0);\n    for (let idx = order.length - 1; idx >= 0; idx--) {\n        const node = order[idx];\n        const children = adj[node].filter((c) => c !== parent[node]);\n        if (children.length === 0) {\n            dp[node] = values[node];\n        } else {\n            let childSum = 0;\n            for (const c of children) childSum += dp[c];\n            dp[node] = Math.min(values[node], childSum);\n        }\n    }\n    return total - dp[0];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "slug": "make-array-empty",
+  "judge": "exact",
+  "pattern": "Because a value is only ever removed once it is the smallest still present, the whole removal order is known up front just by sorting the values -- the real work is counting, for each removal in turn, how many not-yet-removed elements sit between the previous removal spot and the next one in the original layout, which a Fenwick-style running counter answers without ever simulating a single rotation.",
+  "hints": [
+    "The order elements get removed in is fixed before you do anything: sort the values from smallest to largest and that is exactly the removal sequence, so there is no need to simulate rotations one at a time.",
+    "Going from one removal to the next, every element still present that lies between those two original positions (wrapping around the end of the array back to the start) gets rotated exactly once before the next removal happens.",
+    "Keep a running counter, indexed by original position, of which elements are still present; for each removal, add the count of still-present elements strictly between the previous removal point and this one, plus one for the removal itself, then mark this position gone and move the pointer just past it."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [-1000000000, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "a single element, the smallest possible array",
+      "input": [[5]]
+    },
+    {
+      "kind": "edge",
+      "description": "already ascending, so every front element is immediately the smallest remaining",
+      "input": [[1, 2, 3, 4]]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly descending, forcing the maximum amount of rotation before every removal",
+      "input": [[4, 3, 2, 1]]
+    },
+    {
+      "kind": "trap",
+      "description": "the smallest value sits at the very end, so nearly the whole array rotates before the first removal",
+      "input": [[5, 6, 7, 1]]
+    },
+    {
+      "kind": "trap",
+      "description": "the first removal is immediate but the remaining values are still descending",
+      "input": [[1, 5, 4, 3, 2]]
+    },
+    {
+      "kind": "edge",
+      "description": "a mix of negative and positive values in no particular order",
+      "input": [[-5, 10, -3, 0, 7]]
+    },
+    {
+      "kind": "boundary",
+      "description": "two elements at the extreme ends of the allowed value range",
+      "input": [[-1000000000, 1000000000]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a large random permutation of distinct values across the full allowed range",
+      "seed": 11,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = rng.sample(range(-1000000000, 1000000000), n)\n    return [nums]\n"
+    },
+    {
+      "description": "a large strictly-descending array, the pattern that forces the most rotation work per removal",
+      "seed": 13,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = list(range(n, 0, -1))\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\n\nclass Solution:\n    def countOperationsToEmptyArray(self, nums):\n        dq = deque(nums)\n        ops = 0\n        while dq:\n            if dq[0] == min(dq):\n                dq.popleft()\n            else:\n                dq.append(dq.popleft())\n            ops += 1\n        return ops\n",
+  "solutions": {
+    "python": "class Solution:\n    def countOperationsToEmptyArray(self, nums):\n        n = len(nums)\n        order = sorted(range(n), key=lambda i: nums[i])\n        tree = [0] * (n + 1)\n\n        def update(i, delta):\n            while i <= n:\n                tree[i] += delta\n                i += i & (-i)\n\n        def prefix(i):\n            s = 0\n            while i > 0:\n                s += tree[i]\n                i -= i & (-i)\n            return s\n\n        for i in range(1, n + 1):\n            update(i, 1)\n\n        ops = 0\n        p = 1\n        for orig in order:\n            pos = orig + 1\n            if pos >= p:\n                count_between = prefix(pos - 1) - prefix(p - 1)\n            else:\n                count_between = (prefix(n) - prefix(p - 1)) + prefix(pos - 1)\n            ops += count_between + 1\n            update(pos, -1)\n            p = pos + 1\n            if p > n:\n                p = 1\n        return ops\n",
+    "javascript": "var countOperationsToEmptyArray = function(nums) {\n    const n = nums.length;\n    const order = Array.from({ length: n }, (_, i) => i);\n    order.sort((a, b) => nums[a] - nums[b]);\n    const tree = new Array(n + 1).fill(0);\n\n    function update(i, delta) {\n        for (; i <= n; i += i & (-i)) tree[i] += delta;\n    }\n\n    function prefix(i) {\n        let s = 0;\n        for (; i > 0; i -= i & (-i)) s += tree[i];\n        return s;\n    }\n\n    for (let i = 1; i <= n; i++) update(i, 1);\n\n    let ops = 0;\n    let p = 1;\n    for (const orig of order) {\n        const pos = orig + 1;\n        let countBetween;\n        if (pos >= p) {\n            countBetween = prefix(pos - 1) - prefix(p - 1);\n        } else {\n            countBetween = (prefix(n) - prefix(p - 1)) + prefix(pos - 1);\n        }\n        ops += countBetween + 1;\n        update(pos, -1);\n        p = pos + 1;\n        if (p > n) p = 1;\n    }\n    return ops;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

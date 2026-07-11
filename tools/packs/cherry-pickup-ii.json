@@ -1,0 +1,64 @@
+{
+  "slug": "cherry-pickup-ii",
+  "judge": "exact",
+  "pattern": "Simultaneous two-robot top-to-bottom DP where you track both column positions at each row and avoid double-counting cells where both robots overlap.",
+  "hints": [
+    "Process the grid row by row; at each row you need to know both robots' column positions — that's a 3D DP state: (row, col1, col2).",
+    "Because robots start at opposite ends you can enforce col1 <= col2 to cut the state space in half; when col1 == col2 only one robot collects.",
+    "For each transition, each robot can move to one of three columns in the next row, giving 9 combinations to check per state."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [2, 70], "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "2x2 grid — minimum size, robots start adjacent",
+      "input": [[[3, 2], [1, 4]]]
+    },
+    {
+      "kind": "edge",
+      "description": "All zeros — answer should be 0",
+      "input": [[[0, 0, 0], [0, 0, 0], [0, 0, 0]]]
+    },
+    {
+      "kind": "edge",
+      "description": "Two-column grid where robots must overlap every row",
+      "input": [[[5, 0], [0, 5], [5, 0], [0, 5]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "Statement example 1",
+      "input": [[[3, 1, 1], [2, 5, 1], [1, 5, 5], [2, 1, 1]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "Statement example 2 — wide grid",
+      "input": [[[1, 0, 0, 0, 0, 0, 1], [2, 0, 0, 0, 0, 3, 0], [2, 0, 9, 0, 0, 0, 0], [0, 3, 0, 5, 4, 0, 0], [1, 0, 2, 3, 0, 0, 6]]]
+    },
+    {
+      "kind": "trap",
+      "description": "Robots must share a column midway — only one cherry collected there",
+      "input": [[[1, 10, 1], [1, 10, 1], [1, 10, 1]]]
+    },
+    {
+      "kind": "trap",
+      "description": "Rich diagonal concentration — greedy path fails",
+      "input": [[[9, 0, 0, 0, 9], [0, 9, 0, 9, 0], [0, 0, 9, 0, 0]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "Random 70x70 grid with values 0-100",
+      "seed": 42,
+      "size": 70,
+      "generator_python": "def gen(rng, size):\n    rows = size\n    cols = size\n    grid = [[rng.randint(0, 100) for _ in range(cols)] for _ in range(rows)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def cherryPickup(self, grid):\n        rows, cols = len(grid), len(grid[0])\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(r, c1, c2):\n            if r == rows:\n                return 0\n            cherries = grid[r][c1] + (grid[r][c2] if c2 != c1 else 0)\n            best = 0\n            for dc1 in (-1, 0, 1):\n                for dc2 in (-1, 0, 1):\n                    nc1, nc2 = c1 + dc1, c2 + dc2\n                    if 0 <= nc1 < cols and 0 <= nc2 < cols:\n                        best = max(best, dp(r + 1, nc1, nc2))\n            return cherries + best\n        return dp(0, 0, cols - 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def cherryPickup(self, grid):\n        rows, cols = len(grid), len(grid[0])\n        INF = float('-inf')\n        # dp[c1][c2] = best cherries when robots are at columns c1 and c2 after current row\n        dp = [[INF] * cols for _ in range(cols)]\n        dp[0][cols - 1] = grid[0][0] + (grid[0][cols - 1] if cols > 1 else 0)\n        for r in range(1, rows):\n            ndp = [[INF] * cols for _ in range(cols)]\n            for c1 in range(cols):\n                for c2 in range(cols):\n                    if dp[c1][c2] == INF:\n                        continue\n                    for dc1 in (-1, 0, 1):\n                        for dc2 in (-1, 0, 1):\n                            nc1, nc2 = c1 + dc1, c2 + dc2\n                            if 0 <= nc1 < cols and 0 <= nc2 < cols:\n                                cherries = grid[r][nc1] + (grid[r][nc2] if nc1 != nc2 else 0)\n                                ndp[nc1][nc2] = max(ndp[nc1][nc2], dp[c1][c2] + cherries)\n            dp = ndp\n        return max(dp[c1][c2] for c1 in range(cols) for c2 in range(cols) if dp[c1][c2] != INF)\n",
+    "javascript": "var cherryPickup = function(grid) {\n    const rows = grid.length, cols = grid[0].length;\n    const INF = -Infinity;\n    let dp = Array.from({length: cols}, () => new Array(cols).fill(INF));\n    dp[0][cols - 1] = grid[0][0] + (cols > 1 ? grid[0][cols - 1] : 0);\n    for (let r = 1; r < rows; r++) {\n        const ndp = Array.from({length: cols}, () => new Array(cols).fill(INF));\n        for (let c1 = 0; c1 < cols; c1++) {\n            for (let c2 = 0; c2 < cols; c2++) {\n                if (dp[c1][c2] === INF) continue;\n                for (let dc1 = -1; dc1 <= 1; dc1++) {\n                    for (let dc2 = -1; dc2 <= 1; dc2++) {\n                        const nc1 = c1 + dc1, nc2 = c2 + dc2;\n                        if (nc1 >= 0 && nc1 < cols && nc2 >= 0 && nc2 < cols) {\n                            const cherries = grid[r][nc1] + (nc1 !== nc2 ? grid[r][nc2] : 0);\n                            ndp[nc1][nc2] = Math.max(ndp[nc1][nc2], dp[c1][c2] + cherries);\n                        }\n                    }\n                }\n            }\n        }\n        dp = ndp;\n    }\n    let ans = 0;\n    for (let c1 = 0; c1 < cols; c1++)\n        for (let c2 = 0; c2 < cols; c2++)\n            if (dp[c1][c2] !== INF) ans = Math.max(ans, dp[c1][c2]);\n    return ans;\n};"
+  },
+  "complexity": { "time": "O(rows * cols^2 * 9) = O(rows * cols^2)", "space": "O(cols^2)" }
+}

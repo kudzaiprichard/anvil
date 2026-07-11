@@ -1,0 +1,41 @@
+{
+  "slug": "minimize-hamming-distance-after-swap-operations",
+  "judge": "exact",
+  "pattern": "Allowed swaps chain positions into connected groups where values can land anywhere inside the group, so within each group the best you can do is match as many source values to target values as their shared counts allow.",
+  "hints": [
+    "An allowed swap lets you exchange two positions, and swaps compose -- if position A can reach B and B can reach C, then A can effectively reach C too, so think in terms of connected groups of positions rather than individual swaps.",
+    "Union-Find groups the positions that can freely trade places; inside one group you can rearrange the source values among those positions however you like, so the question becomes: how many of those positions can you make match their target value?",
+    "For each group, count how many (value, count) pairs the source and target multisets have in common -- that's the maximum number of matches achievable -- and the group's contribution to the answer is its size minus that overlap; sum over all groups."
+  ],
+  "constraints": [
+    { "param": "source", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "target", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "allowedSwaps", "kind": "int[][]", "len": [0, 100000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two disjoint swappable pairs", "input": [[1, 2, 3, 4], [2, 1, 4, 5], [[0, 1], [2, 3]]] },
+    { "kind": "edge", "description": "statement example, no swaps allowed at all", "input": [[1, 2, 3, 4], [1, 3, 2, 4], []] },
+    { "kind": "edge", "description": "statement example, overlapping swaps merge into one group", "input": [[5, 1, 2, 4, 3], [1, 5, 4, 2, 3], [[0, 4], [4, 2], [1, 3], [1, 4]]] },
+    { "kind": "boundary", "description": "single element, no swaps possible", "input": [[7], [7], []] },
+    { "kind": "trap", "description": "middle elements share a large common factor but only the connected group composition matters, not values outside it", "input": [[1, 2, 3, 4, 5], [5, 2, 3, 4, 1], [[0, 4]]] },
+    { "kind": "trap", "description": "redundant and self-referential swap entries describing the same group", "input": [[1, 2, 3], [3, 2, 1], [[0, 1], [1, 0], [0, 1], [1, 2]]] },
+    { "kind": "trap", "description": "source already equals target everywhere, hamming distance is zero regardless of swaps", "input": [[4, 4, 4], [4, 4, 4], [[0, 1]]] },
+    { "kind": "edge", "description": "one big chain connects every position into a single group", "input": [[1, 2, 3, 4, 5], [5, 4, 3, 2, 1], [[0, 1], [1, 2], [2, 3], [3, 4]]] },
+    { "kind": "trap", "description": "two separate groups where one group cannot fully match but the other can", "input": [[1, 1, 2, 9], [1, 1, 9, 2], [[0, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random source/target values with a sparse random swap graph forming several connected groups",
+      "seed": 11,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    source = [rng.randint(1, 1000000000) for _ in range(n)]\n    target = [rng.randint(1, 1000000000) for _ in range(n)]\n    m = rng.randint(0, min(n, 2000))\n    swaps = []\n    for _ in range(m):\n        a = rng.randint(0, n - 1)\n        b = rng.randint(0, n - 1)\n        if a != b:\n            swaps.append([a, b])\n    return [source, target, swaps]\n",
+      "note": "swap count capped well below n so union-find stays fast even at n near the upper bound"
+    }
+  ],
+  "oracle_python": "from itertools import permutations\nfrom collections import Counter\n\nclass Solution:\n    def minimumHammingDistance(self, source, target, allowedSwaps):\n        n = len(source)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for a, b in allowedSwaps:\n            union(a, b)\n        groups = {}\n        for i in range(n):\n            groups.setdefault(find(i), []).append(i)\n        total = 0\n        for idxs in groups.values():\n            if len(idxs) <= 7:\n                src_vals = [source[i] for i in idxs]\n                tgt_vals = [target[i] for i in idxs]\n                best = len(idxs)\n                seen_perms = set(permutations(src_vals))\n                for perm in seen_perms:\n                    mism = sum(1 for a, b in zip(perm, tgt_vals) if a != b)\n                    if mism < best:\n                        best = mism\n                total += best\n            else:\n                cs = Counter(source[i] for i in idxs)\n                ct = Counter(target[i] for i in idxs)\n                matched = sum((cs & ct).values())\n                total += len(idxs) - matched\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumHammingDistance(self, source, target, allowedSwaps):\n        n = len(source)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for a, b in allowedSwaps:\n            union(a, b)\n        from collections import defaultdict, Counter\n        groups = defaultdict(list)\n        for i in range(n):\n            groups[find(i)].append(i)\n        total = 0\n        for idxs in groups.values():\n            src_counts = Counter(source[i] for i in idxs)\n            tgt_counts = Counter(target[i] for i in idxs)\n            matched = sum((src_counts & tgt_counts).values())\n            total += len(idxs) - matched\n        return total\n",
+    "javascript": "var minimumHammingDistance = function(source, target, allowedSwaps) {\n    const n = source.length;\n    const parent = new Array(n);\n    for (let i = 0; i < n; i++) parent[i] = i;\n    function find(x) {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    }\n    function union(a, b) {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent[ra] = rb;\n    }\n    for (const [a, b] of allowedSwaps) union(a, b);\n    const groups = new Map();\n    for (let i = 0; i < n; i++) {\n        const r = find(i);\n        if (!groups.has(r)) groups.set(r, []);\n        groups.get(r).push(i);\n    }\n    let total = 0;\n    for (const idxs of groups.values()) {\n        const srcCounts = new Map();\n        const tgtCounts = new Map();\n        for (const i of idxs) srcCounts.set(source[i], (srcCounts.get(source[i]) || 0) + 1);\n        for (const i of idxs) tgtCounts.set(target[i], (tgtCounts.get(target[i]) || 0) + 1);\n        let matched = 0;\n        for (const [v, c] of srcCounts) {\n            if (tgtCounts.has(v)) matched += Math.min(c, tgtCounts.get(v));\n        }\n        total += idxs.length - matched;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O((n + m) * inverse-Ackermann(n))", "space": "O(n)" }
+}

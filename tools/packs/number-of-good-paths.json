@@ -1,0 +1,38 @@
+{
+  "slug": "number-of-good-paths",
+  "judge": "exact",
+  "pattern": "Processing nodes in increasing value and union-merging only through already-activated neighbours lets each component, when it reaches a value, count the pairs of equal maxima it can join.",
+  "hints": [
+    "A good path's endpoints share a value that is the maximum along the path, so think about adding nodes from smallest value upward.",
+    "When you activate all nodes of a given value, two of them can form a good path only if they are already connected through nodes of value at most that.",
+    "Sort nodes by value, union a node with already-seen neighbours, and for each value count, within every component, how many activated nodes share that value, adding pairs plus the singletons."
+  ],
+  "constraints": [
+    { "param": "vals", "kind": "int[]", "len": [1, 30000], "value": [0, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 30000], "value": [0, 30000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one long good path plus singletons", "input": [[1, 3, 2, 1, 3], [[0, 1], [0, 2], [2, 3], [2, 4]]] },
+    { "kind": "edge", "description": "two extra adjacent good paths", "input": [[1, 1, 2, 2, 3], [[0, 1], [1, 2], [2, 3], [2, 4]]] },
+    { "kind": "boundary", "description": "single node no edges", "input": [[1], []] },
+    { "kind": "boundary", "description": "two nodes same value connected", "input": [[5, 5], [[0, 1]]] },
+    { "kind": "trap", "description": "equal endpoints but a larger value blocks the path", "input": [[1, 3, 1], [[0, 1], [1, 2]]] },
+    { "kind": "trap", "description": "all same value path counts every pair", "input": [[4, 4, 4, 4], [[0, 1], [1, 2], [2, 3]]] },
+    { "kind": "edge", "description": "star with center the maximum", "input": [[2, 1, 1, 1], [[0, 1], [0, 2], [0, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree via a parent assignment with small value range to create many equal-value pairs",
+      "seed": 12,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    vals = [rng.randint(0, 8) for _ in range(n)]\n    edges = []\n    for i in range(1, n):\n        p = rng.randint(0, i - 1)\n        edges.append([p, i])\n    return [vals, edges]\n",
+      "note": "parent-based construction guarantees a valid tree; small values force many good paths"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfGoodPaths(self, vals, edges):\n        from collections import defaultdict\n        n = len(vals)\n        adj = defaultdict(list)\n        for a, b in edges:\n            adj[a].append(b)\n            adj[b].append(a)\n        count = 0\n        for start in range(n):\n            # BFS to every node, tracking the max value on the path\n            stack = [(start, vals[start], -1)]\n            while stack:\n                node, mx, parent = stack.pop()\n                if node != start and vals[node] == vals[start] and mx == vals[start] and node > start:\n                    count += 1\n                for nb in adj[node]:\n                    if nb != parent:\n                        stack.append((nb, max(mx, vals[nb]), node))\n        return count + n\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfGoodPaths(self, vals, edges):\n        from collections import defaultdict\n        n = len(vals)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        by_value = defaultdict(list)\n        for i, v in enumerate(vals):\n            by_value[v].append(i)\n        adj = defaultdict(list)\n        for a, b in edges:\n            adj[a].append(b)\n            adj[b].append(a)\n        active = [False] * n\n        result = n\n        for v in sorted(by_value):\n            nodes = by_value[v]\n            for u in nodes:\n                active[u] = True\n                for w in adj[u]:\n                    if active[w]:\n                        ru, rw = find(u), find(w)\n                        if ru != rw:\n                            parent[ru] = rw\n            counts = defaultdict(int)\n            for u in nodes:\n                counts[find(u)] += 1\n            for c in counts.values():\n                result += c * (c - 1) // 2\n        return result\n",
+    "javascript": "var numberOfGoodPaths = function(vals, edges) {\n    const n = vals.length;\n    const parent = Array.from({length: n}, (_, i) => i);\n    const find = (x) => {\n        while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }\n        return x;\n    };\n    const byValue = new Map();\n    for (let i = 0; i < n; i++) {\n        if (!byValue.has(vals[i])) byValue.set(vals[i], []);\n        byValue.get(vals[i]).push(i);\n    }\n    const adj = Array.from({length: n}, () => []);\n    for (const [a, b] of edges) { adj[a].push(b); adj[b].push(a); }\n    const active = new Array(n).fill(false);\n    let result = n;\n    const sortedVals = [...byValue.keys()].sort((a, b) => a - b);\n    for (const v of sortedVals) {\n        const nodes = byValue.get(v);\n        for (const u of nodes) {\n            active[u] = true;\n            for (const w of adj[u]) {\n                if (active[w]) {\n                    const ru = find(u), rw = find(w);\n                    if (ru !== rw) parent[ru] = rw;\n                }\n            }\n        }\n        const counts = new Map();\n        for (const u of nodes) {\n            const r = find(u);\n            counts.set(r, (counts.get(r) || 0) + 1);\n        }\n        for (const c of counts.values()) result += c * (c - 1) / 2;\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

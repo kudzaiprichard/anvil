@@ -1,0 +1,85 @@
+{
+  "slug": "maximum-number-of-visible-points",
+  "judge": "exact",
+  "pattern": "Converting every point to its bearing angle from the viewer turns 'find a rotation that covers the most points within a fixed field of view' into a fixed-width sliding window over sorted angles, with the list duplicated past 360 degrees so a window is free to wrap across the seam, plus a separate tally for points sitting exactly on the viewer.",
+  "hints": [
+    "Points located exactly at your own position are visible no matter how you rotate, so pull those out and count them separately from everything else.",
+    "For every remaining point, compute the bearing angle from your position to it and sort those angles; the widest field of view you can rotate to becomes a fixed-size window over this sorted list.",
+    "Because the field of view can straddle the 0/360-degree seam, append every angle again with 360 added and slide a window over the doubled list; take the largest window whose span is at most the given field of view, then add back the points at your exact position. Rounding each angle to a handful of decimal places before comparing avoids floating-point noise from atan2 flipping a borderline case."
+  ],
+  "constraints": [
+    { "param": "points", "kind": "int[][]", "rows": [1, 100000], "cols": [2, 2], "value": [0, 100] },
+    { "param": "angle", "kind": "int", "value": [0, 359] },
+    { "param": "location", "kind": "int[]", "len": [2, 2], "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example one",
+      "input": [[[2, 1], [2, 2], [3, 3]], 90, [1, 1]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example two, includes a point at the viewer's own location",
+      "input": [[[2, 1], [2, 2], [3, 4], [1, 1]], 90, [1, 1]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example three, narrow field of view",
+      "input": [[[1, 0], [2, 1]], 13, [1, 1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a zero-degree field of view exactly aligned with the only other point",
+      "input": [[[5, 5]], 0, [1, 1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "field of view at the maximum allowed value, four cardinal points around the viewer",
+      "input": [[[2, 1], [1, 2], [0, 1], [1, 0]], 359, [1, 1]]
+    },
+    {
+      "kind": "trap",
+      "description": "two points whose bearings sit just on either side of the 0/360 seam, only visible together if the window is allowed to wrap",
+      "input": [[[100, 49], [100, 51]], 2, [0, 50]]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate points exactly at the viewer's location mixed with one ordinary point",
+      "input": [[[1, 1], [1, 1], [5, 5]], 10, [1, 1]]
+    },
+    {
+      "kind": "edge",
+      "description": "one point in each of the four cardinal directions from the viewer, exercising every atan2 quadrant",
+      "input": [[[60, 50], [50, 60], [40, 50], [50, 40]], 100, [50, 50]]
+    },
+    {
+      "kind": "boundary",
+      "description": "points at the maximum coordinate bound around a mid-board viewer",
+      "input": [[[100, 100], [100, 0], [0, 100]], 45, [50, 50]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random points and viewer scattered across the whole board with a handful of points placed exactly on the viewer",
+      "seed": 23,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    loc = [rng.randint(0, 100), rng.randint(0, 100)]\n    points = []\n    for _ in range(n):\n        if rng.random() < 0.05:\n            points.append(loc[:])\n        else:\n            points.append([rng.randint(0, 100), rng.randint(0, 100)])\n    angle = rng.randint(0, 359)\n    return [points, angle, loc]\n"
+    },
+    {
+      "description": "points clustered near a single bearing with small perturbations, stressing angle-rounding boundary comparisons",
+      "seed": 24,
+      "size": 150,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 150))\n    loc = [50, 50]\n    points = []\n    for _ in range(n):\n        y = max(0, min(100, 50 + rng.randint(-2, 2)))\n        x = rng.randint(51, 100)\n        points.append([x, y])\n    angle = rng.randint(0, 20)\n    return [points, angle, loc]\n"
+    }
+  ],
+  "oracle_python": "import math\n\nclass Solution:\n    def visiblePoints(self, points, angle, location):\n        px, py = location\n        same = 0\n        angles = []\n        for x, y in points:\n            dx, dy = x - px, y - py\n            if dx == 0 and dy == 0:\n                same += 1\n                continue\n            a = math.degrees(math.atan2(dy, dx))\n            if a < 0:\n                a += 360\n            angles.append(round(a, 6))\n        n = len(angles)\n        if n == 0:\n            return same\n        eps = 1e-6\n        best = 0\n        for i in range(n):\n            start = angles[i]\n            count = 0\n            for a in angles:\n                diff = a - start\n                if diff < 0:\n                    diff += 360\n                if diff <= angle + eps:\n                    count += 1\n            best = max(best, count)\n        return best + same\n",
+  "solutions": {
+    "python": "import math\n\nclass Solution:\n    def visiblePoints(self, points, angle: int, location) -> int:\n        px, py = location\n        same = 0\n        angles = []\n        for x, y in points:\n            dx, dy = x - px, y - py\n            if dx == 0 and dy == 0:\n                same += 1\n                continue\n            a = math.degrees(math.atan2(dy, dx))\n            if a < 0:\n                a += 360\n            angles.append(round(a, 6))\n        angles.sort()\n        n = len(angles)\n        if n == 0:\n            return same\n        extended = angles + [a + 360 for a in angles]\n        eps = 1e-6\n        best = 0\n        j = 0\n        for i in range(n):\n            while j < i + n and extended[j] - angles[i] <= angle + eps:\n                j += 1\n            best = max(best, j - i)\n        return best + same\n",
+    "javascript": "var visiblePoints = function(points, angle, location) {\n    const [px, py] = location;\n    let same = 0;\n    const angles = [];\n    for (const [x, y] of points) {\n        const dx = x - px, dy = y - py;\n        if (dx === 0 && dy === 0) {\n            same++;\n            continue;\n        }\n        let a = Math.atan2(dy, dx) * 180 / Math.PI;\n        if (a < 0) a += 360;\n        angles.push(Math.round(a * 1e6) / 1e6);\n    }\n    angles.sort((x, y) => x - y);\n    const n = angles.length;\n    if (n === 0) return same;\n    const extended = angles.concat(angles.map(a => a + 360));\n    const eps = 1e-6;\n    let best = 0;\n    let j = 0;\n    for (let i = 0; i < n; i++) {\n        while (j < i + n && extended[j] - angles[i] <= angle + eps) {\n            j++;\n        }\n        best = Math.max(best, j - i);\n    }\n    return best + same;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n) for the angle sort, O(n) for the sliding window",
+    "space": "O(n)"
+  }
+}

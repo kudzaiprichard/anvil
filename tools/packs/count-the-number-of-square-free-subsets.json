@@ -1,0 +1,123 @@
+{
+  "slug": "count-the-number-of-square-free-subsets",
+  "judge": "exact",
+  "pattern": "Every value up to thirty has a small, fixed footprint of prime factors, so square-free-ness of a subset's product is really just a bitmask no-overlap condition over the ten primes below thirty, countable with a subset-sum style DP.",
+  "hints": [
+    "Values only range from 1 to 30, so first work out which values can never appear in any valid subset at all: any value that is itself divisible by a perfect square.",
+    "For every remaining value, encode which of the primes below 30 divide it as a bitmask; a group of values keeps a square-free product exactly when none of their masks share a bit.",
+    "Do a DP over the 1024 possible bitmasks of the ten relevant primes, adding each value's count as either 0 or 1 uses (never 2, since repeating a prime factor breaks square-freeness); handle the value 1 separately since it never conflicts with anything and doubles the count of every subset each time it can be freely included or excluded."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        30
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several copies of the same value that is always square-free alone",
+      "input": [
+        [
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "every value is already excluded as not square-free by itself",
+      "input": [
+        [
+          4,
+          8,
+          9,
+          16
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single value that is not square-free",
+      "input": [
+        [
+          25
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single value that has several distinct prime factors",
+      "input": [
+        [
+          30
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate values must count as distinct subsets even though only one copy may ever be chosen",
+      "input": [
+        [
+          2,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "ones mixed with values that can never be chosen",
+      "input": [
+        [
+          1,
+          1,
+          4,
+          9
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two values that individually are fine but together break square-freeness",
+      "input": [
+        [
+          2,
+          8
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "uniformly random values from the whole allowed range",
+      "seed": 1101,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    return [[rng.randint(1, 30) for _ in range(n)]]\n"
+    },
+    {
+      "description": "heavy reuse of a handful of square-free values, stressing the multiplicity counting",
+      "seed": 1102,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    pool = [1, 2, 3, 5, 6, 7, 10, 15, 30]\n    return [[rng.choice(pool) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def squareFreeSubsets(self, nums):\n        MOD = 10 ** 9 + 7\n        primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]\n        n = len(nums)\n        info = []\n        for v in nums:\n            m = 0\n            ok = True\n            for i, p in enumerate(primes):\n                e = 0\n                x = v\n                while x % p == 0:\n                    x //= p\n                    e += 1\n                if e >= 2:\n                    ok = False\n                elif e == 1:\n                    m |= (1 << i)\n            info.append((m, ok))\n        count = 0\n        for mask in range(1, 1 << n):\n            used = 0\n            valid = True\n            for i in range(n):\n                if mask & (1 << i):\n                    m, ok = info[i]\n                    if not ok or (used & m):\n                        valid = False\n                        break\n                    used |= m\n            if valid:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def squareFreeSubsets(self, nums):\n        MOD = 10 ** 9 + 7\n        primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]\n        from collections import Counter\n        cnt = Counter(nums)\n        ones = cnt.get(1, 0)\n        dp = [0] * (1 << len(primes))\n        dp[0] = 1\n        for v in range(2, 31):\n            c = cnt.get(v, 0)\n            if c == 0:\n                continue\n            m = 0\n            bad = False\n            for i, p in enumerate(primes):\n                if v % p == 0:\n                    if (v // p) % p == 0:\n                        bad = True\n                        break\n                    m |= (1 << i)\n            if bad:\n                continue\n            ndp = dp[:]\n            for mask in range(len(dp)):\n                if dp[mask] == 0:\n                    continue\n                if mask & m == 0:\n                    ndp[mask | m] = (ndp[mask | m] + dp[mask] * c) % MOD\n            dp = ndp\n        total = sum(dp) % MOD\n        total = total * pow(2, ones, MOD) % MOD\n        return (total - 1) % MOD\n",
+    "javascript": "var squareFreeSubsets = function(nums) {\n    const MOD = 1000000007;\n    const primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];\n    const cnt = new Array(31).fill(0);\n    for (const v of nums) cnt[v]++;\n    const ones = cnt[1];\n    const size = 1 << primes.length;\n    let dp = new Array(size).fill(0);\n    dp[0] = 1;\n    for (let v = 2; v <= 30; v++) {\n        const c = cnt[v];\n        if (c === 0) continue;\n        let m = 0;\n        let bad = false;\n        for (let i = 0; i < primes.length; i++) {\n            const p = primes[i];\n            if (v % p === 0) {\n                if (Math.floor(v / p) % p === 0) { bad = true; break; }\n                m |= (1 << i);\n            }\n        }\n        if (bad) continue;\n        const ndp = dp.slice();\n        for (let mask = 0; mask < size; mask++) {\n            if (dp[mask] === 0) continue;\n            if ((mask & m) === 0) {\n                ndp[mask | m] = (ndp[mask | m] + dp[mask] * c) % MOD;\n            }\n        }\n        dp = ndp;\n    }\n    let total = 0;\n    for (let i = 0; i < size; i++) total = (total + dp[i]) % MOD;\n    let p2 = 1;\n    for (let i = 0; i < ones; i++) p2 = (p2 * 2) % MOD;\n    total = (total * p2) % MOD;\n    return (total - 1 + MOD) % MOD;\n};\n"
+  },
+  "complexity": {
+    "time": "O(30 * 2^10 + n)",
+    "space": "O(2^10)"
+  }
+}

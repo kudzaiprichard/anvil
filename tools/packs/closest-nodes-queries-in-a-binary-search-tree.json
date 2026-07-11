@@ -1,0 +1,38 @@
+{
+  "slug": "closest-nodes-queries-in-a-binary-search-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json"], "returns": "json" },
+  "pattern": "An in-order traversal flattens the search tree into a sorted list, so each query's floor and ceiling reduce to two binary searches.",
+  "hints": [
+    "The tree's in-order sequence is already sorted, which is exactly the structure binary search needs to answer floor and ceiling questions.",
+    "For each query, the answer's first part is the rightmost value not exceeding it, and the second part is the leftmost value not below it.",
+    "Flatten the tree once, then for each query use a lower-bound search: the position gives the ceiling, and the slot just before it gives the floor, with -1 when either side is empty."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [2, 100000], "value": [1, 1000000] },
+    { "param": "queries", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "queries hitting exact, interior, and beyond-max", "input": [[6, 2, 13, 1, 4, 9, 15, null, null, null, null, null, null, 14], [2, 5, 16]] },
+    { "kind": "trap", "description": "query below the minimum has no floor", "input": [[4, null, 9], [3]] },
+    { "kind": "boundary", "description": "two-node tree, query equals a node", "input": [[5, 3], [5, 3, 4, 1, 10]] },
+    { "kind": "edge", "description": "right-leaning chain", "input": [[1, null, 2, null, null, null, 3], [2]] },
+    { "kind": "edge", "description": "all queries above max", "input": [[10, 5, 20], [100, 50]] },
+    { "kind": "edge", "description": "exact matches for every value", "input": [[8, 4, 12, 2, 6, 10, 14], [2, 4, 6, 8, 10, 12, 14]] }
+  ],
+  "stress": [
+    {
+      "description": "random BST built by inserting shuffled distinct values, with random queries",
+      "seed": 37,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 400)))\n    vals = rng.sample(range(1, 1000000), n)\n    # build BST by insertion order, then serialize level-order with nulls\n    class N:\n        __slots__ = ('v', 'l', 'r')\n        def __init__(self, v):\n            self.v = v; self.l = None; self.r = None\n    root = None\n    def insert(root, v):\n        if root is None:\n            return N(v)\n        cur = root\n        while True:\n            if v < cur.v:\n                if cur.l is None:\n                    cur.l = N(v); break\n                cur = cur.l\n            else:\n                if cur.r is None:\n                    cur.r = N(v); break\n                cur = cur.r\n        return root\n    for v in vals:\n        root = insert(root, v)\n    # level-order serialize\n    out = []\n    q = [root]\n    while q:\n        node = q.pop(0)\n        if node is None:\n            out.append(None)\n            continue\n        out.append(node.v)\n        q.append(node.l)\n        q.append(node.r)\n    while out and out[-1] is None:\n        out.pop()\n    qn = rng.randint(1, 200)\n    queries = [rng.randint(1, 1000000) for _ in range(qn)]\n    return [out, queries]\n",
+      "note": "serialized form is a valid BST; queries span hits and misses"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def closestNodes(self, root, queries):\n        vals = []\n        def inorder(node):\n            if not node:\n                return\n            inorder(node.left)\n            vals.append(node.val)\n            inorder(node.right)\n        inorder(root)\n        res = []\n        for q in queries:\n            lo = -1\n            hi = -1\n            for v in vals:\n                if v <= q and v > lo:\n                    lo = v\n            best_hi = None\n            for v in vals:\n                if v >= q and (best_hi is None or v < best_hi):\n                    best_hi = v\n            hi = best_hi if best_hi is not None else -1\n            res.append([lo, hi])\n        return res\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def closestNodes(self, root, queries):\n        vals = []\n        stack = []\n        node = root\n        while stack or node:\n            while node:\n                stack.append(node)\n                node = node.left\n            node = stack.pop()\n            vals.append(node.val)\n            node = node.right\n        res = []\n        for q in queries:\n            i = bisect.bisect_left(vals, q)\n            hi = vals[i] if i < len(vals) else -1\n            if i < len(vals) and vals[i] == q:\n                lo = q\n            else:\n                lo = vals[i - 1] if i - 1 >= 0 else -1\n            res.append([lo, hi])\n        return res\n",
+    "javascript": "var closestNodes = function(root, queries) {\n    const vals = [];\n    const stack = [];\n    let node = root;\n    while (stack.length || node) {\n        while (node) { stack.push(node); node = node.left; }\n        node = stack.pop();\n        vals.push(node.val);\n        node = node.right;\n    }\n    const lowerBound = (arr, x) => {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] < x) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    };\n    const res = [];\n    for (const q of queries) {\n        const i = lowerBound(vals, q);\n        const hi = i < vals.length ? vals[i] : -1;\n        let lo;\n        if (i < vals.length && vals[i] === q) lo = q;\n        else lo = i - 1 >= 0 ? vals[i - 1] : -1;\n        res.push([lo, hi]);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O((n+q) log n)", "space": "O(n)" }
+}

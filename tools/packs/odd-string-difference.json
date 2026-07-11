@@ -1,0 +1,37 @@
+{
+  "slug": "odd-string-difference",
+  "judge": "exact",
+  "pattern": "Reduce each word to its sequence of adjacent letter gaps, then the answer is the single word whose gap signature is unique among the group.",
+  "hints": [
+    "Two words share a signature if their consecutive letter differences match position by position.",
+    "Compute a tuple of gaps for every word and group words by that tuple.",
+    "Exactly one tuple appears once; return the word that produced it."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [3, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "given example, odd one at the end", "input": [["adc", "wzy", "abc"]] },
+    { "kind": "edge", "description": "given example, odd one in the middle", "input": [["aaa", "bob", "ccc", "ddd"]] },
+    { "kind": "boundary", "description": "minimum count of three words", "input": [["az", "by", "cx"]] },
+    { "kind": "trap", "description": "odd one is the first word", "input": [["ace", "bdf", "ceg", "dfh"]] },
+    { "kind": "boundary", "description": "length-two words, single gap each", "input": [["ab", "cd", "ef", "zy"]] },
+    { "kind": "trap", "description": "many identical signatures except one", "input": [["mno", "nop", "opq", "pqr", "xzy"]] },
+    { "kind": "edge", "description": "all-same letters versus one shifted", "input": [["xxx", "yyy", "zzy"]] }
+  ],
+  "stress": [
+    {
+      "description": "many words sharing one random gap pattern with a single planted outlier",
+      "seed": 13,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    n = max(3, size)\n    L = rng.randint(2, 20)\n    def random_gaps():\n        # choose gaps and a start so all characters stay within [0,25]\n        while True:\n            gs = [rng.randint(-3, 3) for _ in range(L - 1)]\n            prefix = [0]\n            for g in gs:\n                prefix.append(prefix[-1] + g)\n            lo, hi = min(prefix), max(prefix)\n            span = hi - lo\n            if span <= 25:\n                start = rng.randint(-lo, 25 - hi)\n                return gs, start\n    gaps, start = random_gaps()\n    def build(gs, st):\n        cur = st\n        chars = [cur]\n        for g in gs:\n            cur += g\n            chars.append(cur)\n        return ''.join(chr(ord('a') + c) for c in chars)\n    words = []\n    for _ in range(n - 1):\n        # vary the start but keep the same gap signature; reshift if out of range\n        prefix = [0]\n        for g in gaps:\n            prefix.append(prefix[-1] + g)\n        lo, hi = min(prefix), max(prefix)\n        st = rng.randint(-lo, 25 - hi)\n        words.append(build(gaps, st))\n    odd_gaps, odd_start = random_gaps()\n    while odd_gaps == gaps:\n        odd_gaps, odd_start = random_gaps()\n    pos = rng.randrange(n)\n    words.insert(pos, build(odd_gaps, odd_start))\n    return [words]\n",
+      "note": "all non-outlier words share one gap signature (varied starts); the outlier uses a distinct signature"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def oddString(self, words):\n        def sig(w):\n            return tuple(ord(w[i+1]) - ord(w[i]) for i in range(len(w) - 1))\n        for w in words:\n            s = sig(w)\n            if sum(1 for x in words if sig(x) == s) == 1:\n                return w\n        return words[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def oddString(self, words):\n        groups = {}\n        for w in words:\n            key = tuple(ord(w[i+1]) - ord(w[i]) for i in range(len(w) - 1))\n            groups.setdefault(key, []).append(w)\n        for key, ws in groups.items():\n            if len(ws) == 1:\n                return ws[0]\n        return words[0]\n",
+    "javascript": "var oddString = function(words) {\n    const groups = new Map();\n    for (const w of words) {\n        const key = [];\n        for (let i = 0; i + 1 < w.length; i++) key.push(w.charCodeAt(i+1) - w.charCodeAt(i));\n        const k = key.join(',');\n        if (!groups.has(k)) groups.set(k, []);\n        groups.get(k).push(w);\n    }\n    for (const ws of groups.values()) {\n        if (ws.length === 1) return ws[0];\n    }\n    return words[0];\n};\n"
+  },
+  "complexity": { "time": "O(m * n)", "space": "O(m * n)" }
+}

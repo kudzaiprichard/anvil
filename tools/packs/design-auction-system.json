@@ -1,0 +1,98 @@
+{
+  "slug": "design-auction-system",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Grouping bids by item, one active bid per user, turns 'who is winning' into a scan over a small per-item group rather than a search over every bid ever placed, with ties broken by the more recent (higher) user id.",
+  "hints": [
+    "Bids only matter per item, and each user contributes at most one live bid to a given item, so nest the storage by item first and by user second instead of keeping one flat list.",
+    "addBid, updateBid, and removeBid are all just writes or deletes on that per-item, per-user map — the interesting work is entirely in getHighestBidder.",
+    "getHighestBidder walks the current bids for that item looking for the largest amount, and among equal amounts keeps the larger userId; an item with no live bids at all returns -1."
+  ],
+  "constraints": [
+    { "param": "userId", "kind": "int", "value": [1, 50000] },
+    { "param": "itemId", "kind": "int", "value": [1, 50000] },
+    { "param": "bidAmount", "kind": "int", "value": [1, 1000000000] },
+    { "param": "newAmount", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sample: outbid, update, remove, and querying an item with no bids at all",
+      "input": [
+        ["AuctionSystem", "addBid", "addBid", "getHighestBidder", "updateBid", "getHighestBidder", "removeBid", "getHighestBidder", "getHighestBidder"],
+        [[], [1, 7, 5], [2, 7, 6], [7], [1, 7, 8], [7], [2, 7], [7], [3]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "addBid called twice by the same user on the same item replaces the earlier bid rather than adding a second one",
+      "input": [
+        ["AuctionSystem", "addBid", "addBid", "getHighestBidder"],
+        [[], [1, 1, 10], [1, 1, 20], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "equal bid amounts on the same item are broken by the higher userId",
+      "input": [
+        ["AuctionSystem", "addBid", "addBid", "getHighestBidder"],
+        [[], [1, 1, 50], [2, 1, 50], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "removing the current leader hands the win to the next-highest remaining bid",
+      "input": [
+        ["AuctionSystem", "addBid", "addBid", "addBid", "removeBid", "getHighestBidder"],
+        [[], [1, 1, 10], [2, 1, 20], [3, 1, 15], [2, 1], [1]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "an updateBid can push a trailing bidder into the lead",
+      "input": [
+        ["AuctionSystem", "addBid", "addBid", "updateBid", "getHighestBidder"],
+        [[], [1, 1, 10], [2, 1, 50], [1, 1, 100], [1]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "userId, itemId, and bidAmount at the constraint extremes",
+      "input": [
+        ["AuctionSystem", "addBid", "getHighestBidder"],
+        [[], [50000, 50000, 1000000000], [50000]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "bids on separate items never interact, even for the same users and amounts",
+      "input": [
+        ["AuctionSystem", "addBid", "addBid", "getHighestBidder", "getHighestBidder"],
+        [[], [1, 1, 30], [1, 2, 90], [1], [2]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "querying the highest bidder for an item that has never received a bid",
+      "input": [
+        ["AuctionSystem", "getHighestBidder"],
+        [[], [999]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random addBid/updateBid/removeBid/getHighestBidder that only updates or removes bids known to be live",
+      "seed": 61,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    ops = ['AuctionSystem']\n    args = [[]]\n    live = {}\n    users = list(range(1, 12))\n    items = list(range(1, 6))\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.45:\n            u = rng.choice(users)\n            it = rng.choice(items)\n            amt = rng.randint(1, 500)\n            ops.append('addBid')\n            args.append([u, it, amt])\n            live[(u, it)] = amt\n        elif r < 0.7 and live:\n            key = rng.choice(list(live.keys()))\n            u, it = key\n            amt = rng.randint(1, 500)\n            ops.append('updateBid')\n            args.append([u, it, amt])\n            live[key] = amt\n        elif r < 0.85 and live:\n            key = rng.choice(list(live.keys()))\n            u, it = key\n            ops.append('removeBid')\n            args.append([u, it])\n            del live[key]\n        else:\n            it = rng.choice(items)\n            ops.append('getHighestBidder')\n            args.append([it])\n    return [ops, args]\n",
+      "note": "generator tracks its own (userId, itemId) -> live-bid map so updateBid/removeBid only ever target an existing bid, matching the problem's guarantee"
+    }
+  ],
+  "oracle_python": "class AuctionSystem:\n    def __init__(self):\n        self.items = {}\n\n    def _find(self, itemId, userId):\n        lst = self.items.get(itemId, [])\n        for i, (u, _a) in enumerate(lst):\n            if u == userId:\n                return i\n        return -1\n\n    def addBid(self, userId, itemId, bidAmount):\n        lst = self.items.setdefault(itemId, [])\n        idx = self._find(itemId, userId)\n        if idx >= 0:\n            lst[idx] = [userId, bidAmount]\n        else:\n            lst.append([userId, bidAmount])\n\n    def updateBid(self, userId, itemId, newAmount):\n        idx = self._find(itemId, userId)\n        self.items[itemId][idx] = [userId, newAmount]\n\n    def removeBid(self, userId, itemId):\n        idx = self._find(itemId, userId)\n        del self.items[itemId][idx]\n\n    def getHighestBidder(self, itemId):\n        lst = self.items.get(itemId, [])\n        if not lst:\n            return -1\n        best = max(lst, key=lambda ua: (ua[1], ua[0]))\n        return best[0]\n",
+  "solutions": {
+    "python": "class AuctionSystem:\n    def __init__(self):\n        self.bids = {}\n\n    def addBid(self, userId, itemId, bidAmount):\n        self.bids.setdefault(itemId, {})[userId] = bidAmount\n\n    def updateBid(self, userId, itemId, newAmount):\n        self.bids[itemId][userId] = newAmount\n\n    def removeBid(self, userId, itemId):\n        del self.bids[itemId][userId]\n\n    def getHighestBidder(self, itemId):\n        item_bids = self.bids.get(itemId)\n        if not item_bids:\n            return -1\n        best_user = None\n        best_amount = None\n        for userId, amount in item_bids.items():\n            if best_amount is None or amount > best_amount or (amount == best_amount and userId > best_user):\n                best_amount = amount\n                best_user = userId\n        return best_user\n",
+    "javascript": "class AuctionSystem {\n    constructor() {\n        this.bids = new Map();\n    }\n    addBid(userId, itemId, bidAmount) {\n        if (!this.bids.has(itemId)) this.bids.set(itemId, new Map());\n        this.bids.get(itemId).set(userId, bidAmount);\n    }\n    updateBid(userId, itemId, newAmount) {\n        this.bids.get(itemId).set(userId, newAmount);\n    }\n    removeBid(userId, itemId) {\n        this.bids.get(itemId).delete(userId);\n    }\n    getHighestBidder(itemId) {\n        const itemBids = this.bids.get(itemId);\n        if (!itemBids || itemBids.size === 0) return -1;\n        let bestUser = null;\n        let bestAmount = null;\n        for (const [userId, amount] of itemBids) {\n            if (bestAmount === null || amount > bestAmount || (amount === bestAmount && userId > bestUser)) {\n                bestAmount = amount;\n                bestUser = userId;\n            }\n        }\n        return bestUser;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(bids on the item) per getHighestBidder, O(1) otherwise", "space": "O(total live bids)" }
+}

@@ -1,0 +1,242 @@
+{
+  "slug": "count-subtrees-with-max-distance-between-cities",
+  "judge": "exact",
+  "pattern": "Because the city network is a tree, a subset of cities induces a connected subtree exactly when its internal road count equals one less than its size, which turns an exponential-looking subset search into a fast, checkable enumeration for small city counts.",
+  "hints": [
+    "With at most 15 cities, every one of the 2^n possible subsets of cities can be examined directly.",
+    "A subset forms a connected subtree exactly when the number of original roads with both endpoints inside it equals (subset size - 1); anything else means it's disconnected.",
+    "For a connected subset, the maximum distance between any two of its cities (the diameter) can be found with two breadth-first searches restricted to that subset: BFS from any city to find the farthest one, then BFS again from that farthest city."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        2,
+        15
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        1,
+        14
+      ],
+      "value": [
+        1,
+        15
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "four cities in a small branching tree, statement example",
+      "input": [
+        4,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two cities joined by a single road, statement example",
+      "input": [
+        2,
+        [
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three cities in a straight line, statement example",
+      "input": [
+        3,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum city count arranged as a single long chain, exercising every possible diameter value",
+      "input": [
+        15,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            10,
+            11
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            12,
+            13
+          ],
+          [
+            13,
+            14
+          ],
+          [
+            14,
+            15
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a star-shaped network where leaf-only subsets (no hub) must be rejected as disconnected",
+      "input": [
+        6,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            1,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a balanced branching tree where several different subsets share the same diameter",
+      "input": [
+        7,
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            3,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum city count, only one possible non-trivial subtree",
+      "input": [
+        2,
+        [
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random attachment trees across the full allowed city-count range",
+      "seed": 503,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, 15)\n    edges = []\n    for city in range(2, n + 1):\n        parent = rng.randint(1, city - 1)\n        edges.append([parent, city])\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countSubgraphsForEachDiameter(self, n: int, edges: List[List[int]]) -> List[int]:\n        adj = [[] for _ in range(n + 1)]\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n        dist = [[-1] * (n + 1) for _ in range(n + 1)]\n        for s in range(1, n + 1):\n            dist[s][s] = 0\n            queue = [s]\n            head = 0\n            while head < len(queue):\n                cur = queue[head]\n                head += 1\n                for nxt in adj[cur]:\n                    if dist[s][nxt] == -1:\n                        dist[s][nxt] = dist[s][cur] + 1\n                        queue.append(nxt)\n        ans = [0] * (n - 1)\n        for mask in range(1, 1 << n):\n            nodes = [c + 1 for c in range(n) if mask & (1 << c)]\n            size = len(nodes)\n            if size < 2:\n                continue\n            node_set = set(nodes)\n            start = nodes[0]\n            seen = {start}\n            queue = [start]\n            head = 0\n            while head < len(queue):\n                cur = queue[head]\n                head += 1\n                for nxt in adj[cur]:\n                    if nxt in node_set and nxt not in seen:\n                        seen.add(nxt)\n                        queue.append(nxt)\n            if len(seen) != size:\n                continue\n            diameter = 0\n            for i in range(size):\n                for j in range(i + 1, size):\n                    d = dist[nodes[i]][nodes[j]]\n                    if d > diameter:\n                        diameter = d\n            ans[diameter - 1] += 1\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def countSubgraphsForEachDiameter(self, n: int, edges: List[List[int]]) -> List[int]:\n        adj = [[] for _ in range(n + 1)]\n        edge_set = set()\n        for u, v in edges:\n            adj[u].append(v)\n            adj[v].append(u)\n            edge_set.add((min(u, v), max(u, v)))\n        ans = [0] * (n - 1)\n        def bfs(start, node_set):\n            dist = {start: 0}\n            queue = [start]\n            head = 0\n            while head < len(queue):\n                cur = queue[head]\n                head += 1\n                for nxt in adj[cur]:\n                    if nxt in node_set and nxt not in dist:\n                        dist[nxt] = dist[cur] + 1\n                        queue.append(nxt)\n            return dist\n        for mask in range(1, 1 << n):\n            nodes = [c + 1 for c in range(n) if mask & (1 << c)]\n            size = len(nodes)\n            if size < 2:\n                continue\n            node_set = set(nodes)\n            cnt = 0\n            for (u, v) in edge_set:\n                if u in node_set and v in node_set:\n                    cnt += 1\n            if cnt != size - 1:\n                continue\n            d1 = bfs(nodes[0], node_set)\n            far = max(d1, key=d1.get)\n            d2 = bfs(far, node_set)\n            diameter = max(d2.values())\n            ans[diameter - 1] += 1\n        return ans\n",
+    "javascript": "var countSubgraphsForEachDiameter = function(n, edges) {\n    const adj = Array.from({length: n + 1}, () => []);\n    const edgeSet = new Set();\n    for (const [u, v] of edges) {\n        adj[u].push(v);\n        adj[v].push(u);\n        const key = Math.min(u, v) * 100 + Math.max(u, v);\n        edgeSet.add(key);\n    }\n    const ans = new Array(n - 1).fill(0);\n    const bfs = (start, nodeSet) => {\n        const dist = new Map([[start, 0]]);\n        const queue = [start];\n        let head = 0;\n        while (head < queue.length) {\n            const cur = queue[head++];\n            for (const nxt of adj[cur]) {\n                if (nodeSet.has(nxt) && !dist.has(nxt)) {\n                    dist.set(nxt, dist.get(cur) + 1);\n                    queue.push(nxt);\n                }\n            }\n        }\n        return dist;\n    };\n    for (let mask = 1; mask < (1 << n); mask++) {\n        const nodes = [];\n        for (let c = 0; c < n; c++) {\n            if (mask & (1 << c)) nodes.push(c + 1);\n        }\n        const size = nodes.length;\n        if (size < 2) continue;\n        const nodeSet = new Set(nodes);\n        let cnt = 0;\n        for (const key of edgeSet) {\n            const u = Math.floor(key / 100), v = key % 100;\n            if (nodeSet.has(u) && nodeSet.has(v)) cnt++;\n        }\n        if (cnt !== size - 1) continue;\n        const d1 = bfs(nodes[0], nodeSet);\n        let far = nodes[0], best = -1;\n        for (const [node, d] of d1) {\n            if (d > best) { best = d; far = node; }\n        }\n        const d2 = bfs(far, nodeSet);\n        let diameter = 0;\n        for (const d of d2.values()) {\n            if (d > diameter) diameter = d;\n        }\n        ans[diameter - 1]++;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(2^n * n)",
+    "space": "O(2^n)"
+  }
+}

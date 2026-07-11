@@ -1,0 +1,37 @@
+{
+  "slug": "lowest-common-ancestor-of-deepest-leaves",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "tree" },
+  "pattern": "A single post-order recursion returns each subtree's deepest-leaf depth together with its candidate ancestor, and a node becomes the answer exactly when its two subtrees reach the same maximum depth.",
+  "hints": [
+    "The answer is the deepest node from which both of the deepest leaves are still reachable, so it sits where the two deepest branches meet.",
+    "Have each call report two things: how deep its deepest leaf is, and the lowest common ancestor of its own deepest leaves.",
+    "If a node's left and right subtrees report equal depth, this node is the LCA; otherwise propagate up the deeper side's answer and depth+1."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 1000], "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two deepest leaves meet at an internal node", "input": [[3, 5, 1, 6, 2, 0, 8, null, null, 7, 4]] },
+    { "kind": "boundary", "description": "single node is its own answer", "input": [[1]] },
+    { "kind": "edge", "description": "deepest leaf alone returns itself", "input": [[0, 1, 3, null, 2]] },
+    { "kind": "trap", "description": "unbalanced tree where the deeper side dominates", "input": [[1, 2, 3, 4, null, null, null, 5]] },
+    { "kind": "trap", "description": "perfectly balanced tree returns the root", "input": [[1, 2, 3, 4, 5, 6, 7]] },
+    { "kind": "edge", "description": "left-skewed chain returns the deepest leaf", "input": [[1, 2, null, 3, null, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random level-order tree with holes and distinct values",
+      "seed": 23,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 200)))\n    vals = rng.sample(range(0, 1001), n)\n    arr = [vals[0]]\n    pool = vals[1:]\n    pi = 0\n    while pi < len(pool):\n        if rng.random() < 0.75:\n            arr.append(pool[pi]); pi += 1\n        else:\n            arr.append(None)\n    while arr and arr[-1] is None:\n        arr.pop()\n    return [arr]\n",
+      "note": "values distinct so the serialized answer subtree is unambiguous"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def lcaDeepestLeaves(self, root):\n        # independent two-pass: find max depth, collect deepest leaves with their\n        # ancestor paths, then take the lowest shared ancestor across those paths.\n        levels = {}\n        path = {}\n        max_depth = [0]\n        def dfs(node, depth, anc):\n            if node is None:\n                return\n            cur = anc + [node]\n            path[id(node)] = cur\n            if node.left is None and node.right is None:\n                levels.setdefault(depth, []).append(node)\n                if depth > max_depth[0]:\n                    max_depth[0] = depth\n            dfs(node.left, depth + 1, cur)\n            dfs(node.right, depth + 1, cur)\n        dfs(root, 0, [])\n        deepest = levels[max_depth[0]]\n        common = path[id(deepest[0])]\n        for leaf in deepest[1:]:\n            p = path[id(leaf)]\n            new_common = []\n            for a, b in zip(common, p):\n                if a is b:\n                    new_common.append(a)\n                else:\n                    break\n            common = new_common\n        return common[-1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def lcaDeepestLeaves(self, root):\n        def helper(node):\n            if node is None:\n                return 0, None\n            ld, la = helper(node.left)\n            rd, ra = helper(node.right)\n            if ld == rd:\n                return ld + 1, node\n            if ld > rd:\n                return ld + 1, la\n            return rd + 1, ra\n        return helper(root)[1]\n",
+    "javascript": "var lcaDeepestLeaves = function(root) {\n    function helper(node) {\n        if (node === null) return [0, null];\n        const [ld, la] = helper(node.left);\n        const [rd, ra] = helper(node.right);\n        if (ld === rd) return [ld + 1, node];\n        if (ld > rd) return [ld + 1, la];\n        return [rd + 1, ra];\n    }\n    return helper(root)[1];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

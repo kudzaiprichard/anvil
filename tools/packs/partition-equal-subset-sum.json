@@ -1,0 +1,44 @@
+{
+  "slug": "partition-equal-subset-sum",
+  "judge": "exact",
+  "pattern": "Splitting into two equal-sum halves reduces to asking whether some subset reaches exactly half the total, a classic subset-sum reachability solved with a boolean reachability set or 1-D DP.",
+  "hints": [
+    "If the total of all numbers is odd, no split can balance, so the answer is immediately false; otherwise you only need to hit exactly half.",
+    "Track which subset sums are reachable as you consider each number, growing the set of achievable totals one element at a time.",
+    "Use a boolean array reachable[0..half]; for each number iterate the target downward and mark reachable[t] true when reachable[t - num] was already true, then return reachable[half]."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 200], "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic balanced split exists", "input": [[1, 5, 11, 5]] },
+    { "kind": "edge", "description": "no balanced split", "input": [[1, 2, 3, 5]] },
+    { "kind": "boundary", "description": "single element can never split", "input": [[1]] },
+    { "kind": "trap", "description": "odd total is instantly impossible", "input": [[1, 1, 1]] },
+    { "kind": "edge", "description": "two equal elements split cleanly", "input": [[3, 3]] },
+    { "kind": "trap", "description": "even total but no reachable half", "input": [[1, 2, 5]] },
+    { "kind": "boundary", "description": "all max-value elements, even count splits", "input": [[100, 100, 100, 100]] },
+    { "kind": "trap", "description": "even total odd count where greedy halves fail but DP succeeds", "input": [[2, 2, 1, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "build an array with a known equal split by duplicating a random multiset into two halves",
+      "seed": 11,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    half = max(1, size // 2)\n    base = [rng.randint(1, 100) for _ in range(half)]\n    nums = base + base[:]\n    rng.shuffle(nums)\n    return [nums]\n",
+      "note": "duplicated multiset guarantees a true partition while staying within length 200"
+    },
+    {
+      "description": "random arrays that are usually not partitionable, exercising the false path",
+      "seed": 29,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randint(1, 100) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canPartition(self, nums):\n        total = sum(nums)\n        if total % 2:\n            return False\n        target = total // 2\n        from functools import lru_cache\n        nums = tuple(nums)\n        import sys\n        sys.setrecursionlimit(10000)\n        @lru_cache(maxsize=None)\n        def rec(i, rem):\n            if rem == 0:\n                return True\n            if i >= len(nums) or rem < 0:\n                return False\n            return rec(i + 1, rem - nums[i]) or rec(i + 1, rem)\n        return rec(0, target)\n",
+  "solutions": {
+    "python": "class Solution:\n    def canPartition(self, nums):\n        total = sum(nums)\n        if total % 2:\n            return False\n        target = total // 2\n        reachable = [False] * (target + 1)\n        reachable[0] = True\n        for num in nums:\n            for t in range(target, num - 1, -1):\n                if reachable[t - num]:\n                    reachable[t] = True\n        return reachable[target]\n",
+    "javascript": "var canPartition = function(nums) {\n    const total = nums.reduce((a, b) => a + b, 0);\n    if (total % 2 !== 0) return false;\n    const target = total / 2;\n    const reachable = new Array(target + 1).fill(false);\n    reachable[0] = true;\n    for (const num of nums) {\n        for (let t = target; t >= num; t--) {\n            if (reachable[t - num]) reachable[t] = true;\n        }\n    }\n    return reachable[target];\n};\n"
+  },
+  "complexity": { "time": "O(n * sum)", "space": "O(sum)" }
+}

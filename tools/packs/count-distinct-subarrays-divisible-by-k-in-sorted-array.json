@@ -1,0 +1,39 @@
+{
+  "slug": "count-distinct-subarrays-divisible-by-k-in-sorted-array",
+  "judge": "exact",
+  "pattern": "Because the array is sorted, two subarrays are equal exactly when they share length and value-content, so distinctness can be enforced by collapsing runs of equal values while counting divisible-sum subarrays.",
+  "hints": [
+    "Two subarrays are the same when their value sequences match. In a sorted array, equal value sequences come from runs of identical values, so identical subarrays differ only by which copies of a repeated value they use.",
+    "Compress the array into (value, count) runs. A distinct subarray is determined by a start run with a chosen offset, an end run with a chosen length, and full middle runs; identical content from the same runs must be counted once.",
+    "Within a maximal block of one repeated value of length c, the distinct subarrays are by length 1..c (c of them, not c*(c+1)/2). Combine that idea across run boundaries and test divisibility of the sum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small ascending array, several divisible windows", "input": [[1, 2, 3], 3] },
+    { "kind": "edge", "description": "all equal values, distinctness collapses by length", "input": [[2, 2, 2, 2, 2, 2], 6] },
+    { "kind": "edge", "description": "single element divisible by k", "input": [[5], 5] },
+    { "kind": "edge", "description": "single element not divisible by k", "input": [[4], 5] },
+    { "kind": "trap", "description": "duplicate values must not double-count identical subarrays", "input": [[1, 1, 1], 1] },
+    { "kind": "trap", "description": "k of 1 means every distinct subarray qualifies", "input": [[2, 2, 3, 3], 1] },
+    { "kind": "boundary", "description": "no subarray sum divisible by a large k", "input": [[1, 2, 3], 100] },
+    { "kind": "edge", "description": "mixed runs of repeats and singletons", "input": [[2, 2, 4, 6, 6], 4] }
+  ],
+  "stress": [
+    {
+      "description": "sorted array with frequent duplicates and a small k so divisibility and de-duplication both fire",
+      "seed": 23,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(60, size))\n    vals = sorted(rng.randint(1, 8) for _ in range(n))\n    k = rng.randint(1, 12)\n    return [vals, k]\n",
+      "note": "kept small because the oracle enumerates distinct subarrays explicitly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numGoodSubarrays(self, nums, k):\n        seen = set()\n        n = len(nums)\n        for i in range(n):\n            s = 0\n            for j in range(i, n):\n                s += nums[j]\n                if s % k == 0:\n                    seen.add(tuple(nums[i:j + 1]))\n        return len(seen)\n",
+  "solutions": {
+    "python": "class Solution:\n    def numGoodSubarrays(self, nums, k):\n        # group into runs of equal value\n        runs = []\n        i = 0\n        n = len(nums)\n        while i < n:\n            j = i\n            while j < n and nums[j] == nums[i]:\n                j += 1\n            runs.append((nums[i], j - i))\n            i = j\n        R = len(runs)\n        # prefix sums over runs (full run sums)\n        count = 0\n        # A distinct subarray is chosen as: start run index a with taken length sa (1..ca\n        # if it is also the end run, else it must extend so sa is the suffix length of run a),\n        # end run index b with taken length sb, full runs strictly between.\n        # Distinctness: identical value-sequences arise only when the choice of how many\n        # copies are consumed at the boundary runs is the same multiset. We enumerate by\n        # (a, b) and, for each, the number of items used from run a (1..ca) and run b (1..cb).\n        for a in range(R):\n            va, ca = runs[a]\n            # subarrays fully inside run a: lengths 1..ca, sum = va*len\n            for L in range(1, ca + 1):\n                if (va * L) % k == 0:\n                    count += 1\n            mid_sum = 0\n            for b in range(a + 1, R):\n                vb, cb = runs[b]\n                # base sum of full runs strictly between a and b\n                # use_a in 1..ca (suffix of run a), use_b in 1..cb (prefix of run b)\n                # total sum = use_a*va + mid_sum + use_b*vb\n                for ua in range(1, ca + 1):\n                    for ub in range(1, cb + 1):\n                        total = ua * va + mid_sum + ub * vb\n                        if total % k == 0:\n                            count += 1\n                mid_sum += vb * cb\n        return count\n",
+    "javascript": "var numGoodSubarrays = function(nums, k) {\n    const runs = [];\n    let i = 0;\n    const n = nums.length;\n    while (i < n) {\n        let j = i;\n        while (j < n && nums[j] === nums[i]) j++;\n        runs.push([nums[i], j - i]);\n        i = j;\n    }\n    const R = runs.length;\n    let count = 0;\n    for (let a = 0; a < R; a++) {\n        const va = runs[a][0], ca = runs[a][1];\n        for (let L = 1; L <= ca; L++) {\n            if ((va * L) % k === 0) count++;\n        }\n        let midSum = 0;\n        for (let b = a + 1; b < R; b++) {\n            const vb = runs[b][0], cb = runs[b][1];\n            for (let ua = 1; ua <= ca; ua++) {\n                for (let ub = 1; ub <= cb; ub++) {\n                    const total = ua * va + midSum + ub * vb;\n                    if (total % k === 0) count++;\n                }\n            }\n            midSum += vb * cb;\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(R^2 * maxrun^2)", "space": "O(R)" }
+}

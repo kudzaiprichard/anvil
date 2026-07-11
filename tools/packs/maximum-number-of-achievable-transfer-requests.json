@@ -1,0 +1,36 @@
+{
+  "slug": "maximum-number-of-achievable-transfer-requests",
+  "judge": "exact",
+  "pattern": "With at most 16 requests, every subset of requests can be tried directly; a subset works exactly when, for every building, the number of people it sends out equals the number it receives, so the search is just filtering subsets by a per-building balance check.",
+  "hints": [
+    "The requests list is deliberately tiny, so instead of finding clever structure, try every possible subset of requests that could be simultaneously approved.",
+    "A subset of approved requests keeps every building's population unchanged exactly when, for every building, the number of times it appears as a source equals the number of times it appears as a destination.",
+    "Check subsets from largest to smallest (or track the best count seen), computing each building's net in/out balance for that subset, and return the size of the largest subset where every building balances to zero."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 20] },
+    { "param": "requests", "kind": "int[][]", "len": [1, 16] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a mix where one request must be dropped to balance every building", "input": [5, [[0, 1], [1, 0], [0, 1], [1, 2], [2, 0], [3, 4]]] },
+    { "kind": "edge", "description": "self-requests and a small cycle, all achievable together", "input": [3, [[0, 0], [1, 2], [2, 1]]] },
+    { "kind": "boundary", "description": "a single self-request, trivially achievable", "input": [1, [[0, 0]]] },
+    { "kind": "trap", "description": "a perfect cycle through every building, all requests achievable at once", "input": [4, [[0, 3], [3, 1], [1, 2], [2, 0]]] },
+    { "kind": "trap", "description": "no subset larger than the empty one balances", "input": [2, [[0, 1], [0, 1]]] },
+    { "kind": "trap", "description": "two independent balanced pairs mixed with one unmatched request", "input": [4, [[0, 1], [1, 0], [2, 3], [3, 2], [0, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "near the maximum request count with a random building count",
+      "seed": 71,
+      "size": 16,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 20)\n    m = rng.randint(1, 16)\n    requests = [[rng.randint(0, n - 1), rng.randint(0, n - 1)] for _ in range(m)]\n    return [n, requests]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def maximumRequests(self, n, requests):\n        m = len(requests)\n        for size in range(m, -1, -1):\n            for combo in combinations(range(m), size):\n                net = [0] * n\n                for i in combo:\n                    frm, to = requests[i]\n                    net[frm] -= 1\n                    net[to] += 1\n                if all(v == 0 for v in net):\n                    return size\n        return 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumRequests(self, n, requests):\n        m = len(requests)\n        best = 0\n        for mask in range(1 << m):\n            cnt = bin(mask).count('1')\n            if cnt <= best:\n                continue\n            net = [0] * n\n            for i in range(m):\n                if mask & (1 << i):\n                    frm, to = requests[i]\n                    net[frm] -= 1\n                    net[to] += 1\n            if all(v == 0 for v in net):\n                best = cnt\n        return best\n",
+    "javascript": "var maximumRequests = function(n, requests) {\n    const m = requests.length;\n    let best = 0;\n    for (let mask = 0; mask < (1 << m); mask++) {\n        let cnt = 0;\n        for (let b = 0; b < m; b++) if (mask & (1 << b)) cnt++;\n        if (cnt <= best) continue;\n        const net = new Array(n).fill(0);\n        for (let i = 0; i < m; i++) {\n            if (mask & (1 << i)) {\n                const frm = requests[i][0], to = requests[i][1];\n                net[frm] -= 1;\n                net[to] += 1;\n            }\n        }\n        if (net.every(v => v === 0)) best = cnt;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(2^m * n)", "space": "O(n)" }
+}

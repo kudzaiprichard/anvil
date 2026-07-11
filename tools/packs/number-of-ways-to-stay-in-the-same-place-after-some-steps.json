@@ -1,0 +1,78 @@
+{
+  "slug": "number-of-ways-to-stay-in-the-same-place-after-some-steps",
+  "judge": "exact",
+  "pattern": "DP over (step, position): at each step each position distributes its count to the three neighbors (left, stay, right), clamped to the array boundary; the effective array width is capped at min(arrLen, steps//2 + 1) because the pointer cannot reach further than steps//2 in one direction and still return.",
+  "hints": [
+    "After all steps the pointer must sit at position 0; moving right k times requires at least k moves back left, so the pointer can never usefully exceed position steps//2 — cap the working range there.",
+    "Model it as dp[pos] = number of ways to be at position pos after the current step; initialise dp[0] = 1 and simulate each step by spreading each cell's count left, right, and in-place.",
+    "Accumulate everything modulo 10^9 + 7 and remember that left-of-0 and right-of-(arrLen-1) are walls — contributions that would leave the array are simply discarded."
+  ],
+  "constraints": [
+    { "param": "steps", "kind": "int", "value": [1, 500] },
+    { "param": "arrLen", "kind": "int", "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "one step, array of length 1 — can only stay, one way",
+      "input": [1, 1]
+    },
+    {
+      "kind": "edge",
+      "description": "one step, array of length 2 — stay or move right; only staying returns to 0, one way",
+      "input": [1, 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "two steps, large array — can go right-left, left-right (invalid since index goes negative), or stay-stay",
+      "input": [2, 4]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum steps with array length 1 — only path is stay every step, answer is 1",
+      "input": [500, 1]
+    },
+    {
+      "kind": "trap",
+      "description": "even steps with large arrLen — effective width is steps//2+1, not arrLen",
+      "input": [4, 1000000]
+    },
+    {
+      "kind": "trap",
+      "description": "odd number of steps, so pointer must make an odd number of direction changes — some naive counts include parity-illegal paths",
+      "input": [3, 3]
+    },
+    {
+      "kind": "boundary",
+      "description": "arrLen exactly equals steps//2 + 1 — boundary is snug",
+      "input": [10, 6]
+    },
+    {
+      "kind": "trap",
+      "description": "arrLen=2 forces the pointer to stay near 0, drastically limiting valid paths",
+      "input": [6, 2]
+    }
+  ],
+  "stress": [
+    {
+      "description": "maximum steps and large arrLen — tests modular arithmetic and the width cap",
+      "seed": 41,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    steps = max(1, min(size, 500))\n    arrLen = rng.randint(steps // 2 + 1, 1000000)\n    return [steps, arrLen]\n",
+      "note": "arrLen always larger than steps//2 so the cap kicks in; verifies large-mod result"
+    },
+    {
+      "description": "tight arrLen equal to 1 — only the all-stay path is valid",
+      "seed": 7,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    steps = max(1, min(size, 500))\n    return [steps, 1]\n",
+      "note": "answer is always 1; sanity check for DP base case"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numWays(self, steps, arrLen):\n        MOD = 10**9 + 7\n        # brute-force recursive memoisation — logically clearer than iterative DP\n        from functools import lru_cache\n        max_pos = min(arrLen - 1, steps // 2)\n        @lru_cache(maxsize=None)\n        def dp(remaining, pos):\n            if remaining == 0:\n                return 1 if pos == 0 else 0\n            ways = dp(remaining - 1, pos)  # stay\n            if pos > 0:\n                ways += dp(remaining - 1, pos - 1)  # move left\n            if pos < max_pos:\n                ways += dp(remaining - 1, pos + 1)  # move right\n            return ways % MOD\n        return dp(steps, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def numWays(self, steps, arrLen):\n        MOD = 10**9 + 7\n        max_pos = min(arrLen - 1, steps // 2)\n        # dp[pos] = ways to be at pos after current step\n        dp = [0] * (max_pos + 1)\n        dp[0] = 1\n        for _ in range(steps):\n            ndp = [0] * (max_pos + 1)\n            for pos in range(max_pos + 1):\n                if dp[pos] == 0:\n                    continue\n                ndp[pos] = (ndp[pos] + dp[pos]) % MOD  # stay\n                if pos > 0:\n                    ndp[pos - 1] = (ndp[pos - 1] + dp[pos]) % MOD  # move left\n                if pos < max_pos:\n                    ndp[pos + 1] = (ndp[pos + 1] + dp[pos]) % MOD  # move right\n            dp = ndp\n        return dp[0]\n",
+    "javascript": "var numWays = function(steps, arrLen) {\n    const MOD = 1000000007n;\n    const maxPos = Math.min(arrLen - 1, Math.floor(steps / 2));\n    let dp = new Array(maxPos + 1).fill(0n);\n    dp[0] = 1n;\n    for (let s = 0; s < steps; s++) {\n        const ndp = new Array(maxPos + 1).fill(0n);\n        for (let pos = 0; pos <= maxPos; pos++) {\n            if (dp[pos] === 0n) continue;\n            ndp[pos] = (ndp[pos] + dp[pos]) % MOD;\n            if (pos > 0) ndp[pos - 1] = (ndp[pos - 1] + dp[pos]) % MOD;\n            if (pos < maxPos) ndp[pos + 1] = (ndp[pos + 1] + dp[pos]) % MOD;\n        }\n        dp = ndp;\n    }\n    return Number(dp[0]);\n};\n"
+  },
+  "complexity": { "time": "O(steps * min(arrLen, steps))", "space": "O(min(arrLen, steps))" }
+}
