@@ -122,8 +122,10 @@ The frontend is exported as static assets (`output: 'export'`) and served by Tau
 
 ## Getting started
 
-Anvil has no published installers yet — you run it from source. Pre-built binaries will land on the
-[Releases](https://github.com/kudzaiprichard/anvil/releases) page with the first tagged version.
+Pre-built installers (Linux, macOS Apple Silicon + Intel, Windows) are published to
+[**kudzaiprichard/anvil-releases**](https://github.com/kudzaiprichard/anvil-releases/releases) — a
+separate repo dedicated to release binaries, kept apart from this source repo. You can also run Anvil
+from source below.
 
 ### Prerequisites
 

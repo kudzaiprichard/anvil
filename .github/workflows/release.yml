@@ -1,7 +1,17 @@
 name: Release
 
-# Push a tag like v1.0.0 to build installers for every platform and attach
-# them to a draft GitHub Release. See PROJECT_SPEC §7.5 (build matrix).
+# Push a tag like v1.0.0 to build installers for every platform and publish
+# them to the separate kudzaiprichard/anvil-releases repo (NOT this repo's own
+# Releases tab) as a draft release. See RELEASING.md.
+#
+# Publishing cross-repo needs a token scoped to anvil-releases, since the
+# default GITHUB_TOKEN Actions provides is scoped only to the repo the
+# workflow runs in. One-time maintainer setup:
+#   1. github.com/settings/tokens?type=beta → generate a fine-grained PAT
+#      scoped to ONLY kudzaiprichard/anvil-releases, with "Contents: write".
+#   2. gh secret set RELEASES_REPO_TOKEN --repo kudzaiprichard/anvil
+#      (paste the token when prompted — never commit it, never paste it into
+#      a chat/log; this command sends it straight to GitHub's secret store).
 on:
   push:
     tags: ["v*"]
@@ -10,8 +20,6 @@ on:
 jobs:
   release:
     name: Build ${{ matrix.platform }}
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -71,15 +79,48 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # tauri-action runs the configured beforeBuildCommand (npm run build),
-      # bundles installers, and attaches them to the release.
-      - uses: tauri-apps/tauri-action@v1
+      # tauri-action runs the configured beforeBuildCommand (npm run build) and
+      # bundles installers — build only, no release inputs, so it does NOT
+      # attach anything to this repo's own Releases. Publishing (to the
+      # separate anvil-releases repo) is the next step.
+      - name: Build the app + installers
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Anvil ${{ github.ref_name }}"
-          releaseBody: "See the assets below to download and install Anvil."
-          releaseDraft: true
-          prerelease: false
           args: ${{ matrix.args }}
+
+      # Publish to kudzaiprichard/anvil-releases, not this repo. The default
+      # GITHUB_TOKEN can't create/upload to a different repo, so this uses
+      # RELEASES_REPO_TOKEN (see the one-time setup note at the top of this
+      # file). Each matrix job uploads its own platform's installers to the
+      # SAME release: whichever job finishes first creates it, the rest hit
+      # the "already exists" branch and just upload their files alongside it.
+      - name: Publish installers to kudzaiprichard/anvil-releases
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          files=(
+            src-tauri/target/**/release/bundle/**/*.AppImage
+            src-tauri/target/**/release/bundle/**/*.deb
+            src-tauri/target/**/release/bundle/**/*.rpm
+            src-tauri/target/**/release/bundle/**/*.dmg
+            src-tauri/target/**/release/bundle/**/*.msi
+            src-tauri/target/**/release/bundle/**/*.exe
+          )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::warning::no installer files matched for ${{ matrix.platform }} — nothing to publish"
+            exit 0
+          fi
+          gh release create "${{ github.ref_name }}" \
+            --repo kudzaiprichard/anvil-releases \
+            --title "Anvil ${{ github.ref_name }}" \
+            --notes "See the assets below to download and install Anvil." \
+            --draft \
+            "${files[@]}" \
+          || gh release upload "${{ github.ref_name }}" \
+            --repo kudzaiprichard/anvil-releases \
+            --clobber \
+            "${files[@]}"
