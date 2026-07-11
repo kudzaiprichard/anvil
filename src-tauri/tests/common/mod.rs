@@ -25,6 +25,15 @@ pub fn stress_skipped_by_sandbox(skipped: &[String]) -> bool {
     !skipped.is_empty() && skipped.iter().all(|s| s.contains("runner error"))
 }
 
+/// True when an error message is the CI sandbox's thread/process cap
+/// surfacing as a Python `RuntimeError: can't start new thread` — the same
+/// environment limit as [`stress_skipped_by_sandbox`], but matched directly
+/// against one error string (e.g. a `ProbeOutcome::Failed` payload) rather
+/// than a skip list.
+pub fn is_sandbox_thread_limit(msg: &str) -> bool {
+    msg.contains("can't start new thread")
+}
+
 #[macro_export]
 macro_rules! require_runtime {
     ($program:literal) => {

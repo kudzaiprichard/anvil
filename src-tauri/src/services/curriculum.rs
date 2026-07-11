@@ -210,16 +210,36 @@ impl CurriculumStore {
             .unwrap_or_default()
     }
 
-    /// The unit whose problem pool references `slug`, if any. Used by the FSRS
-    /// review layer (Phase 6) to (a) decide whether a solved problem belongs to
-    /// the course and should enter the review queue, and (b) tag a due card with
-    /// its pattern for interleaving. A slug lives in exactly one unit in the
-    /// Stage-1 slice; the first match wins if that ever changes.
+    /// Units that legitimately cite another unit's problem as an illustrative
+    /// example — Big-O borrows problems from every pattern to teach complexity
+    /// classes; Design/OOD combines an earlier pattern's structure into a
+    /// design problem (e.g. LRU reuses a hash-map + linked-list slug) — but
+    /// neither one "owns" that problem's actual solving pattern. When a slug
+    /// is declared in more than one unit's `problems[]` (the full ladder has a
+    /// dozen such cases), [`unit_of_problem`] prefers whichever match is *not*
+    /// one of these, so a review card is tagged by its real technique instead
+    /// of the unit that merely cites the example.
+    const REUSE_ONLY_UNITS: &[&str] = &["big-o", "design-ood"];
+
+    /// The unit whose problem pool references `slug`, if any — deterministic
+    /// even when multiple units legitimately cite the same slug (see
+    /// [`REUSE_ONLY_UNITS`]). Used by the FSRS review layer (Phase 6) to (a)
+    /// decide whether a solved problem belongs to the course and should enter
+    /// the review queue, and (b) tag a due card with its pattern for
+    /// interleaving.
     pub fn unit_of_problem(&self, slug: &str) -> Option<&str> {
-        self.units
+        let mut matches = self
+            .units
             .values()
-            .find(|u| u.problems.iter().any(|p| p.slug == slug))
-            .map(|u| u.id.as_str())
+            .filter(|u| u.problems.iter().any(|p| p.slug == slug));
+        let first = matches.next()?;
+        if Self::REUSE_ONLY_UNITS.contains(&first.id.as_str()) {
+            if let Some(owner) = matches.find(|u| !Self::REUSE_ONLY_UNITS.contains(&u.id.as_str()))
+            {
+                return Some(owner.id.as_str());
+            }
+        }
+        Some(first.id.as_str())
     }
 
     /// Whether `slug` is a problem taught/tested anywhere in the course — the
