@@ -8,17 +8,36 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  CapstoneOutcome,
+  CapstoneView,
+  ComplexityReport,
+  Curriculum,
   DashboardData,
   DraftSummary,
+  GateOutcome,
+  Lesson,
+  LessonProgress,
+  LessonStatus,
+  PlacementOutcome,
+  PlacementProbe,
   Problem,
   ProblemFilter,
   ProblemSummary,
   ProblemUserState,
   Progress,
+  Quiz,
+  QuizAnswer,
+  QuizGrade,
+  Readiness,
+  ReviewOutcome,
+  ReviewQueue,
+  ReviewRating,
   RunRequest,
   RunResult,
   RuntimeInfo,
   StatusAction,
+  Unit,
+  UnitProgress,
   UserProblemDraft,
   ValidationResult,
 } from "@/src/lib/types";
@@ -72,12 +91,118 @@ export async function getProblem(id: string): Promise<Problem | null> {
   return (await call<Problem | null>("get_problem", { id })) ?? null;
 }
 
+/** Phase 1 IPC stubs (LESSON_COURSE_DESIGN.md §6.4) — no UI reads these yet. */
+export async function getCurriculum(): Promise<Curriculum> {
+  return call<Curriculum>("get_curriculum");
+}
+
+export async function getUnit(id: string): Promise<Unit | null> {
+  return (await call<Unit | null>("get_unit", { id })) ?? null;
+}
+
+export async function getLesson(id: string): Promise<Lesson | null> {
+  return (await call<Lesson | null>("get_lesson", { id })) ?? null;
+}
+
+export async function getQuiz(lessonId: string): Promise<Quiz | null> {
+  return (await call<Quiz | null>("get_quiz", { lessonId })) ?? null;
+}
+
+export async function getPatternPool(): Promise<Quiz> {
+  return call<Quiz>("get_pattern_pool");
+}
+
+/** Grades a formative quiz submission and records the review signal. `source`
+ *  is a lesson id or `PATTERN_POOL_SOURCE`. Never blocks progression. */
+export async function submitQuiz(
+  source: string,
+  answers: QuizAnswer[]
+): Promise<QuizGrade> {
+  return call<QuizGrade>("submit_quiz", { source, answers });
+}
+
+export async function recordLessonProgress(
+  lessonId: string,
+  status: LessonStatus
+): Promise<void> {
+  return call<void>("record_lesson_progress", { lessonId, status });
+}
+
+export async function getLessonProgress(): Promise<LessonProgress[]> {
+  return call<LessonProgress[]>("get_lesson_progress");
+}
+
+export async function getProgression(): Promise<UnitProgress[]> {
+  return call<UnitProgress[]>("get_progression");
+}
+
+export async function evaluateGate(
+  unitId: string,
+  problemId: string,
+  usedHelp: boolean
+): Promise<GateOutcome> {
+  return call<GateOutcome>("evaluate_gate", { unitId, problemId, usedHelp });
+}
+
+/** Phase 7: the Stage-7 mixed capstone (unlabeled cross-unit pool). */
+export async function getCapstone(): Promise<CapstoneView | null> {
+  return (await call<CapstoneView | null>("get_capstone")) ?? null;
+}
+
+/** Scores one capstone attempt (peeked attempts never count). */
+export async function evaluateCapstone(
+  problemId: string,
+  usedHelp: boolean
+): Promise<CapstoneOutcome> {
+  return call<CapstoneOutcome>("evaluate_capstone", { problemId, usedHelp });
+}
+
+/** The diagnostic placement probe (unlabeled recognition items). */
+export async function getPlacement(): Promise<PlacementProbe> {
+  return call<PlacementProbe>("get_placement");
+}
+
+/** Applies the placement probe — places the learner out of recognized units. */
+export async function applyPlacement(
+  answers: QuizAnswer[]
+): Promise<PlacementOutcome> {
+  return call<PlacementOutcome>("apply_placement", { answers });
+}
+
+/** The honest course-readiness signal (ladder mastery + capstone). */
+export async function getReadiness(): Promise<Readiness> {
+  return call<Readiness>("get_readiness");
+}
+
+/** The FSRS spaced-review queue: Stage-1 problems due to re-solve cold now
+ *  (interleaved) + the honest habit header (Phase 6). */
+export async function getReviewQueue(): Promise<ReviewQueue> {
+  return call<ReviewQueue>("get_review_queue");
+}
+
+/** Records a cold re-solve and reschedules the card. `rating` is self-assessed
+ *  recall; `again` demotes. */
+export async function recordReview(
+  problemId: string,
+  rating: ReviewRating
+): Promise<ReviewOutcome> {
+  return call<ReviewOutcome>("record_review", { problemId, rating });
+}
+
 export async function runCode(req: RunRequest): Promise<RunResult> {
   return call<RunResult>("run_code", { req });
 }
 
 export async function submitCode(req: RunRequest): Promise<RunResult> {
   return call<RunResult>("submit_code", { req });
+}
+
+/** Deterministic complexity feedback: profiles the learner's Python solution on
+ *  growing inputs and compares to the pack's optimal (Phase 5, no AI). */
+export async function analyzeComplexity(
+  req: RunRequest
+): Promise<ComplexityReport> {
+  return call<ComplexityReport>("analyze_complexity", { req });
 }
 
 export async function detectRuntimes(): Promise<RuntimeInfo[]> {

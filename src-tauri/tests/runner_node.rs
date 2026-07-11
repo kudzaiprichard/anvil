@@ -20,6 +20,9 @@ fn correct_solution_passes_all_cases() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass);
     assert_eq!(result.passed, 3);
 }
@@ -35,6 +38,9 @@ fn starter_without_export_runs_via_the_shim() {
         false,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass);
     assert_eq!(result.total, 2);
 }
@@ -49,6 +55,9 @@ fn explicit_module_exports_also_works() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass);
 }
 
@@ -62,6 +71,9 @@ fn wrong_solution_fails_with_per_case_detail() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Fail);
     let first = &result.cases[0];
     assert_eq!(first.input.as_deref(), Some("a=1, b=2"));
@@ -78,6 +90,9 @@ fn throw_maps_to_error_with_stack() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Error);
     assert!(result.cases.is_empty());
     let err = result.error.unwrap();
@@ -99,6 +114,9 @@ fn infinite_loop_hits_the_timeout() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Timeout);
     assert!(started.elapsed().as_millis() < 4500);
 }
@@ -114,6 +132,9 @@ fn undefined_return_serializes_as_null() {
         false,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Fail);
     assert_eq!(result.cases[0].output.as_deref(), Some("null"));
 }
@@ -128,6 +149,9 @@ fn hidden_case_values_never_cross_ipc() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     let hidden = result
         .cases
         .iter()
@@ -148,6 +172,9 @@ fn console_log_noise_does_not_break_parsing() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass);
 }
 
@@ -172,6 +199,9 @@ fn cross_language_parity() {
         true,
     )
     .unwrap();
+    let Some(js) = common::skip_if_node_unavailable(js) else {
+        return;
+    };
     let mut py_json = serde_json::to_value(&py).unwrap();
     let mut js_json = serde_json::to_value(&js).unwrap();
     for json in [&mut py_json, &mut js_json] {

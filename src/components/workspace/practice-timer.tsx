@@ -38,10 +38,15 @@ export interface PracticeTimerHandle {
 export function PracticeTimer({
   problemId,
   autoStart,
+  targetMinutes,
   ref,
 }: {
   problemId: string;
   autoStart: boolean;
+  /** Soft per-problem target (mastery gate, COURSE_BLUEPRINT.md §6). Shows an
+   *  "aim < Nm" goal and turns amber once passed — it never stops the clock or
+   *  fails the attempt. */
+  targetMinutes?: number;
   ref?: Ref<PracticeTimerHandle>;
 }) {
   const [seconds, setSeconds] = useState(0);
@@ -50,6 +55,8 @@ export function PracticeTimer({
   const [lastSolve, setLastSolve] = useState<number | null>(() =>
     loadSolveTime(problemId)
   );
+  const overTarget =
+    targetMinutes !== undefined && !solved && seconds > targetMinutes * 60;
 
   // Mirrors for the imperative handle (fresh values without re-binding).
   const secondsRef = useRef(seconds);
@@ -111,13 +118,25 @@ export function PracticeTimer({
           "min-w-[42px] font-mono text-[12px] font-medium tabular-nums",
           solved
             ? "text-pass"
-            : running
-              ? "text-foreground"
-              : "text-muted-foreground"
+            : overTarget
+              ? "text-medium"
+              : running
+                ? "text-foreground"
+                : "text-muted-foreground"
         )}
       >
         {format(seconds)}
       </span>
+      {targetMinutes !== undefined && !solved && (
+        <span
+          className={cn(
+            "mr-0.5 font-mono text-[10.5px] tabular-nums",
+            overTarget ? "text-medium" : "text-muted-foreground/70"
+          )}
+        >
+          / aim&nbsp;{targetMinutes}m
+        </span>
+      )}
       <button
         type="button"
         title={running ? "Pause timer" : "Start timer"}

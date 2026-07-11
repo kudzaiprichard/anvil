@@ -17,6 +17,44 @@ pub enum StatusAction {
     ClearReview,
 }
 
+/// Where a lesson sits for this user (LESSON_COURSE_DESIGN.md §6.4). Mirrors
+/// the `lesson_progress.status` CHECK constraint and the TS `LessonStatus`.
+/// `NotStarted` is the absence of a stored row, surfaced by the UI only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LessonStatus {
+    NotStarted,
+    InProgress,
+    Complete,
+}
+
+impl LessonStatus {
+    /// Reads the stored `status` text back into the enum; an unrecognized
+    /// value (only possible via out-of-band DB edits) reads as `NotStarted`.
+    pub fn from_wire(s: &str) -> Self {
+        match s {
+            "in-progress" => Self::InProgress,
+            "complete" => Self::Complete,
+            _ => Self::NotStarted,
+        }
+    }
+}
+
+/// One lesson's stored progress row (`record_lesson_progress` /
+/// `get_lesson_progress`). Timestamps are local-time ISO-8601 strings, like
+/// every other stamp in the DB.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LessonProgress {
+    pub lesson_id: String,
+    pub unit_id: String,
+    pub status: LessonStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+}
+
 /// Per-problem user state for the workspace: bookmark icon, mastered flag,
 /// and the code snapshot from the most recent run/submit so the editor can
 /// restore where the user left off.

@@ -95,12 +95,18 @@ fn in_place_javascript_mutates_the_real_array_not_a_copy() {
     // Mutating through the parameter alias must be observed.
     let good = "var rotate = function(nums, k) {\n  k %= nums.length;\n  nums.unshift(...nums.splice(nums.length - k));\n};";
     let result = runner::execute(&rotate_problem(), Language::Javascript, good, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
 
     // Reassigning the parameter (no aliasing mutation) must fail.
     let rebound =
         "var rotate = function(nums, k) {\n  nums = nums.slice(-k).concat(nums.slice(0, -k));\n};";
     let result = runner::execute(&rotate_problem(), Language::Javascript, rebound, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Fail);
 }
 
@@ -145,11 +151,17 @@ fn design_javascript_prototype_style_class_works() {
     // ES6 class form.
     let result =
         runner::execute(&counter_problem(), Language::Javascript, COUNTER_JS, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
 
     // LeetCode's prototype style form.
     let proto = "var Counter = function(start) { this.value = start; };\nCounter.prototype.add = function(n) { this.value += n; };\nCounter.prototype.total = function() { return this.value; };";
     let result = runner::execute(&counter_problem(), Language::Javascript, proto, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
 }
 
@@ -200,10 +212,16 @@ fn any_valid_javascript_runs_the_pack_validator() {
     require_runtime!("node");
     let alt = "function solve(nums, target) { return [3, 2]; }";
     let result = runner::execute(&any_pair_problem(), Language::Javascript, alt, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
 
     let wrong = "function solve(nums, target) { return [0, 0]; }";
     let result = runner::execute(&any_pair_problem(), Language::Javascript, wrong, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Fail);
 }
 
@@ -257,7 +275,10 @@ fn linked_list_python_stub_runs_unmodified_and_judges() {
             "Solution.reverseList",
             "reverseList",
             1,
-            IoTypes { params: vec![IoType::LinkedList], returns: IoType::LinkedList },
+            IoTypes {
+                params: vec![IoType::LinkedList],
+                returns: IoType::LinkedList,
+            },
         ),
         vec![case(json!([[1, 2, 3, 4, 5]]), json!([5, 4, 3, 2, 1]))],
     );
@@ -282,15 +303,24 @@ fn binary_tree_javascript_stub_runs_unmodified_and_judges() {
             "Solution.maxDepth",
             "maxDepth",
             1,
-            IoTypes { params: vec![IoType::Tree], returns: IoType::Json },
+            IoTypes {
+                params: vec![IoType::Tree],
+                returns: IoType::Json,
+            },
         ),
         vec![case(json!([[3, 9, 20, null, null, 15, 7]]), json!(3))],
     );
     let good = "var maxDepth = function(root) {\n  if (!root) return 0;\n  return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));\n};";
     let result = runner::execute(&p, Language::Javascript, good, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
 
     let wrong = "var maxDepth = function(root) { return root ? 1 : 0; };";
     let result = runner::execute(&p, Language::Javascript, wrong, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Fail);
 }

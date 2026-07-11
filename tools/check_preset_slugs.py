@@ -3,7 +3,7 @@
 Usage: python tools/check_preset_slugs.py
 Reads the candidate lists below (and, once they exist, the shipped preset
 files under src-tauri/resources/presets/) and reports any slug not present
-in src-tauri/resources/catalog_leetcode.json.
+in src-tauri/resources/catalog/catalog_leetcode.json.
 """
 
 import json
@@ -234,7 +234,7 @@ def write_presets():
 
 
 def main():
-    catalog_path = ROOT / "src-tauri" / "resources" / "catalog_leetcode.json"
+    catalog_path = ROOT / "src-tauri" / "resources" / "catalog" / "catalog_leetcode.json"
     data = json.loads(catalog_path.read_text(encoding="utf-8"))
     catalog = {q["slug"] for q in data["questions"]}
     print(f"catalog: {len(catalog)} slugs (free account — premium absent)")

@@ -1,6 +1,6 @@
 //! Runtime detection integration tests (task 0007). Detection must never
-//! panic regardless of machine state; with an emptied PATH everything is
-//! `found: false`. The PATH mutation is process-global, so these tests
+//! panic regardless of machine state; on Unix, with an emptied PATH everything
+//! is `found: false`. The PATH mutation is process-global, so these tests
 //! share a lock.
 
 use app_lib::services::runtime_detect::{detect, RuntimeInfo};
@@ -45,6 +45,15 @@ fn detection_never_panics_and_reports_both_runtimes() {
 
 #[test]
 fn empty_path_yields_all_not_found() {
+    // Unix-only invariant. On Windows the OS resolves executables outside PATH
+    // (the per-user/system App Paths registry and the `py` launcher living in a
+    // Windows dir), so emptying PATH does not make detection report not-found.
+    // Panic-safety and shape on Windows are covered by
+    // `detection_never_panics_and_reports_both_runtimes`.
+    if cfg!(windows) {
+        eprintln!("SKIPPED: empty-PATH detection is a Unix-only invariant");
+        return;
+    }
     let _serial = serial();
     let saved = std::env::var_os("PATH");
     std::env::set_var("PATH", "");

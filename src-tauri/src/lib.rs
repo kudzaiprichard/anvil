@@ -56,16 +56,20 @@ pub fn run() {
             // The question catalog is a first-class bundled resource, loaded at
             // startup like presets and test-packs. Built-ins and the interactive
             // importer were removed; this is the library's question source. See
-            // `services::catalog`.
+            // `services::catalog`. It lives in its own subdirectory (not the
+            // resources root) so the bundler can reference it as a plain
+            // directory path — a glob with zero matches hard-fails the Tauri
+            // build, and the dev scrape is gitignored (CI never has it).
+            let catalog_dir = resources_dir.join("catalog");
             let store = services::problem_store::ProblemStore::empty();
-            match services::catalog::load_all(&packs, &presets, &resources_dir) {
+            match services::catalog::load_all(&packs, &presets, &catalog_dir) {
                 Ok(problems) if !problems.is_empty() => {
                     let verified = problems.iter().filter(|p| p.judge.is_some()).count();
                     log::info!(
                         "catalog: {} problems ({} mapped to verified packs) from {}",
                         problems.len(),
                         verified,
-                        resources_dir.display()
+                        catalog_dir.display()
                     );
                     store.set_catalog_problems(problems);
                 }
@@ -74,8 +78,14 @@ pub fn run() {
             }
             let db = services::db::Db::open(&app.path().app_data_dir()?)?;
             store.set_user_problems(services::db::user_problems::list(&db)?);
+            // Course content (LESSON_COURSE_DESIGN.md §6.4): validated
+            // fail-closed, like presets — a malformed curriculum/unit/lesson
+            // file aborts startup rather than loading partial content.
+            let curriculum = services::curriculum::CurriculumStore::load(&resources_dir, &packs)?;
             let runtimes = services::runtime_detect::detect();
-            app.manage(state::AppState::new(store, presets, packs, db, runtimes));
+            app.manage(state::AppState::new(
+                store, presets, packs, db, curriculum, runtimes,
+            ));
             // Safety net: the front end shows the hidden window after first
             // paint; if it ever fails to boot, reveal the window anyway so
             // the app can't become an invisible zombie process.
@@ -91,8 +101,26 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::problems::list_problems,
             commands::problems::get_problem,
+            commands::course::get_curriculum,
+            commands::course::get_unit,
+            commands::course::get_lesson,
+            commands::course::get_quiz,
+            commands::course::get_pattern_pool,
+            commands::course::submit_quiz,
+            commands::course::record_lesson_progress,
+            commands::course::get_lesson_progress,
+            commands::course::get_progression,
+            commands::course::evaluate_gate,
+            commands::course::get_capstone,
+            commands::course::evaluate_capstone,
+            commands::course::get_placement,
+            commands::course::apply_placement,
+            commands::course::get_readiness,
+            commands::course::get_review_queue,
+            commands::course::record_review,
             commands::runner::run_code,
             commands::runner::submit_code,
+            commands::runner::analyze_complexity,
             commands::runtimes::detect_runtimes,
             commands::progress::get_progress,
             commands::progress::get_dashboard,

@@ -3,7 +3,9 @@
 //! All sensitive work (sandboxed code execution, SQLite, filesystem) lives
 //! here and only here; the WebView never touches any of it directly.
 
+pub mod advancement;
 pub mod catalog;
+pub mod curriculum;
 pub mod db;
 pub mod example_parse;
 pub mod import_export;
@@ -12,5 +14,8 @@ pub mod pack_store;
 pub mod preset_store;
 pub mod problem_store;
 pub mod progress;
+pub mod progression;
+pub mod quiz;
+pub mod review;
 pub mod runner;
 pub mod runtime_detect;

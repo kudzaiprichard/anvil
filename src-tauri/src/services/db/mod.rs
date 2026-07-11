@@ -5,9 +5,14 @@
 //! outside `services/db/`).
 
 pub mod attempts;
+pub mod capstone;
 pub mod drafts;
 pub mod imported_problems;
+pub mod lesson_progress;
+pub mod mastery;
 pub mod problem_state;
+pub mod quiz_result;
+pub mod review;
 pub mod user_problems;
 
 use std::path::Path;
@@ -52,6 +57,10 @@ impl Db {
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("migrations/0001_init.sql")),
     (2, include_str!("migrations/0002_imported_problems.sql")),
+    (3, include_str!("migrations/0003_curriculum.sql")),
+    (4, include_str!("migrations/0004_gate_solve.sql")),
+    (5, include_str!("migrations/0005_quiz_result.sql")),
+    (6, include_str!("migrations/0006_advancement.sql")),
 ];
 
 fn migrate(conn: &Connection) -> AppResult<()> {

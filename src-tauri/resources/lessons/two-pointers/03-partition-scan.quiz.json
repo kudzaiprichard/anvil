@@ -1,0 +1,314 @@
+{
+  "items": [
+    {
+      "id": "c1",
+      "type": "concept-check",
+      "prompt_md": "What do the **read** and **write** pointers represent in a fast/slow read-write partition scan?",
+      "options": [
+        "The write pointer only ever moves backward through the array",
+        "The read pointer scans every element once; the write pointer marks the next in-place slot for a kept value",
+        "Both pointers move in lockstep and are always equal to each other",
+        "The write pointer indexes into a freshly allocated output array"
+      ],
+      "answer": "The read pointer scans every element once; the write pointer marks the next in-place slot for a kept value",
+      "explanation_md": "The read (fast) pointer inspects every element exactly once. The write (slow) pointer trails behind, marking where the next value that should survive gets written back into the *same* array — no second array involved."
+    },
+    {
+      "id": "c2",
+      "type": "concept-check",
+      "prompt_md": "What loop invariant makes a read-write partition scan correct at every step?",
+      "options": [
+        "Everything left of write is already finalized/compacted; the region from write up to read is not yet decided",
+        "Everything right of read has already been discarded permanently",
+        "write and read always differ by exactly one index",
+        "The segment between write and read is always sorted in descending order"
+      ],
+      "answer": "Everything left of write is already finalized/compacted; the region from write up to read is not yet decided",
+      "explanation_md": "That invariant is what lets the scan overwrite cells between write and read without losing information — those cells are either scratch space or values read has already consumed."
+    },
+    {
+      "id": "c3",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of a fast/slow read-write partition scan over an array of `n` elements?",
+      "options": [
+        "O(n^2)",
+        "O(n log n)",
+        "O(n)",
+        "O(2^n)"
+      ],
+      "answer": "O(n)",
+      "explanation_md": "The read pointer visits each index once (or a small constant number of times), and the write pointer only ever moves forward — a single linear pass."
+    },
+    {
+      "id": "c4",
+      "type": "complexity",
+      "prompt_md": "What is the extra space complexity of compacting an array in place with a read-write scan (e.g. removing duplicates from a sorted array)?",
+      "options": [
+        "O(n)",
+        "O(log n)",
+        "O(1)",
+        "O(n log n)"
+      ],
+      "answer": "O(1)",
+      "explanation_md": "No auxiliary array is allocated — the scan reuses the input array's own storage, needing only a couple of index variables."
+    },
+    {
+      "id": "c5",
+      "type": "concept-check",
+      "prompt_md": "Why does a single-pass read-write scan work for deduplicating a **sorted** array but not directly for an unsorted one?",
+      "options": [
+        "Sorted arrays always contain fewer duplicates than unsorted ones",
+        "Sorting removes the need to track a write pointer at all",
+        "Sortedness puts every duplicate of a value adjacent to it, so comparing a candidate only to the last *written* value is enough to catch repeats",
+        "The read pointer needs random access, which only sorted data structures provide"
+      ],
+      "answer": "Sortedness puts every duplicate of a value adjacent to it, so comparing a candidate only to the last *written* value is enough to catch repeats",
+      "explanation_md": "On unsorted data, a duplicate of an earlier value could show up anywhere later, so one comparison against the last-written value can't detect it — you'd need a set or a sort first."
+    },
+    {
+      "id": "c6",
+      "type": "concept-check",
+      "prompt_md": "In \"move zeroes to the end while preserving relative order,\" what should happen when the read pointer lands on a non-zero value?",
+      "options": [
+        "Discard it and only advance the read pointer",
+        "Write it at the write index, then advance both pointers",
+        "Immediately overwrite it with zero",
+        "Swap the read and write pointers themselves"
+      ],
+      "answer": "Write it at the write index, then advance both pointers",
+      "explanation_md": "Every non-zero value found by read must land at the next open write slot to preserve its relative order among the other kept values; write only advances when something is actually placed."
+    },
+    {
+      "id": "c7",
+      "type": "concept-check",
+      "prompt_md": "A buggy partition scan advances the write pointer on *every* iteration, even when nothing new was written there. What's the effect?",
+      "options": [
+        "The scan always terminates exactly one element too early",
+        "The array throws an index-out-of-range error immediately",
+        "Nothing — write's position only matters after the loop ends",
+        "Stale or garbage values leak into the supposedly-finalized prefix of the array"
+      ],
+      "answer": "Stale or garbage values leak into the supposedly-finalized prefix of the array",
+      "explanation_md": "If write advances unconditionally, the region you claim is \"finalized\" (left of write) can contain leftover values that were never actually overwritten with a correct result — breaking the core invariant."
+    },
+    {
+      "id": "c8",
+      "type": "concept-check",
+      "prompt_md": "For \"remove element\" style compaction, where discarded values don't need to be preserved anywhere, why is a plain overwrite (`nums[write] = nums[read]`) usually preferred over a swap?",
+      "options": [
+        "Swapping two elements always requires O(n) extra memory",
+        "Swaps are undefined behavior on arrays shorter than 2 elements",
+        "It's simpler and can't accidentally move an unexamined value into a spot the read pointer has already passed",
+        "Overwrites run in a different asymptotic time class than swaps"
+      ],
+      "answer": "It's simpler and can't accidentally move an unexamined value into a spot the read pointer has already passed",
+      "explanation_md": "A swap would relocate whatever was sitting at write out to read's position — fine if you still need that value, but pointless extra bookkeeping when it's just being thrown away."
+    },
+    {
+      "id": "c9",
+      "type": "concept-check",
+      "prompt_md": "In the Dutch-national-flag 3-way partition (values less than / equal to / greater than a pivot), why do you swap elements instead of just overwriting them?",
+      "options": [
+        "Three-way partitioning is only possible with O(n) auxiliary storage",
+        "Every element must end up somewhere in the final array — a swap relocates the displaced value instead of erasing it",
+        "The array must stay fully sorted at every intermediate step of the scan",
+        "Overwriting only works when there are exactly two output categories"
+      ],
+      "answer": "Every element must end up somewhere in the final array — a swap relocates the displaced value instead of erasing it",
+      "explanation_md": "Unlike \"remove element,\" nothing is being discarded here — every original value has to land in one of the three regions, so swapping (not overwriting) preserves it."
+    },
+    {
+      "id": "c10",
+      "type": "complexity",
+      "prompt_md": "Dutch-national-flag partitioning tracks three regions with pointers (often called low, mid, high). What's its time complexity?",
+      "options": [
+        "O(n log n)",
+        "O(n)",
+        "O(n^2)",
+        "O(n) time but O(n) space"
+      ],
+      "answer": "O(n)",
+      "explanation_md": "mid scans the array once while low and high converge inward; total pointer movement is bounded by a constant multiple of n, so it's still linear time and O(1) space."
+    },
+    {
+      "id": "c11",
+      "type": "concept-check",
+      "prompt_md": "Why is a read-write partition scan naturally stable for the elements it keeps (their original relative order is preserved)?",
+      "options": [
+        "It uses recursion, and recursive calls always preserve input order",
+        "Stability isn't actually a property of this pattern — order is undefined",
+        "It sorts the array first, which guarantees stability by definition",
+        "It walks the array strictly left to right and writes survivors in the same order it encounters them"
+      ],
+      "answer": "It walks the array strictly left to right and writes survivors in the same order it encounters them",
+      "explanation_md": "Because read only moves forward and write only ever places the *next* survivor it finds, kept elements land in the same relative order they appeared in originally."
+    },
+    {
+      "id": "c12",
+      "type": "concept-check",
+      "prompt_md": "After a read-write compaction pass removes some unwanted elements from an n-element array, what does the final value of the write pointer represent?",
+      "options": [
+        "The number of elements removed",
+        "The new logical length of the compacted array",
+        "The index of the last element the read pointer visited",
+        "It's always equal to n, regardless of how many were removed"
+      ],
+      "answer": "The new logical length of the compacted array",
+      "explanation_md": "write only advances each time a value is kept, so by the end its value equals the count of kept elements — exactly the new length callers should treat as valid."
+    },
+    {
+      "id": "pp1",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a sorted array of integers and asked to remove duplicates in place, returning the new length, using no extra array.",
+      "options": [
+        "Build a brand-new array containing only the unique values",
+        "Fast/slow read+write pointers partitioning in place",
+        "Hash map of counts to detect which values are duplicates",
+        "Sort the array again then rebuild it from a set"
+      ],
+      "answer": "Fast/slow read+write pointers partitioning in place",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "Trigger: sorted input + in-place + O(1) space requirement. A slow write pointer marks the compacted boundary while a fast read pointer scans ahead for the next distinct value — no auxiliary structure needed."
+    },
+    {
+      "id": "pp2",
+      "type": "pattern-picker",
+      "prompt_md": "Given an integer array, move every zero to the end while keeping the relative order of the non-zero elements — modify the array in place.",
+      "options": [
+        "Hash map of counts to tally zero vs non-zero elements",
+        "Sort the array by whether each element is zero",
+        "Build a new output array and copy non-zero values first, then zeros",
+        "Fast/slow read+write pointers partitioning in place"
+      ],
+      "answer": "Fast/slow read+write pointers partitioning in place",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "Trigger: in-place compaction that must preserve relative order — exactly what a write pointer (next slot for a non-zero) plus a read pointer (scans ahead) is built for."
+    },
+    {
+      "id": "pp3",
+      "type": "pattern-picker",
+      "prompt_md": "You have an array containing only the values 0, 1, and 2. Sort it in place in a single pass without using a general sorting algorithm.",
+      "options": [
+        "Fast/slow read+write pointers partitioning in place (Dutch national flag, three regions)",
+        "Hash map of counts, then overwrite the array from the counts",
+        "Build a new output array and copy elements into their sorted spots",
+        "Sort then rebuild using a library sort"
+      ],
+      "answer": "Fast/slow read+write pointers partitioning in place (Dutch national flag, three regions)",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "Trigger: fixed small set of categories, in-place, single pass — three cooperating pointers (low/mid/high) partition the array without extra space, the Dutch-flag variant of the read-write scan."
+    },
+    {
+      "id": "pp4",
+      "type": "pattern-picker",
+      "prompt_md": "Given an array and a value, remove every occurrence of that value in place and return the new length of the array.",
+      "options": [
+        "Sort then rebuild the array skipping the target value",
+        "Build a new output array excluding the target value",
+        "Hash map of counts to know how many to remove",
+        "Fast/slow read+write pointers partitioning in place"
+      ],
+      "answer": "Fast/slow read+write pointers partitioning in place",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "Trigger: in-place removal, no bookkeeping about counts needed — write only advances for values that should survive; read checks every element once."
+    },
+    {
+      "id": "pp5",
+      "type": "pattern-picker",
+      "prompt_md": "Given a sorted array, remove duplicates in place but allow each distinct value to appear at most twice.",
+      "options": [
+        "Fast/slow read+write pointers, writing a value only when it wouldn't create more than two in a row",
+        "Hash map of counts capping each value at two, then rebuild",
+        "Sort then rebuild, truncating runs longer than two",
+        "Build a new output array while counting each run's length"
+      ],
+      "answer": "Fast/slow read+write pointers, writing a value only when it wouldn't create more than two in a row",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "Trigger: sorted + in-place + a bounded-repeat rule — still a write pointer, just with an extra comparison against nums[write-2] before writing."
+    },
+    {
+      "id": "pp6",
+      "type": "pattern-picker",
+      "prompt_md": "Given a sorted array and a pivot value, partition it in place so smaller values come first, then equal values, then greater values — single pass, O(1) extra space.",
+      "options": [
+        "Build a new output array in three sections",
+        "Hash map of counts bucketed by comparison to the pivot",
+        "Fast/slow read+write pointers partitioning in place",
+        "Sort then rebuild around the pivot"
+      ],
+      "answer": "Fast/slow read+write pointers partitioning in place",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "Trigger: in-place, O(1) space, single pass, three ordered output regions — the same read-write scan generalized to three buckets instead of two."
+    },
+    {
+      "id": "pp7",
+      "type": "pattern-picker",
+      "prompt_md": "Given an array, compact it in place so that only elements satisfying a given condition remain at the front, preserving their original order, with no extra memory.",
+      "options": [
+        "Hash map of counts of how many elements satisfy the condition",
+        "Build a new output array of the elements that satisfy the condition",
+        "Sort by whether the condition holds, then rebuild",
+        "Fast/slow read+write pointers partitioning in place"
+      ],
+      "answer": "Fast/slow read+write pointers partitioning in place",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "Trigger: order-preserving, in-place, O(1) space compaction — the canonical read-write scan, regardless of what the keep/discard predicate checks."
+    },
+    {
+      "id": "pp8",
+      "type": "pattern-picker",
+      "prompt_md": "Given a sorted array, remove the duplicates in place and also report how many distinct values existed — single left-to-right pass, no extra array.",
+      "options": [
+        "Sort then rebuild and count unique runs",
+        "Build a new output array and take its length",
+        "Fast/slow read+write pointers partitioning in place, using the final write index as the count",
+        "Hash map of counts, whose size is the answer"
+      ],
+      "answer": "Fast/slow read+write pointers partitioning in place, using the final write index as the count",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "Trigger: sorted, in-place, single pass — the final write pointer position doubles as both the compacted length and the distinct-value count, no separate counting needed."
+    },
+    {
+      "id": "pp9",
+      "type": "pattern-picker",
+      "prompt_md": "Given an UNSORTED array, determine how many times each value occurs — you need the actual frequency of every distinct value, not just a compacted array.",
+      "options": [
+        "Fast/slow read+write pointers partitioning in place",
+        "Sort then rebuild into runs and measure run lengths",
+        "Build a new output array of just the distinct values",
+        "Hash map of counts, incrementing a value's count on each occurrence"
+      ],
+      "answer": "Hash map of counts, incrementing a value's count on each occurrence",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "Trap: this asks for per-value frequency on unsorted data, not in-place compaction — a read-write scan only tells you what survives, never how many times something appeared. A hash map of counts answers the actual question directly in one pass."
+    },
+    {
+      "id": "pp10",
+      "type": "pattern-picker",
+      "prompt_md": "Given an UNSORTED array, decide whether it contains any duplicate value at all — without sorting or otherwise reordering the original array.",
+      "options": [
+        "Hash set membership check while scanning once, left to right",
+        "Fast/slow read+write pointers partitioning in place",
+        "Sort then rebuild and scan for adjacent equal values",
+        "Build a new output array with duplicates removed, then compare lengths"
+      ],
+      "answer": "Hash set membership check while scanning once, left to right",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "Trap: the read-write scan's duplicate-skipping trick relies on sortedness making duplicates adjacent; here sorting (or reordering) is explicitly disallowed, and the array is unsorted to begin with — a hash set catches a repeat the moment it's seen, in original order, O(n) time."
+    },
+    {
+      "id": "pp11",
+      "type": "pattern-picker",
+      "prompt_md": "Given an UNSORTED array and a target sum, find the original indices of the two numbers that add up to it.",
+      "options": [
+        "Sort then rebuild, tracking original indices through the sort",
+        "Fast/slow read+write pointers partitioning in place",
+        "Build a new output array of every pairwise sum",
+        "Hash map from value to its index, checking for the complement as you scan"
+      ],
+      "answer": "Hash map from value to its index, checking for the complement as you scan",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "Trap: the array is unsorted and original indices must be preserved — sorting would scramble the indices you need to return, and there's nothing to partition/compact in place. A hash map of value-to-index finds the complement in one O(n) pass without disturbing order."
+    }
+  ]
+}

@@ -10,12 +10,32 @@ import { cn } from "@/src/lib/utils";
 export function Markdown({
   children,
   className,
+  id,
+  inline,
 }: {
   children: string;
   className?: string;
+  /** Optional element id, e.g. so an `aria-labelledby` can reference the
+   *  rendered prompt as a group label. */
+  id?: string;
+  /** Render as phrasing content (a `<span>`, paragraphs unwrapped) so the
+   *  result is valid inside a `<button>`/label. Use for short one-line labels. */
+  inline?: boolean;
 }) {
+  if (inline) {
+    return (
+      <span id={id} className={cn("anvil-prose", className)}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{ p: ({ children }) => <>{children}</> }}
+        >
+          {children}
+        </ReactMarkdown>
+      </span>
+    );
+  }
   return (
-    <div className={cn("anvil-prose", className)}>
+    <div id={id} className={cn("anvil-prose", className)}>
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
     </div>
   );

@@ -8,8 +8,18 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Code2, Maximize, Minimize, RotateCcw } from "lucide-react";
+import {
+  ChevronDown,
+  Code2,
+  Maximize,
+  Minimize,
+  RotateCcw,
+  ShieldCheck,
+  Trophy,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/anvil/app-shell";
 import { CodeEditor } from "@/src/components/anvil/code-editor";
@@ -30,6 +40,9 @@ import {
   DropdownMenuTrigger,
 } from "@/src/components/shadcn/dropdown-menu";
 import {
+  analyzeComplexity,
+  evaluateCapstone,
+  evaluateGate,
   getProblem,
   getProblemUserState,
   listProblems,
@@ -199,10 +212,47 @@ function WorkspaceBody({
   );
 }
 
+/** "arrays-hashing" -> "Arrays Hashing" — a readable unit label for the gate
+ *  banner without an extra fetch. */
+function prettifyUnit(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => (w.length <= 2 ? w : w[0].toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
 function Workspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+
+  // Mastery-gate mode (COURSE_BLUEPRINT.md §6): launched from a unit's gate
+  // with `?gate=<unitId>&target=<min>`. Hints/solution are guarded, a soft
+  // timer shows the target, and a pass is scored via `evaluateGate`.
+  const gateUnit = searchParams.get("gate");
+  const gateTargetRaw = searchParams.get("target");
+  const gateTarget = gateTargetRaw ? Number(gateTargetRaw) : undefined;
+  const [gateHelpUsed, setGateHelpUsed] = useState(false);
+
+  // Mixed-capstone mode (Phase 7, §4): launched from the capstone with
+  // `?capstone=1&target=<min>`. Same closed-book rules as a gate — hints/solution
+  // guarded, soft timer, complexity off — but the problem is *unlabeled* and a
+  // pass is scored via `evaluateCapstone`.
+  const capstoneMode = searchParams.get("capstone") === "1";
+  const examMode = !!gateUnit || capstoneMode;
+
+  // Where the workspace's back button returns to. A lesson launches practice /
+  // worked-example problems with `?from=<lessonId>`; gate and capstone carry
+  // their own origin. This keeps the desktop app navigable — you can always get
+  // back to where you came from instead of being stranded on the problem.
+  const fromLesson = searchParams.get("from");
+  const backNav = fromLesson
+    ? { href: `/learn?lesson=${fromLesson}`, label: "Back to lesson" }
+    : gateUnit
+      ? { href: `/learn?unit=${gateUnit}`, label: "Back to unit" }
+      : capstoneMode
+        ? { href: "/learn?capstone=1", label: "Back to capstone" }
+        : { href: "/problems", label: "Problems" };
 
   // `problem` is derived: stale loads don't render while a new id is loading.
   const [loaded, setLoaded] = useState<{ id: string; problem: Problem } | null>(
@@ -275,6 +325,7 @@ function Workspace() {
       setRunState("idle");
       setResultsTab("testcase");
       setSelectedCase(0);
+      setGateHelpUsed(false);
     });
     return () => {
       cancelled = true;
@@ -333,6 +384,71 @@ function Workspace() {
     [router]
   );
 
+  // Scores a passing gate submit and reports the outcome. A help-used solve is
+  // recorded but doesn't count; a counted pass that masters the unit routes
+  // back to the unit view so the learner sees the next unit unlock.
+  const scoreGate = useCallback(
+    async (problemId: string, solveTime: string | null) => {
+      if (!gateUnit) return;
+      try {
+        const outcome = await evaluateGate(gateUnit, problemId, gateHelpUsed);
+        if (!outcome.counted) {
+          toast.warning(
+            "Solved — but this gate problem used help, so it doesn't count toward mastery."
+          );
+          return;
+        }
+        if (outcome.unitMastered) {
+          const extra = outcome.unlocked.length
+            ? ` ${outcome.unlocked.map(prettifyUnit).join(", ")} unlocked.`
+            : "";
+          toast.success(`Gate passed — unit mastered!${extra}`);
+          router.push(`/learn?unit=${gateUnit}`);
+        } else {
+          const { passedCount, passCount } = outcome.gate;
+          toast.success(
+            `Gate solve counted${solveTime ? ` (${solveTime})` : ""} — ${passedCount}/${passCount} cleared.`
+          );
+        }
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Could not score the gate"
+        );
+      }
+    },
+    [gateUnit, gateHelpUsed, router]
+  );
+
+  // Scores a passing capstone submit (Phase 7). A help-used solve is recorded
+  // but doesn't count; clearing the capstone routes back to it so the learner
+  // sees the "interview-ready" verdict.
+  const scoreCapstone = useCallback(
+    async (problemId: string, solveTime: string | null) => {
+      try {
+        const outcome = await evaluateCapstone(problemId, gateHelpUsed);
+        if (!outcome.counted) {
+          toast.warning(
+            "Solved — but this capstone problem used help, so it doesn't count."
+          );
+          return;
+        }
+        if (outcome.met) {
+          toast.success("Capstone cleared — you can solve the unfamiliar. 🏆");
+          router.push("/learn?capstone=1");
+        } else {
+          toast.success(
+            `Capstone solve counted${solveTime ? ` (${solveTime})` : ""} — ${outcome.passedCount}/${outcome.total} solved.`
+          );
+        }
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Could not score the capstone"
+        );
+      }
+    },
+    [gateHelpUsed, router]
+  );
+
   // The one Run action: the app is fully offline, so there is no separate
   // Submit — every run executes the full suite (visible + hidden) and
   // records the attempt toward progress.
@@ -346,11 +462,17 @@ function Workspace() {
       if (result.status === "pass") {
         // Freeze the practice clock and record this problem's solve time.
         const solveTime = timerRef.current?.solvedNow() ?? null;
-        toast.success(
-          solveTime
-            ? `Accepted — solved in ${solveTime}.`
-            : "Accepted — all tests passed."
-        );
+        if (gateUnit) {
+          await scoreGate(problem.id, solveTime);
+        } else if (capstoneMode) {
+          await scoreCapstone(problem.id, solveTime);
+        } else {
+          toast.success(
+            solveTime
+              ? `Accepted — solved in ${solveTime}.`
+              : "Accepted — all tests passed."
+          );
+        }
       }
       // statuses changed — refresh the rows that feed the problem sheet
       listProblems().then(setSummaries);
@@ -358,7 +480,14 @@ function Workspace() {
       setRunState("idle");
       toast.error(err instanceof Error ? err.message : "Run failed");
     }
-  }, [problem, runState, language, code]);
+  }, [problem, runState, language, code, gateUnit, capstoneMode, scoreGate, scoreCapstone]);
+
+  // Profiles the current editor code deterministically (Phase 5). Bound to the
+  // live language/code so "Analyze" measures exactly what the learner ran.
+  const analyzeCurrentComplexity = useCallback(() => {
+    if (!problem) return Promise.reject(new Error("No problem loaded"));
+    return analyzeComplexity({ id: problem.id, language, code });
+  }, [problem, language, code]);
 
   useWorkspaceShortcuts({
     onRun: execute,
@@ -423,6 +552,7 @@ function Workspace() {
           onNext={() => undefined}
           onShuffle={() => undefined}
           onRun={() => undefined}
+          back={backNav}
         />
         <div className="flex flex-1 items-center justify-center">
           <Spinner className="size-6" />
@@ -436,12 +566,13 @@ function Workspace() {
       status={
         <span>
           #{problem.number} · {LANGUAGE_LABELS[language].toLowerCase()} · sandbox
-          local
+          local{gateUnit ? " · mastery gate" : capstoneMode ? " · capstone" : ""}
         </span>
       }
     >
       <TopBar
         running={runState === "running"}
+        back={backNav}
         onOpenList={() => setSheetOpen(true)}
         onPrev={() => goTo(summaries[index - 1] ?? summaries[summaries.length - 1])}
         onNext={() => goTo(summaries[index + 1] ?? summaries[0])}
@@ -451,16 +582,57 @@ function Workspace() {
         }}
         onRun={execute}
         timer={
-          prefs.showTimer ? (
+          prefs.showTimer || examMode ? (
             <PracticeTimer
               key={problem.id}
               ref={timerRef}
               problemId={problem.id}
-              autoStart={prefs.timerAutoStart}
+              // Gate/capstone always run the timer (soft target); practice honors the pref.
+              autoStart={examMode ? true : prefs.timerAutoStart}
+              targetMinutes={examMode ? gateTarget : undefined}
             />
           ) : undefined
         }
       />
+
+      {gateUnit && (
+        <div className="flex shrink-0 items-center gap-2.5 border-b border-medium/30 bg-medium/10 px-4 py-2 text-[12.5px]">
+          <ShieldCheck className="size-[15px] shrink-0 text-medium" />
+          <span className="font-semibold text-medium">Mastery gate</span>
+          <span className="text-muted-foreground">
+            {prettifyUnit(gateUnit)} · solve it cold — no hints, revealing the solution voids it, timer is a soft target.
+          </span>
+          <span className="flex-1" />
+          <Link
+            href={`/learn?unit=${gateUnit}`}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-medium/15 hover:text-foreground"
+          >
+            <X className="size-[13px]" />
+            Exit gate
+          </Link>
+        </div>
+      )}
+
+      {capstoneMode && (
+        <div className="flex shrink-0 items-center gap-2.5 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-[12.5px]">
+          <Trophy className="size-[15px] shrink-0 text-amber-500" />
+          <span className="font-semibold text-amber-600 dark:text-amber-400">
+            Mixed capstone
+          </span>
+          <span className="text-muted-foreground">
+            Unlabeled — no pattern given. Recognize it and solve it cold: no
+            hints, revealing the solution voids it, timer is a soft target.
+          </span>
+          <span className="flex-1" />
+          <Link
+            href="/learn?capstone=1"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-amber-500/15 hover:text-foreground"
+          >
+            <X className="size-[13px]" />
+            Exit capstone
+          </Link>
+        </div>
+      )}
 
       <WorkspaceBody
         bodyRef={bodyRef}
@@ -478,6 +650,8 @@ function Workspace() {
             problem={problem}
             bookmarked={bookmarked}
             onToggleBookmark={handleToggleBookmark}
+            gateMode={examMode}
+            onGateHelpUsed={() => setGateHelpUsed(true)}
           />
         }
         editor={
@@ -556,6 +730,8 @@ function Workspace() {
             selectedCase={selectedCase}
             onSelectCase={setSelectedCase}
             onMarkMastered={handleMarkMastered}
+            complexityEnabled={!examMode}
+            onAnalyzeComplexity={analyzeCurrentComplexity}
           />
         }
       />
