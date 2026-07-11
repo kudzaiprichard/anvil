@@ -101,15 +101,21 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
         shell: bash
         run: |
-          shopt -s globstar nullglob
-          files=(
-            src-tauri/target/**/release/bundle/**/*.AppImage
-            src-tauri/target/**/release/bundle/**/*.deb
-            src-tauri/target/**/release/bundle/**/*.rpm
-            src-tauri/target/**/release/bundle/**/*.dmg
-            src-tauri/target/**/release/bundle/**/*.msi
-            src-tauri/target/**/release/bundle/**/*.exe
-          )
+          # `find`, not a `**` glob: macOS runners default to bash 3.2 (Apple
+          # never shipped 4+, GPLv3), which has no `shopt -s globstar` at all —
+          # this must work identically there and on Ubuntu/Windows(git-bash).
+          # Scoped to */release/bundle/* so this only ever picks up the
+          # Tauri bundler's installer output, never a plain debug/release
+          # binary or build-script artifact that happens to share an extension
+          # (e.g. target/release/anvil.exe is not an installer).
+          files=()
+          while IFS= read -r f; do
+            files+=("$f")
+          done < <(find src-tauri/target -type f -path '*/release/bundle/*' \( \
+            -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+            -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \
+          \) 2>/dev/null)
+
           if [ ${#files[@]} -eq 0 ]; then
             echo "::warning::no installer files matched for ${{ matrix.platform }} — nothing to publish"
             exit 0
