@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "tools" / "packs" / "index.json"
-SCRAPE = ROOT / "src-tauri" / "resources" / "catalog_leetcode.json"
+SCRAPE = ROOT / "src-tauri" / "resources" / "catalog" / "catalog_leetcode.json"
 PROGRESS_DIR = ROOT / "tools" / "packs" / ".progress"
 
 # Lane ownership from PARALLEL_PLAN.md (batch -> session).

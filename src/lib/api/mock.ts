@@ -11,24 +11,54 @@
  */
 
 import type {
+  CapstoneOutcome,
+  CapstoneView,
   CaseResult,
+  ComplexityReport,
+  Curriculum,
   DashboardData,
   DraftSummary,
+  GateOutcome,
+  Lesson,
+  LessonProgress,
+  LessonStatus,
+  PlacementOutcome,
+  PlacementProbe,
   Problem,
   ProblemFilter,
   ProblemSummary,
   ProblemUserState,
   Progress,
+  Quiz,
+  QuizAnswer,
+  QuizGrade,
+  QuizItemResult,
+  ReviewCardState,
+  ReviewItem,
+  Readiness,
+  ReviewOutcome,
+  ReviewQueue,
+  ReviewRating,
   RunRequest,
   RunResult,
   RuntimeInfo,
   StatusAction,
+  Unit,
+  UnitGateState,
+  UnitProgress,
+  UnitStatus,
   UserProblemDraft,
   ValidationIssue,
   ValidationResult,
 } from "@/src/lib/types";
-import { PATTERNS } from "@/src/lib/types";
+import { PATTERNS, PATTERN_POOL_SOURCE } from "@/src/lib/types";
 import { applyProblemFilter } from "@/src/lib/api/filters";
+import {
+  MOCK_CURRICULUM,
+  MOCK_LESSONS,
+  MOCK_PATTERN_POOL,
+  MOCK_UNITS,
+} from "@/src/lib/mock/curriculum";
 import { MOCK_PROBLEMS } from "@/src/lib/mock/problems";
 import {
   MOCK_PROGRESS,
@@ -162,6 +192,501 @@ function wrongAnswer(expected: unknown): string {
   return "null";
 }
 
+/** Phase 1 IPC stubs — mirrors the shipped Stage-1 curriculum; no lessons yet. */
+export async function getCurriculum(): Promise<Curriculum> {
+  await delay(80);
+  return MOCK_CURRICULUM;
+}
+
+export async function getUnit(id: string): Promise<Unit | null> {
+  await delay(80);
+  return MOCK_UNITS.find((u) => u.id === id) ?? null;
+}
+
+export async function getLesson(id: string): Promise<Lesson | null> {
+  await delay(80);
+  return MOCK_LESSONS[id] ?? null;
+}
+
+export async function getQuiz(lessonId: string): Promise<Quiz | null> {
+  await delay(80);
+  return MOCK_LESSONS[lessonId]?.quiz ?? null;
+}
+
+export async function getPatternPool(): Promise<Quiz> {
+  await delay(80);
+  return MOCK_PATTERN_POOL;
+}
+
+/** Grades a formative submission exactly like `services::quiz::submit` +
+ *  `Quiz::grade`, so browser dev scores quizzes the same way the backend does.
+ *  Records nothing durable — the review signal is SQLite-backed in Tauri. */
+export async function submitQuiz(
+  source: string,
+  answers: QuizAnswer[]
+): Promise<QuizGrade> {
+  await delay(120);
+  const quiz =
+    source === PATTERN_POOL_SOURCE ? MOCK_PATTERN_POOL : MOCK_LESSONS[source]?.quiz;
+  if (!quiz) throw new Error(`Quiz not found for source: ${source}`);
+
+  // Grade only the items the learner actually answered (§ Quiz::grade): a
+  // placement can be submitted section-by-section without the rest counting.
+  const results: QuizItemResult[] = quiz.items.flatMap((item) => {
+    const answer = answers.find((a) => a.itemId === item.id);
+    if (!answer) return [];
+    return [
+      {
+        itemId: item.id,
+        type: item.type,
+        correct: answer.selected === item.answer,
+        selected: answer.selected,
+        answer: item.answer,
+        explanation_md: item.explanation_md,
+        correctPattern: item.correct_pattern,
+      },
+    ];
+  });
+  return {
+    correctCount: results.filter((r) => r.correct).length,
+    total: results.length,
+    results,
+  };
+}
+
+/** Session-local lesson progress so browser dev badges lessons like the real
+ *  app. Keyed by lesson id; resets on reload (SQLite-backed in Tauri). */
+const mockLessonProgress = new Map<string, LessonProgress>();
+
+export async function recordLessonProgress(
+  lessonId: string,
+  status: LessonStatus
+): Promise<void> {
+  await delay(80);
+  const lesson = MOCK_LESSONS[lessonId];
+  if (!lesson) throw new Error(`Lesson not found: ${lessonId}`);
+  const now = new Date().toISOString();
+  const prev = mockLessonProgress.get(lessonId);
+  // Monotonic, mirroring the Rust upsert: in-progress never downgrades a
+  // complete lesson; started_at is stamped once and kept.
+  const nextStatus: LessonStatus =
+    status === "in-progress" && prev?.status === "complete"
+      ? "complete"
+      : status;
+  mockLessonProgress.set(lessonId, {
+    lessonId,
+    unitId: lesson.unit,
+    status: nextStatus,
+    startedAt: prev?.startedAt ?? now,
+    completedAt:
+      nextStatus === "complete" ? prev?.completedAt ?? now : prev?.completedAt,
+  });
+}
+
+export async function getLessonProgress(): Promise<LessonProgress[]> {
+  await delay(80);
+  return [...mockLessonProgress.values()];
+}
+
+/* ---------- progression + mastery gate (Phase 3) ----------
+ * Mirrors services::progression so browser dev gates units exactly like the
+ * real backend. Gate solves live in-memory (SQLite-backed in Tauri). */
+
+/** unitId -> set of gate slugs solved hint-free this session. */
+const mockGateSolves = new Map<string, Set<string>>();
+
+function gateStateFor(unit: Unit): UnitGateState {
+  const gateProblems = unit.problems.filter((p) => p.role === "gate");
+  const solved = mockGateSolves.get(unit.id) ?? new Set<string>();
+  const solvedSlugs = gateProblems
+    .filter((p) => solved.has(p.slug))
+    .map((p) => p.slug);
+  const passedNovel = gateProblems.filter(
+    (p) => solved.has(p.slug) && p.novel
+  ).length;
+  const passedCount = solvedSlugs.length;
+  const met =
+    passedCount >= unit.gate.pass_count &&
+    (!unit.gate.require_novel || passedNovel >= 1);
+  return {
+    passCount: unit.gate.pass_count,
+    requireNovel: unit.gate.require_novel,
+    timerTargetMin: unit.gate.timer_target_min,
+    passedCount,
+    passedNovel,
+    solvedSlugs,
+    total: gateProblems.length,
+    met,
+  };
+}
+
+function masteredUnitIds(): Set<string> {
+  const set = new Set<string>();
+  for (const u of MOCK_UNITS) if (gateStateFor(u).met) set.add(u.id);
+  return set;
+}
+
+function statusFor(
+  unit: Unit,
+  mastered: Set<string>
+): { status: UnitStatus; blockedBy: string[] } {
+  if (mastered.has(unit.id)) return { status: "mastered", blockedBy: [] };
+  const blockedBy = unit.prereqs.filter((p) => !mastered.has(p));
+  return {
+    status: blockedBy.length === 0 ? "unlocked" : "locked",
+    blockedBy,
+  };
+}
+
+function unitProgressFor(unit: Unit, mastered: Set<string>): UnitProgress {
+  const { status, blockedBy } = statusFor(unit, mastered);
+  const lessonsComplete = unit.lessons.filter(
+    (lid) => mockLessonProgress.get(lid)?.status === "complete"
+  ).length;
+  return {
+    unitId: unit.id,
+    status,
+    lessonsTotal: unit.lessons.length,
+    lessonsComplete,
+    gate: gateStateFor(unit),
+    blockedBy,
+  };
+}
+
+export async function getProgression(): Promise<UnitProgress[]> {
+  await delay(80);
+  const mastered = masteredUnitIds();
+  const order = MOCK_CURRICULUM.stages.flatMap((s) => s.units);
+  return order
+    .map((id) => MOCK_UNITS.find((u) => u.id === id))
+    .filter((u): u is Unit => Boolean(u))
+    .map((u) => unitProgressFor(u, mastered));
+}
+
+export async function evaluateGate(
+  unitId: string,
+  problemId: string,
+  usedHelp: boolean
+): Promise<GateOutcome> {
+  await delay(120);
+  const unit = MOCK_UNITS.find((u) => u.id === unitId);
+  if (!unit) throw new Error(`Unit not found: ${unitId}`);
+  const gateProblem = unit.problems.find(
+    (p) => p.slug === problemId && p.role === "gate"
+  );
+  if (!gateProblem)
+    throw new Error(`'${problemId}' is not a gate problem of unit '${unitId}'`);
+
+  const masteredBefore = masteredUnitIds();
+  const alreadyMastered = masteredBefore.has(unitId);
+  const { status } = statusFor(unit, masteredBefore);
+  if (status === "locked")
+    throw new Error(`unit '${unitId}' is locked — pass its prerequisites first`);
+
+  if (usedHelp) {
+    return {
+      counted: false,
+      unitMastered: false,
+      alreadyMastered,
+      gate: gateStateFor(unit),
+      unlocked: [],
+    };
+  }
+
+  const solved = mockGateSolves.get(unitId) ?? new Set<string>();
+  solved.add(problemId);
+  mockGateSolves.set(unitId, solved);
+  const gate = gateStateFor(unit);
+
+  let unitMastered = false;
+  const unlocked: string[] = [];
+  if (gate.met && !alreadyMastered) {
+    unitMastered = true;
+    const after = new Set(masteredBefore);
+    after.add(unitId);
+    for (const candidate of MOCK_UNITS) {
+      if (after.has(candidate.id)) continue;
+      const nowUnlocked = candidate.prereqs.every((p) => after.has(p));
+      const wasUnlocked = candidate.prereqs.every((p) =>
+        masteredBefore.has(p)
+      );
+      if (nowUnlocked && !wasUnlocked) unlocked.push(candidate.id);
+    }
+  }
+
+  return { counted: true, unitMastered, alreadyMastered, gate, unlocked };
+}
+
+/* ---------- Phase 7: advanced progression ----------
+ * Mirrors services::advancement so browser-dev exercises the capstone,
+ * placement, and readiness surfaces exactly like the real backend. */
+
+/** Units placed out of via the diagnostic (counted as mastered for unlocking). */
+const mockPlacedUnits = new Set<string>();
+/** Capstone problems cleared hint-free this session. */
+const mockCapstoneSolved = new Set<string>();
+
+function allMastered(): Set<string> {
+  const set = masteredUnitIds();
+  for (const u of mockPlacedUnits) set.add(u);
+  return set;
+}
+
+export async function getCapstone(): Promise<CapstoneView | null> {
+  await delay(80);
+  const cap = MOCK_CURRICULUM.capstone;
+  if (!cap) return null;
+  const passedCount = cap.problems.filter((p) =>
+    mockCapstoneSolved.has(p.slug)
+  ).length;
+  const mastered = allMastered();
+  return {
+    id: cap.id,
+    title: cap.title,
+    passCount: cap.pass_count,
+    timerTargetMin: cap.timer_target_min,
+    passedCount,
+    total: cap.problems.length,
+    met: passedCount >= cap.pass_count,
+    unlocked: MOCK_UNITS.every((u) => mastered.has(u.id)),
+    // Deliberately no pattern/unit label — the capstone is unlabeled.
+    problems: cap.problems.map((p) => ({
+      problemId: p.slug,
+      solved: mockCapstoneSolved.has(p.slug),
+    })),
+  };
+}
+
+export async function evaluateCapstone(
+  problemId: string,
+  usedHelp: boolean
+): Promise<CapstoneOutcome> {
+  await delay(120);
+  const cap = MOCK_CURRICULUM.capstone;
+  if (!cap) throw new Error("this course has no capstone");
+  if (!cap.problems.some((p) => p.slug === problemId))
+    throw new Error(`'${problemId}' is not a capstone problem`);
+  if (!usedHelp) mockCapstoneSolved.add(problemId);
+  const passedCount = cap.problems.filter((p) =>
+    mockCapstoneSolved.has(p.slug)
+  ).length;
+  return {
+    counted: !usedHelp,
+    passedCount,
+    total: cap.problems.length,
+    met: passedCount >= cap.pass_count,
+  };
+}
+
+export async function getPlacement(): Promise<PlacementProbe> {
+  await delay(80);
+  const items = MOCK_PATTERN_POOL.items.filter(
+    (i) => i.type === "pattern-picker"
+  );
+  const unitIds: string[] = [];
+  for (const i of items) {
+    if (i.correct_pattern && !unitIds.includes(i.correct_pattern))
+      unitIds.push(i.correct_pattern);
+  }
+  return { items, unitIds };
+}
+
+export async function applyPlacement(
+  answers: QuizAnswer[]
+): Promise<PlacementOutcome> {
+  await delay(120);
+  const { items } = await getPlacement();
+  // A unit is recognized iff it has ≥1 probe item and every one was correct.
+  const tally = new Map<string, { correct: number; total: number }>();
+  for (const item of items) {
+    const unit = item.correct_pattern;
+    if (!unit) continue;
+    const selected = answers.find((a) => a.itemId === item.id)?.selected;
+    const t = tally.get(unit) ?? { correct: 0, total: 0 };
+    t.total += 1;
+    if (selected === item.answer) t.correct += 1;
+    tally.set(unit, t);
+  }
+  const recognized = new Set(
+    [...tally.entries()]
+      .filter(([, t]) => t.total > 0 && t.correct === t.total)
+      .map(([u]) => u)
+  );
+  const already = allMastered();
+  const placed = new Set<string>();
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (const u of MOCK_UNITS) {
+      if (placed.has(u.id) || already.has(u.id) || !recognized.has(u.id))
+        continue;
+      if (u.prereqs.every((p) => already.has(p) || placed.has(p))) {
+        placed.add(u.id);
+        progressed = true;
+      }
+    }
+  }
+  for (const u of placed) mockPlacedUnits.add(u);
+  const masteredNow = new Set([...already, ...placed]);
+  const frontier = MOCK_UNITS.filter(
+    (u) => !masteredNow.has(u.id) && u.prereqs.every((p) => masteredNow.has(p))
+  ).map((u) => u.id);
+  return { placed: [...placed].sort(), frontier: frontier.sort() };
+}
+
+export async function getReadiness(): Promise<Readiness> {
+  await delay(80);
+  const mastered = allMastered();
+  const unitsTotal = MOCK_UNITS.length;
+  const unitsMastered = MOCK_UNITS.filter((u) => mastered.has(u.id)).length;
+  const cap = MOCK_CURRICULUM.capstone;
+  const capstoneTotal = cap?.problems.length ?? 0;
+  const capstoneSolved = cap
+    ? cap.problems.filter((p) => mockCapstoneSolved.has(p.slug)).length
+    : 0;
+  const capstonePass = cap?.pass_count ?? 0;
+  const capstoneMet = capstoneTotal > 0 && capstoneSolved >= capstonePass;
+  const ladderFrac = unitsTotal === 0 ? 0 : unitsMastered / unitsTotal;
+  const capFrac =
+    capstoneTotal === 0
+      ? 0
+      : Math.min(1, capstoneSolved / Math.max(1, capstonePass));
+  const percent = Math.min(
+    100,
+    Math.round((ladderFrac * 0.8 + capFrac * 0.2) * 100)
+  );
+  return {
+    unitsTotal,
+    unitsMastered,
+    capstoneTotal,
+    capstoneSolved,
+    capstoneMet,
+    percent,
+    ready: unitsTotal > 0 && unitsMastered === unitsTotal && capstoneMet,
+  };
+}
+
+/* ---------- Phase 6: FSRS spaced review (in-memory mock) ---------- */
+
+interface MockCard {
+  problemId: string;
+  unitId: string;
+  state: ReviewCardState;
+  dueAt: string; // ISO
+  lastReviewedAt?: string;
+  lapses: number;
+}
+
+const mockReview = new Map<string, MockCard>();
+
+/** Seed a few Stage-1 problems as already-due so browser-dev shows a queue. */
+function seedReview() {
+  if (mockReview.size > 0) return;
+  const past = new Date(Date.now() - 36 * 3_600_000).toISOString();
+  const seeds: Array<[string, string]> = [
+    ["two-sum", "arrays-hashing"],
+    ["group-anagrams", "arrays-hashing"],
+    ["valid-palindrome", "two-pointers"],
+  ];
+  for (const [problemId, unitId] of seeds) {
+    mockReview.set(problemId, {
+      problemId,
+      unitId,
+      state: "new",
+      dueAt: past,
+      lapses: 0,
+    });
+  }
+}
+
+/** Round-robin due cards across units so patterns interleave. */
+function interleaveMock(items: ReviewItem[]): ReviewItem[] {
+  const groups: Array<[string, ReviewItem[]]> = [];
+  for (const it of items) {
+    const g = groups.find(([k]) => k === it.unitId);
+    if (g) g[1].push(it);
+    else groups.push([it.unitId, [it]]);
+  }
+  const out: ReviewItem[] = [];
+  let drained = false;
+  while (!drained) {
+    drained = true;
+    for (const [, q] of groups) {
+      const next = q.shift();
+      if (next) {
+        out.push(next);
+        drained = false;
+      }
+    }
+  }
+  return out;
+}
+
+export async function getReviewQueue(): Promise<ReviewQueue> {
+  await delay(80);
+  seedReview();
+  const now = Date.now();
+  const due: ReviewItem[] = [];
+  let laterCount = 0;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  let reviewedToday = 0;
+  for (const c of mockReview.values()) {
+    if (c.lastReviewedAt?.startsWith(todayIso)) reviewedToday += 1;
+    const dueMs = new Date(c.dueAt).getTime();
+    if (dueMs <= now) {
+      due.push({
+        problemId: c.problemId,
+        unitId: c.unitId,
+        state: c.state,
+        dueAt: c.dueAt,
+        lastReviewedAt: c.lastReviewedAt,
+        lapses: c.lapses,
+        overdueDays: Math.max(0, Math.floor((now - dueMs) / 86_400_000)),
+      });
+    } else {
+      laterCount += 1;
+    }
+  }
+  return {
+    due: interleaveMock(due),
+    laterCount,
+    habit: {
+      currentStreak: MOCK_PROGRESS.streakDays,
+      bestStreak: MOCK_PROGRESS.bestStreakDays,
+      freezeActive: false,
+      dueToday: due.length,
+      reviewedToday,
+    },
+  };
+}
+
+export async function recordReview(
+  problemId: string,
+  rating: ReviewRating
+): Promise<ReviewOutcome> {
+  await delay(120);
+  seedReview();
+  const card = mockReview.get(problemId);
+  if (!card) throw new Error(`'${problemId}' is not in the review queue`);
+  // Plausible spacing (not the real FSRS math): good/easy space out by days,
+  // again demotes to ~1 day and bumps the lapse counter.
+  const intervalDays =
+    rating === "again" ? 1 : rating === "hard" ? 2 : rating === "good" ? 4 : 8;
+  const demoted = rating === "again";
+  if (demoted) card.lapses += 1;
+  card.state = "review";
+  card.lastReviewedAt = new Date().toISOString();
+  card.dueAt = new Date(Date.now() + intervalDays * 86_400_000).toISOString();
+  return {
+    problemId,
+    state: card.state,
+    dueAt: card.dueAt,
+    intervalDays,
+    lapses: card.lapses,
+    demoted,
+  };
+}
+
 export async function runCode(req: RunRequest): Promise<RunResult> {
   await delay(1100);
   const p = allProblems().find((x) => x.id === req.id);
@@ -174,6 +699,41 @@ export async function submitCode(req: RunRequest): Promise<RunResult> {
   const p = allProblems().find((x) => x.id === req.id);
   if (!p) throw new Error(`Unknown problem: ${req.id}`);
   return executeMock(p, req.code, true);
+}
+
+/** Browser-dev stand-in for the Rust op-count probe: a crude nested-loop
+ *  heuristic so both the "slower" and "optimal" panels are reachable without
+ *  a sandbox. The desktop app measures for real (`analyze_complexity`). */
+export async function analyzeComplexity(
+  req: RunRequest
+): Promise<ComplexityReport> {
+  await delay(900);
+  if (req.language !== "python") {
+    return {
+      available: false,
+      verdict: "unknown",
+      note: "Complexity analysis runs on your Python solution — switch to Python to measure it.",
+      samples: [],
+    };
+  }
+  const loops = (req.code.match(/\b(for|while)\b/g) ?? []).length;
+  const usesMap = /\b(set|dict|Counter|defaultdict)\b|\{\}/.test(req.code);
+  const quad = loops >= 2 && !usesMap;
+  const samples = [100, 200, 400, 800].map((n) => ({
+    n,
+    ops: quad ? Math.round((n * n) / 2) : n * 3,
+  }));
+  const measured = quad ? "O(n^2)" : "O(n)";
+  return {
+    available: true,
+    measured,
+    optimal: "O(n)",
+    verdict: quad ? "slower" : "optimal",
+    note: quad
+      ? "You wrote ~O(n^2). The optimal here is O(n) — there's a faster approach; look for repeated work you can trade memory to avoid."
+      : "Measured ~O(n), matching the optimal O(n). Nicely done.",
+    samples,
+  };
 }
 
 /** Session-local UI-state echoes so browser dev behaves like the real app. */

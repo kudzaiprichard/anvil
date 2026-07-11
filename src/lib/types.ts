@@ -223,6 +223,373 @@ export interface TestPack {
   generated_at: string;
 }
 
+/* ---------- curriculum / course content (LESSON_COURSE_DESIGN.md §3, §7) ----------
+ * Phase 1 ships schemas + a fail-closed loader only; no UI reads these yet.
+ * Field names are snake_case, same convention as Problem/TestPack/Preset. */
+
+export interface GateConfig {
+  pass_count: number;
+  require_novel: boolean;
+  timer_target_min: number;
+  threshold_pct: number;
+}
+
+export type ProblemRole = "worked" | "guided" | "gate";
+export type ProblemTier = "intro" | "core" | "stretch";
+
+export interface UnitProblem {
+  slug: string;
+  role: ProblemRole;
+  tier: ProblemTier;
+  novel: boolean;
+}
+
+/** A unit manifest (§3.2): one concept, the mastery-gate boundary. */
+export interface Unit {
+  id: string;
+  stage: string;
+  title: string;
+  prereqs: string[];
+  /** Lesson ids in order; empty until Phase 2 authors lesson content. */
+  lessons: string[];
+  problems: UnitProblem[];
+  gate: GateConfig;
+  /** Unit ids whose pattern this unit's practice must resurface. */
+  spiral: string[];
+}
+
+export interface CurriculumStage {
+  id: string;
+  title: string;
+  units: string[];
+}
+
+/** One problem in the Stage-7 mixed capstone. `unit` is the pattern it actually
+ *  belongs to — carried in content only, never sent to the workspace. */
+export interface CapstoneProblem {
+  slug: string;
+  unit: string;
+}
+
+/** The Stage-7 Mixed Capstone (§4): an unlabeled cross-unit pool. */
+export interface Capstone {
+  id: string;
+  stage: string;
+  title: string;
+  pass_count: number;
+  timer_target_min: number;
+  problems: CapstoneProblem[];
+}
+
+/** The one implicit course (§3.1): stages, the prereq DAG, gate defaults. */
+export interface Curriculum {
+  id: string;
+  stages: CurriculumStage[];
+  /** `unitId -> [prereq unitId]`, the DAG driving unlocking. */
+  prereqs: Record<string, string[]>;
+  gate_defaults: GateConfig;
+  /** The optional Stage-7 mixed capstone (present once Stage 7 ships). */
+  capstone?: Capstone;
+}
+
+export type QuizItemType = "concept-check" | "pattern-picker" | "complexity";
+
+export interface QuizItem {
+  id: string;
+  type: QuizItemType;
+  prompt_md: string;
+  options: string[];
+  answer: string;
+  /** The unit/pattern id a `pattern-picker` item is testing recognition of. */
+  correct_pattern?: string;
+  explanation_md: string;
+}
+
+/** One lesson's quiz file (§3.4, §7.4). */
+export interface Quiz {
+  items: QuizItem[];
+}
+
+/** One learner answer to a quiz item (`submitQuiz` payload). */
+export interface QuizAnswer {
+  itemId: string;
+  /** The option text the learner selected. */
+  selected: string;
+}
+
+/** The graded outcome of one quiz item (`submitQuiz` result). Formative only —
+ *  `answer`/`explanation` are echoed so the runner reveals the trigger after
+ *  the learner commits; pattern-picker items also carry `correctPattern`. */
+export interface QuizItemResult {
+  itemId: string;
+  type: QuizItemType;
+  correct: boolean;
+  selected: string;
+  /** The correct option text. */
+  answer: string;
+  explanation_md: string;
+  correctPattern?: string;
+}
+
+/** A full graded submission (`submitQuiz`). Never blocks progression. */
+export interface QuizGrade {
+  correctCount: number;
+  total: number;
+  results: QuizItemResult[];
+}
+
+/** Reserved `submitQuiz` source id for the interleaved cross-unit pool. */
+export const PATTERN_POOL_SOURCE = "pattern-pool";
+
+export type DiagramMode = "view" | "perform";
+
+/** One graded choice at a prediction pause. */
+export interface DiagramChoice {
+  id: string;
+  label_md: string;
+}
+
+/** The graded "what happens next?" turn on a prediction-pause step (§13.4).
+ *  Optional — a pause step without it degrades to think-then-reveal. In
+ *  `perform` mode it is the learner's step, graded against ground truth. */
+export interface DiagramPredict {
+  prompt_md: string;
+  choices: DiagramChoice[];
+  /** The `id` of the correct choice — engine ground truth. */
+  answer: string;
+  explanation_md: string;
+}
+
+export interface DiagramStep {
+  /** Opaque algorithm-state snapshot for this frame. */
+  state: unknown;
+  caption_md: string;
+  /** Present on prediction-pause frames that carry a graded question. */
+  predict?: DiagramPredict;
+}
+
+/** A prediction-diagram spec (§3.5, §7.5): the renderer/animator is engine
+ *  (Phase 5); the steps/trace are precomputed data. */
+export interface DiagramSpec {
+  id: string;
+  algorithm: string;
+  /** The worked-example problem slug this diagram is keyed to. */
+  for_problem: string;
+  mode: DiagramMode;
+  steps: DiagramStep[];
+  /** Step indices where playback pauses to ask "what happens next?" */
+  predict_at: number[];
+}
+
+/** A fully loaded lesson (§3.3): one sub-pattern, the atom of the course. */
+export interface Lesson {
+  id: string;
+  unit: string;
+  subpattern: string;
+  explainer_md: string;
+  trigger_signals: string[];
+  /** The worked-example problem slug. */
+  worked_example: string;
+  diagram: DiagramSpec;
+  quiz: Quiz;
+  /** Ordered practice slugs, faded -> independent. */
+  practice: string[];
+  /** Earlier lesson ids this lesson's recap retrieval pulls from. */
+  recap: string[];
+  follow_up: string[];
+}
+
+/* ---------- progression & mastery gate (Phase 3) ----------
+ * Per-user *state* shapes (camelCase), distinct from the snake_case content
+ * schemas above. Mirror src-tauri/src/domain/mastery.rs field-for-field. */
+
+/** A unit's lock state: `locked` until every prereq is mastered, `mastered`
+ *  once its gate is passed. */
+export type UnitStatus = "locked" | "unlocked" | "mastered";
+
+/** How close the learner is to clearing a unit's mastery gate — only hint-free,
+ *  no-peek solves are tallied (COURSE_BLUEPRINT.md §6). */
+export interface UnitGateState {
+  /** Gate problems that must be solved hint-free. */
+  passCount: number;
+  /** Whether ≥1 of those solves must be a `novel` problem. */
+  requireNovel: boolean;
+  /** Soft per-problem target in minutes — shown, never enforced. */
+  timerTargetMin: number;
+  /** Distinct gate problems solved hint-free so far. */
+  passedCount: number;
+  /** Of those, how many were tagged novel. */
+  passedNovel: number;
+  /** The gate problem slugs cleared hint-free. */
+  solvedSlugs: string[];
+  /** Total gate problems in this unit's pool. */
+  total: number;
+  /** `true` once passedCount ≥ passCount and the novel requirement is met. */
+  met: boolean;
+}
+
+/** A unit's full progression snapshot for the course/unit views. */
+export interface UnitProgress {
+  unitId: string;
+  status: UnitStatus;
+  lessonsTotal: number;
+  lessonsComplete: number;
+  gate: UnitGateState;
+  /** Prereq unit ids not yet mastered — empty when unlocked/mastered. */
+  blockedBy: string[];
+}
+
+/** The result of one gate attempt (`evaluateGate`). */
+export interface GateOutcome {
+  /** `false` when the learner used a hint/solution — a peeked attempt never
+   *  counts toward mastery. */
+  counted: boolean;
+  /** This solve tipped the unit over its gate threshold. */
+  unitMastered: boolean;
+  /** The unit was already mastered before this attempt. */
+  alreadyMastered: boolean;
+  /** The updated gate tally after this attempt. */
+  gate: UnitGateState;
+  /** Unit ids that transitioned locked→unlocked because of this pass. */
+  unlocked: string[];
+}
+
+// --- Phase 7: advanced progression -----------------------------------------
+
+/** One capstone problem as the workspace sees it — no pattern label (§4). */
+export interface CapstoneProblemView {
+  problemId: string;
+  solved: boolean;
+}
+
+/** The Stage-7 mixed capstone as the course page shows it (unlabeled pool). */
+export interface CapstoneView {
+  id: string;
+  title: string;
+  passCount: number;
+  timerTargetMin: number;
+  passedCount: number;
+  total: number;
+  met: boolean;
+  /** `true` once every unit is mastered — the capstone only counts toward
+   *  readiness then, though it can be attempted early for practice. */
+  unlocked: boolean;
+  problems: CapstoneProblemView[];
+}
+
+/** The result of one capstone attempt (`evaluateCapstone`). */
+export interface CapstoneOutcome {
+  counted: boolean;
+  passedCount: number;
+  total: number;
+  met: boolean;
+}
+
+/** The diagnostic placement probe: unlabeled pattern-picker items that place the
+ *  learner out of units they already recognize. */
+export interface PlacementProbe {
+  items: QuizItem[];
+  unitIds: string[];
+}
+
+/** The result of submitting the placement probe. */
+export interface PlacementOutcome {
+  /** Units the learner was placed out of (recognized, prereqs cleared). */
+  placed: string[];
+  /** Units now unlocked — the learner's new frontier. */
+  frontier: string[];
+}
+
+/** The honest course-readiness aggregate (§7). */
+export interface Readiness {
+  unitsTotal: number;
+  unitsMastered: number;
+  capstoneTotal: number;
+  capstoneSolved: number;
+  capstoneMet: boolean;
+  /** 0–100 overall completion (ladder mastery weighted with capstone clears). */
+  percent: number;
+  /** `true` only when every unit is mastered and the capstone is met. */
+  ready: boolean;
+}
+
+/** Where a lesson sits for this user (§6.4). `not-started` is the absence of
+ *  a stored row; the backend only ever records the other two. */
+export type LessonStatus = "not-started" | "in-progress" | "complete";
+
+/** One lesson's stored progress (`recordLessonProgress` / `getLessonProgress`). */
+export interface LessonProgress {
+  lessonId: string;
+  unitId: string;
+  status: LessonStatus;
+  /** Local ISO timestamps; absent until the transition that sets them. */
+  startedAt?: string;
+  completedAt?: string;
+}
+
+/* ---------- retention & habit (Phase 6) ---------- */
+
+/** The learner's self-assessed recall after a cold re-solve — the four FSRS
+ *  grades. `again` is the failure grade that demotes the card. */
+export type ReviewRating = "again" | "hard" | "good" | "easy";
+
+/** Where a card sits in the FSRS state machine (mirrors `review_schedule.state`). */
+export type ReviewCardState = "new" | "learning" | "review" | "relearning";
+
+/** One problem due to be re-solved cold now, in the interleaved queue. */
+export interface ReviewItem {
+  /** LeetCode slug — the workspace opens this for a cold re-solve. */
+  problemId: string;
+  /** The unit whose pattern this belongs to — drives interleaving + labels. */
+  unitId: string;
+  state: ReviewCardState;
+  /** When the card became due (RFC3339 UTC). */
+  dueAt: string;
+  /** Last re-solve, or absent for a card that entered the queue and hasn't
+   *  been reviewed yet. */
+  lastReviewedAt?: string;
+  /** Times this problem has been failed (`again`) — the demotion counter. */
+  lapses: number;
+  /** Whole days overdue (0 when it just came due). */
+  overdueDays: number;
+}
+
+/** The honest habit layer (COURSE_BLUEPRINT.md §7): a streak that survives one
+ *  missed day via a freeze ("never miss twice"). No XP, no leaderboards. */
+export interface HabitState {
+  /** Consecutive practice days, forgiving one isolated missed day. */
+  currentStreak: number;
+  bestStreak: number;
+  /** A freeze is currently holding the streak together (yesterday was missed);
+   *  miss again and it breaks. */
+  freezeActive: boolean;
+  /** Cards due to re-solve right now. */
+  dueToday: number;
+  /** Cards already re-solved today. */
+  reviewedToday: number;
+}
+
+/** The review page payload: what's due (interleaved), how many are scheduled
+ *  for later, and the habit header. */
+export interface ReviewQueue {
+  due: ReviewItem[];
+  laterCount: number;
+  habit: HabitState;
+}
+
+/** The result of recording one re-solve (`recordReview`). */
+export interface ReviewOutcome {
+  problemId: string;
+  state: ReviewCardState;
+  dueAt: string;
+  /** Days until next due — the spacing interval FSRS just chose. */
+  intervalDays: number;
+  lapses: number;
+  /** `true` when the re-solve was failed (`again`): interval collapsed, lapse
+   *  counter bumped. */
+  demoted: boolean;
+}
+
 /* ---------- progress & status (app types) ---------- */
 
 export type ProblemStatus = "todo" | "in-progress" | "solved" | "needs-review";
@@ -307,6 +674,31 @@ export interface RunResult {
   memoryMb?: number;
   /** stderr / traceback when status is "error" or "timeout". */
   error?: string;
+}
+
+/* ---------- deterministic complexity feedback (Phase 5) ---------- */
+
+/** One measurement: `ops` Python-level operations executed at input size `n`. */
+export interface ComplexitySample {
+  n: number;
+  ops: number;
+}
+
+/** How the measured growth compares to the pack's declared optimal. */
+export type ComplexityVerdict = "optimal" | "slower" | "faster" | "unknown";
+
+/** Result of profiling the learner's solution on growing inputs (op-count via
+ *  the runner, no AI). `available: false` ⇒ `note` says why it couldn't run. */
+export interface ComplexityReport {
+  available: boolean;
+  /** Measured class, e.g. "O(n^2)". */
+  measured?: string;
+  /** Pack-declared optimal, e.g. "O(n)". */
+  optimal?: string;
+  verdict: ComplexityVerdict;
+  /** One-line learner-facing message. */
+  note: string;
+  samples: ComplexitySample[];
 }
 
 /* ---------- status mutations (workspace buttons) ---------- */

@@ -41,6 +41,63 @@ pub fn streaks(pass_days: &[NaiveDate], today: NaiveDate) -> (u32, u32) {
     (current, best)
 }
 
+/// A streak that forgives one isolated missed day — the honest habit layer's
+/// "never miss twice" (COURSE_BLUEPRINT.md §7). `freeze_active` means the streak
+/// is currently held together by a freeze (yesterday was missed) and will break
+/// on a second consecutive miss.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FreezeStreak {
+    pub current: u32,
+    pub best: u32,
+    pub freeze_active: bool,
+}
+
+/// Streak with freezes (COURSE_BLUEPRINT.md §7 habit layer): consecutive
+/// calendar days with ≥1 passing submit, where a *single* missed day between two
+/// practice days is bridged by a freeze — but two missed days in a row break it.
+/// Each freeze forgives at most the one gap it spans. Unlike [`streaks`] (strict
+/// consecutive days), this is the number the review page headlines. `current`
+/// counts only real practice days; the bridged day doesn't inflate it.
+pub fn streak_with_freezes(pass_days: &[NaiveDate], today: NaiveDate) -> FreezeStreak {
+    let mut days = pass_days.to_vec();
+    days.sort();
+    days.dedup();
+
+    let mut best = 0u32;
+    let mut run = 0u32;
+    let mut prev: Option<NaiveDate> = None;
+    for day in &days {
+        let gap = prev.map(|p| (*day - p).num_days());
+        run = match gap {
+            // Consecutive, or one forgiven missed day between practice days.
+            Some(1) | Some(2) => run + 1,
+            // ≥2 missed days in a row (gap ≥ 3) — or the first day.
+            _ => 1,
+        };
+        best = best.max(run);
+        prev = Some(*day);
+    }
+
+    let (current, freeze_active) = match days.last() {
+        // Alive if the last practice day is today, yesterday, or (freeze) two
+        // days ago. Three-plus days idle means a second consecutive miss → dead.
+        Some(&last) => {
+            let idle = (today - last).num_days();
+            if (0..=2).contains(&idle) {
+                (run, idle == 2)
+            } else {
+                (0, false)
+            }
+        }
+        None => (0, false),
+    };
+    FreezeStreak {
+        current,
+        best,
+        freeze_active,
+    }
+}
+
 /// Counts for `get_progress` from the state table + the solve-day history.
 pub fn compute_progress(
     total: u32,
@@ -188,6 +245,61 @@ mod tests {
     fn duplicate_days_count_once() {
         let days = [d("2026-06-12"), d("2026-06-12"), d("2026-06-11")];
         assert_eq!(streaks(&days, d("2026-06-12")), (2, 2));
+    }
+
+    #[test]
+    fn freeze_streak_survives_one_missed_day() {
+        // Practiced Mon, Tue, then missed Wed, practiced Thu. The freeze bridges
+        // Wed → the streak is 3 practice days and still alive today (Thu).
+        let days = [d("2026-06-08"), d("2026-06-09"), d("2026-06-11")];
+        let s = streak_with_freezes(&days, d("2026-06-11"));
+        assert_eq!(s.current, 3);
+        assert_eq!(s.best, 3);
+        assert!(!s.freeze_active); // practiced today, no freeze needed right now
+    }
+
+    #[test]
+    fn freeze_streak_breaks_on_two_missed_days() {
+        // Practiced Mon, Tue; missed Wed AND Thu. By Fri the streak is dead.
+        let days = [d("2026-06-08"), d("2026-06-09")];
+        let s = streak_with_freezes(&days, d("2026-06-12"));
+        assert_eq!(s.current, 0);
+        assert_eq!(s.best, 2);
+        assert!(!s.freeze_active);
+    }
+
+    #[test]
+    fn freeze_is_active_when_yesterday_was_missed() {
+        // Last practiced two days ago (missed yesterday) — the streak is alive
+        // today only because a freeze is holding it; one more miss ends it.
+        let days = [d("2026-06-09"), d("2026-06-10")];
+        let s = streak_with_freezes(&days, d("2026-06-12"));
+        assert_eq!(s.current, 2);
+        assert!(s.freeze_active);
+    }
+
+    #[test]
+    fn freeze_streak_matches_strict_streak_with_no_gaps() {
+        let days = [d("2026-06-10"), d("2026-06-11"), d("2026-06-12")];
+        let s = streak_with_freezes(&days, d("2026-06-12"));
+        assert_eq!((s.current, s.best), (3, 3));
+        assert!(!s.freeze_active);
+    }
+
+    #[test]
+    fn freeze_forgives_only_one_gap_at_a_time() {
+        // Gaps of exactly one missed day each are all bridged: a long staircase
+        // of every-other-day practice is one continuous frozen streak.
+        let days = [d("2026-06-02"), d("2026-06-04"), d("2026-06-06")];
+        let s = streak_with_freezes(&days, d("2026-06-06"));
+        assert_eq!(s.current, 3);
+        assert_eq!(s.best, 3);
+    }
+
+    #[test]
+    fn empty_history_has_no_freeze_streak() {
+        let s = streak_with_freezes(&[], d("2026-06-12"));
+        assert_eq!((s.current, s.best, s.freeze_active), (0, 0, false));
     }
 
     #[test]

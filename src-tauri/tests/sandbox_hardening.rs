@@ -80,6 +80,9 @@ fn node_huge_allocation_hits_the_memory_cap() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Error);
     assert_eq!(result.error.as_deref(), Some(MEMORY_MESSAGE));
 }

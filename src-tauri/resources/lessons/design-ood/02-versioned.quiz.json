@@ -1,0 +1,308 @@
+{
+  "items": [
+    {
+      "id": "q1",
+      "type": "concept-check",
+      "prompt_md": "Why does binary search work on each key's list of `(timestamp, value)` pairs in this design?",
+      "options": [
+        "Because sets for a given key always arrive in non-decreasing timestamp order, so each key's own list is already sorted",
+        "Because the dict automatically keeps its keys sorted",
+        "Because the list is re-sorted before every get() call",
+        "Because timestamps are always consecutive integers"
+      ],
+      "answer": "Because sets for a given key always arrive in non-decreasing timestamp order, so each key's own list is already sorted",
+      "explanation_md": "Appending preserves sort order only because the problem guarantees non-decreasing timestamps per key — that guarantee is what makes bisect valid without ever re-sorting."
+    },
+    {
+      "id": "q2",
+      "type": "concept-check",
+      "prompt_md": "What does each entry in a key's version list actually hold?",
+      "options": [
+        "A `(timestamp, value)` pair, so the list can be searched by timestamp while still recovering the value at that point",
+        "Just the value, with timestamps tracked in a separate parallel dict",
+        "Just the timestamp, since values are looked up separately by key alone",
+        "The difference between this timestamp and the previous one"
+      ],
+      "answer": "A `(timestamp, value)` pair, so the list can be searched by timestamp while still recovering the value at that point",
+      "explanation_md": "Keeping the pair together means a single bisect on timestamp gives you both \"where in history\" and \"what the value was\" in one step."
+    },
+    {
+      "id": "q3",
+      "type": "concept-check",
+      "prompt_md": "Why is `bisect_right` (finding the rightmost insertion point) the correct choice here rather than `bisect_left`, when the query is \"value at or before timestamp T\"?",
+      "options": [
+        "bisect_right lands one past the last entry whose timestamp is <= T, so subtracting one gives exactly that entry, even when an entry's timestamp exactly equals T",
+        "bisect_left and bisect_right always give the same answer for this problem",
+        "bisect_right is simply faster than bisect_left",
+        "bisect_left would throw an error on duplicate timestamps"
+      ],
+      "answer": "bisect_right lands one past the last entry whose timestamp is <= T, so subtracting one gives exactly that entry, even when an entry's timestamp exactly equals T",
+      "explanation_md": "Using bisect_left here would risk landing on an entry with a timestamp equal to T without including it correctly in the \"at or before\" boundary — bisect_right is the one that matches the \"at or before\" semantics after the minus-one adjustment."
+    },
+    {
+      "id": "q4",
+      "type": "concept-check",
+      "prompt_md": "What must a `get(key, timestamp)` return if the earliest recorded timestamp for that key is already later than the query timestamp?",
+      "options": [
+        "A designated \"no value yet\" result (e.g. an empty string), since nothing had been set for that key by that time",
+        "The value from the earliest entry regardless, since it's the closest available",
+        "An error must be raised, since this case is invalid input",
+        "The value from the most recent entry, since it's the only reasonable fallback"
+      ],
+      "answer": "A designated \"no value yet\" result (e.g. an empty string), since nothing had been set for that key by that time",
+      "explanation_md": "If the bisect index lands before the start of the list, there's no valid version yet at that time, and the design must handle this as a distinct case rather than defaulting to some entry."
+    },
+    {
+      "id": "q5",
+      "type": "concept-check",
+      "prompt_md": "Why does `set(key, value, timestamp)` only need to append to the key's list, never insert into the middle or re-sort?",
+      "options": [
+        "Because the problem guarantees timestamps for a given key are non-decreasing, so each new entry always belongs at the end",
+        "Because the list is rebuilt from scratch on every set",
+        "Because Python lists auto-sort on append",
+        "Because only the most recent value is ever kept"
+      ],
+      "answer": "Because the problem guarantees timestamps for a given key are non-decreasing, so each new entry always belongs at the end",
+      "explanation_md": "That ordering guarantee is exactly what turns an O(log m) insert-into-sorted-position problem into an O(1) amortized append."
+    },
+    {
+      "id": "q6",
+      "type": "concept-check",
+      "prompt_md": "A common bug in this design is querying with `bisect_left` (or an off-by-one on the returned index) instead of the adjusted `bisect_right - 1`. What symptom would this produce?",
+      "options": [
+        "get() could return the wrong version — e.g. skip the correct entry or return one from the future relative to the query timestamp",
+        "The program would crash immediately on any call to get()",
+        "set() would silently stop appending new entries",
+        "The dict would lose track of which key maps to which list"
+      ],
+      "answer": "get() could return the wrong version — e.g. skip the correct entry or return one from the future relative to the query timestamp",
+      "explanation_md": "Binary-search boundary bugs don't crash — they silently return the wrong (often off-by-one) version, which is why the exact bisect variant and the minus-one adjustment matter."
+    },
+    {
+      "id": "q7",
+      "type": "concept-check",
+      "prompt_md": "How does this design extend to \"snapshot array\" problems, where you need the value at a given array index as of a past snapshot/version?",
+      "options": [
+        "Apply the same idea per index instead of per key: each array slot keeps its own sorted list of (version, value) pairs, binary-searched the same way",
+        "Snapshot arrays require rebuilding the entire array from scratch for every snapshot",
+        "Snapshot arrays cannot reuse this idea since they have no notion of a key",
+        "Snapshot arrays must store every version of the entire array, not per-index history"
+      ],
+      "answer": "Apply the same idea per index instead of per key: each array slot keeps its own sorted list of (version, value) pairs, binary-searched the same way",
+      "explanation_md": "The pattern generalizes: whatever plays the role of \"key\" (a string key, or an array index) gets its own append-only, binary-searchable version history."
+    },
+    {
+      "id": "q8",
+      "type": "concept-check",
+      "prompt_md": "Why would storing only the latest value per key (an ordinary hash map with overwrite-on-set) fail this problem?",
+      "options": [
+        "It destroys older versions entirely, so a query for the value \"at or before\" an earlier timestamp has nothing left to find",
+        "It would work fine, since only the most recent value is ever queried",
+        "It would be slower than the versioned design, but still correct",
+        "It would only fail once the map exceeds a fixed size"
+      ],
+      "answer": "It destroys older versions entirely, so a query for the value \"at or before\" an earlier timestamp has nothing left to find",
+      "explanation_md": "The whole point of this design is that every version stays queryable — overwriting on every set is exactly the behavior this structure is built to avoid."
+    },
+    {
+      "id": "q9",
+      "type": "concept-check",
+      "prompt_md": "What is the mental trigger for reaching for \"hash map + per-key sorted list with binary search\" before writing any code?",
+      "options": [
+        "\"Multiple values over time for the same key; give me the value as of a timestamp\" — history that only grows forward, queried by time",
+        "\"Find the two elements that sum to a target\"",
+        "\"Evict the least recently used entry once capacity is full\"",
+        "\"Process elements in strict first-in-first-out order\""
+      ],
+      "answer": "\"Multiple values over time for the same key; give me the value as of a timestamp\" — history that only grows forward, queried by time",
+      "explanation_md": "That phrase — versions over time, queried \"as of\" a point — is the tell that a per-key sorted list plus binary search beats scanning."
+    },
+    {
+      "id": "q10",
+      "type": "complexity",
+      "prompt_md": "For a key with m recorded versions, what is the time complexity of get() in the hash-map + sorted-list-with-bisect design?",
+      "options": ["O(log m)", "O(1)", "O(m)", "O(m log m)"],
+      "answer": "O(log m)",
+      "explanation_md": "bisect on the sorted list of m entries for that key is O(log m); the hash map lookup to find the right list is O(1), so overall get() is O(log m)."
+    },
+    {
+      "id": "q11",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of set(key, value, timestamp) in this design?",
+      "options": [
+        "O(1) amortized, since it only appends to the end of that key's list",
+        "O(log m), since it must binary-search for the insertion point",
+        "O(m), since it must shift every later entry over",
+        "O(m log m), since the whole list is re-sorted"
+      ],
+      "answer": "O(1) amortized, since it only appends to the end of that key's list",
+      "explanation_md": "Because timestamps only grow, every new entry is guaranteed to belong at the end — no search or shifting needed, just an append."
+    },
+    {
+      "id": "q12",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of a naive alternative that scans a key's history backward on every get() until it finds the first timestamp <= the query?",
+      "options": [
+        "O(m) per get(), where m is the number of versions recorded for that key",
+        "O(1) per get(), same as the binary-search version",
+        "O(log m) per get(), same as the binary-search version",
+        "O(m^2) per get()"
+      ],
+      "answer": "O(m) per get(), where m is the number of versions recorded for that key",
+      "explanation_md": "A linear backward scan throws away the fact that the list is already sorted — binary search exploits that sortedness to cut the cost to O(log m)."
+    },
+    {
+      "id": "q13",
+      "type": "complexity",
+      "prompt_md": "What is the total space complexity of this design after n total set() calls across all keys?",
+      "options": [
+        "O(n), since every set() call appends exactly one (timestamp, value) pair somewhere and nothing is ever discarded",
+        "O(1), since only the latest value per key is retained",
+        "O(n^2), since every version is compared against every other version",
+        "O(log n), matching the depth of the binary search"
+      ],
+      "answer": "O(n), since every set() call appends exactly one (timestamp, value) pair somewhere and nothing is ever discarded",
+      "explanation_md": "Every version is preserved so it stays queryable, so total storage grows linearly with the total number of writes, distributed across each key's own list."
+    },
+    {
+      "id": "q14",
+      "type": "pattern-picker",
+      "prompt_md": "You need to store every value ever set for a key, then later answer \"what was this key's value at or before timestamp T?\"",
+      "options": [
+        "Hash map + sorted list / binary search on timestamps",
+        "Hash map + doubly linked list",
+        "Single hash map",
+        "Two heaps"
+      ],
+      "answer": "Hash map + sorted list / binary search on timestamps",
+      "correct_pattern": "design-ood",
+      "explanation_md": "\"Value at a past time\" over a history that only grows is the trigger for hash map + binary search on a per-key sorted list."
+    },
+    {
+      "id": "q15",
+      "type": "pattern-picker",
+      "prompt_md": "You only ever need the current value associated with each key — no history, no \"as of a past time\" queries of any kind.",
+      "options": [
+        "Single hash map",
+        "Hash map + sorted list / binary search on timestamps",
+        "Hash map + doubly linked list",
+        "Two heaps"
+      ],
+      "answer": "Single hash map",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "Trap: without any \"as of time T\" requirement, a plain hash map already answers \"what is the value now\" in O(1) — the versioned list only earns its keep once past states must be queryable."
+    },
+    {
+      "id": "q16",
+      "type": "pattern-picker",
+      "prompt_md": "Each key can be set multiple times with strictly increasing timestamps, and you must be able to retrieve the value that was active at any earlier timestamp, not just the latest.",
+      "options": [
+        "Hash map + sorted list / binary search on timestamps",
+        "Hash map + dynamic array with swap-to-end removal",
+        "Two heaps",
+        "Trie"
+      ],
+      "answer": "Hash map + sorted list / binary search on timestamps",
+      "correct_pattern": "design-ood",
+      "explanation_md": "\"Retrieve the value active at any earlier timestamp\" is exactly the time-travel query that a sorted per-key list plus binary search is built to answer in O(log m)."
+    },
+    {
+      "id": "q17",
+      "type": "pattern-picker",
+      "prompt_md": "You process a stream of events and only ever need to replay them in the exact order they arrived, with no requirement to jump to an arbitrary past point by timestamp.",
+      "options": [
+        "Hash map + sorted list / binary search on timestamps",
+        "Linked list",
+        "Two heaps",
+        "Single hash map"
+      ],
+      "answer": "Linked list",
+      "correct_pattern": "linked-list",
+      "explanation_md": "Trap: pure sequential replay in arrival order needs nothing more than a linked list (or plain queue) — binary search only pays off once you need random access to an arbitrary past timestamp."
+    },
+    {
+      "id": "q18",
+      "type": "pattern-picker",
+      "prompt_md": "For each product ID, you log a new price at increasing timestamps. Later you must answer: \"what was product X's price at or before time T?\"",
+      "options": [
+        "Hash map + sorted list / binary search on timestamps",
+        "Hash map + doubly linked list",
+        "Single hash map",
+        "Two heaps"
+      ],
+      "answer": "Hash map + sorted list / binary search on timestamps",
+      "correct_pattern": "design-ood",
+      "explanation_md": "\"Price at or before time T\" for a given product ID is the versioned-store trigger — hash map routes to the product's history, binary search finds the right version."
+    },
+    {
+      "id": "q19",
+      "type": "pattern-picker",
+      "prompt_md": "You want O(1) get/put on a key-value store where a full store evicts whichever key was least recently touched — there is no notion of historical versions to query.",
+      "options": [
+        "Hash map + doubly linked list",
+        "Hash map + sorted list / binary search on timestamps",
+        "Single hash map",
+        "Two heaps"
+      ],
+      "answer": "Hash map + doubly linked list",
+      "correct_pattern": "design-ood",
+      "explanation_md": "Trap: recency-based eviction with O(1) operations is the LRU signature (hash map + doubly linked list), not the time-travel query that binary search on a sorted version list answers."
+    },
+    {
+      "id": "q20",
+      "type": "pattern-picker",
+      "prompt_md": "Each array index can be independently \"snapshotted\" over time, and later you must retrieve the value a given index held as of a specific snapshot number.",
+      "options": [
+        "Per-index hash map (or array) of sorted (snapshot, value) pairs, binary-searched by snapshot number",
+        "A single array holding only the current values",
+        "Two heaps, one per parity of index",
+        "A doubly linked list of snapshots"
+      ],
+      "answer": "Per-index hash map (or array) of sorted (snapshot, value) pairs, binary-searched by snapshot number",
+      "correct_pattern": "design-ood",
+      "explanation_md": "This is the same versioned-store idea applied per array index instead of per string key: each index keeps its own append-only, binary-searchable history."
+    },
+    {
+      "id": "q21",
+      "type": "pattern-picker",
+      "prompt_md": "A config service lets clients set a value for a config key at any timestamp, and later queries must return the value that was in effect at any earlier point in time.",
+      "options": [
+        "Hash map + sorted list / binary search on timestamps",
+        "Hash map + doubly linked list",
+        "Single hash map",
+        "Two heaps"
+      ],
+      "answer": "Hash map + sorted list / binary search on timestamps",
+      "correct_pattern": "design-ood",
+      "explanation_md": "\"Value in effect at any earlier point in time\" for a keyed store is the versioned-store trigger — route by key with the map, then binary-search that key's sorted history."
+    },
+    {
+      "id": "q22",
+      "type": "pattern-picker",
+      "prompt_md": "You only ever overwrite a key's value and only ever need the CURRENT value — no query ever asks about a past point in time.",
+      "options": [
+        "Single hash map",
+        "Hash map + sorted list / binary search on timestamps",
+        "Hash map + doubly linked list",
+        "Two heaps"
+      ],
+      "answer": "Single hash map",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "Trap: without any \"as of time T\" query, a plain hash map is already sufficient and simpler — the versioned list only earns its keep once history has to be queryable."
+    },
+    {
+      "id": "q23",
+      "type": "pattern-picker",
+      "prompt_md": "A stock-price feed reports a new price for a ticker at increasing timestamps, and you must answer \"what was ticker X's price at time T?\" for any T seen so far.",
+      "options": [
+        "Hash map + sorted list / binary search on timestamps",
+        "Two heaps",
+        "Single hash map",
+        "Hash map + doubly linked list"
+      ],
+      "answer": "Hash map + sorted list / binary search on timestamps",
+      "correct_pattern": "design-ood",
+      "explanation_md": "This is the same shape as the lesson's example with a different label — a per-key timestamped history binary-searched by time."
+    }
+  ]
+}

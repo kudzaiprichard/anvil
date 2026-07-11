@@ -411,6 +411,128 @@ pub fn compute_outputs(
         .collect()
 }
 
+/// The complexity-probe harness (Phase 5), written alongside the normal
+/// harness so it can import it.
+const PROBE_HARNESS: &str = include_str!("harness/probe.py");
+
+/// One parsed line from the probe harness.
+#[derive(Deserialize)]
+struct ProbeLine {
+    ok: bool,
+    #[serde(default)]
+    size: Option<u64>,
+    #[serde(default)]
+    ops: Option<u64>,
+    #[serde(default)]
+    error: Option<String>,
+}
+
+/// Outcome of a complexity probe run.
+pub enum ProbeOutcome {
+    /// One `(n, ops)` sample per size that ran successfully.
+    Samples(Vec<crate::domain::complexity::ComplexitySample>),
+    /// The solution ran past the time limit — itself a strong "too slow" signal.
+    TooSlow,
+    /// The probe couldn't start (solution didn't load, bad entry point, …).
+    Failed(String),
+}
+
+/// Runs the learner's Python `code` on a ladder of generated input `sizes`
+/// under a line-event counter, returning `(n, ops)` samples for complexity
+/// classification (COURSE_BLUEPRINT.md §7). Python-only: the counter is
+/// `sys.settrace`. `generator` is a pack stress generator (`def gen(rng,
+/// size)`); `entry_point`/`io_types` come from the pack. Only ever runs the
+/// user's own solution — same sandbox as a normal run.
+pub fn count_ops(
+    code: &str,
+    entry_point: &str,
+    io_types: Option<&crate::domain::problem::IoTypes>,
+    generator: &str,
+    seed: u64,
+    sizes: &[u64],
+    program: &str,
+) -> AppResult<ProbeOutcome> {
+    let spec = spec_for(Language::Python);
+    let dir = tempfile::tempdir()?;
+    std::fs::write(dir.path().join(spec.solution_filename), code)?;
+    std::fs::write(dir.path().join(spec.harness_filename), spec.harness_source)?;
+    std::fs::write(dir.path().join("probe.py"), PROBE_HARNESS)?;
+
+    let mut probe = serde_json::Map::new();
+    probe.insert("entry_point".into(), serde_json::json!(entry_point));
+    probe.insert("generator".into(), serde_json::json!(generator));
+    probe.insert("seed".into(), serde_json::json!(seed));
+    probe.insert("sizes".into(), serde_json::json!(sizes));
+    if let Some(io) = io_types {
+        probe.insert("io_types".into(), serde_json::json!(io));
+    }
+    std::fs::write(
+        dir.path().join("probe.json"),
+        serde_json::Value::Object(probe).to_string(),
+    )?;
+
+    // The probe runs several sizes under settrace, so it needs more headroom
+    // than a single normal run — but a solution slow enough to blow this is
+    // itself the finding we want to report.
+    let guards = Guards {
+        timeout_ms: 8000,
+        ..Guards::default()
+    };
+    let mut cmd = Command::new(program);
+    cmd.arg("probe.py").current_dir(dir.path());
+    let child = sandbox::spawn_guarded(cmd, &guards)?;
+
+    let (exit_status, stdout, stderr) =
+        match child.wait_with_timeout(Duration::from_millis(guards.timeout_ms))? {
+            WaitOutcome::TimedOut => return Ok(ProbeOutcome::TooSlow),
+            WaitOutcome::MemoryKilled => {
+                return Ok(ProbeOutcome::Failed(
+                    "Solution exceeded the memory limit while profiling.".into(),
+                ))
+            }
+            WaitOutcome::Exited {
+                status,
+                stdout,
+                stderr,
+                ..
+            } => (status, stdout, stderr),
+        };
+
+    let lines: Vec<ProbeLine> = stdout
+        .lines()
+        .filter_map(|line| line.strip_prefix(SENTINEL))
+        .filter_map(|rest| serde_json::from_str::<ProbeLine>(rest).ok())
+        .collect();
+
+    // A startup failure (no size) means nothing could be measured.
+    if let Some(fail) = lines.iter().find(|l| !l.ok && l.size.is_none()) {
+        return Ok(ProbeOutcome::Failed(
+            fail.error
+                .clone()
+                .unwrap_or_else(|| "profiling failed".into()),
+        ));
+    }
+    if lines.is_empty() {
+        let detail = if stderr.trim().is_empty() {
+            format!("profiler exited unexpectedly ({exit_status})")
+        } else {
+            stderr.trim().to_string()
+        };
+        return Ok(ProbeOutcome::Failed(detail));
+    }
+
+    let samples: Vec<_> = lines
+        .iter()
+        .filter_map(|l| match (l.ok, l.size, l.ops) {
+            (true, Some(n), Some(ops)) => {
+                Some(crate::domain::complexity::ComplexitySample { n, ops })
+            }
+            _ => None,
+        })
+        .collect();
+    Ok(ProbeOutcome::Samples(samples))
+}
+
 fn memory_limit_message(guards: &Guards) -> String {
     format!(
         "Memory limit exceeded ({} MB) — execution stopped.",

@@ -29,6 +29,18 @@ fn stress_materialization_is_deterministic_and_sandbox_computed() {
     let first = materialize_stress(pack, "python");
     let second = materialize_stress(pack, "python");
 
+    // A CI sandbox that caps threads can't launch the harness ("runner error:
+    // ... can't start new thread"), skipping every spec. That's an environment
+    // limit, not a determinism/product bug — skip. A skip from any other cause
+    // still trips the assertion below.
+    if common::stress_skipped_by_sandbox(&first.skipped) {
+        eprintln!(
+            "SKIPPED: sandbox could not execute stress generators here: {:?}",
+            first.skipped
+        );
+        return;
+    }
+
     // Every spec materialized (no skips) and identical across runs — the
     // seeded `gen(rng, size)` contract plus a deterministic reference
     // solution must reproduce byte-identical cases.

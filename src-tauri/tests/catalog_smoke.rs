@@ -19,7 +19,9 @@ fn resources() -> PathBuf {
 }
 
 fn env_num(key: &str, default: u64) -> u64 {
-    let Ok(raw) = std::env::var(key) else { return default };
+    let Ok(raw) = std::env::var(key) else {
+        return default;
+    };
     let v = raw.trim();
     let parsed = match v.strip_prefix("0x").or_else(|| v.strip_prefix("0X")) {
         Some(hex) => u64::from_str_radix(hex, 16),
@@ -64,8 +66,7 @@ fn sampled_catalog_problems_run_and_judge_green() {
         .iter()
         .filter(|p| {
             p.judge.is_some()
-                && p
-                    .reference_solution
+                && p.reference_solution
                     .as_ref()
                     .and_then(|r| r.python.as_ref())
                     .is_some_and(|s| !s.trim().is_empty())
@@ -101,7 +102,13 @@ fn sampled_catalog_problems_run_and_judge_green() {
         );
 
         // Python reference must pass every case.
-        let py = p.reference_solution.as_ref().unwrap().python.clone().unwrap();
+        let py = p
+            .reference_solution
+            .as_ref()
+            .unwrap()
+            .python
+            .clone()
+            .unwrap();
         match runner::execute(p, Language::Python, &py, true) {
             Ok(r) if r.status == RunStatus::Pass && r.passed == r.total => {
                 eprintln!("   python: PASS {}/{}", r.passed, r.total);
@@ -129,7 +136,11 @@ fn sampled_catalog_problems_run_and_judge_green() {
 
         // JavaScript reference (when node is present and one ships).
         if node {
-            if let Some(js) = p.reference_solution.as_ref().and_then(|r| r.javascript.clone()) {
+            if let Some(js) = p
+                .reference_solution
+                .as_ref()
+                .and_then(|r| r.javascript.clone())
+            {
                 if !js.trim().is_empty() {
                     match runner::execute(p, Language::Javascript, &js, true) {
                         Ok(r) if r.status == RunStatus::Pass && r.passed == r.total => {
@@ -155,5 +166,9 @@ fn sampled_catalog_problems_run_and_judge_green() {
     }
 
     eprintln!("\n=== done: {} failure(s) ===\n", failures.len());
-    assert!(failures.is_empty(), "reference solutions failed:\n{}", failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "reference solutions failed:\n{}",
+        failures.join("\n")
+    );
 }
