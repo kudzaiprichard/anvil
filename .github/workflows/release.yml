@@ -18,8 +18,47 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Creates the draft release exactly ONCE, before any platform builds start.
+  # The 4 matrix jobs below only ever *upload* to it — never create. Doing
+  # create-or-upload inside each matrix job (the previous design) raced: since
+  # `anvil-releases` has no real git tag/commit matching this tag name, `gh
+  # release create` doesn't reliably collide across concurrent callers, so
+  # parallel jobs each independently "won" and produced separate duplicate
+  # "untagged-" releases instead of sharing one.
+  create-release:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    steps:
+      # A manual "Run workflow" dispatch must be launched from an existing tag
+      # (pick it in the "Use workflow from" ref dropdown) — dispatching from a
+      # branch would resolve `github.ref_name` to the branch name and publish
+      # a garbage "release" tagged e.g. "main". Tag pushes are always
+      # `ref_type == 'tag'` and need no guard.
+      - name: Require a tag ref
+        if: github.event_name == 'workflow_dispatch' && github.ref_type != 'tag'
+        run: |
+          echo "::error::Manual dispatch must be run from an existing tag (select it in the 'Use workflow from' dropdown), not a branch — got ref '${{ github.ref_name }}' (${{ github.ref_type }})."
+          exit 1
+
+      # Idempotent: re-running this workflow against a tag that already has a
+      # release (e.g. a manual retry) just proceeds instead of erroring.
+      - name: Create the release (if it doesn't already exist)
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+        run: |
+          if gh release view "${{ github.ref_name }}" --repo kudzaiprichard/anvil-releases >/dev/null 2>&1; then
+            echo "Release ${{ github.ref_name }} already exists — skipping create."
+            exit 0
+          fi
+          gh release create "${{ github.ref_name }}" \
+            --repo kudzaiprichard/anvil-releases \
+            --title "Anvil ${{ github.ref_name }}" \
+            --notes "See the assets below to download and install Anvil." \
+            --draft
+
   release:
     name: Build ${{ matrix.platform }}
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -34,17 +73,6 @@ jobs:
             args: ""
     runs-on: ${{ matrix.platform }}
     steps:
-      # A manual "Run workflow" dispatch must be launched from an existing tag
-      # (pick it in the "Use workflow from" ref dropdown) — dispatching from a
-      # branch would resolve `github.ref_name` to the branch name and publish
-      # a garbage "release" tagged e.g. "main". Tag pushes are always
-      # `ref_type == 'tag'` and need no guard.
-      - name: Require a tag ref
-        if: github.event_name == 'workflow_dispatch' && github.ref_type != 'tag'
-        run: |
-          echo "::error::Manual dispatch must be run from an existing tag (select it in the 'Use workflow from' dropdown), not a branch — got ref '${{ github.ref_name }}' (${{ github.ref_type }})."
-          exit 1
-
       - uses: actions/checkout@v7
 
       - name: Install Linux dependencies
@@ -93,9 +121,10 @@ jobs:
       # Publish to kudzaiprichard/anvil-releases, not this repo. The default
       # GITHUB_TOKEN can't create/upload to a different repo, so this uses
       # RELEASES_REPO_TOKEN (see the one-time setup note at the top of this
-      # file). Each matrix job uploads its own platform's installers to the
-      # SAME release: whichever job finishes first creates it, the rest hit
-      # the "already exists" branch and just upload their files alongside it.
+      # file). The release itself was already created once by the
+      # create-release job above — every matrix job here only ever uploads
+      # its own platform's installers onto that same, already-existing
+      # release, so there's no create-vs-exists race between them.
       - name: Publish installers to kudzaiprichard/anvil-releases
         env:
           GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
@@ -120,13 +149,7 @@ jobs:
             echo "::warning::no installer files matched for ${{ matrix.platform }} — nothing to publish"
             exit 0
           fi
-          gh release create "${{ github.ref_name }}" \
-            --repo kudzaiprichard/anvil-releases \
-            --title "Anvil ${{ github.ref_name }}" \
-            --notes "See the assets below to download and install Anvil." \
-            --draft \
-            "${files[@]}" \
-          || gh release upload "${{ github.ref_name }}" \
+          gh release upload "${{ github.ref_name }}" \
             --repo kudzaiprichard/anvil-releases \
             --clobber \
             "${files[@]}"
