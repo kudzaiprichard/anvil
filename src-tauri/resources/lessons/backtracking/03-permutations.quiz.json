@@ -3,42 +3,275 @@
     {
       "id": "q1",
       "type": "concept-check",
-      "prompt_md": "Why does `permute` check membership with a `used` set instead of checking `x in path` directly?",
+      "prompt_md": "What role does the `used` set play in `permute`?",
       "options": [
-        "Checking `used` (a set) is O(1) per candidate, while scanning `path` (a list) would be O(n) — the set keeps each level's loop fast",
-        "Because Python lists cannot contain duplicate values",
-        "Because `path` is reset between every recursive call",
-        "Because sets preserve insertion order and lists don't"
+        "It tracks which elements are already placed somewhere in the current `path`, so the loop can skip them and only offer still-available elements at each position",
+        "It stores the final list of permutations",
+        "It replaces `path` entirely, since `path` is no longer needed",
+        "It counts how many recursive calls have happened so far"
       ],
-      "answer": "Checking `used` (a set) is O(1) per candidate, while scanning `path` (a list) would be O(n) — the set keeps each level's loop fast",
-      "explanation_md": "`used` mirrors what's already in `path` but as a hash set, so \"is x already placed?\" is O(1) instead of an O(n) scan of path repeated for every candidate at every recursion level."
+      "answer": "It tracks which elements are already placed somewhere in the current `path`, so the loop can skip them and only offer still-available elements at each position",
+      "explanation_md": "At every position, the loop needs to know which values are still free to place; `used` answers that question directly instead of re-deriving it from `path` each time."
     },
     {
       "id": "q2",
-      "type": "pattern-picker",
-      "prompt_md": "You need every distinct ordering (arrangement) of a small set of unique values, where each value must appear exactly once and order matters. Which approach fits?",
+      "type": "concept-check",
+      "prompt_md": "Why does `permute` check membership with `x in used` (a set) instead of `x in path` (a list)?",
       "options": [
-        "Backtrack over all n elements at every position, skipping ones already placed via a `used` set, and undo both path and used when backing out",
+        "Checking `used` is O(1) per candidate, while scanning `path` would be O(n) — the set keeps every level's loop fast instead of re-scanning the whole path each time",
+        "Because Python lists cannot contain duplicate values",
+        "Because `path` is reset to empty between every recursive call",
+        "Because sets preserve insertion order and lists don't"
+      ],
+      "answer": "Checking `used` is O(1) per candidate, while scanning `path` would be O(n) — the set keeps every level's loop fast instead of re-scanning the whole path each time",
+      "explanation_md": "`used` mirrors what's already in `path` but as a hash set, so 'is x already placed?' is O(1) instead of an O(n) scan of `path` repeated for every candidate at every recursion level."
+    },
+    {
+      "id": "q3",
+      "type": "concept-check",
+      "prompt_md": "Why does the loop in `permute` write `for x in nums` (restarting from the beginning every level) instead of a forward-only `start` index like combination sum uses?",
+      "options": [
+        "Because order matters here — a value skipped at one position may still be a legal choice at a later position, so there's no notion of 'already passed' the way there is when order doesn't matter",
+        "Because `nums` is always sorted before permuting",
+        "Because a `start` index would make the recursion infinite",
+        "Because permutations never reuse any value, so a start index is unnecessary either way"
+      ],
+      "answer": "Because order matters here — a value skipped at one position may still be a legal choice at a later position, so there's no notion of 'already passed' the way there is when order doesn't matter",
+      "explanation_md": "Combination sum's `start` index exists specifically to stop the search from re-visiting order-equivalent groups; since permutations treat `[1, 2]` and `[2, 1]` as distinct outputs, that forward-only restriction would incorrectly rule out valid arrangements."
+    },
+    {
+      "id": "q4",
+      "type": "concept-check",
+      "prompt_md": "In `permute`, choosing an element does `used.add(x)` followed by `path.append(x)`, and un-choosing does `path.pop()` followed by `used.remove(x)`. Why must both `path` and `used` be updated together at each step?",
+      "options": [
+        "Because they represent the same information in two different forms — the elements currently placed — and letting them fall out of sync would mean the loop's `used` check no longer reflects what `path` actually contains",
+        "Because Python requires sets and lists to be modified in the same statement",
+        "Because `used` is only for debugging and has no effect on correctness",
+        "Because `path` cannot be popped unless `used` is modified first"
+      ],
+      "answer": "Because they represent the same information in two different forms — the elements currently placed — and letting them fall out of sync would mean the loop's `used` check no longer reflects what `path` actually contains",
+      "explanation_md": "`path` and `used` are two views of the same state (the elements chosen so far); updating only one would make the `used` check lie about what's actually been placed, corrupting the search."
+    },
+    {
+      "id": "q5",
+      "type": "concept-check",
+      "prompt_md": "What condition marks the base case where a complete permutation gets recorded?",
+      "options": [
+        "`len(path) == len(nums)`, meaning every position in the output has been filled",
+        "`used` is empty",
+        "`x in used` is true for every x",
+        "`len(path) == 0`"
+      ],
+      "answer": "`len(path) == len(nums)`, meaning every position in the output has been filled",
+      "explanation_md": "Once `path` holds as many elements as the input, there are no positions left to fill, so the current arrangement is complete and worth copying into `result`."
+    },
+    {
+      "id": "q6",
+      "type": "concept-check",
+      "prompt_md": "A teammate's version pops from `path` when backing out of a choice, but forgets `used.remove(x)` right after. What is the observable bug?",
+      "options": [
+        "The element `x` stays marked as used forever after that branch returns, so sibling branches (and any branch afterward) can never place `x` again, producing far fewer than n! permutations — some legal arrangements are silently missing",
+        "The program crashes with a `KeyError` on the next call",
+        "Duplicate permutations get produced instead of missing ones",
+        "Nothing changes, since `used` is only read once at the very start"
+      ],
+      "answer": "The element `x` stays marked as used forever after that branch returns, so sibling branches (and any branch afterward) can never place `x` again, producing far fewer than n! permutations — some legal arrangements are silently missing",
+      "explanation_md": "`used.remove(x)` is the un-choose step for the `used` set; skip it, and `x` is permanently locked out of every subsequent branch that should have been free to place it, so whole permutations go missing from the output."
+    },
+    {
+      "id": "q7",
+      "type": "concept-check",
+      "prompt_md": "Instead of a separate `used` set and `path` list, a common alternative implementation swaps elements in place: swap `nums[i]` with `nums[j]` before recursing, then swap back afterward. What does this swap-based approach avoid needing?",
+      "options": [
+        "A separate `used` set (and often a separate `path` list) — the array itself, partitioned into a 'placed' prefix and an 'available' suffix, tracks what's already chosen",
+        "The base case check entirely",
+        "Any form of recursion",
+        "The need to ever undo a choice"
+      ],
+      "answer": "A separate `used` set (and often a separate `path` list) — the array itself, partitioned into a 'placed' prefix and an 'available' suffix, tracks what's already chosen",
+      "explanation_md": "Swapping keeps the 'already placed' elements physically in the front part of the array, so there's no need for extra bookkeeping structures — the position of an element in the array is itself the state, and swapping back after recursing is the un-choose step."
+    },
+    {
+      "id": "q8",
+      "type": "complexity",
+      "prompt_md": "Why does permuting n distinct elements produce exactly n! leaves, rather than 2^n like subsets?",
+      "options": [
+        "Because there are n positions to fill, and at each position the number of still-unused candidates shrinks by one (n choices, then n-1, then n-2, ...), multiplying out to n * (n-1) * ... * 1 = n!",
+        "Because each element still only has an include/exclude decision, same as subsets",
+        "Because n! is always larger than 2^n for any n, so it must be the answer",
+        "Because the recursion depth is n^2 instead of n"
+      ],
+      "answer": "Because there are n positions to fill, and at each position the number of still-unused candidates shrinks by one (n choices, then n-1, then n-2, ...), multiplying out to n * (n-1) * ... * 1 = n!",
+      "explanation_md": "Subsets makes one binary (2-way) decision per element; permutations instead makes an n-way, then (n-1)-way, then (n-2)-way, ... choice across n positions, and multiplying those shrinking choice-counts together gives n!."
+    },
+    {
+      "id": "q9",
+      "type": "complexity",
+      "prompt_md": "What is the overall time complexity of generating all permutations of an n-element list?",
+      "options": ["O(n)", "O(n^2)", "O(2^n)", "O(n * n!)"],
+      "answer": "O(n * n!)",
+      "explanation_md": "There are n! full arrangements, and copying each one into `result` costs O(n), giving O(n * n!) total work — the same 'multiply leaf count by copy cost' reasoning as subsets, just with a different leaf count."
+    },
+    {
+      "id": "q10",
+      "type": "complexity",
+      "prompt_md": "What is the maximum recursion depth when generating permutations of an n-element list?",
+      "options": ["O(1)", "O(n)", "O(n!)", "O(n^2)"],
+      "answer": "O(n)",
+      "explanation_md": "Each recursive call fills exactly one more position in `path`, and the base case triggers once `path` has n elements, so the stack can never be deeper than n frames."
+    },
+    {
+      "id": "q11",
+      "type": "concept-check",
+      "prompt_md": "How does the branching factor at a single level of the permutations recursion compare to a single level of the subsets recursion?",
+      "options": [
+        "Subsets branches into exactly 2 children at every level (include or exclude one fixed element); permutations branches into as many children as there are still-unused elements, which shrinks from n down to 1 across the levels",
+        "Both branch into exactly 2 children at every level",
+        "Permutations always branches into exactly n children at every level, with no shrinking",
+        "Subsets branches into n children per level, same as permutations"
+      ],
+      "answer": "Subsets branches into exactly 2 children at every level (include or exclude one fixed element); permutations branches into as many children as there are still-unused elements, which shrinks from n down to 1 across the levels",
+      "explanation_md": "Subsets' branching factor is fixed at 2 because each level is one binary decision; permutations' branching factor changes level by level (n, then n-1, then n-2, ...) because the loop offers every still-unused value, and that pool keeps shrinking as more positions get filled."
+    },
+    {
+      "id": "q12",
+      "type": "pattern-picker",
+      "prompt_md": "You need every distinct ordering (arrangement) of a small set of unique values, where each value must appear exactly once and order matters. What's the best approach?",
+      "options": [
+        "Backtrack over all n elements at every position, skipping ones already placed via a `used` set, and undo both `path` and `used` when backing out",
         "Backtrack with an index that only ever moves forward, choosing include/exclude at each index",
         "Sort the values, then use two pointers converging from the ends",
         "Use a sliding window sized to the target length"
       ],
-      "answer": "Backtrack over all n elements at every position, skipping ones already placed via a `used` set, and undo both path and used when backing out",
+      "answer": "Backtrack over all n elements at every position, skipping ones already placed via a `used` set, and undo both `path` and `used` when backing out",
       "correct_pattern": "backtracking",
       "explanation_md": "\"Every ordering, each value used exactly once, order matters\" is the fingerprint for permutation backtracking with a used-set — a forward-only index (as in subsets or combination sum) can't produce arrangements where order matters."
     },
     {
-      "id": "q3",
-      "type": "complexity",
-      "prompt_md": "How many leaves does the permutation backtracking search produce for n distinct elements, and what does that make the overall time complexity?",
+      "id": "q13",
+      "type": "pattern-picker",
+      "prompt_md": "A scheduling tool must list every possible order in which a small set of distinct tasks could run, so a planner can inspect all sequences before picking one. What's the best approach?",
       "options": [
-        "n! leaves, so the search is O(n * n!) once you count the O(n) cost of copying each full permutation into the result",
-        "2^n leaves, so the search is O(n * 2^n)",
-        "n^2 leaves, so the search is O(n^3)",
-        "n leaves, so the search is O(n^2)"
+        "Backtracking: at each position in the sequence, try every task not yet scheduled, recurse, then un-schedule it to try the next task",
+        "Greedy: always schedule the shortest task next",
+        "A sliding window over the list of tasks",
+        "A hash map from task name to duration"
       ],
-      "answer": "n! leaves, so the search is O(n * n!) once you count the O(n) cost of copying each full permutation into the result",
-      "explanation_md": "Each of the n positions chooses among the remaining unused values, giving n! full arrangements. Recording each one costs O(n) to copy `path`, for O(n * n!) total."
+      "answer": "Backtracking: at each position in the sequence, try every task not yet scheduled, recurse, then un-schedule it to try the next task",
+      "correct_pattern": "backtracking",
+      "explanation_md": "\"Every possible order\" of a fixed set of distinct items is exactly the permutations shape — a used-set backtracking search, not a single-answer greedy heuristic."
+    },
+    {
+      "id": "q14",
+      "type": "pattern-picker",
+      "prompt_md": "You're building a seating-chart tool that must enumerate every way a small group of distinct guests could be seated in a row, since the client wants to review all possible seatings. What's the best approach?",
+      "options": [
+        "Backtracking: fill each seat by trying every guest not yet seated, recurse, then un-seat them to try the next guest",
+        "Two pointers seating guests from both ends of the row inward",
+        "A stack that pushes guests as they're seated and pops the most recent",
+        "Dynamic programming over the number of guests"
+      ],
+      "answer": "Backtracking: fill each seat by trying every guest not yet seated, recurse, then un-seat them to try the next guest",
+      "correct_pattern": "backtracking",
+      "explanation_md": "Enumerating every arrangement of distinct people is the permutations pattern — each seat is a position to fill from the pool of not-yet-placed guests, tracked with a used-set."
+    },
+    {
+      "id": "q15",
+      "type": "pattern-picker",
+      "prompt_md": "You need every string that can be formed by rearranging the letters of a small word with all-distinct letters, so a puzzle generator can list all anagram candidates. What's the best approach?",
+      "options": [
+        "Backtracking: at each position, try every letter not yet placed, recurse, then un-place it to try the next letter",
+        "A hash map of letter frequencies to check if two strings are anagrams",
+        "Two pointers checking if the word is itself a palindrome",
+        "A stack matching opening and closing letters"
+      ],
+      "answer": "Backtracking: at each position, try every letter not yet placed, recurse, then un-place it to try the next letter",
+      "correct_pattern": "backtracking",
+      "explanation_md": "Generating every rearrangement of distinct letters is a permutations problem, not a frequency-counting or palindrome-checking one — it needs the full choose/recurse/un-choose walk over unused letters."
+    },
+    {
+      "id": "q16",
+      "type": "pattern-picker",
+      "prompt_md": "Given a sorted array, you need to check whether it's possible to pick two numbers whose difference equals a target value, using an approach that avoids a nested loop. What's the best approach?",
+      "options": [
+        "Two pointers: adjust one or both pointers based on whether the current difference is too large or too small",
+        "Backtracking: recurse over every ordering of the array and check adjacent differences",
+        "A stack that pushes numbers until a matching difference is found",
+        "Recurse over every arrangement of the two chosen numbers"
+      ],
+      "answer": "Two pointers: adjust one or both pointers based on whether the current difference is too large or too small",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "A single pair-finding question on a sorted array is the two-pointers signature, solvable in one linear pass — enumerating every arrangement via backtracking would be correct but wildly more expensive than necessary."
+    },
+    {
+      "id": "q17",
+      "type": "pattern-picker",
+      "prompt_md": "You need to evaluate a fully parenthesized arithmetic expression given as a string, respecting nested parentheses. What's the best approach?",
+      "options": [
+        "A stack: push values and operators, and resolve a sub-expression whenever a closing parenthesis is reached",
+        "Backtracking: try every possible ordering of operators and un-choose the ones that don't parse",
+        "Two pointers scanning from both ends of the expression",
+        "A hash map from operator to precedence, applied in a single left-to-right pass with no stack"
+      ],
+      "answer": "A stack: push values and operators, and resolve a sub-expression whenever a closing parenthesis is reached",
+      "correct_pattern": "stack",
+      "explanation_md": "Nested, parenthesized structure resolved from the innermost group outward is the classic stack signature — there's one correct value to compute, not many arrangements to enumerate, so backtracking doesn't apply."
+    },
+    {
+      "id": "q18",
+      "type": "pattern-picker",
+      "prompt_md": "Given the root of a binary tree, you need to find its maximum depth (the longest path from root to a leaf). What's the best approach?",
+      "options": [
+        "Recurse into both children, taking the max of their depths and adding 1 for the current node",
+        "Backtracking: enumerate every root-to-leaf path as an ordering and compare their lengths",
+        "Two pointers starting at the root and the deepest leaf",
+        "A stack-based combination search over subtrees"
+      ],
+      "answer": "Recurse into both children, taking the max of their depths and adding 1 for the current node",
+      "correct_pattern": "trees",
+      "explanation_md": "Computing a single structural property of an existing tree is a straightforward tree recursion — there's no collection of arrangements or combinations to enumerate, so this needs a tree traversal, not backtracking."
+    },
+    {
+      "id": "q19",
+      "type": "pattern-picker",
+      "prompt_md": "A game engine needs to list every possible arrangement of a small hand of distinct game pieces on a fixed row of slots, so an AI can evaluate all layouts before choosing one. What's the best approach?",
+      "options": [
+        "Backtracking: fill each slot by trying every piece not yet placed, recurse, then un-place it to try the next piece",
+        "Two pointers placing pieces from both ends of the row inward",
+        "A hash map from piece type to slot index",
+        "A greedy pass that always places the highest-value piece first"
+      ],
+      "answer": "Backtracking: fill each slot by trying every piece not yet placed, recurse, then un-place it to try the next piece",
+      "correct_pattern": "backtracking",
+      "explanation_md": "Wanting every possible arrangement (not the single best one) of distinct items into ordered slots is the permutations shape — greedy only produces one layout, not all of them."
+    },
+    {
+      "id": "q20",
+      "type": "pattern-picker",
+      "prompt_md": "Two strings are given, and you need to check whether one is an anagram of the other (same letters, same counts, any order) as efficiently as possible. What's the best approach?",
+      "options": [
+        "Count letter frequencies in both strings with a hash map (or fixed-size array) and compare the counts",
+        "Backtracking: generate every permutation of the first string and check if any equals the second string",
+        "Two pointers scanning both strings from the same side",
+        "A stack that pushes letters from one string and pops while scanning the other"
+      ],
+      "answer": "Count letter frequencies in both strings with a hash map (or fixed-size array) and compare the counts",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "Checking whether two strings are anagrams is a frequency-count comparison solvable in one linear pass — generating every permutation to search for a match would be correct but exponentially wasteful for what is really just a counting problem."
+    },
+    {
+      "id": "q21",
+      "type": "pattern-picker",
+      "prompt_md": "You need to generate every full arrangement of a hand of distinct playing cards to evaluate all possible orderings for a card trick, where each card is used exactly once per arrangement. What's the best approach?",
+      "options": [
+        "Backtracking: at each position, try every card not yet used, recurse, then un-use it to try the next card",
+        "Backtracking: at each card, decide only to include or exclude it, ignoring order",
+        "Sort the cards and use two pointers to pair them up",
+        "A stack that pushes cards and pops them in the order drawn"
+      ],
+      "answer": "Backtracking: at each position, try every card not yet used, recurse, then un-use it to try the next card",
+      "correct_pattern": "backtracking",
+      "explanation_md": "\"Every full arrangement, each item used exactly once, order matters\" is the permutations template specifically — the include/exclude option describes subsets, not arrangements where order is part of the answer."
     }
   ]
 }

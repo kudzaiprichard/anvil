@@ -3,42 +3,298 @@
     {
       "id": "q1",
       "type": "concept-check",
-      "prompt_md": "In Union-Find, what does `find(x)` return?",
+      "prompt_md": "In Union-Find, what does it mean for `parent[x] == x`?",
       "options": [
-        "The representative root of x's group",
-        "The number of nodes connected to x",
-        "A list of all of x's direct neighbors",
-        "True if x has already been visited"
+        "`x` is currently the representative (root) of its group",
+        "`x` has not been added to any group yet",
+        "`x` belongs to a group of exactly one element, always",
+        "`x` is disconnected from every other node"
       ],
-      "answer": "The representative root of x's group",
-      "explanation_md": "`find` walks the `parent` chain up to the root that represents x's whole group. Two nodes are in the same group exactly when their roots match."
+      "answer": "`x` is currently the representative (root) of its group",
+      "explanation_md": "The parent array is a forest of trees, one per group, and a node whose parent is itself is that tree's root — the group's shared representative."
     },
     {
       "id": "q2",
-      "type": "pattern-picker",
-      "prompt_md": "You're given an adjacency matrix of direct connections between n cities and must count how many groups of indirectly-connected cities exist. Which approach fits?",
+      "type": "concept-check",
+      "prompt_md": "What does **path compression** do inside `find`, and why does it matter?",
       "options": [
-        "Union-Find: union every direct connection, then count distinct roots",
-        "Topological sort to find a valid ordering of the cities",
-        "Multi-source BFS seeded from every city at once",
-        "Binary search over the number of groups"
+        "It re-points every node visited on the way up directly to the root, so future `find` calls on those nodes take just one step",
+        "It deletes nodes that are no longer connected to anything",
+        "It sorts the parent array so binary search can be used later",
+        "It merges two groups together — the same job as `union`"
       ],
-      "answer": "Union-Find: union every direct connection, then count distinct roots",
-      "correct_pattern": "graphs",
-      "explanation_md": "\"Merge pairwise connections, then ask how many groups\" is the Union-Find fingerprint — union each connected pair, then the number of distinct roots is the number of groups."
+      "answer": "It re-points every node visited on the way up directly to the root, so future `find` calls on those nodes take just one step",
+      "explanation_md": "Without flattening, chains of parent pointers can grow long; path compression collapses that chain so every visited node is one hop from the root from then on."
     },
     {
       "id": "q3",
-      "type": "complexity",
-      "prompt_md": "With path compression, what is the effective (amortized) time complexity of each `find` or `union` call?",
+      "type": "concept-check",
+      "prompt_md": "Two nodes `a` and `b` are in the same group exactly when which condition holds?",
       "options": [
-        "Nearly O(1) — O(α(n)), the inverse Ackermann function",
-        "O(n)",
-        "O(log n)",
-        "O(n^2)"
+        "`find(a) == find(b)`",
+        "`parent[a] == b`",
+        "`a` and `b` were unioned in the very first call to `union`",
+        "`a < b` in the parent array's index order"
       ],
-      "answer": "Nearly O(1) — O(α(n)), the inverse Ackermann function",
-      "explanation_md": "Path compression flattens the tree every time `find` walks it, so repeated calls converge to amortized O(α(n)) — a function that grows so slowly it's effectively constant for any realistic n."
+      "answer": "`find(a) == find(b)`",
+      "explanation_md": "Every member of a group resolves to the same root through `find`, so comparing the two roots is the same-group test — direct parent equality isn't required, since one node may sit several links below the other."
+    },
+    {
+      "id": "q4",
+      "type": "concept-check",
+      "prompt_md": "You write a `union` that does `parent[a] = b` directly, instead of `parent[find(a)] = find(b)`. What breaks if `a` isn't already a root?",
+      "options": [
+        "It can splice one group underneath a non-root node, corrupting the tree so later `find` calls no longer reach the true representative for every member of `a`'s old group",
+        "Nothing breaks — `parent[a] = b` and `parent[find(a)] = find(b)` are always equivalent",
+        "It makes `find` run in O(log n) instead of O(α(n)), but stays correct",
+        "It causes `find` to infinite-loop on every subsequent call"
+      ],
+      "answer": "It can splice one group underneath a non-root node, corrupting the tree so later `find` calls no longer reach the true representative for every member of `a`'s old group",
+      "explanation_md": "Union must always attach root-to-root; linking a non-root node directly breaks the invariant that every tree has one root reachable from all its members, silently splitting or misrepresenting the group."
+    },
+    {
+      "id": "q5",
+      "type": "concept-check",
+      "prompt_md": "What is **union by rank/size**, and what does it fix by itself, even without path compression?",
+      "options": [
+        "Always attaching the smaller/shallower tree's root under the larger/taller tree's root, which keeps trees from growing needlessly tall",
+        "Always attaching whichever root has the smaller numeric index, purely to keep the array sorted",
+        "Counting how many times each node has been unioned, purely for reporting",
+        "Reversing every union so it can be undone later if needed"
+      ],
+      "answer": "Always attaching the smaller/shallower tree's root under the larger/taller tree's root, which keeps trees from growing needlessly tall",
+      "explanation_md": "Merging small-into-large bounds how tall any tree can get purely by construction, which already keeps `find` close to O(log n) on its own — path compression then pushes it further, toward O(α(n))."
+    },
+    {
+      "id": "q6",
+      "type": "complexity",
+      "prompt_md": "With both path compression and union by rank/size applied, what is the amortized time per `find` or `union` operation?",
+      "options": [
+        "O(α(n)) — the inverse Ackermann function, effectively constant",
+        "O(log n)",
+        "O(n)",
+        "O(n log n)"
+      ],
+      "answer": "O(α(n)) — the inverse Ackermann function, effectively constant",
+      "explanation_md": "The two optimizations together give an amortized bound of O(α(n)) per operation, and α(n) stays below 5 for any input size that could ever occur in practice, so it's treated as constant time."
+    },
+    {
+      "id": "q7",
+      "type": "complexity",
+      "prompt_md": "Given a graph with V nodes and E edges, what is the total time to build a Union-Find structure and process every edge as a `union` call (with path compression + union by rank)?",
+      "options": [
+        "O(V + E · α(V))",
+        "O(V × E)",
+        "O(E^2)",
+        "O(V log E)"
+      ],
+      "answer": "O(V + E · α(V))",
+      "explanation_md": "Initializing the parent array costs O(V), and each of the E edges triggers roughly two near-constant-time `find` calls plus a union, so the total stays effectively linear in V + E."
+    },
+    {
+      "id": "q8",
+      "type": "concept-check",
+      "prompt_md": "How can Union-Find detect a cycle while processing the edges of an **undirected** graph one at a time?",
+      "options": [
+        "Before unioning an edge's two endpoints, check whether they already share the same root — if they do, this edge closes a cycle",
+        "Count the total number of edges and compare it to the number of nodes",
+        "Check whether `parent[a] == parent[b]` before either node has been unioned with anything",
+        "Union-Find cannot detect cycles at all; that requires DFS"
+      ],
+      "answer": "Before unioning an edge's two endpoints, check whether they already share the same root — if they do, this edge closes a cycle",
+      "explanation_md": "If two endpoints are already in the same group before this edge is added, some other path already connects them, so the new edge creates a second path between two already-connected nodes — a cycle."
+    },
+    {
+      "id": "q9",
+      "type": "concept-check",
+      "prompt_md": "After processing every edge in an undirected graph with Union-Find, how do you read off the number of connected components?",
+      "options": [
+        "Count the distinct roots produced by calling `find` on every node",
+        "Count how many `union` calls returned successfully",
+        "Divide the number of nodes by the number of edges",
+        "Count how many nodes have `parent[x] != x`"
+      ],
+      "answer": "Count the distinct roots produced by calling `find` on every node",
+      "explanation_md": "Each group collapses to exactly one root under `find`, so the number of unique roots across all nodes is exactly the number of connected components."
+    },
+    {
+      "id": "q10",
+      "type": "concept-check",
+      "prompt_md": "Why is Union-Find often the better choice over DFS/BFS when connectivity queries and merges are **interleaved** — e.g. \"add this edge, now tell me if these two nodes are connected,\" repeated many times?",
+      "options": [
+        "DFS/BFS would have to re-walk the graph from scratch for every fresh query, while Union-Find answers each \"same group?\" query in near-constant time using state it already maintains",
+        "DFS/BFS cannot be used on graphs that gain edges over time, full stop",
+        "Union-Find always uses less memory than an adjacency list",
+        "DFS/BFS only works on directed graphs, and this scenario is undirected"
+      ],
+      "answer": "DFS/BFS would have to re-walk the graph from scratch for every fresh query, while Union-Find answers each \"same group?\" query in near-constant time using state it already maintains",
+      "explanation_md": "Union-Find carries incremental state across merges, so each query is a cheap `find`-and-compare, whereas a flood fill has no memory between calls and must retraverse the whole reachable region every time."
+    },
+    {
+      "id": "q11",
+      "type": "concept-check",
+      "prompt_md": "A bug: `union(a, b)` sets `parent[a] = b` but the caller never calls `find` first on `a` and `b`. If `a` is not currently a root, what specifically goes wrong?",
+      "options": [
+        "The subtree that used to hang off `a`'s previous root becomes disconnected from the merge, so some nodes stop reporting as connected to `b`'s group even though they should",
+        "The whole parent array gets reset to its initial state",
+        "`find(a)` starts returning a value outside the valid index range",
+        "Nothing goes wrong as long as `b` happens to be a root"
+      ],
+      "answer": "The subtree that used to hang off `a`'s previous root becomes disconnected from the merge, so some nodes stop reporting as connected to `b`'s group even though they should",
+      "explanation_md": "Overwriting a non-root's parent pointer detaches it from its old root's tree without properly attaching that whole subtree to the new group, silently losing connectivity information for every node that pointed toward the old root."
+    },
+    {
+      "id": "q12",
+      "type": "concept-check",
+      "prompt_md": "Why does Union-Find only need O(V) extra space beyond the input, regardless of how many union operations run?",
+      "options": [
+        "It stores exactly one parent pointer per node (plus one rank/size value per node), and that array never grows no matter how many merges happen",
+        "It needs O(E) space because every edge must be stored explicitly in the parent array",
+        "It needs O(V^2) space to record every pair of nodes that are connected",
+        "Space grows with the number of `find` calls made, not with V"
+      ],
+      "answer": "It stores exactly one parent pointer per node (plus one rank/size value per node), and that array never grows no matter how many merges happen",
+      "explanation_md": "The structure is a fixed-size array of parent (and optionally rank/size) entries, one per node — merges only rewrite existing entries, they never allocate new ones."
+    },
+    {
+      "id": "q13",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a list of undirected friendship pairs among n people, arriving one at a time, and after each pair you must instantly answer \"are these two people in the same friend group?\" Which approach fits?",
+      "options": [
+        "Union-Find with path compression and union by rank, unioning each new pair and comparing roots for the query",
+        "DFS/BFS flood fill re-run from scratch after every new pair arrives",
+        "Topological sort of the friendship graph",
+        "Sort the pairs by person index and binary search for matches"
+      ],
+      "answer": "Union-Find with path compression and union by rank, unioning each new pair and comparing roots for the query",
+      "correct_pattern": "graphs",
+      "explanation_md": "Edges streaming in one at a time with repeated \"same group?\" queries is Union-Find's defining shape — DFS/BFS would have to re-walk the whole graph on every single query instead of reusing prior work."
+    },
+    {
+      "id": "q14",
+      "type": "pattern-picker",
+      "prompt_md": "You're given an n x n adjacency matrix where `isConnected[i][j] == 1` means city i and city j are directly connected, and must count the number of provinces (connected groups of cities). Which approach fits?",
+      "options": [
+        "Union-Find: union every directly-connected pair, then count distinct roots",
+        "Multi-source BFS starting from every city with an edge",
+        "Topological sort of the cities by connection count",
+        "A monotonic stack of cities ordered by index"
+      ],
+      "answer": "Union-Find: union every directly-connected pair, then count distinct roots",
+      "correct_pattern": "graphs",
+      "explanation_md": "\"Merge connected pairs, then count groups\" is exactly the Union-Find fingerprint — the answer falls out of counting distinct roots once every connection has been unioned."
+    },
+    {
+      "id": "q15",
+      "type": "pattern-picker",
+      "prompt_md": "You must determine, for an undirected graph given as an edge list, whether adding all the edges creates any cycle at all. Which approach fits?",
+      "options": [
+        "Union-Find: for each edge, check if the endpoints already share a root before unioning — a match means a cycle",
+        "BFS from an arbitrary node, computing the shortest path length to every other node",
+        "Topological sort, reporting a cycle if any node is left unprocessed",
+        "Two pointers scanning the edge list from both ends"
+      ],
+      "answer": "Union-Find: for each edge, check if the endpoints already share a root before unioning — a match means a cycle",
+      "correct_pattern": "graphs",
+      "explanation_md": "Cycle detection on an undirected edge stream is a natural Union-Find query: an edge whose endpoints are already connected necessarily closes a loop, since a second path between them now exists."
+    },
+    {
+      "id": "q16",
+      "type": "pattern-picker",
+      "prompt_md": "You need to determine the minimum cost to connect all cities into one network, given a list of possible roads each with a cost, choosing a subset of roads that connects everything as cheaply as possible. Which approach fits?",
+      "options": [
+        "Sort roads by cost and greedily union endpoints with Union-Find, skipping any road whose endpoints are already connected (a minimum spanning tree)",
+        "Multi-source BFS from every city simultaneously",
+        "Topological sort of the roads by cost",
+        "DFS flood fill from the first city, ignoring cost"
+      ],
+      "answer": "Sort roads by cost and greedily union endpoints with Union-Find, skipping any road whose endpoints are already connected (a minimum spanning tree)",
+      "correct_pattern": "graphs",
+      "explanation_md": "Building a minimum spanning tree is the classic Kruskal's-algorithm use of Union-Find: sort by cost, and use the same-root check to skip any edge that would just close a cycle rather than connect new territory."
+    },
+    {
+      "id": "q17",
+      "type": "pattern-picker",
+      "prompt_md": "You must count how many separate islands of land ('1' cells) exist in a 2D grid, where land cells are connected if they touch up/down/left/right. Which approach fits?",
+      "options": [
+        "DFS/BFS flood fill from each unvisited land cell, marking everything reachable as one island",
+        "Union-Find comparing every pair of cells in the grid",
+        "Topological sort of the land cells",
+        "A max-heap of cells ordered by row index"
+      ],
+      "answer": "DFS/BFS flood fill from each unvisited land cell, marking everything reachable as one island",
+      "correct_pattern": "graphs",
+      "explanation_md": "Grid adjacency with implicit edges (just check the four neighbors) is cheapest to explore with a direct flood fill — Union-Find earns its keep when edges instead arrive explicitly as a pair list to be merged incrementally."
+    },
+    {
+      "id": "q18",
+      "type": "pattern-picker",
+      "prompt_md": "You're given the head of a singly linked list and must detect whether it loops back on itself. Which approach fits?",
+      "options": [
+        "Fast/slow pointers (Floyd's cycle detection), advancing one pointer twice as fast as the other until they meet or one falls off the end",
+        "Union-Find, treating each node as unioned with its successor",
+        "Topological sort of the linked list nodes",
+        "Multi-source BFS from the head and tail"
+      ],
+      "answer": "Fast/slow pointers (Floyd's cycle detection), advancing one pointer twice as fast as the other until they meet or one falls off the end",
+      "correct_pattern": "linked-list",
+      "explanation_md": "This is a cycle question, but the structure is a singly linked list with exactly one successor per node — the fast/slow pointer technique is the purpose-built linked-list tool, not a general graph merge structure."
+    },
+    {
+      "id": "q19",
+      "type": "pattern-picker",
+      "prompt_md": "Given an array of course prerequisite pairs where each pair means \"course A must be completed before course B,\" you must determine if it's possible to finish all courses. Which approach fits?",
+      "options": [
+        "Topological sort with cycle detection over the directed prerequisite graph",
+        "Union-Find, unioning each prerequisite pair and checking they all land in one group",
+        "Two pointers scanning the prerequisite list from both ends",
+        "A monotonic stack of courses ordered by prerequisite count"
+      ],
+      "answer": "Topological sort with cycle detection over the directed prerequisite graph",
+      "correct_pattern": "graphs",
+      "explanation_md": "\"Must come before\" is a directed relationship, not a symmetric connectivity one — Union-Find only tests undirected same-group membership and can't tell a valid chain apart from a directed deadlock cycle."
+    },
+    {
+      "id": "q20",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a sorted array of distinct integers and must find the index of a target value as fast as possible. Which approach fits?",
+      "options": [
+        "Binary search, halving the search range each step",
+        "Union-Find over the array indices",
+        "DFS flood fill over adjacent array indices",
+        "Multi-source BFS seeded from both ends of the array"
+      ],
+      "answer": "Binary search, halving the search range each step",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "A sorted array with a single-target lookup is binary search's fingerprint, not a connectivity or graph-merge problem — there's no group structure here for Union-Find to operate on."
+    },
+    {
+      "id": "q21",
+      "type": "pattern-picker",
+      "prompt_md": "You're given `n` nodes labeled 1 to n and a list of edges describing a tree, plus exactly one extra edge that creates a cycle. You must identify that one redundant edge without rebuilding the whole graph from scratch. Which approach fits?",
+      "options": [
+        "Union-Find: union each edge's endpoints in order, and return the edge whose endpoints are already in the same group",
+        "Topological sort of the edges by their order in the list",
+        "Multi-source BFS from every leaf node",
+        "A monotonic stack of edges ordered by node index"
+      ],
+      "answer": "Union-Find: union each edge's endpoints in order, and return the edge whose endpoints are already in the same group",
+      "correct_pattern": "graphs",
+      "explanation_md": "Processing edges in order and unioning them makes the very first edge that connects two already-same-group nodes the one closing the cycle — exactly the edge to remove, found in one linear pass."
+    },
+    {
+      "id": "q22",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a weighted, directed graph and a source node, and must find the shortest time for a signal to reach every other node, where edge weights represent positive travel times. Which approach fits?",
+      "options": [
+        "Dijkstra's algorithm with a min-heap, always expanding the closest known unvisited node next",
+        "Union-Find, unioning nodes along each edge and reading off distances from group size",
+        "A DFS flood fill counting the number of edges traversed to each node",
+        "Topological sort of the nodes by edge weight"
+      ],
+      "answer": "Dijkstra's algorithm with a min-heap, always expanding the closest known unvisited node next",
+      "correct_pattern": "heap",
+      "explanation_md": "Union-Find only tracks whether nodes are connected, not weighted distances between them — once edges carry different costs, the structure needed is a priority queue driving Dijkstra's algorithm, not a disjoint-set merge."
     }
   ]
 }

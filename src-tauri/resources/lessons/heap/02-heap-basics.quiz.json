@@ -15,25 +15,289 @@
     },
     {
       "id": "q2",
-      "type": "pattern-picker",
-      "prompt_md": "You repeatedly need the two currently-largest elements, combine them, and may feed a new value back into the same pool. Which approach fits?",
-      "options": [
-        "Sort once at the start and index into the sorted list",
-        "Use a heap: pop the top one or two elements, push back any derived value",
-        "Use a hash map counting the frequency of each value",
-        "Use two pointers from both ends of a sorted array"
-      ],
-      "answer": "Use a heap: pop the top one or two elements, push back any derived value",
-      "correct_pattern": "heap",
-      "explanation_md": "A round-based \"pop the current extremum, maybe push a derived value back\" process is exactly what a heap is built for — each round costs O(log n) regardless of how the rest of the pool is arranged."
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of peeking at the minimum (`heap[0]`) in a binary heap?",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+      "answer": "O(1)",
+      "explanation_md": "The heap invariant guarantees the minimum always sits at index 0, so reading it requires no traversal at all."
     },
     {
       "id": "q3",
       "type": "complexity",
-      "prompt_md": "With n stones, what is the total time complexity of repeatedly popping the two heaviest and pushing back the difference until at most one stone remains?",
+      "prompt_md": "What is the time complexity of `heapq.heappush`?",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+      "answer": "O(log n)",
+      "explanation_md": "Pushing appends the value and then 'sifts' it up at most the height of the heap, which is O(log n)."
+    },
+    {
+      "id": "q4",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of `heapq.heappop`?",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+      "answer": "O(log n)",
+      "explanation_md": "Popping removes the root, moves the last element there, and sifts it down at most the height of the heap, which is O(log n)."
+    },
+    {
+      "id": "q5",
+      "type": "complexity",
+      "prompt_md": "What is the time complexity of `heapq.heapify` on an existing list of n elements?",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+      "answer": "O(n)",
+      "explanation_md": "Building a heap bottom-up from an unordered list takes linear time — cheaper than n individual O(log n) insertions."
+    },
+    {
+      "id": "q6",
+      "type": "concept-check",
+      "prompt_md": "Why is `heapify` O(n) rather than O(n log n), even though inserting n elements one at a time via `heappush` would cost O(n log n)?",
+      "options": [
+        "It isn't actually O(n) — that's a common misconception",
+        "Building bottom-up, most nodes are near the leaves and need very few swaps, so the total work across all nodes sums to O(n)",
+        "Python secretly sorts the list first, which is free",
+        "heapify only checks the first element and assumes the rest is fine"
+      ],
+      "answer": "Building bottom-up, most nodes are near the leaves and need very few swaps, so the total work across all nodes sums to O(n)",
+      "explanation_md": "Sifting down from the bottom means the (many) near-leaf nodes barely move, while only the (few) near-root nodes sift far — the sum of that work is linear, not n log n."
+    },
+    {
+      "id": "q7",
+      "type": "concept-check",
+      "prompt_md": "In Python's `heapq` (a min-heap only), how do you track a running **maximum**?",
+      "options": [
+        "Negate values going in and negate them again coming out",
+        "Call `heapq.heappop` twice per round",
+        "Keep a separate max variable and ignore the heap",
+        "Switch to a different heap library automatically"
+      ],
+      "answer": "Negate values going in and negate them again coming out",
+      "explanation_md": "There is no built-in max-heap in `heapq` — negation is the standard trick to reuse the min-heap for max-tracking."
+    },
+    {
+      "id": "q8",
+      "type": "concept-check",
+      "prompt_md": "After popping the two largest stones (`a = -heappop(heap)`, `b = -heappop(heap)`) and computing their difference, what must happen if that difference is still meaningful (non-zero)?",
+      "options": [
+        "Discard it — only the original stones matter",
+        "Push its negation back onto the heap so it competes correctly in future rounds",
+        "Store it in a hash map instead of the heap",
+        "Sort the heap around the new value"
+      ],
+      "answer": "Push its negation back onto the heap so it competes correctly in future rounds",
+      "explanation_md": "The leftover value re-enters the same pool and must be negated on the way in, just like every other value, to keep the max-heap-via-negation trick consistent."
+    },
+    {
+      "id": "q9",
+      "type": "complexity",
+      "prompt_md": "For n elements where each round removes the two largest and pushes back at most one derived value (so the pool shrinks by at least one per round), what is the total time complexity across all rounds?",
       "options": ["O(n)", "O(n log n)", "O(n^2)", "O(2^n)"],
       "answer": "O(n log n)",
-      "explanation_md": "Each round does O(1) pops and at most one push, each costing O(log n); there are O(n) rounds since the pool shrinks by at least one stone per round, giving O(n log n) total."
+      "explanation_md": "There are O(n) rounds, and each round does a constant number of O(log n) heap operations, giving O(n log n) overall."
+    },
+    {
+      "id": "q10",
+      "type": "concept-check",
+      "prompt_md": "What breaks if you forget to negate values before pushing them, but still expect the heap to track a running maximum?",
+      "options": [
+        "Nothing — heapq automatically detects you want a max",
+        "`heap[0]` reports the current minimum, not the maximum, silently giving wrong answers",
+        "The program throws a runtime error immediately",
+        "It only breaks when there are duplicate values"
+      ],
+      "answer": "`heap[0]` reports the current minimum, not the maximum, silently giving wrong answers",
+      "explanation_md": "`heapq` has no idea you 'meant' a max-heap — without negation it faithfully tracks the minimum, and the bug is silent rather than an error."
+    },
+    {
+      "id": "q11",
+      "type": "concept-check",
+      "prompt_md": "Why can a heap answer 'give me the current extremum' without knowing anything about the rest of the pool?",
+      "options": [
+        "Because the extremum sitting at (or near) the root is a structural invariant maintained after every push/pop, not something recomputed by scanning",
+        "Because heapq secretly keeps a fully sorted copy of the data",
+        "Because it caches the previous answer and reuses it",
+        "Because it only works correctly when all elements are distinct"
+      ],
+      "answer": "Because the extremum sitting at (or near) the root is a structural invariant maintained after every push/pop, not something recomputed by scanning",
+      "explanation_md": "Every push/pop restores the heap property, so the root is always correct by construction — no scan of the rest of the elements is ever needed."
+    },
+    {
+      "id": "q12",
+      "type": "concept-check",
+      "prompt_md": "What is the key difference between the size-k heap from the top-k lesson and the running-extremum heap in this lesson?",
+      "options": [
+        "There is no difference — they're the same technique",
+        "The top-k heap is capped at size k to track a boundary value; the running-extremum heap holds everything and is used purely to repeatedly pop/push",
+        "The running-extremum heap only works with integer values",
+        "The top-k heap cannot use negation, but the running-extremum heap can"
+      ],
+      "answer": "The top-k heap is capped at size k to track a boundary value; the running-extremum heap holds everything and is used purely to repeatedly pop/push",
+      "explanation_md": "Same underlying data structure, different job: bounding size to track a boundary value versus using the full pool as a fast pop-and-push engine."
+    },
+    {
+      "id": "q13",
+      "type": "pattern-picker",
+      "prompt_md": "Two heaviest stones are repeatedly smashed together, producing a new stone (or nothing) that's fed back into the same pile, until at most one remains.",
+      "options": [
+        "Sort the pile once and simulate with indices",
+        "Use a max-heap (negated min-heap): pop the two heaviest each round, push back any leftover",
+        "Use a hash map of stone weights",
+        "Use two pointers over the sorted pile"
+      ],
+      "answer": "Use a max-heap (negated min-heap): pop the two heaviest each round, push back any leftover",
+      "correct_pattern": "heap",
+      "explanation_md": "Repeatedly combining the current two largest and feeding a result back into the same pool is the running-extremum heap pattern."
+    },
+    {
+      "id": "q14",
+      "type": "pattern-picker",
+      "prompt_md": "Each round, merge the two smallest piles of coins into one pile, and keep doing this until one pile remains; you need the running smallest pair every round.",
+      "options": [
+        "Re-scan the whole list for the two smallest piles every round",
+        "Use a min-heap: pop the two smallest, push the merged pile back",
+        "Use a stack of pile sizes",
+        "Use BFS over the piles"
+      ],
+      "answer": "Use a min-heap: pop the two smallest, push the merged pile back",
+      "correct_pattern": "heap",
+      "explanation_md": "A round-based 'combine the two smallest, requeue the result' process is exactly what a heap gives you in O(log n) per round."
+    },
+    {
+      "id": "q15",
+      "type": "pattern-picker",
+      "prompt_md": "You must repeatedly find and remove the current maximum from a changing collection, sometimes inserting new values back in, over many operations.",
+      "options": [
+        "Track the max in a single variable and rescan the collection whenever it's removed",
+        "Use a max-heap so both removal-of-max and insertion cost O(log n)",
+        "Use a hash set of all values",
+        "Use two pointers over an unsorted collection"
+      ],
+      "answer": "Use a max-heap so both removal-of-max and insertion cost O(log n)",
+      "correct_pattern": "heap",
+      "explanation_md": "Repeated 'remove the current extremum, maybe insert something new' operations are the running-extremum heap's exact use case."
+    },
+    {
+      "id": "q16",
+      "type": "pattern-picker",
+      "prompt_md": "A simulation repeatedly needs 'the current smallest value in the pool,' and the pool is mutated (some values removed, new ones added) every step.",
+      "options": [
+        "Sort the pool from scratch after every mutation",
+        "Use a min-heap so peek/pop of the smallest and insertion are both O(log n)",
+        "Use a hash map counting how many times each value appears",
+        "Use a stack that tracks insertion order"
+      ],
+      "answer": "Use a min-heap so peek/pop of the smallest and insertion are both O(log n)",
+      "correct_pattern": "heap",
+      "explanation_md": "A constantly mutating pool with a repeated 'current minimum' query is a textbook running-extremum heap."
+    },
+    {
+      "id": "q17",
+      "type": "pattern-picker",
+      "prompt_md": "You need to repeatedly combine the two largest weights in a set, feeding the combined weight back in, without ever needing the full sorted order of the set.",
+      "options": [
+        "Maintain the full sorted order at all times with an array",
+        "Use a max-heap and only ever look at the top one or two elements",
+        "Use a hash map keyed by weight",
+        "Use two pointers from each end of a sorted array"
+      ],
+      "answer": "Use a max-heap and only ever look at the top one or two elements",
+      "correct_pattern": "heap",
+      "explanation_md": "Since only the current top one or two elements ever matter, a heap gives you that without the wasted cost of maintaining a full ordering."
+    },
+    {
+      "id": "q18",
+      "type": "pattern-picker",
+      "prompt_md": "A round-based game removes the strongest player, weakens them, and puts them back into the pool, over and over.",
+      "options": [
+        "Rescan for the strongest player each round in O(n)",
+        "Use a max-heap: pop the strongest, push back the weakened value",
+        "Use a hash map keyed by player id",
+        "Use a stack of players in join order"
+      ],
+      "answer": "Use a max-heap: pop the strongest, push back the weakened value",
+      "correct_pattern": "heap",
+      "explanation_md": "Pop-the-extremum-then-requeue-a-derived-value, repeated over many rounds, is precisely the running-extremum heap pattern."
+    },
+    {
+      "id": "q19",
+      "type": "pattern-picker",
+      "prompt_md": "You must process a changing set where the only operation you ever need is 'give me the current minimum, then let me possibly replace it with something else.'",
+      "options": [
+        "Keep the set as an unsorted list and scan for the minimum each time",
+        "Use a min-heap: pop gives the minimum in O(log n), push inserts the replacement in O(log n)",
+        "Use a hash map of value frequencies",
+        "Use two pointers converging from the ends"
+      ],
+      "answer": "Use a min-heap: pop gives the minimum in O(log n), push inserts the replacement in O(log n)",
+      "correct_pattern": "heap",
+      "explanation_md": "A 'pop the min, push a replacement' loop is the heap's core operation, with no need for the rest of the set to be ordered."
+    },
+    {
+      "id": "q20",
+      "type": "pattern-picker",
+      "prompt_md": "Rocks of various hardness are repeatedly crushed two-at-a-time (the two hardest), and the byproduct re-enters the batch, until at most one rock remains.",
+      "options": [
+        "Sort the batch once at the start and never touch it again",
+        "Use a max-heap so each round's 'two hardest' pop and the byproduct push are both O(log n)",
+        "Use a hash map keyed by hardness value",
+        "Use a stack that always crushes the most recently added rock"
+      ],
+      "answer": "Use a max-heap so each round's 'two hardest' pop and the byproduct push are both O(log n)",
+      "correct_pattern": "heap",
+      "explanation_md": "A static one-time sort can't reflect the byproducts created mid-simulation; only a heap that's re-queried each round handles that."
+    },
+    {
+      "id": "q21",
+      "type": "pattern-picker",
+      "prompt_md": "At every step of a long simulation, you need whichever element is currently largest, and after using it you'll often reinsert a modified version.",
+      "options": [
+        "Track a running max variable and manually rescan whenever it changes",
+        "Use a max-heap: the root is always the current largest, and reinsertion costs O(log n)",
+        "Use a hash map keyed by element id",
+        "Use two pointers scanning inward"
+      ],
+      "answer": "Use a max-heap: the root is always the current largest, and reinsertion costs O(log n)",
+      "correct_pattern": "heap",
+      "explanation_md": "Repeated 'read the current max, then mutate and reinsert' steps are exactly what the running-extremum heap is built for."
+    },
+    {
+      "id": "q22",
+      "type": "pattern-picker",
+      "prompt_md": "You need to know whether an array contains any duplicate values at all.",
+      "options": [
+        "Use a max-heap to check the two largest values each round",
+        "Use a hash set: insert each value and check if it's already present",
+        "Use two pointers from both ends",
+        "Use a stack to track values"
+      ],
+      "answer": "Use a hash set: insert each value and check if it's already present",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "There's no running extremum or repeated combine-and-requeue here — a single hash-set membership check per element solves it directly."
+    },
+    {
+      "id": "q23",
+      "type": "pattern-picker",
+      "prompt_md": "Check whether a string of parentheses is balanced and properly nested.",
+      "options": [
+        "Use a min-heap of characters",
+        "Use a stack: push opening brackets, pop and match on closing brackets",
+        "Use a hash map counting bracket types",
+        "Use two pointers from both ends of the string"
+      ],
+      "answer": "Use a stack: push opening brackets, pop and match on closing brackets",
+      "correct_pattern": "stack",
+      "explanation_md": "Matching nested pairs in last-opened-first-closed order is the stack pattern, not a heap — order of opening matters, not magnitude."
+    },
+    {
+      "id": "q24",
+      "type": "pattern-picker",
+      "prompt_md": "Given a binary tree, find its maximum depth.",
+      "options": [
+        "Use a max-heap of node values",
+        "Recurse (DFS) down each subtree, taking 1 + the max of the children's depths",
+        "Use a hash map keyed by node value",
+        "Use two pointers walking the tree's leaves"
+      ],
+      "answer": "Recurse (DFS) down each subtree, taking 1 + the max of the children's depths",
+      "correct_pattern": "trees",
+      "explanation_md": "Depth is a structural property of the tree computed via recursion, not a running extremum over a flat pool of values — no heap needed."
     }
   ]
 }

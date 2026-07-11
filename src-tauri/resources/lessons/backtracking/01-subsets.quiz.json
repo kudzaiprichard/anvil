@@ -3,37 +3,270 @@
     {
       "id": "q1",
       "type": "concept-check",
-      "prompt_md": "Why does `backtrack` append `path[:]` (a copy) to `result` instead of appending `path` itself?",
+      "prompt_md": "`path` is a single list object that the whole recursion tree shares and mutates. Why must `result.append(path[:])` copy it instead of appending `path` itself?",
       "options": [
-        "Because `path` keeps mutating as the recursion continues, so storing the same list reference would let later pushes/pops change subsets already recorded",
-        "Because Python lists cannot be nested inside other lists",
-        "Because it makes the recursion run faster",
-        "Because `result` must stay sorted"
+        "Because every later `append`/`pop` on `path` would otherwise be visible through every reference already stored in `result`, silently turning already-recorded subsets into whatever `path` happens to hold later",
+        "Because Python raises an error if you append the same list object twice",
+        "Because copying makes the recursion run in less time",
+        "Because `result` needs to stay sorted by subset length"
       ],
-      "answer": "Because `path` keeps mutating as the recursion continues, so storing the same list reference would let later pushes/pops change subsets already recorded",
-      "explanation_md": "`path` is one shared, mutable list reused across the whole tree. Appending it by reference would mean every recorded subset is really the *same* object, and later `append`/`pop` calls would silently rewrite subsets you already thought were done — `path[:]` freezes a snapshot instead."
+      "answer": "Because every later `append`/`pop` on `path` would otherwise be visible through every reference already stored in `result`, silently turning already-recorded subsets into whatever `path` happens to hold later",
+      "explanation_md": "`path` is one mutable object reused for the entire walk, so storing a reference to it means every 'recorded' subset is really the same live object — only a snapshot (`path[:]`) freezes its contents at that moment."
     },
     {
       "id": "q2",
-      "type": "pattern-picker",
-      "prompt_md": "You need to output every possible subset of a small list — order within a subset doesn't matter, but you must consider both including and excluding each element. Which approach fits?",
+      "type": "concept-check",
+      "prompt_md": "In the subsets template, what does the **choose** step actually do at a given index `i`?",
       "options": [
-        "Backtrack: at each index, choose to include the element, recurse, then un-choose (pop) and recurse again to skip it",
-        "Sort the list, then use two pointers converging from both ends",
-        "Use a sliding window that expands and shrinks over the array",
-        "Build a hash map from value to index and look up complements"
+        "It appends `nums[i]` onto `path`, recording the decision to include that element in the subset currently being built",
+        "It removes `nums[i]` from the input list permanently",
+        "It sorts `path` so far",
+        "It increments `i` by two instead of one"
       ],
-      "answer": "Backtrack: at each index, choose to include the element, recurse, then un-choose (pop) and recurse again to skip it",
-      "correct_pattern": "backtracking",
-      "explanation_md": "\"Every subset\" with an independent include/exclude decision per element is the fingerprint for backtracking's choose-recurse-un-choose template — there's no order or window to exploit, just an exhaustive walk of the choice tree."
+      "answer": "It appends `nums[i]` onto `path`, recording the decision to include that element in the subset currently being built",
+      "explanation_md": "Choosing means committing to the 'include' branch for this index by pushing the element onto the shared path before recursing deeper."
     },
     {
       "id": "q3",
+      "type": "concept-check",
+      "prompt_md": "Why must the **un-choose** step (`path.pop()`) run before the second recursive call at each index, rather than after both calls?",
+      "options": [
+        "Because the second call explores the 'exclude nums[i]' branch, which needs `path` restored to exactly the state it had before `nums[i]` was chosen — otherwise the exclude branch would still contain an element it never chose",
+        "Because Python requires every `append` to be matched by a `pop` within the same statement",
+        "Because popping early makes the function return sooner",
+        "Because `path` must be empty before any recursive call"
+      ],
+      "answer": "Because the second call explores the 'exclude nums[i]' branch, which needs `path` restored to exactly the state it had before `nums[i]` was chosen — otherwise the exclude branch would still contain an element it never chose",
+      "explanation_md": "Un-choosing undoes exactly one decision so the sibling branch starts from the same shared state the parent call had, which is what keeps the include and exclude branches independent."
+    },
+    {
+      "id": "q4",
+      "type": "concept-check",
+      "prompt_md": "Why does `backtrack` make exactly two recursive calls at every index instead of one?",
+      "options": [
+        "Because each element has exactly two independent fates — included or excluded — and both branches of that decision must be explored to enumerate every subset",
+        "Because recursive functions in Python always need to call themselves twice to terminate",
+        "Because the list might contain duplicate values",
+        "Because the base case can only be reached with an even number of calls"
+      ],
+      "answer": "Because each element has exactly two independent fates — included or excluded — and both branches of that decision must be explored to enumerate every subset",
+      "explanation_md": "Every element independently contributes a factor of 2 to the total leaf count (in or out), so the tree needs two calls per level to cover both outcomes."
+    },
+    {
+      "id": "q5",
+      "type": "concept-check",
+      "prompt_md": "What condition marks the base case that stops the recursion and records a subset?",
+      "options": [
+        "`i == len(nums)` — every element has had its include/exclude decision made, so the current `path` is a complete subset",
+        "`len(path) == 0`",
+        "`i == 0`",
+        "`len(result) == 2 ** n`"
+      ],
+      "answer": "`i == len(nums)` — every element has had its include/exclude decision made, so the current `path` is a complete subset",
+      "explanation_md": "Once the index runs past the last element, there are no more decisions left to make, so whatever `path` currently holds is one finished subset worth recording."
+    },
+    {
+      "id": "q6",
+      "type": "concept-check",
+      "prompt_md": "A teammate's version of `backtrack` appends `nums[i]` and recurses, but forgets to call `path.pop()` before making the second (exclude) recursive call. What is the observable effect?",
+      "options": [
+        "Every 'exclude' branch after the bug still carries leftover elements from the 'include' branch, so the recorded subsets are wrong — some elements appear in subsets that should have excluded them",
+        "The program throws a `SyntaxError` before it can run",
+        "The output is identical because Python passes lists by value",
+        "The recursion simply runs one level shallower than intended"
+      ],
+      "answer": "Every 'exclude' branch after the bug still carries leftover elements from the 'include' branch, so the recorded subsets are wrong — some elements appear in subsets that should have excluded them",
+      "explanation_md": "Skipping the un-choose step means the shared `path` never gets reset between the two branches, so state from the include branch leaks into every subsequent subset the exclude branch tries to record."
+    },
+    {
+      "id": "q7",
       "type": "complexity",
-      "prompt_md": "What is the time complexity of generating all subsets of an n-element list this way?",
-      "options": ["O(n)", "O(n^2)", "O(2^n)", "O(n * 2^n)"],
+      "prompt_md": "What is the maximum depth of the recursion (i.e., how many stack frames are active at once) when generating subsets of an n-element list?",
+      "options": ["O(1)", "O(n)", "O(2^n)", "O(n^2)"],
+      "answer": "O(n)",
+      "explanation_md": "Each call either includes or excludes one element and advances `i` by one, so the recursion can never go deeper than `n` levels before hitting the base case."
+    },
+    {
+      "id": "q8",
+      "type": "complexity",
+      "prompt_md": "Why does an n-element list produce exactly `2^n` leaves in the subsets choice tree?",
+      "options": [
+        "Because every one of the n elements independently contributes a factor of 2 (include or exclude), and multiplying n independent factors of 2 together gives 2^n total combinations",
+        "Because the recursion always branches into exactly n children at the root",
+        "Because `2^n` is the number of ways to sort n elements",
+        "Because there are 2 base cases in the function"
+      ],
+      "answer": "Because every one of the n elements independently contributes a factor of 2 (include or exclude), and multiplying n independent factors of 2 together gives 2^n total combinations",
+      "explanation_md": "Independent binary decisions multiply: 2 choices for element 1, times 2 for element 2, and so on for all n elements, giving 2 * 2 * ... * 2 = 2^n distinct outcomes."
+    },
+    {
+      "id": "q9",
+      "type": "complexity",
+      "prompt_md": "What is the overall time complexity of generating and recording all subsets of an n-element list?",
+      "options": ["O(n)", "O(2^n)", "O(n * 2^n)", "O(n!)"],
       "answer": "O(n * 2^n)",
-      "explanation_md": "There are 2^n leaves in the choice tree (one per subset), and recording each one costs O(n) to copy `path` into `result`, giving O(n * 2^n) total time and space."
+      "explanation_md": "There are 2^n subsets to produce, and recording each one costs O(n) because `path[:]` has to copy up to n elements, giving O(n * 2^n) total work."
+    },
+    {
+      "id": "q10",
+      "type": "complexity",
+      "prompt_md": "Beyond the recursion stack, what is the total space needed to store the final answer (all subsets) for an n-element input?",
+      "options": ["O(n)", "O(2^n)", "O(n * 2^n)", "O(log n)"],
+      "answer": "O(n * 2^n)",
+      "explanation_md": "There are 2^n subsets in the output, and each one can hold up to n elements, so storing all of them takes O(n * 2^n) space in the worst case."
+    },
+    {
+      "id": "q11",
+      "type": "concept-check",
+      "prompt_md": "Subsets and permutations are both backtracking problems over the same kind of input, yet they aren't interchangeable. What's the key difference in what each output represents?",
+      "options": [
+        "Subsets only ask whether each element is in or out (order within a subset is irrelevant), while permutations ask about every ordering of a fixed set of elements — so `[1, 2]` and `[2, 1]` are the same subset but different permutations",
+        "Subsets require sorted input while permutations never do",
+        "Subsets only work on numeric input, permutations only work on strings",
+        "There is no meaningful difference — they produce the same output in a different order"
+      ],
+      "answer": "Subsets only ask whether each element is in or out (order within a subset is irrelevant), while permutations ask about every ordering of a fixed set of elements — so `[1, 2]` and `[2, 1]` are the same subset but different permutations",
+      "explanation_md": "Subsets is a per-element in/out decision (no notion of order), whereas permutations enumerate every arrangement of the same fixed group, so order is exactly what distinguishes two otherwise-identical outputs."
+    },
+    {
+      "id": "q12",
+      "type": "pattern-picker",
+      "prompt_md": "You're given a small list of distinct integers and must output every possible subset, from the empty set up to the full list, with order inside a subset not mattering. Which approach fits best?",
+      "options": [
+        "Backtracking: at each index, choose to include the element, recurse, un-choose, then recurse again to skip it",
+        "Sort the list, then use two pointers converging from the ends",
+        "Build a hash set of seen values and check membership as you scan once",
+        "Use a stack to match opening and closing decisions"
+      ],
+      "answer": "Backtracking: at each index, choose to include the element, recurse, un-choose, then recurse again to skip it",
+      "correct_pattern": "backtracking",
+      "explanation_md": "\"Every subset, order doesn't matter\" is the fingerprint for the include/exclude backtracking template — there's no sorted structure or window to exploit, just an exhaustive walk of independent decisions."
+    },
+    {
+      "id": "q13",
+      "type": "pattern-picker",
+      "prompt_md": "A pricing tool needs to list every possible combination of toppings a customer could add to a pizza (each topping is independently on or off), so the menu can show a price for every option. What's the best approach?",
+      "options": [
+        "Backtracking: treat each topping as an include/exclude decision and recurse over all of them",
+        "Greedy: always add the cheapest topping first",
+        "Binary search over the number of toppings",
+        "Dynamic programming over topping prices"
+      ],
+      "answer": "Backtracking: treat each topping as an include/exclude decision and recurse over all of them",
+      "correct_pattern": "backtracking",
+      "explanation_md": "Every independent on/off decision across a small set of options, with the goal of enumerating all resulting combinations, is exactly the subsets choice tree."
+    },
+    {
+      "id": "q14",
+      "type": "pattern-picker",
+      "prompt_md": "You need to generate the full power set (every subset, of every size) of a config object's boolean feature flags, so QA can test every flag combination. What's the right technique?",
+      "options": [
+        "Backtracking: recurse through the flags, choosing to include or exclude each one",
+        "A sliding window that expands and shrinks over the list of flags",
+        "A greedy pass that turns on flags in order of priority",
+        "Reverse a linked list of flags"
+      ],
+      "answer": "Backtracking: recurse through the flags, choosing to include or exclude each one",
+      "correct_pattern": "backtracking",
+      "explanation_md": "\"Every combination of independent boolean switches\" is the subsets pattern regardless of what the elements represent — it's still one include/exclude decision per item."
+    },
+    {
+      "id": "q15",
+      "type": "pattern-picker",
+      "prompt_md": "Given a **sorted** array of integers, you need to find whether any two numbers add up exactly to a given target. What's the best approach?",
+      "options": [
+        "Two pointers: start one at each end and move inward based on whether the current sum is too high or too low",
+        "Backtracking: recurse choosing to include or exclude each number until you find a pair",
+        "A stack that pushes numbers and pops when a match is found",
+        "Recurse over every ordering of the array"
+      ],
+      "answer": "Two pointers: start one at each end and move inward based on whether the current sum is too high or too low",
+      "correct_pattern": "two-pointers",
+      "explanation_md": "This is a single target-sum answer (not a request to enumerate every combination), and the array is already sorted — that's the trigger for closing two pointers from both ends in O(n), not an exhaustive backtracking search."
+    },
+    {
+      "id": "q16",
+      "type": "pattern-picker",
+      "prompt_md": "You need to check whether a string of brackets like `\"([{}])\"` has every opening bracket matched by the correct closing bracket in the correct order. What's the best approach?",
+      "options": [
+        "A stack: push each opening bracket, and on a closing bracket check that it matches the top of the stack",
+        "Backtracking: try every possible bracket assignment and un-choose the ones that fail",
+        "Two pointers scanning from both ends toward the middle",
+        "A hash map counting how many of each bracket type appear"
+      ],
+      "answer": "A stack: push each opening bracket, and on a closing bracket check that it matches the top of the stack",
+      "correct_pattern": "stack",
+      "explanation_md": "Matching nested, ordered pairs is the classic stack signature — the most recent unmatched opener must be resolved first, which a stack tracks directly without any exhaustive search."
+    },
+    {
+      "id": "q17",
+      "type": "pattern-picker",
+      "prompt_md": "You need to determine whether an array of n integers contains any duplicate value, and n can be large (up to a million). What's the best approach?",
+      "options": [
+        "Build a hash set while scanning once, and report a duplicate as soon as a value is seen twice",
+        "Backtracking: enumerate every subset and check each one for repeated values",
+        "Recurse over every permutation of the array and check adjacent equal values",
+        "Use two pointers converging from both ends of the unsorted array"
+      ],
+      "answer": "Build a hash set while scanning once, and report a duplicate as soon as a value is seen twice",
+      "correct_pattern": "arrays-hashing",
+      "explanation_md": "A single membership question over a large unsorted array is a hashing problem solved in one linear pass — enumerating subsets or permutations here would be needlessly exponential for a question with a single yes/no answer."
+    },
+    {
+      "id": "q18",
+      "type": "pattern-picker",
+      "prompt_md": "A vending machine app must list every possible way a customer could choose to buy-or-skip each of the (small number of) items in a bundle deal, so it can display all bundle variations. What's the best approach?",
+      "options": [
+        "Backtracking: for each item, choose to include it or skip it, recursing over both branches",
+        "Sort the items by price and use two pointers to pair them up",
+        "A hash map from item name to price for O(1) lookup",
+        "A stack that pushes items and pops the most recent one"
+      ],
+      "answer": "Backtracking: for each item, choose to include it or skip it, recursing over both branches",
+      "correct_pattern": "backtracking",
+      "explanation_md": "\"Every possible way to include-or-skip each item\" is a direct restatement of the subsets include/exclude decision, so backtracking over the choice tree is the natural fit."
+    },
+    {
+      "id": "q19",
+      "type": "pattern-picker",
+      "prompt_md": "Given a small set of distinct positive integers, you need every subset whose elements sum to less than some small limit, so you can inspect all of them (not just count them or find one). What's the best approach?",
+      "options": [
+        "Backtracking: walk the include/exclude tree over all elements, checking the running sum before recording each complete subset",
+        "Binary search on the sorted prefix sums",
+        "A single pass with a hash map of running sums",
+        "Greedy: always add the smallest remaining element first"
+      ],
+      "answer": "Backtracking: walk the include/exclude tree over all elements, checking the running sum before recording each complete subset",
+      "correct_pattern": "backtracking",
+      "explanation_md": "Needing the actual list of every qualifying subset (not just a count or a single answer) over a small input is the exhaustive-enumeration signal that points at backtracking, not a shortcut algorithm."
+    },
+    {
+      "id": "q20",
+      "type": "pattern-picker",
+      "prompt_md": "You need to output every possible subset of a small set of ingredients for a recipe generator, where each ingredient is either used or omitted, and subsets of every size (including empty and full) are wanted. What's the best approach?",
+      "options": [
+        "Backtracking: recurse over each ingredient's include/exclude decision",
+        "A sliding window over the list of ingredients",
+        "Dynamic programming over ingredient counts",
+        "Two pointers converging on a sorted ingredient list"
+      ],
+      "answer": "Backtracking: recurse over each ingredient's include/exclude decision",
+      "correct_pattern": "backtracking",
+      "explanation_md": "This is the subsets template stated with different nouns: independent include/exclude choices over a small set, wanting every resulting group — no sorted-array structure or optimal substructure to exploit."
+    },
+    {
+      "id": "q21",
+      "type": "pattern-picker",
+      "prompt_md": "You're given the head of a singly linked list and need to reverse the direction of every `next` pointer so the list reads backward. What's the best approach?",
+      "options": [
+        "Walk the list once, re-pointing each node's `next` to the previous node as you go",
+        "Backtracking: choose to include or exclude each node and recurse",
+        "Two pointers converging from both ends of the array",
+        "A hash map from node value to index"
+      ],
+      "answer": "Walk the list once, re-pointing each node's `next` to the previous node as you go",
+      "correct_pattern": "linked-list",
+      "explanation_md": "Rewiring pointers in a linked structure is a linked-list traversal problem solved in a single O(n) pass — there's no combinatorial enumeration involved, so backtracking would be solving a problem that isn't there."
     }
   ]
 }
