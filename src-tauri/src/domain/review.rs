@@ -117,8 +117,14 @@ mod tests {
 
     #[test]
     fn rating_uses_lowercase_wire_values() {
-        assert_eq!(serde_json::to_value(ReviewRating::Again).unwrap(), json!("again"));
-        assert_eq!(serde_json::to_value(ReviewRating::Good).unwrap(), json!("good"));
+        assert_eq!(
+            serde_json::to_value(ReviewRating::Again).unwrap(),
+            json!("again")
+        );
+        assert_eq!(
+            serde_json::to_value(ReviewRating::Good).unwrap(),
+            json!("good")
+        );
         assert_eq!(
             serde_json::from_value::<ReviewRating>(json!("easy")).unwrap(),
             ReviewRating::Easy
@@ -127,7 +133,10 @@ mod tests {
 
     #[test]
     fn card_state_uses_kebab_case() {
-        assert_eq!(serde_json::to_value(ReviewCardState::New).unwrap(), json!("new"));
+        assert_eq!(
+            serde_json::to_value(ReviewCardState::New).unwrap(),
+            json!("new")
+        );
         assert_eq!(
             serde_json::to_value(ReviewCardState::Relearning).unwrap(),
             json!("relearning")

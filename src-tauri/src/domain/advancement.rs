@@ -137,7 +137,13 @@ mod tests {
             }],
         };
         let json = serde_json::to_string(&v).unwrap();
-        assert!(!json.contains("unit"), "capstone wire leaked a unit label: {json}");
-        assert!(!json.contains("pattern"), "capstone wire leaked a pattern: {json}");
+        assert!(
+            !json.contains("unit"),
+            "capstone wire leaked a unit label: {json}"
+        );
+        assert!(
+            !json.contains("pattern"),
+            "capstone wire leaked a pattern: {json}"
+        );
     }
 }

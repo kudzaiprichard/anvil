@@ -140,9 +140,8 @@ pub fn record(
     rating: ReviewRating,
     now: DateTime<Utc>,
 ) -> AppResult<ReviewOutcome> {
-    let row = review::get(db, problem_id)?.ok_or_else(|| {
-        AppError::NotFound(format!("'{problem_id}' is not in the review queue"))
-    })?;
+    let row = review::get(db, problem_id)?
+        .ok_or_else(|| AppError::NotFound(format!("'{problem_id}' is not in the review queue")))?;
 
     let card = card_from_row(&row, now);
     let info = scheduler().next(card, now, to_fsrs_rating(rating));
@@ -199,10 +198,7 @@ pub fn queue(
                     .unwrap_or_default()
                     .to_string(),
                 state: card_state_from_wire(&row.state),
-                due_at: row
-                    .due_at
-                    .clone()
-                    .unwrap_or_else(|| now.to_rfc3339()),
+                due_at: row.due_at.clone().unwrap_or_else(|| now.to_rfc3339()),
                 last_reviewed_at: row.last_reviewed_at.clone(),
                 lapses: row.lapses.max(0) as u32,
                 overdue_days,
@@ -305,7 +301,11 @@ fn card_from_row(row: &review::ReviewRow, now: DateTime<Utc>) -> Card {
         reps: 0,
         lapses: row.lapses.max(0) as i32,
         state: state_from_wire(&row.state),
-        last_review: row.last_reviewed_at.as_deref().and_then(parse_dt).unwrap_or(now),
+        last_review: row
+            .last_reviewed_at
+            .as_deref()
+            .and_then(parse_dt)
+            .unwrap_or(now),
     }
 }
 
@@ -385,9 +385,17 @@ mod tests {
         // two-sum is a worked example of arrays-hashing.
         assert!(enqueue(&store, &db, "two-sum", t("2026-07-10T09:00:00+00:00")).unwrap());
         // A wider-catalog slug the course never references is ignored.
-        assert!(!enqueue(&store, &db, "not-a-course-problem-xyz", t("2026-07-10T09:00:00+00:00")).unwrap());
+        assert!(!enqueue(
+            &store,
+            &db,
+            "not-a-course-problem-xyz",
+            t("2026-07-10T09:00:00+00:00")
+        )
+        .unwrap());
         assert!(review::get(&db, "two-sum").unwrap().is_some());
-        assert!(review::get(&db, "not-a-course-problem-xyz").unwrap().is_none());
+        assert!(review::get(&db, "not-a-course-problem-xyz")
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -411,7 +419,11 @@ mod tests {
 
         let out = record(&db, "two-sum", ReviewRating::Good, now).unwrap();
         assert_eq!(out.state, ReviewCardState::Review);
-        assert!(out.interval_days >= 1, "good interval was {}", out.interval_days);
+        assert!(
+            out.interval_days >= 1,
+            "good interval was {}",
+            out.interval_days
+        );
         assert!(!out.demoted);
         assert_eq!(out.lapses, 0);
         // No longer due today — it's scheduled into the future.
@@ -449,8 +461,13 @@ mod tests {
     #[test]
     fn recording_an_unqueued_problem_is_rejected() {
         let (_dir, _store, db) = fixture();
-        let err = record(&db, "two-sum", ReviewRating::Good, t("2026-07-10T09:00:00+00:00"))
-            .unwrap_err();
+        let err = record(
+            &db,
+            "two-sum",
+            ReviewRating::Good,
+            t("2026-07-10T09:00:00+00:00"),
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("not in the review queue"), "{err}");
     }
 
@@ -473,7 +490,10 @@ mod tests {
             mk("valid-palindrome", "two-pointers"),
         ]);
         let units: Vec<_> = out.iter().map(|i| i.unit_id.as_str()).collect();
-        assert_eq!(units, vec!["arrays-hashing", "two-pointers", "arrays-hashing"]);
+        assert_eq!(
+            units,
+            vec!["arrays-hashing", "two-pointers", "arrays-hashing"]
+        );
     }
 
     #[test]

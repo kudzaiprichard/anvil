@@ -44,8 +44,8 @@ fn gate_state(unit: &Unit, solved: &HashSet<String>) -> UnitGateState {
         }
     }
 
-    let met = passed_count >= unit.gate.pass_count
-        && (!unit.gate.require_novel || passed_novel >= 1);
+    let met =
+        passed_count >= unit.gate.pass_count && (!unit.gate.require_novel || passed_novel >= 1);
 
     UnitGateState {
         pass_count: unit.gate.pass_count,
@@ -117,9 +117,10 @@ pub fn progression(store: &CurriculumStore, db: &Db) -> AppResult<Vec<UnitProgre
             .lessons
             .iter()
             .filter(|lid| {
-                progress
-                    .iter()
-                    .any(|p| &p.lesson_id == *lid && p.status == crate::domain::progress::LessonStatus::Complete)
+                progress.iter().any(|p| {
+                    &p.lesson_id == *lid
+                        && p.status == crate::domain::progress::LessonStatus::Complete
+                })
             })
             .count() as u32;
         out.push(unit_progress(unit, &mastered, &solved, lessons_complete));
@@ -263,20 +264,27 @@ mod tests {
         let rows = progression(&store, &db).unwrap();
         // Big-O is the single stage-0 root; everything else waits on it.
         assert_eq!(status_of(&rows, "big-o").status, UnitStatus::Unlocked);
-        assert_eq!(status_of(&rows, "arrays-hashing").status, UnitStatus::Locked);
-        assert_eq!(status_of(&rows, "two-pointers").status, UnitStatus::Locked);
         assert_eq!(
-            status_of(&rows, "arrays-hashing").blocked_by,
-            vec!["big-o"]
+            status_of(&rows, "arrays-hashing").status,
+            UnitStatus::Locked
         );
+        assert_eq!(status_of(&rows, "two-pointers").status, UnitStatus::Locked);
+        assert_eq!(status_of(&rows, "arrays-hashing").blocked_by, vec!["big-o"]);
     }
 
     #[test]
     fn locked_unit_cannot_be_gated() {
         let (_dir, store, db) = fixture();
         // two-pointers is locked until arrays-hashing is mastered.
-        let err = evaluate_gate(&store, &db, "two-pointers", "trapping-rain-water", false, "T1")
-            .unwrap_err();
+        let err = evaluate_gate(
+            &store,
+            &db,
+            "two-pointers",
+            "trapping-rain-water",
+            false,
+            "T1",
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("locked"), "{err}");
     }
 
@@ -284,8 +292,7 @@ mod tests {
     fn non_gate_problem_is_rejected() {
         let (_dir, store, db) = fixture();
         // two-sum is a worked example of arrays-hashing, not a gate problem.
-        let err =
-            evaluate_gate(&store, &db, "arrays-hashing", "two-sum", false, "T1").unwrap_err();
+        let err = evaluate_gate(&store, &db, "arrays-hashing", "two-sum", false, "T1").unwrap_err();
         assert!(err.to_string().contains("not a gate problem"), "{err}");
     }
 
@@ -307,7 +314,10 @@ mod tests {
         assert!(!out.unit_mastered);
         // Nothing persisted → the unit is still just unlocked.
         let rows = progression(&store, &db).unwrap();
-        assert_eq!(status_of(&rows, "arrays-hashing").status, UnitStatus::Unlocked);
+        assert_eq!(
+            status_of(&rows, "arrays-hashing").status,
+            UnitStatus::Unlocked
+        );
         assert_eq!(status_of(&rows, "two-pointers").status, UnitStatus::Locked);
     }
 
@@ -351,12 +361,24 @@ mod tests {
         assert_eq!(out.unlocked, vec!["two-pointers", "stack", "binary-search"]);
 
         let rows = progression(&store, &db).unwrap();
-        assert_eq!(status_of(&rows, "arrays-hashing").status, UnitStatus::Mastered);
-        assert_eq!(status_of(&rows, "two-pointers").status, UnitStatus::Unlocked);
+        assert_eq!(
+            status_of(&rows, "arrays-hashing").status,
+            UnitStatus::Mastered
+        );
+        assert_eq!(
+            status_of(&rows, "two-pointers").status,
+            UnitStatus::Unlocked
+        );
         assert_eq!(status_of(&rows, "stack").status, UnitStatus::Unlocked);
-        assert_eq!(status_of(&rows, "binary-search").status, UnitStatus::Unlocked);
+        assert_eq!(
+            status_of(&rows, "binary-search").status,
+            UnitStatus::Unlocked
+        );
         // sliding-window needs BOTH arrays-hashing and two-pointers.
-        assert_eq!(status_of(&rows, "sliding-window").status, UnitStatus::Locked);
+        assert_eq!(
+            status_of(&rows, "sliding-window").status,
+            UnitStatus::Locked
+        );
         // linked-list needs arrays-hashing AND two-pointers — still locked.
         assert_eq!(status_of(&rows, "linked-list").status, UnitStatus::Locked);
     }
@@ -365,8 +387,15 @@ mod tests {
     fn resolving_the_same_gate_problem_twice_does_not_double_count() {
         let (_dir, store, db) = fixture();
         master_big_o(&store, &db);
-        evaluate_gate(&store, &db, "arrays-hashing", "longest-consecutive-sequence", false, "T1")
-            .unwrap();
+        evaluate_gate(
+            &store,
+            &db,
+            "arrays-hashing",
+            "longest-consecutive-sequence",
+            false,
+            "T1",
+        )
+        .unwrap();
         let out = evaluate_gate(
             &store,
             &db,
@@ -385,16 +414,41 @@ mod tests {
         let (_dir, store, db) = fixture();
         master_big_o(&store, &db);
         // Master arrays-hashing.
-        evaluate_gate(&store, &db, "arrays-hashing", "longest-consecutive-sequence", false, "T1")
-            .unwrap();
-        evaluate_gate(&store, &db, "arrays-hashing", "subarray-sum-equals-k", false, "T2").unwrap();
+        evaluate_gate(
+            &store,
+            &db,
+            "arrays-hashing",
+            "longest-consecutive-sequence",
+            false,
+            "T1",
+        )
+        .unwrap();
+        evaluate_gate(
+            &store,
+            &db,
+            "arrays-hashing",
+            "subarray-sum-equals-k",
+            false,
+            "T2",
+        )
+        .unwrap();
         // Now two-pointers is gateable; its gate needs one novel solve. Mastering
         // it opens sliding-window (s1) and linked-list (s2) together.
-        let out =
-            evaluate_gate(&store, &db, "two-pointers", "trapping-rain-water", false, "T3").unwrap();
+        let out = evaluate_gate(
+            &store,
+            &db,
+            "two-pointers",
+            "trapping-rain-water",
+            false,
+            "T3",
+        )
+        .unwrap();
         assert!(out.unit_mastered);
         assert_eq!(out.unlocked, vec!["sliding-window", "linked-list"]);
         let rows = progression(&store, &db).unwrap();
-        assert_eq!(status_of(&rows, "sliding-window").status, UnitStatus::Unlocked);
+        assert_eq!(
+            status_of(&rows, "sliding-window").status,
+            UnitStatus::Unlocked
+        );
     }
 }

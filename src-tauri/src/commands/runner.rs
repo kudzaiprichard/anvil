@@ -9,8 +9,8 @@ use crate::domain::complexity::{self, ComplexityReport, ComplexityVerdict};
 use crate::domain::run::{Language, RunRequest, RunResult, RunStatus};
 use crate::error::{AppError, AppResult};
 use crate::services::db::{self, attempts};
-use crate::services::runner::{self, ProbeOutcome};
 use crate::services::review;
+use crate::services::runner::{self, ProbeOutcome};
 use crate::state::AppState;
 
 async fn run(

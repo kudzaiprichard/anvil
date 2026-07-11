@@ -18,8 +18,7 @@
 use std::collections::HashSet;
 
 use crate::domain::advancement::{
-    CapstoneOutcome, CapstoneProblemView, CapstoneView, PlacementOutcome, PlacementProbe,
-    Readiness,
+    CapstoneOutcome, CapstoneProblemView, CapstoneView, PlacementOutcome, PlacementProbe, Readiness,
 };
 use crate::domain::quiz::{QuizAnswer, QuizItemType};
 use crate::error::{AppError, AppResult};
@@ -287,7 +286,9 @@ mod tests {
     #[test]
     fn capstone_loads_and_hides_labels() {
         let (_dir, store, db) = fixture();
-        let view = capstone_view(&store, &db).unwrap().expect("capstone present");
+        let view = capstone_view(&store, &db)
+            .unwrap()
+            .expect("capstone present");
         assert!(view.total >= 4);
         assert_eq!(view.passed_count, 0);
         assert!(!view.met);
@@ -332,7 +333,10 @@ mod tests {
     fn placement_places_out_the_root_and_unlocks_the_frontier() {
         let (_dir, store, db) = fixture();
         let probe = placement_probe(&store);
-        assert!(!probe.items.is_empty(), "shipped pattern pool feeds the probe");
+        assert!(
+            !probe.items.is_empty(),
+            "shipped pattern pool feeds the probe"
+        );
 
         // Answer every probe item correctly → recognized everywhere the pool
         // covers. With only Stage-1 pool items, big-o has no probe item so it is

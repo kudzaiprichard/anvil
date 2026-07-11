@@ -189,12 +189,7 @@ pub fn apply_placement(
     answers: Vec<QuizAnswer>,
 ) -> AppResult<PlacementOutcome> {
     log::debug!("apply_placement: {} answer(s)", answers.len());
-    advancement::apply_placement(
-        &state.curriculum,
-        &state.db,
-        &answers,
-        &db::now_local_iso(),
-    )
+    advancement::apply_placement(&state.curriculum, &state.db, &answers, &db::now_local_iso())
 }
 
 /// The honest course-readiness signal (Phase 7, BLUEPRINT.md §7): how much of

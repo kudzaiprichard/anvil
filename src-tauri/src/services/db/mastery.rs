@@ -106,8 +106,7 @@ pub fn place_out(db: &Db, unit_id: &str, now: &str) -> AppResult<()> {
 /// unlocked once all its prereqs are in this set).
 pub fn mastered_units(db: &Db) -> AppResult<HashSet<String>> {
     let conn = db.lock()?;
-    let mut stmt =
-        conn.prepare("SELECT unit_id FROM unit_mastery WHERE status = 'mastered'")?;
+    let mut stmt = conn.prepare("SELECT unit_id FROM unit_mastery WHERE status = 'mastered'")?;
     let rows = stmt
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<Result<HashSet<_>, _>>()?;
