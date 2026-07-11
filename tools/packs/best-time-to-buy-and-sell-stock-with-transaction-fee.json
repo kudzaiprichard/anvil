@@ -1,0 +1,43 @@
+{
+  "slug": "best-time-to-buy-and-sell-stock-with-transaction-fee",
+  "judge": "exact",
+  "pattern": "A two-state dynamic program tracking the best cash while holding versus not holding, paying the fee once per completed round trip.",
+  "hints": [
+    "At any day you are either holding a share or you are not; track the maximum cash achievable in each state.",
+    "Buying lowers your held-state cash by the price, while selling raises your cash by the price minus the fee.",
+    "Sweep the prices updating hold = max(hold, cash - price) and cash = max(cash, hold + price - fee); the answer is the final cash."
+  ],
+  "constraints": [
+    { "param": "prices", "kind": "int[]", "len": [1, 50000], "value": [1, 49999] },
+    { "param": "fee", "kind": "int", "value": [0, 49999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single price yields no profit", "input": [[5], 2] },
+    { "kind": "trap", "description": "fee erases small gains so only the big swing pays", "input": [[1, 3, 2, 8, 4, 9], 2] },
+    { "kind": "edge", "description": "second worked example", "input": [[1, 3, 7, 5, 10, 3], 3] },
+    { "kind": "trap", "description": "monotonically falling prices give zero profit", "input": [[9, 7, 5, 3, 1], 1] },
+    { "kind": "boundary", "description": "zero fee makes every upswing worth taking", "input": [[1, 2, 3, 4, 5], 0] },
+    { "kind": "trap", "description": "fee larger than every gain blocks all trades", "input": [[1, 2, 3, 2, 1], 10] },
+    { "kind": "edge", "description": "flat prices yield nothing", "input": [[4, 4, 4, 4], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random walk of prices with a moderate fee",
+      "seed": 91,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    prices = [rng.randrange(1, 49999) for _ in range(n)]\n    fee = rng.randrange(0, 49999)\n    return [prices, fee]\n"
+    },
+    {
+      "description": "narrow price band with a small fee to stress marginal trades",
+      "seed": 92,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    prices = [rng.randrange(50, 70) for _ in range(n)]\n    fee = rng.randrange(0, 5)\n    return [prices, fee]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxProfit(self, prices, fee):\n        import functools\n        n = len(prices)\n        import sys\n        sys.setrecursionlimit(100000)\n        @functools.lru_cache(maxsize=None)\n        def best(i, holding):\n            if i == n:\n                return 0\n            skip = best(i + 1, holding)\n            if holding:\n                act = prices[i] - fee + best(i + 1, False)\n            else:\n                act = -prices[i] + best(i + 1, True)\n            return max(skip, act)\n        return best(0, False)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxProfit(self, prices, fee):\n        hold = -prices[0]\n        cash = 0\n        for p in prices[1:]:\n            cash = max(cash, hold + p - fee)\n            hold = max(hold, cash - p)\n        return cash\n",
+    "javascript": "var maxProfit = function(prices, fee) {\n    let hold = -prices[0];\n    let cash = 0;\n    for (let i = 1; i < prices.length; i++) {\n        const p = prices[i];\n        cash = Math.max(cash, hold + p - fee);\n        hold = Math.max(hold, cash - p);\n    }\n    return cash;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

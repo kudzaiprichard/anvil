@@ -1,0 +1,39 @@
+{
+  "slug": "sum-of-k-subarrays-with-length-at-least-m",
+  "judge": "exact",
+  "pattern": "Ending the j-th chosen subarray at some position only ever needs the best total achievable from a start point at least m earlier -- carrying that running best forward turns an O(n^2) subarray-partition search into a single O(n*k) sweep.",
+  "hints": [
+    "With prefix sums, the value of a subarray between a start and an end is one subtraction, so 'place a subarray of length at least m ending here' becomes 'pick the best qualifying start seen so far and subtract its prefix sum'.",
+    "Build the answer one subarray at a time: for each count of subarrays used, track the best total achievable using a prefix of the array up to each position, letting a new subarray begin anywhere that leaves it at least m long.",
+    "As the ending position slides forward by one, exactly one new starting position becomes eligible -- keep a running maximum of (best total from the previous count, up to that start, minus the prefix sum at that start) so every position is handled in O(1) rather than rescanning every earlier start."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 2000], "value": [-10000, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 2000] },
+    { "param": "m", "kind": "int", "value": [1, 3] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two subarrays with a slack length", "input": [[1, 2, -1, 3, 3, 4], 2, 2] },
+    { "kind": "edge", "description": "statement example, all values negative and every subarray forced to length one", "input": [[-10, 3, -1, -2], 4, 1] },
+    { "kind": "boundary", "description": "minimum m, single subarray: the best answer is just one element", "input": [[-5, 10, -3], 1, 1] },
+    { "kind": "boundary", "description": "maximum m, two disjoint length-3 subarrays needed back to back", "input": [[1, 1, 1, 1, 1, 1], 2, 3] },
+    { "kind": "trap", "description": "k equal to the array length with m=1, every element is forced to be its own subarray regardless of sign", "input": [[3, -2, 5, -1], 4, 1] },
+    { "kind": "trap", "description": "all-positive values with m as only a minimum: a solution that treats m as an exact length would stop short of the better, longer subarray", "input": [[5, 5, 5, 5], 1, 2] },
+    { "kind": "trap", "description": "alternating signs with two subarrays of the minimum allowed length, several equally-good placements exist", "input": [[4, -1, 4, -1, 4], 2, 2] },
+    { "kind": "trap", "description": "all-negative values with a length-at-least-three requirement, the best choice is the least-negative qualifying run", "input": [[-1, -2, -3, -4, -5, -6], 1, 3] }
+  ],
+  "stress": [
+    {
+      "description": "random array across the full value range, with m and k chosen to always leave a feasible number of subarrays",
+      "seed": 41,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    nums = [rng.randint(-10000, 10000) for _ in range(n)]\n    m = min(rng.randint(1, 3), n)\n    max_k = n // m\n    k = rng.randint(1, max_k)\n    return [nums, k, m]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSum(self, nums, k, m):\n        n = len(nums)\n        best = [float('-inf')]\n\n        def rec(idx, remaining_k, cur_sum):\n            if remaining_k == 0:\n                if cur_sum > best[0]:\n                    best[0] = cur_sum\n                return\n            if idx >= n:\n                return\n            rec(idx + 1, remaining_k, cur_sum)\n            for length in range(m, n - idx + 1):\n                rec(idx + length, remaining_k - 1, cur_sum + sum(nums[idx:idx + length]))\n\n        rec(0, k, 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSum(self, nums, k, m):\n        n = len(nums)\n        NEG = float('-inf')\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        dp_prev = [0] * (n + 1)\n        for j in range(1, k + 1):\n            dp_cur = [NEG] * (n + 1)\n            running_best = NEG\n            for i in range(1, n + 1):\n                cand_start = i - m\n                if cand_start >= 0 and dp_prev[cand_start] > NEG:\n                    val = dp_prev[cand_start] - prefix[cand_start]\n                    if val > running_best:\n                        running_best = val\n                dp_cur[i] = dp_cur[i - 1]\n                if running_best > NEG and running_best + prefix[i] > dp_cur[i]:\n                    dp_cur[i] = running_best + prefix[i]\n            dp_prev = dp_cur\n        return dp_prev[n]\n",
+    "javascript": "var maxSum = function(nums, k, m) {\n    const n = nums.length;\n    const NEG = -Infinity;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i];\n    let dpPrev = new Array(n + 1).fill(0);\n    for (let j = 1; j <= k; j++) {\n        const dpCur = new Array(n + 1).fill(NEG);\n        let runningBest = NEG;\n        for (let i = 1; i <= n; i++) {\n            const candStart = i - m;\n            if (candStart >= 0 && dpPrev[candStart] > NEG) {\n                const val = dpPrev[candStart] - prefix[candStart];\n                if (val > runningBest) runningBest = val;\n            }\n            dpCur[i] = dpCur[i - 1];\n            if (runningBest > NEG && runningBest + prefix[i] > dpCur[i]) {\n                dpCur[i] = runningBest + prefix[i];\n            }\n        }\n        dpPrev = dpCur;\n    }\n    return dpPrev[n];\n};\n"
+  },
+  "complexity": { "time": "O(n*k)", "space": "O(n)" }
+}

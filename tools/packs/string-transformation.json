@@ -1,0 +1,45 @@
+{
+  "slug": "string-transformation",
+  "judge": "exact",
+  "pattern": "Every operation is just a cyclic rotation, and only two things matter to reach the target: how many of the n-1 rotation amounts actually land on t, and how many labeled sequences of k choices sum to a matching total shift -- the second part collapses to a two-state recurrence (back-to-start vs. any-other-shift) that a small matrix power evaluates for any k.",
+  "hints": [
+    "Removing a suffix and moving it to the front is exactly a rotation of the whole string, so after k operations the string is s rotated by whatever the k chosen suffix lengths add up to, modulo the string length.",
+    "First figure out, among the n possible rotation amounts of s, how many of them actually produce t -- that count can be more than one if s repeats itself, or zero if t is not reachable at all.",
+    "Separately count, over exactly k operations each choosing one of the n-1 nonzero shift amounts, how many sequences sum to a shift of 0 versus how many sum to any one fixed nonzero shift -- by symmetry every nonzero target has the same count, so you only ever need to track those two numbers and combine them with the rotation count from the first step, all under the given modulus."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [2, 500000], "note": "lowercase English letters only" },
+    { "param": "t", "kind": "string", "len": [2, 500000], "note": "lowercase English letters only, same length as s" },
+    { "param": "k", "kind": "int", "value": [1, 1000000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "smallest possible strings, the only nontrivial rotation reaches the target", "input": ["ab", "ba", 1] },
+    { "kind": "edge", "description": "smallest possible strings, one operation cannot return to the starting string", "input": ["ab", "ab", 1] },
+    { "kind": "edge", "description": "identical source and target with more than one operation available", "input": ["abcd", "abcd", 3] },
+    { "kind": "trap", "description": "every character is the same, so every rotation amount lands back on the string itself", "input": ["aaaa", "aaaa", 3] },
+    { "kind": "trap", "description": "a two-letter repeating pattern, so more than one rotation amount reaches the target even though source and target differ", "input": ["abab", "baba", 4] },
+    { "kind": "trap", "description": "target is not any rotation of the source at all, so the answer must be zero no matter how large k is", "input": ["abc", "acb", 5] },
+    { "kind": "boundary", "description": "smallest strings with a larger operation count, forcing many repeated forced swaps", "input": ["ab", "ba", 99] },
+    { "kind": "boundary", "description": "a longer string paired with a rotation of itself and a moderate operation count", "input": ["abcdefghijklmnop", "lmnopabcdefghijk", 50] }
+  ],
+  "stress": [
+    {
+      "description": "short strings over a tiny alphabet so repeated rotations are common, target sometimes a genuine rotation and sometimes not",
+      "seed": 701,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 30)))\n    s = ''.join(rng.choice('ab') for _ in range(n))\n    if rng.random() < 0.5:\n        r = rng.randint(0, n - 1)\n        t = s[n - r:] + s[:n - r]\n    else:\n        t = ''.join(rng.choice('ab') for _ in range(n))\n    k = rng.randint(1, 150)\n    return [s, t, k]\n"
+    },
+    {
+      "description": "strings over the full lowercase alphabet with a larger operation count",
+      "seed": 702,
+      "size": 24,
+      "generator_python": "import string\ndef gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 24)))\n    s = ''.join(rng.choice(string.ascii_lowercase) for _ in range(n))\n    if rng.random() < 0.5:\n        r = rng.randint(0, n - 1)\n        t = s[n - r:] + s[:n - r]\n    else:\n        t = ''.join(rng.choice(string.ascii_lowercase) for _ in range(n))\n    k = rng.randint(1, 300)\n    return [s, t, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfWays(self, s: str, t: str, k: int) -> int:\n        MOD = 10 ** 9 + 7\n        n = len(s)\n\n        def rotate(r):\n            return s[n - r:] + s[:n - r]\n\n        targets = [r for r in range(n) if rotate(r) == t]\n\n        dp = [0] * n\n        dp[0] = 1\n        for _ in range(k):\n            total = sum(dp) % MOD\n            dp = [(total - dp[x]) % MOD for x in range(n)]\n\n        return sum(dp[r] for r in targets) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfWays(self, s: str, t: str, k: int) -> int:\n        MOD = 10 ** 9 + 7\n        n = len(s)\n\n        def kmp_positions(text, pattern):\n            m = len(pattern)\n            if m == 0:\n                return []\n            lps = [0] * m\n            length = 0\n            i = 1\n            while i < m:\n                if pattern[i] == pattern[length]:\n                    length += 1\n                    lps[i] = length\n                    i += 1\n                elif length != 0:\n                    length = lps[length - 1]\n                else:\n                    lps[i] = 0\n                    i += 1\n            positions = []\n            i = j = 0\n            while i < len(text):\n                if text[i] == pattern[j]:\n                    i += 1\n                    j += 1\n                    if j == m:\n                        positions.append(i - j)\n                        j = lps[j - 1]\n                elif j != 0:\n                    j = lps[j - 1]\n                else:\n                    i += 1\n            return positions\n\n        matches = kmp_positions(s + s, t)\n        cnt = sum(1 for pos in matches if pos < n)\n\n        def mat_mult(a, b):\n            return [\n                [(a[0][0] * b[0][0] + a[0][1] * b[1][0]) % MOD, (a[0][0] * b[0][1] + a[0][1] * b[1][1]) % MOD],\n                [(a[1][0] * b[0][0] + a[1][1] * b[1][0]) % MOD, (a[1][0] * b[0][1] + a[1][1] * b[1][1]) % MOD],\n            ]\n\n        def mat_pow(m, p):\n            result = [[1, 0], [0, 1]]\n            base = m\n            while p > 0:\n                if p & 1:\n                    result = mat_mult(result, base)\n                base = mat_mult(base, base)\n                p >>= 1\n            return result\n\n        M = [[0, (n - 1) % MOD], [1, (n - 2) % MOD]]\n        Mk = mat_pow(M, k)\n        a_k = Mk[0][0]\n        b_k = Mk[1][0]\n\n        if s == t:\n            ans = (a_k + (cnt - 1) * b_k) % MOD\n        else:\n            ans = (cnt * b_k) % MOD\n        return ans % MOD\n",
+    "javascript": "var numberOfWays = function(s, t, k) {\n    const MOD = 1000000007n;\n    const n = s.length;\n\n    function kmpPositions(text, pattern) {\n        const m = pattern.length;\n        if (m === 0) return [];\n        const lps = new Array(m).fill(0);\n        let length = 0, i = 1;\n        while (i < m) {\n            if (pattern[i] === pattern[length]) {\n                length++;\n                lps[i] = length;\n                i++;\n            } else if (length !== 0) {\n                length = lps[length - 1];\n            } else {\n                lps[i] = 0;\n                i++;\n            }\n        }\n        const positions = [];\n        let ti = 0, pj = 0;\n        while (ti < text.length) {\n            if (text[ti] === pattern[pj]) {\n                ti++; pj++;\n                if (pj === m) {\n                    positions.push(ti - pj);\n                    pj = lps[pj - 1];\n                }\n            } else if (pj !== 0) {\n                pj = lps[pj - 1];\n            } else {\n                ti++;\n            }\n        }\n        return positions;\n    }\n\n    const matches = kmpPositions(s + s, t);\n    let cnt = 0;\n    for (const pos of matches) if (pos < n) cnt++;\n\n    function matMult(a, b) {\n        return [\n            [(a[0][0] * b[0][0] + a[0][1] * b[1][0]) % MOD, (a[0][0] * b[0][1] + a[0][1] * b[1][1]) % MOD],\n            [(a[1][0] * b[0][0] + a[1][1] * b[1][0]) % MOD, (a[1][0] * b[0][1] + a[1][1] * b[1][1]) % MOD],\n        ];\n    }\n\n    function matPow(m, p) {\n        let result = [[1n, 0n], [0n, 1n]];\n        let base = m;\n        while (p > 0n) {\n            if (p & 1n) result = matMult(result, base);\n            base = matMult(base, base);\n            p >>= 1n;\n        }\n        return result;\n    }\n\n    const nBig = BigInt(n);\n    const M = [[0n, (nBig - 1n) % MOD], [1n, (nBig - 2n + MOD) % MOD]];\n    const Mk = matPow(M, BigInt(k));\n    const ak = Mk[0][0];\n    const bk = Mk[1][0];\n\n    let ans;\n    if (s === t) {\n        ans = (ak + (((BigInt(cnt) - 1n) * bk) % MOD + MOD) % MOD) % MOD;\n    } else {\n        ans = (BigInt(cnt) * bk) % MOD;\n    }\n    return Number(((ans % MOD) + MOD) % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n + log k)", "space": "O(n)" }
+}

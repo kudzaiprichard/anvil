@@ -1,0 +1,42 @@
+{
+  "slug": "balanced-k-factor-decomposition",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    n, k = args[0], args[1]\n    if not isinstance(output, list) or len(output) != k:\n        return False\n    prod = 1\n    for x in output:\n        if not isinstance(x, int) or x < 1:\n            return False\n        prod *= x\n    if prod != n:\n        return False\n    out_diff = max(output) - min(output)\n    best = [float('inf')]\n    def search(rem, kl, start, lo, hi):\n        if kl == 1:\n            f = rem\n            if f >= start:\n                d = max(hi, f) - min(lo, f)\n                if d < best[0]:\n                    best[0] = d\n            return\n        d = start\n        while d ** kl <= rem:\n            if rem % d == 0:\n                search(rem // d, kl - 1, d, min(lo, d), max(hi, d))\n            d += 1\n    search(n, k, 1, n, 1)\n    return out_diff == best[0]\n",
+    "validator_javascript": "function validate(args, output) {\n    const n = args[0], k = args[1];\n    if (!Array.isArray(output) || output.length !== k) return false;\n    let prod = 1;\n    for (const x of output) {\n        if (!Number.isInteger(x) || x < 1) return false;\n        prod *= x;\n    }\n    if (prod !== n) return false;\n    const outDiff = Math.max(...output) - Math.min(...output);\n    let best = Infinity;\n    function search(rem, kl, start, lo, hi) {\n        if (kl === 1) {\n            const f = rem;\n            if (f >= start) {\n                const d = Math.max(hi, f) - Math.min(lo, f);\n                if (d < best) best = d;\n            }\n            return;\n        }\n        let d = start;\n        while (Math.pow(d, kl) <= rem) {\n            if (rem % d === 0) search(rem / d, kl - 1, d, Math.min(lo, d), Math.max(hi, d));\n            d += 1;\n        }\n    }\n    search(n, k, 1, n, 1);\n    return outDiff === best;\n}\n"
+  },
+  "pattern": "Enumerating non-decreasing factorizations into exactly k parts and tracking the tightest spread finds a split whose largest and smallest factors are as close as possible.",
+  "hints": [
+    "Because the factors multiply to a fixed value, you are searching over the divisors and want the chosen parts clustered near the kth root.",
+    "Build the factor list in non-decreasing order so each recursive choice only considers divisors at least as large as the previous one, pruning when the smallest possible remaining factors would already exceed what is left.",
+    "Recurse choosing the next factor d that divides the remaining product, requiring d to the power of the remaining count to fit within the remainder; at the last slot the leftover is forced, and you keep whichever complete split minimizes max minus min."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [4, 100000] },
+    { "param": "k", "kind": "int", "value": [2, 5] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "perfect square split into two equal halves", "input": [100, 2] },
+    { "kind": "edge", "description": "three factors with a forced large tail", "input": [44, 3] },
+    { "kind": "boundary", "description": "five factors", "input": [105, 5] },
+    { "kind": "trap", "description": "prime-heavy product forces ones", "input": [30, 4] },
+    { "kind": "trap", "description": "balanced cube-like split", "input": [1000, 4] },
+    { "kind": "edge", "description": "three near-equal factors", "input": [36, 3] },
+    { "kind": "boundary", "description": "minimum n with two factors", "input": [6, 2] }
+  ],
+  "stress": [
+    {
+      "description": "highly composite numbers with small k for many valid splits",
+      "seed": 21,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    bases = [720, 840, 1260, 2520, 5040, 720720 % 100000 + 4, 36, 96, 144, 360]\n    n = rng.choice(bases)\n    if n < 4:\n        n = 36\n    # count divisors to keep k strictly below it\n    divs = sum(1 for d in range(1, n + 1) if n % d == 0)\n    k = rng.randrange(2, min(5, divs - 1) + 1)\n    return [n, k]\n",
+      "note": "k kept strictly below the divisor count"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minDifference(self, n, k):\n        best = [None, float('inf')]\n        def rec(rem, kl, cur):\n            if kl == 0:\n                if rem == 1:\n                    s = sorted(cur)\n                    diff = s[-1] - s[0]\n                    if diff < best[1] or (diff == best[1] and (best[0] is None or s < best[0])):\n                        best[1] = diff\n                        best[0] = s\n                return\n            start = cur[-1] if cur else 1\n            for d in range(start, rem + 1):\n                if rem % d == 0:\n                    rec(rem // d, kl - 1, cur + [d])\n        rec(n, k, [])\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minDifference(self, n, k):\n        best_diff = [float('inf')]\n        best = [None]\n        def rec(remaining, k_left, start, cur):\n            if k_left == 1:\n                f = remaining\n                if f < start:\n                    return\n                split = cur + [f]\n                diff = split[-1] - split[0]\n                if diff < best_diff[0] or (diff == best_diff[0] and (best[0] is None or split < best[0])):\n                    best_diff[0] = diff\n                    best[0] = split[:]\n                return\n            d = start\n            while d ** k_left <= remaining:\n                if remaining % d == 0:\n                    rec(remaining // d, k_left - 1, d, cur + [d])\n                d += 1\n        rec(n, k, 1, [])\n        return best[0]\n",
+    "javascript": "var minDifference = function(n, k) {\n    let bestDiff = Infinity, best = null;\n    const lessThan = (a, b) => {\n        const m = Math.min(a.length, b.length);\n        for (let i = 0; i < m; i++) if (a[i] !== b[i]) return a[i] < b[i];\n        return a.length < b.length;\n    };\n    function rec(remaining, kLeft, start, cur) {\n        if (kLeft === 1) {\n            const f = remaining;\n            if (f < start) return;\n            const split = cur.concat([f]);\n            const diff = split[split.length - 1] - split[0];\n            if (diff < bestDiff || (diff === bestDiff && (best === null || lessThan(split, best)))) {\n                bestDiff = diff;\n                best = split.slice();\n            }\n            return;\n        }\n        let d = start;\n        while (Math.pow(d, kLeft) <= remaining) {\n            if (remaining % d === 0) rec(remaining / d, kLeft - 1, d, cur.concat([d]));\n            d += 1;\n        }\n    }\n    rec(n, k, 1, []);\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(d(n)^(k-1))", "space": "O(k)" }
+}

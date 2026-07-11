@@ -1,0 +1,37 @@
+{
+  "slug": "verify-preorder-serialization-of-a-binary-tree",
+  "judge": "exact",
+  "pattern": "Treating each node as consuming one open slot while a real value opens two more lets a single slot counter validate the preorder string without rebuilding the tree.",
+  "hints": [
+    "You never need the actual tree, only whether the sequence could describe one.",
+    "Think of available child slots: the root needs one slot, a value token fills a slot but creates two new ones, a null fills a slot and creates none.",
+    "Start with one slot; for each token subtract one (fail if it would go below zero), then add two for a value token; a valid string ends with exactly zero slots left."
+  ],
+  "constraints": [
+    { "param": "preorder", "kind": "str", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "valid full preorder from the statement", "input": ["9,3,4,#,#,1,#,#,2,#,6,#,#"] },
+    { "kind": "trap", "description": "a value followed by a single null leaves an unfilled slot", "input": ["1,#"] },
+    { "kind": "trap", "description": "extra token after the tree is complete", "input": ["9,#,#,1"] },
+    { "kind": "boundary", "description": "single null is a valid empty tree", "input": ["#"] },
+    { "kind": "edge", "description": "single node with two null children", "input": ["1,#,#"] },
+    { "kind": "trap", "description": "missing a trailing null leaves a slot open", "input": ["1,#,2,#"] },
+    { "kind": "trap", "description": "multi-digit values are single tokens", "input": ["100,#,#"] }
+  ],
+  "stress": [
+    {
+      "description": "build a random valid preorder, then with probability flip it into an invalid one",
+      "seed": 71,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    nodes = max(1, size // 4)\n    tokens = []\n    def build(depth):\n        if depth > 30 or rng.random() < 0.4:\n            tokens.append('#')\n            return\n        tokens.append(str(rng.randint(0, 100)))\n        build(depth + 1)\n        build(depth + 1)\n    for _ in range(nodes):\n        build(0)\n        if rng.random() < 0.5:\n            break\n    s = tokens if tokens else ['#']\n    # build one valid tree string\n    tk = []\n    def b2(d):\n        if d > 25 or rng.random() < 0.45:\n            tk.append('#')\n            return\n        tk.append(str(rng.randint(0, 100)))\n        b2(d + 1)\n        b2(d + 1)\n    b2(0)\n    r = rng.random()\n    if r < 0.5:\n        return [','.join(tk)]\n    elif r < 0.75 and len(tk) > 1:\n        # drop a token -> likely invalid\n        i = rng.randrange(len(tk))\n        del tk[i]\n        return [','.join(tk) if tk else '#']\n    else:\n        # append an extra token -> invalid\n        tk.append('#')\n        return [','.join(tk)]\n",
+      "note": "mixes guaranteed-valid trees with corrupted variants so both outcomes are exercised"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isValidSerialization(self, preorder: str) -> bool:\n        tokens = preorder.split(',')\n        idx = 0\n        def parse():\n            nonlocal idx\n            if idx >= len(tokens):\n                return False\n            t = tokens[idx]\n            idx += 1\n            if t == '#':\n                return True\n            return parse() and parse()\n        ok = parse()\n        return ok and idx == len(tokens)\n",
+  "solutions": {
+    "python": "class Solution:\n    def isValidSerialization(self, preorder: str) -> bool:\n        slots = 1\n        for token in preorder.split(','):\n            if slots == 0:\n                return False\n            slots -= 1\n            if token != '#':\n                slots += 2\n        return slots == 0\n",
+    "javascript": "var isValidSerialization = function(preorder) {\n    let slots = 1;\n    for (const token of preorder.split(',')) {\n        if (slots === 0) return false;\n        slots -= 1;\n        if (token !== '#') slots += 2;\n    }\n    return slots === 0;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

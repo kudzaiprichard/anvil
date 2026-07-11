@@ -1,0 +1,96 @@
+{
+  "slug": "number-of-ways-to-divide-a-long-corridor",
+  "judge": "exact",
+  "pattern": "Once the section boundaries are pinned to consecutive pairs of seats, the count of arrangements collapses to a product of the plant-run widths between those pairs.",
+  "hints": [
+    "A valid section always contains exactly two seats, so first check whether the total seat count is even and at least two -- if not, no division exists at all.",
+    "List the positions of the seats. Pairing them up in order (1st with 2nd, 3rd with 4th, and so on) fixes where every section starts and ends -- there is no freedom left in how seats are grouped.",
+    "The only real choice is where to drop the divider between one finished pair and the next: any of the plant positions between the last seat of a pair and the first seat of the following pair works, so multiply those counts together (mod 1e9+7) across every gap."
+  ],
+  "constraints": [
+    {
+      "param": "corridor",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ],
+      "charset": "SP"
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "no seats at all, so there is nothing to divide into two-seat sections",
+      "input": [
+        "PPPP"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an odd seat count makes any valid division impossible",
+      "input": [
+        "SPSPS"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "exactly one pair with no plants to spare -- only the no-op division is valid",
+      "input": [
+        "SS"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum-length corridor with no seat at all",
+      "input": [
+        "P"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two pairs directly adjacent with zero plants between them still allow exactly one placement, not zero",
+      "input": [
+        "SSSS"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "several plants sit between two pairs, multiplying the number of valid divider placements",
+      "input": [
+        "SSPPPSS"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three chained pairs whose differing gap widths must multiply together",
+      "input": [
+        "SSPSSPPSS"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "many tightly packed pairs, each boundary forced to a single placement",
+      "input": [
+        "SSSSSS"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long random corridor of seats and plants near the max length, exercising both the parity check and long products",
+      "seed": 2147,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    chars = ['S' if rng.random() < 0.35 else 'P' for _ in range(n)]\n    return [''.join(chars)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfWays(self, corridor: str) -> int:\n        MOD = 1_000_000_007\n        n = len(corridor)\n        slots = list(range(1, n))\n        count = 0\n        # Exhaustively try every subset of the possible extra divider\n        # positions and check each resulting section directly -- a\n        # deliberately brute-force mechanism, independent of the\n        # gap-product formula used by the optimal solution.\n        total = 1 << len(slots)\n        for mask in range(total):\n            dividers = [0]\n            for j, pos in enumerate(slots):\n                if mask & (1 << j):\n                    dividers.append(pos)\n            dividers.append(n)\n            valid = True\n            for a, b in zip(dividers, dividers[1:]):\n                if corridor[a:b].count('S') != 2:\n                    valid = False\n                    break\n            if valid:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfWays(self, corridor: str) -> int:\n        MOD = 1_000_000_007\n        seats = [i for i, ch in enumerate(corridor) if ch == 'S']\n        if len(seats) == 0 or len(seats) % 2 != 0:\n            return 0\n        ans = 1\n        for i in range(2, len(seats), 2):\n            ans = (ans * (seats[i] - seats[i - 1])) % MOD\n        return ans\n",
+    "javascript": "var numberOfWays = function(corridor) {\n    const MOD = 1000000007;\n    const seats = [];\n    for (let i = 0; i < corridor.length; i++) {\n        if (corridor[i] === 'S') seats.push(i);\n    }\n    if (seats.length === 0 || seats.length % 2 !== 0) return 0;\n    let ans = 1;\n    for (let i = 2; i < seats.length; i += 2) {\n        ans = (ans * (seats[i] - seats[i - 1])) % MOD;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

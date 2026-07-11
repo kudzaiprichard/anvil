@@ -1,0 +1,47 @@
+{
+  "slug": "design-an-ordered-stream",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Buffer arrivals by their slot number and only release the growing prefix once every slot up to the current cursor has been filled.",
+  "hints": [
+    "You don't need to re-scan everything on every call — track the single boundary between what has already been released and what hasn't.",
+    "Store each arriving value at its own slot in a fixed-size array, then look at whether the very next unreleased slot is now filled.",
+    "After writing a slot, walk forward from the cursor collecting a contiguous run of filled slots, advancing the cursor past each one you collect; stop the moment you hit an empty slot."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000] },
+    { "param": "idKey", "kind": "int", "value": [1, 1000] },
+    { "param": "value", "kind": "string", "len": [5, 5] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single-slot stream, one insert immediately flushes",
+      "input": [["OrderedStream", "insert"], [[1], [1, "aaaaa"]]] },
+    { "kind": "edge", "description": "inserts arrive in reverse order, nothing flushes until the last one completes the prefix",
+      "input": [["OrderedStream", "insert", "insert", "insert"], [[3], [3, "ccccc"], [2, "bbbbb"], [1, "aaaaa"]]] },
+    { "kind": "edge", "description": "inserts arrive already in order, each flushes exactly one value",
+      "input": [["OrderedStream", "insert", "insert", "insert"], [[3], [1, "aaaaa"], [2, "bbbbb"], [3, "ccccc"]]] },
+    { "kind": "trap", "description": "filling a middle gap flushes multiple buffered values at once",
+      "input": [["OrderedStream", "insert", "insert", "insert", "insert"], [[4], [2, "bbbbb"], [3, "ccccc"], [4, "ddddd"], [1, "aaaaa"]]] },
+    { "kind": "trap", "description": "inserting the last id first must not flush anything until earlier ids arrive",
+      "input": [["OrderedStream", "insert", "insert"], [[5], [5, "eeeee"], [4, "ddddd"]]] },
+    { "kind": "boundary", "description": "statement-style example: five slots, out-of-order arrival with a partial flush then a full catch-up",
+      "input": [["OrderedStream", "insert", "insert", "insert", "insert", "insert"], [[5], [3, "ccccc"], [1, "aaaaa"], [2, "bbbbb"], [5, "eeeee"], [4, "ddddd"]]] },
+    { "kind": "boundary", "description": "n at the constraint maximum with only the first slot filled",
+      "input": [["OrderedStream", "insert"], [[1000], [1, "aaaaa"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random permutation of slot arrivals over a mid-size stream, each id inserted exactly once",
+      "seed": 7,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    order = list(range(1, n + 1))\n    rng.shuffle(order)\n    ops = ['OrderedStream']\n    args = [[n]]\n    alphabet = 'abcdefghijklmnopqrstuvwxyz'\n    for idKey in order:\n        value = ''.join(rng.choice(alphabet) for _ in range(5))\n        ops.append('insert')\n        args.append([idKey, value])\n    return [ops, args]\n",
+      "note": "each id appears exactly once in a shuffled order, matching the problem's actual usage pattern"
+    }
+  ],
+  "oracle_python": "class OrderedStream:\n    def __init__(self, n: int):\n        self.n = n\n        self.slots = [None] * (n + 1)\n        self.next_needed = 1\n    def insert(self, idKey: int, value: str):\n        self.slots[idKey] = value\n        res = []\n        scan = self.next_needed\n        while scan <= self.n and self.slots[scan] is not None:\n            res.append(self.slots[scan])\n            scan += 1\n        self.next_needed = scan\n        return res\n",
+  "solutions": {
+    "python": "class OrderedStream:\n    def __init__(self, n: int):\n        self.stream = [None] * (n + 1)\n        self.n = n\n        self.ptr = 1\n    def insert(self, idKey: int, value: str):\n        self.stream[idKey] = value\n        res = []\n        while self.ptr <= self.n and self.stream[self.ptr] is not None:\n            res.append(self.stream[self.ptr])\n            self.ptr += 1\n        return res\n",
+    "javascript": "class OrderedStream {\n    constructor(n) {\n        this.stream = new Array(n + 1).fill(null);\n        this.n = n;\n        this.ptr = 1;\n    }\n    insert(idKey, value) {\n        this.stream[idKey] = value;\n        const res = [];\n        while (this.ptr <= this.n && this.stream[this.ptr] !== null) {\n            res.push(this.stream[this.ptr]);\n            this.ptr += 1;\n        }\n        return res;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) total across all inserts", "space": "O(n)" }
+}

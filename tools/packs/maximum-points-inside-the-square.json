@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-points-inside-the-square",
+  "judge": "exact",
+  "pattern": "Binary search on square half-side or sort points by Chebyshev distance; greedily expand the square until a tag collision would occur.",
+  "hints": [
+    "A point (x,y) is inside a square of half-side L centered at origin iff max(|x|,|y|) <= L. Sort points by this Chebyshev distance.",
+    "Binary search on the half-side L: count how many distinct tags appear when all points with Chebyshev distance <= L are included, checking if any tag appears more than once.",
+    "Process points in non-decreasing order of Chebyshev distance. Expand the square one 'distance level' at a time. As soon as adding the next level introduces a duplicate tag, stop and return the current count."
+  ],
+  "constraints": [
+    { "param": "points", "kind": "int[][]", "len": [1, 100000] },
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "example 1: 5 points, distinct tags", "input": [[[2,2],[-1,-2],[-4,4],[-3,1],[3,-3]], "abdca"] },
+    { "kind": "edge", "description": "example 2: duplicate tag blocks growth", "input": [[[1,1],[-2,-2],[-2,2]], "abb"] },
+    { "kind": "edge", "description": "example 3: first two share same tag at L=2, answer 0", "input": [[[1,1],[-1,-1],[2,-2]], "ccd"] },
+    { "kind": "edge", "description": "single point always included", "input": [[[0,0]], "a"] },
+    { "kind": "trap", "description": "two points at same distance with same tag - must not include either", "input": [[[3,0],[0,3]], "aa"] },
+    { "kind": "trap", "description": "two points same tag but different distances - include only the closer one", "input": [[[1,0],[5,0]], "aa"] },
+    { "kind": "trap", "description": "point at origin counts as distance 0 inside any non-degenerate square", "input": [[[0,0],[1,1]], "ab"] },
+    { "kind": "boundary", "description": "26 points all different tags at same Chebyshev distance", "input": [[[1,0],[0,1],[-1,0],[0,-1],[2,0],[0,2],[-2,0],[0,-2],[3,0],[0,3],[-3,0],[0,-3],[4,0],[0,4],[-4,0],[0,-4],[5,0],[0,5],[-5,0],[0,-5],[6,0],[0,6],[-6,0],[0,-6],[7,0],[0,7]], "abcdefghijklmnopqrstuvwxyz"] }
+  ],
+  "stress": [
+    {
+      "description": "random points with random tags from small alphabet",
+      "seed": 55,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, size)\n    points = [[rng.randint(-100, 100), rng.randint(-100, 100)] for _ in range(n)]\n    # deduplicate points\n    seen = set()\n    unique = []\n    for p in points:\n        key = (p[0], p[1])\n        if key not in seen:\n            seen.add(key)\n            unique.append(p)\n    points = unique[:n]\n    s = ''.join(rng.choice('abcdefghij') for _ in range(len(points)))\n    return [points, s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPointsInsideSquare(self, points, s: str) -> int:\n        # Try all possible half-sides L = max(|x|,|y|) for each point\n        # Binary search on L\n        n = len(points)\n        dists = [max(abs(points[i][0]), abs(points[i][1])) for i in range(n)]\n        def count_at(L):\n            seen = {}\n            for i in range(n):\n                if dists[i] <= L:\n                    c = s[i]\n                    if c in seen:\n                        return -1  # duplicate\n                    seen[c] = i\n            return len(seen)\n        \n        # Collect all possible L values\n        all_L = sorted(set(dists))\n        result = 0\n        for L in all_L:\n            c = count_at(L)\n            if c == -1:\n                break\n            result = c\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPointsInsideSquare(self, points, s: str) -> int:\n        n = len(points)\n        dists = [(max(abs(points[i][0]), abs(points[i][1])), s[i]) for i in range(n)]\n        dists.sort()\n        seen = {}\n        result = 0\n        i = 0\n        while i < n:\n            # collect all points at this distance level\n            cur_d = dists[i][0]\n            j = i\n            level = []\n            while j < n and dists[j][0] == cur_d:\n                level.append(dists[j][1])\n                j += 1\n            # check if adding this level creates a duplicate\n            tag_count = {}\n            for c in level:\n                tag_count[c] = tag_count.get(c, 0) + 1\n            conflict = any(v > 1 for v in tag_count.values()) or any(c in seen for c in level)\n            if conflict:\n                break\n            for c in level:\n                seen[c] = True\n            result += len(level)\n            i = j\n        return result\n",
+    "javascript": "var maxPointsInsideSquare = function(points, s) {\n    const n = points.length;\n    const dists = points.map((p, i) => [Math.max(Math.abs(p[0]), Math.abs(p[1])), s[i]]);\n    dists.sort((a, b) => a[0] - b[0]);\n    const seen = new Set();\n    let result = 0;\n    let i = 0;\n    while (i < n) {\n        const curD = dists[i][0];\n        let j = i;\n        const level = [];\n        while (j < n && dists[j][0] === curD) {\n            level.push(dists[j][1]);\n            j++;\n        }\n        const tagCount = {};\n        for (const c of level) tagCount[c] = (tagCount[c] || 0) + 1;\n        const conflict = level.some(c => seen.has(c)) || Object.values(tagCount).some(v => v > 1);\n        if (conflict) break;\n        for (const c of level) seen.add(c);\n        result += level.length;\n        i = j;\n    }\n    return result;\n};"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

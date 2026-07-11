@@ -1,0 +1,148 @@
+{
+  "slug": "cat-and-mouse-ii",
+  "judge": "exact",
+  "pattern": "Treat every (mouse cell, cat cell, side-to-move) as a game node and solve by retrograde analysis from terminal wins; any position that never resolves to a mouse win is a cat win because an unresolved chase exhausts the move budget.",
+  "hints": [
+    "A position is fully described by the mouse cell, the cat cell, and whose turn it is, since jump reachability only depends on the current cells.",
+    "Work backwards from terminal states (mouse on food wins; cat on food or sharing the mouse's cell wins) and propagate winners to predecessors.",
+    "On the mover's turn the position is a win for that side if any move reaches a winning child; for the opponent it must hold for every move, so count undecided moves and flip when the count hits zero."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "string[]",
+      "len": [
+        1,
+        8
+      ]
+    },
+    {
+      "param": "catJump",
+      "kind": "int",
+      "value": [
+        1,
+        8
+      ]
+    },
+    {
+      "param": "mouseJump",
+      "kind": "int",
+      "value": [
+        1,
+        8
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example one: mouse escapes on an L-shaped board",
+      "input": [
+        [
+          "####F",
+          "#C...",
+          "M...."
+        ],
+        1,
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example two: long jump lets the mouse win",
+      "input": [
+        [
+          "M.C...F"
+        ],
+        1,
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "statement example three: one shorter jump and the mouse loses",
+      "input": [
+        [
+          "M.C...F"
+        ],
+        1,
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimal row, all three adjacent",
+      "input": [
+        [
+          "MCF"
+        ],
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "small grid with a wall splitting paths",
+      "input": [
+        [
+          "M#F",
+          "..C"
+        ],
+        2,
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "cat sits next to the food",
+      "input": [
+        [
+          "M.CF"
+        ],
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two-by-two open board",
+      "input": [
+        [
+          "MC",
+          "F."
+        ],
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "mouse far with generous jump",
+      "input": [
+        [
+          "F....C....M"
+        ],
+        2,
+        5
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "tiny random boards (at most six floor cells) so the ply-bounded oracle stays fast",
+      "seed": 19,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    while True:\n        if rng.random() < 0.5:\n            R, C = 1, rng.randint(3, 6)\n        else:\n            R, C = 2, 3\n        g = [['.' for _ in range(C)] for _ in range(R)]\n        for r in range(R):\n            for c in range(C):\n                if rng.random() < 0.15:\n                    g[r][c] = '#'\n        floors = [(r, c) for r in range(R) for c in range(C) if g[r][c] == '.']\n        if len(floors) < 3:\n            continue\n        rng.shuffle(floors)\n        (mr, mc), (cr, cc), (fr, fc) = floors[0], floors[1], floors[2]\n        g[mr][mc] = 'M'; g[cr][cc] = 'C'; g[fr][fc] = 'F'\n        grid = [''.join(row) for row in g]\n        return [grid, rng.randint(1, 3), rng.randint(1, 3)]\n",
+      "note": "exactly one M, C, F on distinct floor cells; boards kept tiny for the exponential oracle"
+    }
+  ],
+  "oracle_python": "import sys\nfrom functools import lru_cache\nclass Solution:\n    def canMouseWin(self, grid, catJump, mouseJump):\n        sys.setrecursionlimit(1000000)\n        R = len(grid); C = len(grid[0])\n        cells = []; idx = {}\n        for r in range(R):\n            for c in range(C):\n                if grid[r][c] != '#':\n                    idx[(r, c)] = len(cells); cells.append((r, c))\n        N = len(cells)\n        M = Cc = F = 0\n        for (r, c), i in idx.items():\n            ch = grid[r][c]\n            if ch == 'M': M = i\n            elif ch == 'C': Cc = i\n            elif ch == 'F': F = i\n        dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)]\n        def reach(i, jump):\n            r0, c0 = cells[i]; res = [i]\n            for dr, dc in dirs:\n                for k in range(1, jump + 1):\n                    nr, nc = r0 + dr * k, c0 + dc * k\n                    if 0 <= nr < R and 0 <= nc < C and grid[nr][nc] != '#':\n                        res.append(idx[(nr, nc)])\n                    else:\n                        break\n            return res\n        mreach = [reach(i, mouseJump) for i in range(N)]\n        creach = [reach(i, catJump) for i in range(N)]\n        LIMIT = 2 * N * N\n        @lru_cache(maxsize=None)\n        def solve(m, c, turn, ply):\n            if c == F or c == m:\n                return False\n            if m == F:\n                return True\n            if ply >= LIMIT:\n                return False\n            if turn == 0:\n                for nm in mreach[m]:\n                    if solve(nm, c, 1, ply + 1):\n                        return True\n                return False\n            else:\n                for nc in creach[c]:\n                    if not solve(m, nc, 0, ply + 1):\n                        return False\n                return True\n        return solve(M, Cc, 0, 0)\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def canMouseWin(self, grid, catJump, mouseJump):\n        R = len(grid); C = len(grid[0])\n        cells = []; idx = {}\n        for r in range(R):\n            for c in range(C):\n                if grid[r][c] != '#':\n                    idx[(r, c)] = len(cells); cells.append((r, c))\n        N = len(cells)\n        M = Cc = F = 0\n        for (r, c), i in idx.items():\n            ch = grid[r][c]\n            if ch == 'M': M = i\n            elif ch == 'C': Cc = i\n            elif ch == 'F': F = i\n        dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)]\n        def reach(i, jump):\n            r0, c0 = cells[i]; res = [i]\n            for dr, dc in dirs:\n                for k in range(1, jump + 1):\n                    nr, nc = r0 + dr * k, c0 + dc * k\n                    if 0 <= nr < R and 0 <= nc < C and grid[nr][nc] != '#':\n                        res.append(idx[(nr, nc)])\n                    else:\n                        break\n            return res\n        mreach = [reach(i, mouseJump) for i in range(N)]\n        creach = [reach(i, catJump) for i in range(N)]\n        MOUSE, CAT = 1, 2\n        color = [[[0, 0] for _ in range(N)] for _ in range(N)]\n        degree = [[[len(mreach[mi]), len(creach[ci])] for ci in range(N)] for mi in range(N)]\n        q = deque()\n        for mi in range(N):\n            for ci in range(N):\n                for t in (0, 1):\n                    if ci == F or ci == mi:\n                        color[mi][ci][t] = CAT; q.append((mi, ci, t))\n                    elif mi == F:\n                        color[mi][ci][t] = MOUSE; q.append((mi, ci, t))\n        while q:\n            mi, ci, t = q.popleft(); w = color[mi][ci][t]\n            if t == 0:\n                for cp in creach[ci]:\n                    if color[mi][cp][1] == 0:\n                        if w == CAT:\n                            color[mi][cp][1] = CAT; q.append((mi, cp, 1))\n                        else:\n                            degree[mi][cp][1] -= 1\n                            if degree[mi][cp][1] == 0:\n                                color[mi][cp][1] = MOUSE; q.append((mi, cp, 1))\n            else:\n                for mp in mreach[mi]:\n                    if color[mp][ci][0] == 0:\n                        if w == MOUSE:\n                            color[mp][ci][0] = MOUSE; q.append((mp, ci, 0))\n                        else:\n                            degree[mp][ci][0] -= 1\n                            if degree[mp][ci][0] == 0:\n                                color[mp][ci][0] = CAT; q.append((mp, ci, 0))\n        return color[M][Cc][0] == MOUSE\n",
+    "javascript": "var canMouseWin = function(grid, catJump, mouseJump) {\n    const R = grid.length, C = grid[0].length;\n    const cells = []; const idx = {};\n    const key = (r, c) => r * C + c;\n    for (let r = 0; r < R; r++) {\n        for (let c = 0; c < C; c++) {\n            if (grid[r][c] !== '#') { idx[key(r, c)] = cells.length; cells.push([r, c]); }\n        }\n    }\n    const N = cells.length;\n    let M = 0, Cc = 0, F = 0;\n    for (let i = 0; i < N; i++) {\n        const [r, c] = cells[i]; const ch = grid[r][c];\n        if (ch === 'M') M = i; else if (ch === 'C') Cc = i; else if (ch === 'F') F = i;\n    }\n    const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];\n    const reach = (i, jump) => {\n        const [r0, c0] = cells[i]; const res = [i];\n        for (const [dr, dc] of dirs) {\n            for (let k = 1; k <= jump; k++) {\n                const nr = r0 + dr * k, nc = c0 + dc * k;\n                if (nr >= 0 && nr < R && nc >= 0 && nc < C && grid[nr][nc] !== '#') res.push(idx[key(nr, nc)]);\n                else break;\n            }\n        }\n        return res;\n    };\n    const mreach = [], creach = [];\n    for (let i = 0; i < N; i++) { mreach.push(reach(i, mouseJump)); creach.push(reach(i, catJump)); }\n    const MOUSE = 1, CAT = 2;\n    const color = Array.from({length: N}, () => Array.from({length: N}, () => [0, 0]));\n    const degree = Array.from({length: N}, (_, mi) => Array.from({length: N}, (_, ci) => [mreach[mi].length, creach[ci].length]));\n    const q = [];\n    for (let mi = 0; mi < N; mi++) {\n        for (let ci = 0; ci < N; ci++) {\n            for (let t = 0; t < 2; t++) {\n                if (ci === F || ci === mi) { color[mi][ci][t] = CAT; q.push([mi, ci, t]); }\n                else if (mi === F) { color[mi][ci][t] = MOUSE; q.push([mi, ci, t]); }\n            }\n        }\n    }\n    let head = 0;\n    while (head < q.length) {\n        const [mi, ci, t] = q[head++]; const w = color[mi][ci][t];\n        if (t === 0) {\n            for (const cp of creach[ci]) {\n                if (color[mi][cp][1] === 0) {\n                    if (w === CAT) { color[mi][cp][1] = CAT; q.push([mi, cp, 1]); }\n                    else { if (--degree[mi][cp][1] === 0) { color[mi][cp][1] = MOUSE; q.push([mi, cp, 1]); } }\n                }\n            }\n        } else {\n            for (const mp of mreach[mi]) {\n                if (color[mp][ci][0] === 0) {\n                    if (w === MOUSE) { color[mp][ci][0] = MOUSE; q.push([mp, ci, 0]); }\n                    else { if (--degree[mp][ci][0] === 0) { color[mp][ci][0] = CAT; q.push([mp, ci, 0]); } }\n                }\n            }\n        }\n    }\n    return color[M][Cc][0] === MOUSE;\n};\n"
+  },
+  "complexity": {
+    "time": "O((R*C)^2 * jump)",
+    "space": "O((R*C)^2)"
+  }
+}

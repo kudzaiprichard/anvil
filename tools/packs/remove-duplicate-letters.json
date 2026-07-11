@@ -1,0 +1,36 @@
+{
+  "slug": "remove-duplicate-letters",
+  "judge": "exact",
+  "pattern": "Greedy monotone stack: keep the result lexicographically smallest by popping larger characters when a smaller one arrives and the popped character still appears later.",
+  "hints": [
+    "Count how many times each character appears in the remaining suffix; this tells you whether it is safe to discard a character now.",
+    "Maintain a stack and a 'used' set. For each character, if it is already in the result skip it. Otherwise pop from the stack any character that is larger than the current one AND still has future occurrences.",
+    "Decrement each character's remaining count as you move through the string. Push the current character onto the stack only after finishing the pop loop, then mark it as used."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all characters already in sorted order — no pops needed", "input": ["abcd"] },
+    { "kind": "edge", "description": "all same character — result is single char", "input": ["aaaa"] },
+    { "kind": "trap", "description": "classic case where a later smaller char forces popping earlier larger chars", "input": ["bcabc"] },
+    { "kind": "trap", "description": "last occurrence must be kept even though larger", "input": ["cbacdcbc"] },
+    { "kind": "boundary", "description": "single character string", "input": ["z"] },
+    { "kind": "trap", "description": "reverse sorted string — each later char is smaller but last occurrence forces retention", "input": ["edcba"] },
+    { "kind": "trap", "description": "long run of one letter before others", "input": ["bbbbbac"] }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase string to stress greedy stack logic",
+      "seed": 42,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    import string\n    return [''.join(rng.choice(string.ascii_lowercase) for _ in range(size))]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def removeDuplicateLetters(self, s):\n        # Enumerate all subsequences with each letter exactly once,\n        # maintaining relative order; return lex-smallest.\n        chars = frozenset(s)\n        n = len(s)\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(idx, seen):\n            # seen: frozenset of chars already chosen\n            if seen == chars:\n                return ''\n            if idx == n:\n                return None  # not all chars placed\n            c = s[idx]\n            best = None\n            # Option 1: skip s[idx] (only if c still appears later)\n            if c in set(s[idx+1:]) or c in seen:\n                skip = dp(idx + 1, seen)\n                if skip is not None:\n                    best = skip\n            # Option 2: take s[idx] if not yet seen\n            if c not in seen:\n                take = dp(idx + 1, seen | frozenset([c]))\n                if take is not None:\n                    candidate = c + take\n                    if best is None or candidate < best:\n                        best = candidate\n            return best\n        return dp(0, frozenset())\n",
+  "solutions": {
+    "python": "class Solution:\n    def removeDuplicateLetters(self, s):\n        from collections import Counter\n        count = Counter(s)\n        used = set()\n        stack = []\n        for c in s:\n            count[c] -= 1\n            if c in used:\n                continue\n            while stack and stack[-1] > c and count[stack[-1]] > 0:\n                used.discard(stack.pop())\n            stack.append(c)\n            used.add(c)\n        return ''.join(stack)\n",
+    "javascript": "var removeDuplicateLetters = function(s) {\n    const count = {};\n    for (const c of s) count[c] = (count[c] || 0) + 1;\n    const used = new Set();\n    const stack = [];\n    for (const c of s) {\n        count[c]--;\n        if (used.has(c)) continue;\n        while (stack.length && stack[stack.length - 1] > c && count[stack[stack.length - 1]] > 0) {\n            used.delete(stack.pop());\n        }\n        stack.push(c);\n        used.add(c);\n    }\n    return stack.join('');\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

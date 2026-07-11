@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-cost-to-make-at-least-one-valid-path-in-a-grid",
+  "judge": "exact",
+  "pattern": "A 0-1 BFS (deque) treats following an existing arrow as a free edge (cost 0) and redirecting an arrow as a cost-1 edge, yielding the minimum number of sign changes to reach the bottom-right corner.",
+  "hints": [
+    "Model the grid as a graph where moving to an adjacent cell costs 0 if the current cell's arrow already points there, and 1 if you need to change the sign.",
+    "Because edge weights are only 0 or 1, a deque-based BFS (0-1 BFS) finds shortest paths faster than Dijkstra: push cost-0 neighbors to the front, cost-1 neighbors to the back.",
+    "Start from (0,0) with cost 0; the answer is the cost when you first dequeue cell (m-1, n-1)."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "4x4 snake grid requiring 3 redirections", "input": [[[1,1,1,1],[2,2,2,2],[1,1,1,1],[2,2,2,2]]] },
+    { "kind": "edge", "description": "3x3 grid with a zero-cost valid path", "input": [[[1,1,3],[3,2,2],[1,1,4]]] },
+    { "kind": "edge", "description": "2x2 grid requiring 1 change", "input": [[[1,2],[4,3]]] },
+    { "kind": "edge", "description": "single cell grid — already at destination", "input": [[[1]]] },
+    { "kind": "boundary", "description": "single row — may only need to follow arrows right", "input": [[[1,1,1,1]]] },
+    { "kind": "boundary", "description": "single column — arrows must point down", "input": [[[3],[3],[3],[3]]] },
+    { "kind": "trap", "description": "all arrows point away from the goal — maximum redirections needed", "input": [[[2,2,2],[4,4,4],[2,2,2]]] },
+    { "kind": "trap", "description": "arrows form a cycle that never reaches bottom-right without a change", "input": [[[1,2],[3,4]]] }
+  ],
+  "stress": [
+    {
+      "description": "random 50x50 grid with values 1-4",
+      "seed": 61,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    m = max(2, size)\n    n = max(2, size)\n    grid = [[rng.randint(1, 4) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCost(self, grid) -> int:\n        import heapq\n        m, n = len(grid), len(grid[0])\n        dirs = [(0,1),(0,-1),(1,0),(-1,0)]\n        dist = [[float('inf')] * n for _ in range(m)]\n        dist[0][0] = 0\n        heap = [(0, 0, 0)]\n        while heap:\n            cost, r, c = heapq.heappop(heap)\n            if cost > dist[r][c]:\n                continue\n            for k, (dr, dc) in enumerate(dirs):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n:\n                    new_cost = cost + (0 if grid[r][c] == k + 1 else 1)\n                    if new_cost < dist[nr][nc]:\n                        dist[nr][nc] = new_cost\n                        heapq.heappush(heap, (new_cost, nr, nc))\n        return dist[m-1][n-1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCost(self, grid) -> int:\n        from collections import deque\n        m, n = len(grid), len(grid[0])\n        dirs = [(0,1),(0,-1),(1,0),(-1,0)]\n        dist = [[float('inf')] * n for _ in range(m)]\n        dist[0][0] = 0\n        dq = deque([(0, 0, 0)])\n        while dq:\n            cost, r, c = dq.popleft()\n            if cost > dist[r][c]:\n                continue\n            for k, (dr, dc) in enumerate(dirs):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n:\n                    w = 0 if grid[r][c] == k + 1 else 1\n                    if cost + w < dist[nr][nc]:\n                        dist[nr][nc] = cost + w\n                        if w == 0:\n                            dq.appendleft((cost, nr, nc))\n                        else:\n                            dq.append((cost + 1, nr, nc))\n        return dist[m-1][n-1]\n",
+    "javascript": "var minCost = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const dirs = [[0,1],[0,-1],[1,0],[-1,0]];\n    const dist = Array.from({length: m}, () => new Array(n).fill(Infinity));\n    dist[0][0] = 0;\n    const dq = [[0, 0, 0]];\n    let head = 0;\n    while (head < dq.length) {\n        const [cost, r, c] = dq[head++];\n        if (cost > dist[r][c]) continue;\n        for (let k = 0; k < 4; k++) {\n            const nr = r + dirs[k][0], nc = c + dirs[k][1];\n            if (nr >= 0 && nr < m && nc >= 0 && nc < n) {\n                const w = grid[r][c] === k + 1 ? 0 : 1;\n                if (cost + w < dist[nr][nc]) {\n                    dist[nr][nc] = cost + w;\n                    if (w === 0) dq.splice(head, 0, [cost, nr, nc]);\n                    else dq.push([cost + 1, nr, nc]);\n                }\n            }\n        }\n    }\n    return dist[m-1][n-1];\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

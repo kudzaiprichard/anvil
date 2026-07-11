@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-xor-with-an-element-from-array",
+  "judge": "exact",
+  "pattern": "Answering 'best XOR partner among values at most m' is easy with a binary trie of bits, but only if the trie only ever contains eligible values -- so sort the queries by their limit and insert array values into the trie as their value becomes small enough to qualify, answering each query the moment its eligible set is fully built.",
+  "hints": [
+    "For a fixed set of eligible numbers, the maximum XOR against a target x can be found greedily bit-by-bit from the most significant bit down, using a binary trie: at each bit, try to go the opposite way from x's bit, and fall back only if that branch is empty.",
+    "The set of eligible numbers for query i is exactly {nums[j] : nums[j] <= m_i}, which changes per query -- so instead of rebuilding it every time, sort both nums and the queries by their bound, and insert numbers into the trie one at a time only once they are <= the current query's m, moving a pointer forward as m grows.",
+    "Process queries in increasing order of m: keep a pointer into sorted nums, push every num <= the current m into the trie before answering that query (in its original index), and answer -1 for a query whose m is smaller than every available num so far."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one, small range with a mix of limits", "input": [[0,1,2,3,4], [[3,1],[1,3],[5,6]]] },
+    { "kind": "edge", "description": "statement example two, one query has no eligible element", "input": [[5,2,4,6,6,3], [[12,4],[8,1],[6,3]]] },
+    { "kind": "boundary", "description": "single element, single query exactly at the limit", "input": [[0], [[0,0]]] },
+    { "kind": "boundary", "description": "single element, query limit below it so it's ineligible", "input": [[5], [[3,2]]] },
+    { "kind": "trap", "description": "duplicate values in nums, still eligible and usable", "input": [[7,7,7], [[7,7],[0,7]]] },
+    { "kind": "trap", "description": "queries not sorted by limit, out of order on purpose", "input": [[1,2,3,4,5], [[10,1],[10,5],[10,3]]] },
+    { "kind": "trap", "description": "large values exercising many bits at once", "input": [[536870912,268435456,805306368], [[999999999,1000000000],[0,268435456]]] }
+  ],
+  "stress": [
+    {
+      "description": "random nums and queries with mixed limits, including some limits below every num",
+      "seed": 11,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    q = max(1, min(size, 100000))\n    nums = [rng.randint(0, 1000000000) for _ in range(n)]\n    queries = [[rng.randint(0, 1000000000), rng.randint(0, 1000000000)] for _ in range(q)]\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximizeXor(self, nums, queries):\n        answer = []\n        for x, m in queries:\n            best = -1\n            for v in nums:\n                if v <= m:\n                    best = max(best, v ^ x)\n            answer.append(best)\n        return answer\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximizeXor(self, nums, queries):\n        BITS = 30\n        nums_sorted = sorted(nums)\n        order = sorted(range(len(queries)), key=lambda i: queries[i][1])\n        answer = [-1] * len(queries)\n        trie = {}\n        idx = 0\n        n = len(nums_sorted)\n        for qi in order:\n            x, m = queries[qi]\n            while idx < n and nums_sorted[idx] <= m:\n                node = trie\n                v = nums_sorted[idx]\n                for b in range(BITS, -1, -1):\n                    bit = (v >> b) & 1\n                    node = node.setdefault(bit, {})\n                idx += 1\n            if not trie:\n                answer[qi] = -1\n                continue\n            node = trie\n            best = 0\n            for b in range(BITS, -1, -1):\n                bit = (x >> b) & 1\n                want = 1 - bit\n                if want in node:\n                    best |= (1 << b)\n                    node = node[want]\n                else:\n                    node = node[bit]\n            answer[qi] = best\n        return answer\n",
+    "javascript": "var maximizeXor = function(nums, queries) {\n    const BITS = 30;\n    const numsSorted = nums.slice().sort((a, b) => a - b);\n    const order = queries.map((_, i) => i).sort((a, b) => queries[a][1] - queries[b][1]);\n    const answer = new Array(queries.length).fill(-1);\n    const root = {};\n    let idx = 0;\n    const n = numsSorted.length;\n    let hasAny = false;\n    for (const qi of order) {\n        const x = queries[qi][0];\n        const m = queries[qi][1];\n        while (idx < n && numsSorted[idx] <= m) {\n            let node = root;\n            const v = numsSorted[idx];\n            for (let b = BITS; b >= 0; b--) {\n                const bit = (v >> b) & 1;\n                if (!(bit in node)) node[bit] = {};\n                node = node[bit];\n            }\n            hasAny = true;\n            idx++;\n        }\n        if (!hasAny) {\n            answer[qi] = -1;\n            continue;\n        }\n        let node = root;\n        let best = 0;\n        for (let b = BITS; b >= 0; b--) {\n            const bit = (x >> b) & 1;\n            const want = 1 - bit;\n            if (want in node) {\n                best |= (1 << b);\n                node = node[want];\n            } else {\n                node = node[bit];\n            }\n        }\n        answer[qi] = best;\n    }\n    return answer;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) log(maxVal))", "space": "O(n log(maxVal))" }
+}

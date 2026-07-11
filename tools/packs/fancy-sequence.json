@@ -1,0 +1,47 @@
+{
+  "slug": "fancy-sequence",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Instead of touching every stored element on every bulk add/multiply, track a single running affine transform (multiplier, offset) applied to the whole sequence and store each appended value in the coordinate space that existed at the moment it was appended; a query replays only that element's own catch-up transform.",
+  "hints": [
+    "Doing addAll/multAll by looping over every stored element is correct but too slow when both operations and queries can number in the hundred-thousands; find a way to make append, addAll, and multAll all O(1).",
+    "Keep two running numbers, a global multiplier and a global additive offset (both modulo 1e9+7), that represent 'apply this transform to everything currently in the sequence'. addAll only updates the offset; multAll updates both the multiplier and the offset. Store each newly appended value pre-adjusted so that applying the CURRENT transform to it reproduces the value it should have right now.",
+    "On append(val), the value to store is (val - currentOffset) * inverse(currentMultiplier) mod 1e9+7 (using Fermat's little theorem for the modular inverse, since 1e9+7 is prime) — that stored value, transformed later, always yields the correct live value. getIndex(idx) simply returns (stored[idx] * multiplier + offset) mod 1e9+7, or -1 if idx is out of range."
+  ],
+  "constraints": [
+    { "param": "val", "kind": "int", "value": [1, 100] },
+    { "param": "inc", "kind": "int", "value": [1, 100] },
+    { "param": "m", "kind": "int", "value": [1, 100] },
+    { "param": "idx", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: interleaved append/addAll/multAll with getIndex checks at several points",
+      "input": [["Fancy", "append", "addAll", "append", "multAll", "getIndex", "addAll", "append", "multAll", "getIndex", "getIndex", "getIndex"], [[], [2], [3], [7], [2], [0], [3], [10], [2], [0], [1], [2]]] },
+    { "kind": "boundary", "description": "getIndex called with idx exactly equal to the current length (one past the last valid index) returns -1",
+      "input": [["Fancy", "append", "append", "getIndex", "getIndex"], [[], [5], [9], [2], [1]]] },
+    { "kind": "boundary", "description": "getIndex on an empty sequence always returns -1", "input": [["Fancy", "getIndex", "getIndex"], [[], [0], [100]]] },
+    { "kind": "trap", "description": "addAll/multAll applied before any elements exist must not affect elements appended afterwards",
+      "input": [["Fancy", "addAll", "multAll", "append", "getIndex"], [[], [50], [3], [4], [0]]] },
+    { "kind": "trap", "description": "an element appended between two multAll calls only picks up the transform accumulated since its own append, never the earlier one",
+      "input": [["Fancy", "append", "multAll", "append", "multAll", "getIndex", "getIndex"], [[], [1], [5], [1], [5], [0], [1]]] },
+    { "kind": "trap", "description": "repeated multAll by 1 and addAll by nothing-changing values must be a true no-op on stored values",
+      "input": [["Fancy", "append", "append", "multAll", "multAll", "getIndex", "getIndex"], [[], [7], [11], [1], [1], [0], [1]]] },
+    { "kind": "edge", "description": "many multAll calls in a row on a single early element stresses the modular multiplier growth and inverse computation",
+      "input": [["Fancy", "append", "multAll", "multAll", "multAll", "multAll", "multAll", "addAll", "getIndex"], [[], [3], [97], [89], [83], [79], [73], [11], [0]]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of append/addAll/multAll/getIndex exercising the running transform across many elements added at different times",
+      "seed": 7,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    ops = ['Fancy']\n    args = [[]]\n    length = 0\n    for _ in range(max(1, size)):\n        choices = ['append', 'addAll', 'multAll']\n        if length > 0:\n            choices.append('getIndex')\n        c = rng.choice(choices)\n        if c == 'append':\n            ops.append('append'); args.append([rng.randint(1, 100)])\n            length += 1\n        elif c == 'addAll':\n            ops.append('addAll'); args.append([rng.randint(1, 100)])\n        elif c == 'multAll':\n            ops.append('multAll'); args.append([rng.randint(1, 100)])\n        else:\n            ops.append('getIndex'); args.append([rng.randint(0, length - 1 + 2)])\n    return [ops, args]\n",
+      "note": "idx is occasionally sampled just past length to also exercise the -1 path"
+    }
+  ],
+  "oracle_python": "MOD = 1000000007\n\nclass Fancy:\n    def __init__(self):\n        self.arr = []\n\n    def append(self, val):\n        self.arr.append(val % MOD)\n\n    def addAll(self, inc):\n        for i in range(len(self.arr)):\n            self.arr[i] = (self.arr[i] + inc) % MOD\n\n    def multAll(self, m):\n        for i in range(len(self.arr)):\n            self.arr[i] = (self.arr[i] * m) % MOD\n\n    def getIndex(self, idx):\n        if idx >= len(self.arr):\n            return -1\n        return self.arr[idx]\n",
+  "solutions": {
+    "python": "MOD = 1000000007\n\nclass Fancy:\n    def __init__(self):\n        self.seq = []\n        self.mult = 1\n        self.add = 0\n\n    def append(self, val):\n        inv = pow(self.mult, MOD - 2, MOD)\n        raw = ((val - self.add) * inv) % MOD\n        self.seq.append(raw)\n\n    def addAll(self, inc):\n        self.add = (self.add + inc) % MOD\n\n    def multAll(self, m):\n        self.mult = (self.mult * m) % MOD\n        self.add = (self.add * m) % MOD\n\n    def getIndex(self, idx):\n        if idx >= len(self.seq):\n            return -1\n        return (self.seq[idx] * self.mult + self.add) % MOD\n",
+    "javascript": "class Fancy {\n    constructor() {\n        this.MOD = 1000000007n;\n        this.seq = [];\n        this.mult = 1n;\n        this.add = 0n;\n    }\n\n    _modpow(base, exp, mod) {\n        base %= mod;\n        let result = 1n;\n        while (exp > 0n) {\n            if (exp & 1n) result = (result * base) % mod;\n            base = (base * base) % mod;\n            exp >>= 1n;\n        }\n        return result;\n    }\n\n    append(val) {\n        const inv = this._modpow(this.mult, this.MOD - 2n, this.MOD);\n        let raw = ((BigInt(val) - this.add) % this.MOD + this.MOD) % this.MOD;\n        raw = (raw * inv) % this.MOD;\n        this.seq.push(raw);\n    }\n\n    addAll(inc) {\n        this.add = (this.add + BigInt(inc)) % this.MOD;\n    }\n\n    multAll(m) {\n        const bm = BigInt(m);\n        this.mult = (this.mult * bm) % this.MOD;\n        this.add = (this.add * bm) % this.MOD;\n    }\n\n    getIndex(idx) {\n        if (idx >= this.seq.length) return -1;\n        const val = (this.seq[idx] * this.mult + this.add) % this.MOD;\n        return Number(val);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) amortized per op", "space": "O(n)" }
+}

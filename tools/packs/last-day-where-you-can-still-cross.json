@@ -1,0 +1,39 @@
+{
+  "slug": "last-day-where-you-can-still-cross",
+  "judge": "exact",
+  "pattern": "Flooding is monotone over time, so binary search the latest day and test top-to-bottom connectivity through the remaining land.",
+  "hints": [
+    "If you cannot cross on a given day you certainly cannot cross any later day, which makes the answer the boundary of a monotone predicate.",
+    "Fix a candidate day, flood every cell scheduled up to that day, and ask whether any land path links the top row to the bottom row.",
+    "Binary search on the day. For a midpoint, build the grid with the first mid floods applied, then run a BFS/DFS or union-find from the top row; if it reaches the bottom row the day is feasible, so search higher, otherwise search lower."
+  ],
+  "constraints": [
+    { "param": "row", "kind": "int", "value": [2, 20000] },
+    { "param": "col", "kind": "int", "value": [2, 20000] },
+    { "param": "cells", "kind": "int[][]", "len": [4, 20000], "value": [1, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "2x2 floods leave a path until day 2", "input": [2, 2, [[1, 1], [2, 1], [1, 2], [2, 2]]] },
+    { "kind": "edge", "description": "2x2 floods both columns by day 2 but cross only until day 1", "input": [2, 2, [[1, 1], [1, 2], [2, 1], [2, 2]]] },
+    { "kind": "edge", "description": "3x3 winding flood order", "input": [3, 3, [[1, 2], [2, 1], [3, 3], [2, 2], [1, 1], [1, 3], [2, 3], [3, 2], [3, 1]]] },
+    { "kind": "boundary", "description": "single column, any flood blocks immediately", "input": [4, 1, [[2, 1], [1, 1], [4, 1], [3, 1]]] },
+    { "kind": "boundary", "description": "single row, crossing is free until that row floods", "input": [1, 4, [[1, 3], [1, 1], [1, 4], [1, 2]]] },
+    { "kind": "trap", "description": "first flood already cuts the only narrow bridge", "input": [2, 2, [[1, 1], [2, 2], [1, 2], [2, 1]]] },
+    { "kind": "edge", "description": "tall thin grid floods a side first", "input": [3, 2, [[1, 1], [2, 1], [3, 1], [1, 2], [2, 2], [3, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random flood permutation over a modest grid",
+      "seed": 13,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    import math\n    target = max(4, min(size, 600))\n    row = rng.randrange(2, 21)\n    col = max(2, (target + row - 1) // row)\n    col = min(col, 60)\n    coords = [[r, c] for r in range(1, row + 1) for c in range(1, col + 1)]\n    rng.shuffle(coords)\n    return [row, col, coords]\n",
+      "note": "cells is a full permutation of all grid coordinates"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def latestDayToCross(self, row, col, cells):\n        n = row * col\n        def idx(r, c):\n            return r * col + c\n        def can(day):\n            water = [[False] * col for _ in range(row)]\n            for i in range(day):\n                r, c = cells[i]\n                water[r - 1][c - 1] = True\n            parent = list(range(n + 2))\n            TOP = n\n            BOT = n + 1\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n            def union(a, b):\n                ra, rb = find(a), find(b)\n                if ra != rb:\n                    parent[ra] = rb\n            for r in range(row):\n                for c in range(col):\n                    if water[r][c]:\n                        continue\n                    cur = idx(r, c)\n                    if r == 0:\n                        union(cur, TOP)\n                    if r == row - 1:\n                        union(cur, BOT)\n                    for dr, dc in ((1, 0), (0, 1)):\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < row and 0 <= nc < col and not water[nr][nc]:\n                            union(cur, idx(nr, nc))\n            return find(TOP) == find(BOT)\n        lo, hi = 0, n\n        ans = 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if can(mid):\n                ans = mid\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        return ans\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def latestDayToCross(self, row, col, cells):\n        def can(day):\n            grid = [[0] * col for _ in range(row)]\n            for i in range(day):\n                r, c = cells[i]\n                grid[r - 1][c - 1] = 1\n            q = deque()\n            seen = [[False] * col for _ in range(row)]\n            for c in range(col):\n                if grid[0][c] == 0:\n                    q.append((0, c))\n                    seen[0][c] = True\n            while q:\n                r, c = q.popleft()\n                if r == row - 1:\n                    return True\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < row and 0 <= nc < col and not seen[nr][nc] and grid[nr][nc] == 0:\n                        seen[nr][nc] = True\n                        q.append((nr, nc))\n            return False\n        lo, hi = 1, row * col\n        ans = 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if can(mid):\n                ans = mid\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        return ans\n",
+    "javascript": "var latestDayToCross = function(row, col, cells) {\n    const can = (day) => {\n        const grid = Array.from({length: row}, () => new Array(col).fill(0));\n        for (let i = 0; i < day; i++) {\n            const [r, c] = cells[i];\n            grid[r - 1][c - 1] = 1;\n        }\n        const seen = Array.from({length: row}, () => new Array(col).fill(false));\n        let q = [];\n        for (let c = 0; c < col; c++) {\n            if (grid[0][c] === 0) { q.push([0, c]); seen[0][c] = true; }\n        }\n        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n        let head = 0;\n        while (head < q.length) {\n            const [r, c] = q[head++];\n            if (r === row - 1) return true;\n            for (const [dr, dc] of dirs) {\n                const nr = r + dr, nc = c + dc;\n                if (nr >= 0 && nr < row && nc >= 0 && nc < col && !seen[nr][nc] && grid[nr][nc] === 0) {\n                    seen[nr][nc] = true;\n                    q.push([nr, nc]);\n                }\n            }\n        }\n        return false;\n    };\n    let lo = 1, hi = row * col, ans = 0;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (can(mid)) { ans = mid; lo = mid + 1; }\n        else hi = mid - 1;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(row*col*log(row*col))", "space": "O(row*col)" }
+}

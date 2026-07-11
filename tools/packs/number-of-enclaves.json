@@ -1,0 +1,37 @@
+{
+  "slug": "number-of-enclaves",
+  "judge": "exact",
+  "pattern": "Land that touches the border can escape, so flood-fill inward from every boundary land cell to erase the reachable land, and whatever ones remain are the trapped enclave cells.",
+  "hints": [
+    "A land cell can leave the grid exactly when it is connected to the border, so the cells that cannot escape are those never reached from the edge.",
+    "Run a flood fill starting from every land cell on the four borders, marking everything connected to them as escapable.",
+    "After erasing all border-connected land, count the land cells that survive — those are the enclaves."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 500], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three enclosed and one boundary-touching land cell", "input": [[[0, 0, 0, 0], [1, 0, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]]] },
+    { "kind": "edge", "description": "all land reaches the boundary", "input": [[[0, 1, 1, 0], [0, 0, 1, 0], [0, 0, 1, 0], [0, 0, 0, 0]]] },
+    { "kind": "boundary", "description": "single sea cell", "input": [[[0]]] },
+    { "kind": "trap", "description": "single land cell is on the border so escapes", "input": [[[1]]] },
+    { "kind": "edge", "description": "fully sealed interior block", "input": [[[0, 0, 0, 0, 0], [0, 1, 1, 1, 0], [0, 1, 1, 1, 0], [0, 1, 1, 1, 0], [0, 0, 0, 0, 0]]] },
+    { "kind": "trap", "description": "interior land bridged to the border by one cell", "input": [[[0, 0, 1, 0], [0, 1, 1, 0], [0, 1, 0, 0], [0, 0, 0, 0]]] },
+    { "kind": "edge", "description": "all sea, no enclaves", "input": [[[0, 0], [0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random binary grid where land is denser inside, mixing escapable and trapped regions",
+      "seed": 53,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 200))\n    n = max(1, min(size, 200))\n    grid = [[1 if rng.random() < 0.45 else 0 for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "moderate dimensions keep the flood fill fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numEnclaves(self, grid):\n        m = len(grid)\n        n = len(grid[0])\n        from collections import deque\n        reach = [[False] * n for _ in range(m)]\n        q = deque()\n        for i in range(m):\n            for j in range(n):\n                if (i == 0 or i == m - 1 or j == 0 or j == n - 1) and grid[i][j] == 1:\n                    reach[i][j] = True\n                    q.append((i, j))\n        while q:\n            i, j = q.popleft()\n            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                ni, nj = i + di, j + dj\n                if 0 <= ni < m and 0 <= nj < n and grid[ni][nj] == 1 and not reach[ni][nj]:\n                    reach[ni][nj] = True\n                    q.append((ni, nj))\n        count = 0\n        for i in range(m):\n            for j in range(n):\n                if grid[i][j] == 1 and not reach[i][j]:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "import sys\nclass Solution:\n    def numEnclaves(self, grid):\n        sys.setrecursionlimit(300000)\n        m = len(grid)\n        n = len(grid[0])\n        def fill(i, j):\n            stack = [(i, j)]\n            while stack:\n                x, y = stack.pop()\n                if 0 <= x < m and 0 <= y < n and grid[x][y] == 1:\n                    grid[x][y] = 0\n                    stack.extend([(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)])\n        for j in range(n):\n            fill(0, j)\n            fill(m - 1, j)\n        for i in range(m):\n            fill(i, 0)\n            fill(i, n - 1)\n        return sum(row.count(1) for row in grid)\n",
+    "javascript": "var numEnclaves = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const fill = (i, j) => {\n        const stack = [[i, j]];\n        while (stack.length) {\n            const [x, y] = stack.pop();\n            if (x >= 0 && x < m && y >= 0 && y < n && grid[x][y] === 1) {\n                grid[x][y] = 0;\n                stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);\n            }\n        }\n    };\n    for (let j = 0; j < n; j++) { fill(0, j); fill(m - 1, j); }\n    for (let i = 0; i < m; i++) { fill(i, 0); fill(i, n - 1); }\n    let count = 0;\n    for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) if (grid[i][j] === 1) count++;\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

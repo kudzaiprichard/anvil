@@ -1,0 +1,44 @@
+{
+  "slug": "largest-multiple-of-three",
+  "judge": "exact",
+  "pattern": "The largest achievable multiple of three from a multiset of digits is built by sorting every digit in descending order and then dropping the fewest, smallest-valued digits needed to fix the digit sum's remainder modulo three.",
+  "hints": [
+    "A number is a multiple of three exactly when the sum of its digits is a multiple of three, so first look at what the total digit sum's remainder mod 3 tells you about whether (and what) you must exclude.",
+    "If the remainder is 1, removing a single digit that is itself congruent to 1 (mod 3) fixes it in one step; if no such digit exists, removing two digits that are each congruent to 2 (mod 3) fixes it instead — and symmetrically, a remainder of 2 is fixed by removing one digit congruent to 2, or else two digits congruent to 1.",
+    "Among the candidates that share the required remainder, always drop the smallest-valued one(s) so the digits you keep, arranged in descending order, form the largest possible number; if every digit ends up removed the answer is empty, and if the largest remaining digit is 0 the whole answer collapses to a single \"0\"."
+  ],
+  "constraints": [
+    { "param": "digits", "kind": "int[]", "len": [1, 10000], "value": [0, 9] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "typical case, sum already a multiple of three so every digit is kept", "input": [[8, 1, 9]] },
+    { "kind": "edge", "description": "single digit that cannot form any multiple of three by itself — impossible, answer is empty", "input": [[1]] },
+    { "kind": "edge", "description": "all zeros — must collapse to a single \"0\", not \"000\"", "input": [[0, 0, 0]] },
+    { "kind": "edge", "description": "removing exactly one digit (the smallest with the matching remainder) fixes the sum", "input": [[8, 6, 7, 1, 0]] },
+    { "kind": "boundary", "description": "minimum length, single digit already a multiple of three", "input": [[9]] },
+    { "kind": "boundary", "description": "many identical digits (10 ones): one must be dropped to fix the remainder, leaving the rest — the true 10000-length ceiling is covered by the large-scale stress generator below", "input": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]] },
+    { "kind": "trap", "description": "the single surviving digit after removal is 0 and 0 — result must be \"0\" not \"00\"", "input": [[0, 0, 1]] },
+    { "kind": "trap", "description": "no digit alone matches the needed remainder — both same-remainder digits must be dropped, leaving nothing", "input": [[2, 2]] },
+    { "kind": "trap", "description": "every digit already individually divisible by three — no removal needed despite each being nonzero", "input": [[3, 6, 9]] }
+  ],
+  "stress": [
+    {
+      "description": "random digit multisets of varying length up to 300",
+      "seed": 4,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    length = rng.randint(1, size)\n    digits = [rng.randint(0, 9) for _ in range(length)]\n    return [digits]\n"
+    },
+    {
+      "description": "large-scale random input at the constraint ceiling (10000 digits) to exercise performance and the removal logic at scale",
+      "seed": 9,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    digits = [rng.randint(0, 9) for _ in range(size)]\n    return [digits]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestMultipleOfThree(self, digits) -> str:\n        # Frequency-array formulation (no sorting/popping a list): independent of the\n        # optimal solution's sort-and-splice approach, same asymptotic cost.\n        freq = [0] * 10\n        for d in digits:\n            freq[d] += 1\n        total = sum(digits)\n        r = total % 3\n\n        def remove_smallest_with_mod(mod):\n            for v in range(10):\n                if v % 3 == mod and freq[v] > 0:\n                    freq[v] -= 1\n                    return True\n            return False\n\n        if r == 1:\n            if not remove_smallest_with_mod(1):\n                remove_smallest_with_mod(2)\n                remove_smallest_with_mod(2)\n        elif r == 2:\n            if not remove_smallest_with_mod(2):\n                remove_smallest_with_mod(1)\n                remove_smallest_with_mod(1)\n\n        result = []\n        for v in range(9, -1, -1):\n            result.extend([str(v)] * freq[v])\n        if not result:\n            return ''\n        if result[0] == '0':\n            return '0'\n        return ''.join(result)\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestMultipleOfThree(self, digits) -> str:\n        digits = sorted(digits, reverse=True)\n        total = sum(digits)\n        r = total % 3\n\n        def remove_smallest_with_mod(mod):\n            for i in range(len(digits) - 1, -1, -1):\n                if digits[i] % 3 == mod:\n                    digits.pop(i)\n                    return True\n            return False\n\n        if r == 1:\n            if not remove_smallest_with_mod(1):\n                remove_smallest_with_mod(2)\n                remove_smallest_with_mod(2)\n        elif r == 2:\n            if not remove_smallest_with_mod(2):\n                remove_smallest_with_mod(1)\n                remove_smallest_with_mod(1)\n\n        if not digits:\n            return ''\n        if digits[0] == 0:\n            return '0'\n        return ''.join(map(str, digits))\n",
+    "javascript": "var largestMultipleOfThree = function(digits) {\n    digits = digits.slice().sort((a, b) => b - a);\n    const total = digits.reduce((a, b) => a + b, 0);\n    const r = total % 3;\n\n    const removeSmallestWithMod = (mod) => {\n        for (let i = digits.length - 1; i >= 0; i--) {\n            if (digits[i] % 3 === mod) {\n                digits.splice(i, 1);\n                return true;\n            }\n        }\n        return false;\n    };\n\n    if (r === 1) {\n        if (!removeSmallestWithMod(1)) {\n            removeSmallestWithMod(2);\n            removeSmallestWithMod(2);\n        }\n    } else if (r === 2) {\n        if (!removeSmallestWithMod(2)) {\n            removeSmallestWithMod(1);\n            removeSmallestWithMod(1);\n        }\n    }\n\n    if (digits.length === 0) return '';\n    if (digits[0] === 0) return '0';\n    return digits.join('');\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

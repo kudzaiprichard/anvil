@@ -1,0 +1,42 @@
+{
+  "slug": "stamping-the-sequence",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    stamp, target = args\n    if not isinstance(output, list):\n        return False\n    # empty output only valid if target itself is somehow reachable with 0 stamps... only if stamp==target and len==1? No: empty means no way.\n    # actually empty array means cannot obtain target — but problem says always solvable given constraints, so empty is wrong\n    # However if for some reason input is trivially target==stamp and output==[], that could be wrong too.\n    # The problem guarantees a solution exists, so empty list should only be returned if genuinely impossible.\n    # We treat empty as invalid (all given inputs have solutions).\n    if len(output) == 0:\n        return False\n    if len(output) > 10 * len(target):\n        return False\n    # Simulate: start with '?' * len(target), apply stamps in given order\n    s = list('?' * len(target))\n    for idx in output:\n        if not isinstance(idx, int):\n            return False\n        if idx < 0 or idx + len(stamp) > len(target):\n            return False\n        for k in range(len(stamp)):\n            s[idx + k] = stamp[k]\n    return ''.join(s) == target\n",
+    "validator_javascript": "function validate(args, output) {\n    const [stamp, target] = args;\n    if (!Array.isArray(output) || output.length === 0) return false;\n    if (output.length > 10 * target.length) return false;\n    const s = Array(target.length).fill('?');\n    for (const idx of output) {\n        if (typeof idx !== 'number') return false;\n        if (idx < 0 || idx + stamp.length > target.length) return false;\n        for (let k = 0; k < stamp.length; k++) s[idx + k] = stamp[k];\n    }\n    return s.join('') === target;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Work backwards: repeatedly find a window of target that matches stamp (possibly with already-wildcarded positions), blank those positions out to '?', and record the index; reverse the recorded indices.",
+  "hints": [
+    "Reverse the process: instead of stamping '?' to characters, convert characters back to '?'. Find any window in target that matches stamp when '?' positions are ignored, blank those positions, and record the stamp index.",
+    "Repeat until all characters are '?'. Each successful match removes at least one new character. If no match is possible but target is not all '?' yet, return [].",
+    "Reverse the collected indices at the end to get the forward stamping order."
+  ],
+  "constraints": [
+    { "param": "stamp",  "kind": "string", "len": [1, 1000] },
+    { "param": "target", "kind": "string", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge",     "description": "stamp equals target — one stamp at index 0", "input": ["abc", "abc"] },
+    { "kind": "edge",     "description": "stamp length 1, target all same char", "input": ["a", "aaaa"] },
+    { "kind": "edge",     "description": "overlapping stamps needed", "input": ["abc", "ababc"] },
+    { "kind": "edge",     "description": "complex overlap case", "input": ["abca", "aabcaca"] },
+    { "kind": "boundary", "description": "stamp same length as target, single char each", "input": ["z", "z"] },
+    { "kind": "trap",     "description": "stamp must be applied more than once with overlap", "input": ["ab", "aab"] },
+    { "kind": "trap",     "description": "impossible-looking but solvable with partial overlap wildcard", "input": ["bcd", "abcd"] }
+  ],
+  "stress": [
+    {
+      "description": "constructed solvable input: build target by random stamping then verify",
+      "seed": 61,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    import string\n    stamp_len = rng.randint(2, max(2, size // 5))\n    target_len = rng.randint(stamp_len, max(stamp_len, size))\n    stamp = ''.join(rng.choice(string.ascii_lowercase[:4]) for _ in range(stamp_len))\n    # build target by repeatedly stamping\n    target = list('?' * target_len)\n    for _ in range(10 * target_len):\n        pos = rng.randint(0, target_len - stamp_len)\n        for k in range(stamp_len):\n            target[pos + k] = stamp[k]\n        if '?' not in target:\n            break\n    if '?' in target:\n        # fill remaining with stamp at 0\n        for k in range(stamp_len):\n            target[k] = stamp[k]\n    return [stamp, ''.join(target)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def movesToStamp(self, stamp: str, target: str):\n        m, n = len(stamp), len(target)\n        t = list(target)\n        result = []\n        total_replaced = 0\n        def try_stamp(pos):\n            count = 0\n            for k in range(m):\n                if t[pos + k] == '?':\n                    continue\n                if t[pos + k] != stamp[k]:\n                    return 0\n                count += 1\n            # replace\n            for k in range(m):\n                if t[pos + k] != '?':\n                    t[pos + k] = '?'\n            return count\n        changed = True\n        while changed:\n            changed = False\n            for pos in range(n - m + 1):\n                replaced = try_stamp(pos)\n                if replaced > 0:\n                    total_replaced += replaced\n                    result.append(pos)\n                    changed = True\n                    if total_replaced == n:\n                        return result[::-1]\n        return [] if total_replaced < n else result[::-1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def movesToStamp(self, stamp: str, target: str):\n        m, n = len(stamp), len(target)\n        t = list(target)\n        result = []\n        total = 0\n        changed = True\n        while changed:\n            changed = False\n            for pos in range(n - m + 1):\n                cnt = 0\n                ok = True\n                for k in range(m):\n                    if t[pos+k] == '?':\n                        continue\n                    if t[pos+k] != stamp[k]:\n                        ok = False\n                        break\n                    cnt += 1\n                if ok and cnt > 0:\n                    for k in range(m):\n                        t[pos+k] = '?'\n                    total += cnt\n                    result.append(pos)\n                    changed = True\n                    if total == n:\n                        return result[::-1]\n        return [] if total < n else result[::-1]\n",
+    "javascript": "var movesToStamp = function(stamp, target) {\n    const m = stamp.length, n = target.length;\n    const t = target.split('');\n    const result = [];\n    let total = 0;\n    let changed = true;\n    while (changed) {\n        changed = false;\n        for (let pos = 0; pos <= n - m; pos++) {\n            let cnt = 0, ok = true;\n            for (let k = 0; k < m; k++) {\n                if (t[pos+k] === '?') continue;\n                if (t[pos+k] !== stamp[k]) { ok = false; break; }\n                cnt++;\n            }\n            if (ok && cnt > 0) {\n                for (let k = 0; k < m; k++) t[pos+k] = '?';\n                total += cnt;\n                result.push(pos);\n                changed = true;\n                if (total === n) return result.reverse();\n            }\n        }\n    }\n    return total < n ? [] : result.reverse();\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * m)", "space": "O(n)" }
+}

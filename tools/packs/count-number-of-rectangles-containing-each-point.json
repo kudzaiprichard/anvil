@@ -1,0 +1,37 @@
+{
+  "slug": "count-number-of-rectangles-containing-each-point",
+  "judge": "exact",
+  "pattern": "Heights are tiny, so bucket rectangle lengths by height and, for each point, binary-search how many lengths reach the point's x across every qualifying height.",
+  "hints": [
+    "A rectangle contains a point exactly when its length is at least the point's x and its height is at least the point's y.",
+    "The height values are bounded by a small constant, so group the rectangle lengths into a bucket per height.",
+    "Sort each height bucket once; for a point, sum over heights at least its y the count of lengths at least its x, found by binary search."
+  ],
+  "constraints": [
+    { "param": "rectangles", "kind": "int[][]", "len": [1, 50000], "value": [1, 1000000000] },
+    { "param": "points", "kind": "int[][]", "len": [1, 50000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed containments", "input": [[[1, 2], [2, 3], [2, 5]], [[2, 1], [1, 4]]] },
+    { "kind": "edge", "description": "nested rectangles, point at origin-ish corner", "input": [[[1, 1], [2, 2], [3, 3]], [[1, 3], [1, 1]]] },
+    { "kind": "boundary", "description": "point exactly on an edge is contained", "input": [[[5, 5]], [[5, 5], [5, 6], [6, 5]]] },
+    { "kind": "trap", "description": "tall but short rectangle misses a far-right point", "input": [[[2, 100]], [[3, 50], [1, 100]]] },
+    { "kind": "boundary", "description": "single rectangle and single point", "input": [[[1000000000, 100]], [[1000000000, 100]]] },
+    { "kind": "trap", "description": "point higher than every rectangle", "input": [[[10, 1], [10, 2]], [[5, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "many rectangles and points with heights from a small range and lengths spread wide",
+      "seed": 59,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    nr = rng.randint(1, min(size, 2000))\n    np_ = rng.randint(1, min(size, 2000))\n    seen_r = set()\n    rectangles = []\n    while len(rectangles) < nr:\n        l = rng.randint(1, 1000000)\n        h = rng.randint(1, 100)\n        if (l, h) in seen_r:\n            continue\n        seen_r.add((l, h))\n        rectangles.append([l, h])\n    seen_p = set()\n    points = []\n    while len(points) < np_:\n        x = rng.randint(1, 1000000)\n        y = rng.randint(1, 100)\n        if (x, y) in seen_p:\n            continue\n        seen_p.add((x, y))\n        points.append([x, y])\n    return [rectangles, points]\n",
+      "note": "rectangles and points are de-duplicated as the constraints require uniqueness"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countRectangles(self, rectangles, points):\n        res = []\n        for x, y in points:\n            c = 0\n            for l, h in rectangles:\n                if l >= x and h >= y:\n                    c += 1\n            res.append(c)\n        return res\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def countRectangles(self, rectangles, points):\n        buckets = [[] for _ in range(101)]\n        for l, h in rectangles:\n            buckets[h].append(l)\n        for h in range(101):\n            buckets[h].sort()\n        res = []\n        for x, y in points:\n            total = 0\n            for h in range(y, 101):\n                arr = buckets[h]\n                idx = bisect.bisect_left(arr, x)\n                total += len(arr) - idx\n            res.append(total)\n        return res\n",
+    "javascript": "var countRectangles = function(rectangles, points) {\n    const buckets = Array.from({ length: 101 }, () => []);\n    for (const [l, h] of rectangles) buckets[h].push(l);\n    for (let h = 0; h <= 100; h++) buckets[h].sort((a, b) => a - b);\n    const lowerBound = (arr, x) => {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] < x) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    };\n    const res = [];\n    for (const [x, y] of points) {\n        let total = 0;\n        for (let h = y; h <= 100; h++) {\n            const arr = buckets[h];\n            total += arr.length - lowerBound(arr, x);\n        }\n        res.push(total);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O((R + P) * H log R)", "space": "O(R)" }
+}

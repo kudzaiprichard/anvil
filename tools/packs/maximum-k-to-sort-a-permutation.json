@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-k-to-sort-a-permutation",
+  "judge": "exact",
+  "pattern": "Treating each allowed swap as an edge turns sortability into a union-find question: every connected block must hold exactly the values that belong to its positions.",
+  "hints": [
+    "Elements that can swap, directly or in a chain, can be freely rearranged among the positions they occupy.",
+    "For a fixed k, union indices whose values AND to k; the array sorts iff every component's value set equals its index set.",
+    "Only pairwise ANDs are worth trying as k; test them from largest down and return the first that lets every component sort, falling back to 0."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "swap two values whose AND is one", "input": [[0, 3, 2, 1]] },
+    { "kind": "edge", "description": "swap values whose AND is two", "input": [[0, 1, 3, 2]] },
+    { "kind": "edge", "description": "fully reversed, only k zero works", "input": [[3, 2, 1, 0]] },
+    { "kind": "boundary", "description": "single element already sorted", "input": [[0]] },
+    { "kind": "boundary", "description": "already sorted returns zero", "input": [[0, 1, 2, 3]] },
+    { "kind": "trap", "description": "two elements swapped", "input": [[1, 0]] },
+    { "kind": "trap", "description": "longer mix of cycles", "input": [[2, 3, 0, 1, 4]] },
+    { "kind": "edge", "description": "high bits shared", "input": [[6, 7, 4, 5, 2, 3, 0, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random permutation",
+      "seed": 29,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    nums = list(range(n))\n    for i in range(n - 1, 0, -1):\n        j = rng.randrange(0, i + 1)\n        nums[i], nums[j] = nums[j], nums[i]\n    return [nums]\n",
+      "note": "valid permutation; small n keeps the quadratic checks fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sortPermutation(self, nums):\n        n = len(nums)\n        if all(nums[i] == i for i in range(n)):\n            return 0\n        def feasible(k):\n            parent = list(range(n))\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n            for i in range(n):\n                for j in range(i + 1, n):\n                    if (nums[i] & nums[j]) == k:\n                        parent[find(i)] = find(j)\n            groups = {}\n            for i in range(n):\n                groups.setdefault(find(i), []).append(i)\n            for idxs in groups.values():\n                if set(idxs) != set(nums[i] for i in idxs):\n                    return False\n            return True\n        maxv = max(nums)\n        for k in range(maxv, -1, -1):\n            if feasible(k):\n                return k\n        return 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def sortPermutation(self, nums):\n        n = len(nums)\n        if all(nums[i] == i for i in range(n)):\n            return 0\n        cands = set([0])\n        for i in range(n):\n            for j in range(i + 1, n):\n                cands.add(nums[i] & nums[j])\n        def feasible(k):\n            parent = list(range(n))\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n            for i in range(n):\n                for j in range(i + 1, n):\n                    if (nums[i] & nums[j]) == k:\n                        parent[find(i)] = find(j)\n            from collections import defaultdict\n            groups = defaultdict(list)\n            for i in range(n):\n                groups[find(i)].append(i)\n            for idxs in groups.values():\n                if set(idxs) != set(nums[i] for i in idxs):\n                    return False\n            return True\n        for k in sorted(cands, reverse=True):\n            if feasible(k):\n                return k\n        return 0\n",
+    "javascript": "var sortPermutation = function(nums) {\n    const n = nums.length;\n    let sorted = true;\n    for (let i = 0; i < n; i++) if (nums[i] !== i) { sorted = false; break; }\n    if (sorted) return 0;\n    const cands = new Set([0]);\n    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) cands.add(nums[i] & nums[j]);\n    const feasible = (k) => {\n        const parent = Array.from({length: n}, (_, i) => i);\n        const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };\n        for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if ((nums[i] & nums[j]) === k) parent[find(i)] = find(j);\n        const groups = new Map();\n        for (let i = 0; i < n; i++) { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); }\n        for (const idxs of groups.values()) {\n            const a = new Set(idxs);\n            const b = new Set(idxs.map(i => nums[i]));\n            if (a.size !== b.size) return false;\n            for (const v of a) if (!b.has(v)) return false;\n        }\n        return true;\n    };\n    const arr = [...cands].sort((a, b) => b - a);\n    for (const k of arr) if (feasible(k)) return k;\n    return 0;\n};\n"
+  },
+  "complexity": { "time": "O(d * n^2)", "space": "O(n)" }
+}

@@ -1,0 +1,118 @@
+{
+  "slug": "maximum-balanced-subsequence-sum",
+  "judge": "exact",
+  "pattern": "Rewriting the balance condition as nums[i] - i being non-decreasing turns the problem into 'max-sum non-decreasing subsequence keyed by a derived value', which a Fenwick tree over compressed keys tracking the best running sum answers in one left-to-right pass.",
+  "hints": [
+    "Subtract the index from each value first: once you look at b[i] = nums[i] - i, the balance condition between two chosen indices becomes simply b at the later index is at least b at the earlier index.",
+    "So you need the maximum-sum subsequence whose b-values are non-decreasing left to right; process indices in order and, for each one, find the best running sum among all earlier indices whose b-value doesn't exceed the current one.",
+    "Keep a Fenwick tree (or any structure) indexed by compressed b-values that supports 'max running sum among keys <= x' and 'update key with a new running sum'; a single element is always a valid balanced subsequence, so also compare against starting fresh at the current index."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        -1000000000,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "single positive element",
+      "input": [
+        [
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single negative element",
+      "input": [
+        [
+          -3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all values identical -- b strictly decreases so no chain extends",
+      "input": [
+        [
+          5,
+          5,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "consecutive run where every element can chain onto the last",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "mixed negatives where the best answer is a single element, not a longer chain",
+      "input": [
+        [
+          -5,
+          -3,
+          -8,
+          -1
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme magnitude values at both ends of the range",
+      "input": [
+        [
+          1000000000,
+          -1000000000
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a large dip between two big values -- the optimal chain must skip over the dip",
+      "input": [
+        [
+          100,
+          1,
+          1,
+          100
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "uniformly random values across the full allowed range",
+      "seed": 13,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(-10**9, 10**9) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxBalancedSubsequenceSum(self, nums):\n        n = len(nums)\n        b = [nums[i] - i for i in range(n)]\n        dp = [0] * n\n        ans = float('-inf')\n        for i in range(n):\n            best = 0\n            for j in range(i):\n                if b[j] <= b[i] and dp[j] > best:\n                    best = dp[j]\n            dp[i] = nums[i] + best\n            if dp[i] > ans:\n                ans = dp[i]\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxBalancedSubsequenceSum(self, nums):\n        n = len(nums)\n        b = [nums[i] - i for i in range(n)]\n        sorted_b = sorted(set(b))\n        rank = {v: i + 1 for i, v in enumerate(sorted_b)}\n        size = len(sorted_b)\n        NEG = float('-inf')\n        tree = [NEG] * (size + 1)\n\n        def update(pos, val):\n            while pos <= size:\n                if tree[pos] < val:\n                    tree[pos] = val\n                pos += pos & (-pos)\n\n        def query(pos):\n            res = NEG\n            while pos > 0:\n                if tree[pos] > res:\n                    res = tree[pos]\n                pos -= pos & (-pos)\n            return res\n\n        ans = NEG\n        for i in range(n):\n            r = rank[b[i]]\n            best_prev = query(r)\n            dp_i = nums[i] + max(0, best_prev)\n            if dp_i > ans:\n                ans = dp_i\n            update(r, dp_i)\n        return ans\n",
+    "javascript": "var maxBalancedSubsequenceSum = function(nums) {\n    const n = nums.length;\n    const b = new Array(n);\n    for (let i = 0; i < n; i++) b[i] = nums[i] - i;\n    const sortedB = Array.from(new Set(b)).sort((a, c) => a - c);\n    const rank = new Map();\n    sortedB.forEach((v, i) => rank.set(v, i + 1));\n    const size = sortedB.length;\n    const NEG = -Infinity;\n    const tree = new Array(size + 1).fill(NEG);\n\n    function update(pos, val) {\n        while (pos <= size) {\n            if (tree[pos] < val) tree[pos] = val;\n            pos += pos & (-pos);\n        }\n    }\n    function query(pos) {\n        let res = NEG;\n        while (pos > 0) {\n            if (tree[pos] > res) res = tree[pos];\n            pos -= pos & (-pos);\n        }\n        return res;\n    }\n\n    let ans = NEG;\n    for (let i = 0; i < n; i++) {\n        const r = rank.get(b[i]);\n        const bestPrev = query(r);\n        const dpI = nums[i] + Math.max(0, bestPrev);\n        if (dpI > ans) ans = dpI;\n        update(r, dpI);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

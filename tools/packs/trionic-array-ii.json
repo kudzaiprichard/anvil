@@ -1,0 +1,37 @@
+{
+  "slug": "trionic-array-ii",
+  "judge": "exact",
+  "pattern": "Precomputing each index's monotone-run boundaries plus running min/max of prefix sums lets you, for every peak-valley pair, pick the best start and end in O(1) and take the maximum trionic sum.",
+  "hints": [
+    "A trionic subarray is fixed by its peak (top of the first rise) and valley (bottom of the dip); the left start lies in the increasing run ending at the peak and the right end lies in the increasing run starting at the valley.",
+    "Expressing the subarray sum with prefix sums, for a fixed peak you want the smallest prefix at an allowed start, and for a fixed valley the largest prefix at an allowed end.",
+    "Compute, per index, the increasing run ending there (with a running minimum prefix) and the increasing run starting there (with a running maximum prefix), and the decreasing run after each peak; then sweep peaks and the valleys reachable down from them, combining the two precomputed extremes."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [4, 100000], "value": [-1000000000, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "best sum is negative", "input": [[0, -2, -1, -3, 0, 2, -1]] },
+    { "kind": "edge", "description": "single tight trionic window", "input": [[1, 4, 2, 7]] },
+    { "kind": "boundary", "description": "minimal length trionic", "input": [[1, 3, 1, 2]] },
+    { "kind": "trap", "description": "longer runs let extending past the valley help or hurt", "input": [[5, 1, 2, 3, 4, 0, 9]] },
+    { "kind": "trap", "description": "two candidate windows, the larger-sum one wins", "input": [[10, 1, 11, 0, 1, 2, 3]] },
+    { "kind": "edge", "description": "all-negative values force a negative best", "input": [[-1, -5, -3, -7, -6, -4]] },
+    { "kind": "trap", "description": "trailing rise should be extended to its peak when positive", "input": [[2, 9, 3, 1, 4, 8, 12]] }
+  ],
+  "stress": [
+    {
+      "description": "short random arrays over a narrow range so many overlapping trionic windows form",
+      "seed": 18,
+      "size": 220,
+      "generator_python": "def gen(rng, size):\n    n = max(4, size)\n    nums = [rng.randint(-9, 9) for _ in range(n)]\n    # guarantee at least one trionic window exists\n    nums[0:4] = [0, 5, 2, 7]\n    return [nums]\n",
+      "note": "size bounded so the cubic oracle stays fast; seeded prefix guarantees a trionic window"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSumTrionic(self, nums):\n        n = len(nums)\n        pre = [0] * (n + 1)\n        for i in range(n):\n            pre[i + 1] = pre[i] + nums[i]\n        NEG = float('-inf')\n        best = NEG\n        for p in range(1, n - 1):\n            if nums[p - 1] >= nums[p]:\n                continue\n            # left starts: l in [incL, p-1]\n            l = p\n            while l > 0 and nums[l - 1] < nums[l]:\n                l -= 1\n            min_left = min(pre[t] for t in range(l, p))\n            q = p\n            while q + 1 < n and nums[q] > nums[q + 1]:\n                q += 1\n                # final rise from q\n                r = q\n                while r + 1 < n and nums[r] < nums[r + 1]:\n                    r += 1\n                    s = pre[r + 1] - min_left\n                    if s > best:\n                        best = s\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSumTrionic(self, nums):\n        n = len(nums)\n        pre = [0] * (n + 1)\n        for i in range(n):\n            pre[i + 1] = pre[i] + nums[i]\n        NEG = float('-inf')\n        decR = [0] * n\n        for i in range(n - 1, -1, -1):\n            decR[i] = i if (i == n - 1 or nums[i] <= nums[i + 1]) else decR[i + 1]\n        min_left = [None] * n\n        for p in range(n):\n            if p > 0 and nums[p - 1] < nums[p]:\n                prev = min_left[p - 1]\n                cand = pre[p - 1]\n                min_left[p] = cand if prev is None else (prev if prev < cand else cand)\n        max_right = [None] * n\n        for q in range(n - 1, -1, -1):\n            if q < n - 1 and nums[q] < nums[q + 1]:\n                nxt = max_right[q + 1]\n                cand = pre[q + 2]\n                max_right[q] = cand if nxt is None else (nxt if nxt > cand else cand)\n        best = NEG\n        for p in range(n):\n            mpl = min_left[p]\n            if mpl is None:\n                continue\n            end = decR[p]\n            for q in range(p + 1, end + 1):\n                mr = max_right[q]\n                if mr is None:\n                    continue\n                s = mr - mpl\n                if s > best:\n                    best = s\n        return best\n",
+    "javascript": "var maxSumTrionic = function(nums) {\n    const n = nums.length;\n    const pre = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) pre[i + 1] = pre[i] + nums[i];\n    const NEG = -Infinity;\n    const decR = new Array(n).fill(0);\n    for (let i = n - 1; i >= 0; i--) {\n        decR[i] = (i === n - 1 || nums[i] <= nums[i + 1]) ? i : decR[i + 1];\n    }\n    const minLeft = new Array(n).fill(null);\n    for (let p = 0; p < n; p++) {\n        if (p > 0 && nums[p - 1] < nums[p]) {\n            const prev = minLeft[p - 1];\n            const cand = pre[p - 1];\n            minLeft[p] = prev === null ? cand : Math.min(prev, cand);\n        }\n    }\n    const maxRight = new Array(n).fill(null);\n    for (let q = n - 1; q >= 0; q--) {\n        if (q < n - 1 && nums[q] < nums[q + 1]) {\n            const nxt = maxRight[q + 1];\n            const cand = pre[q + 2];\n            maxRight[q] = nxt === null ? cand : Math.max(nxt, cand);\n        }\n    }\n    let best = NEG;\n    for (let p = 0; p < n; p++) {\n        const mpl = minLeft[p];\n        if (mpl === null) continue;\n        const end = decR[p];\n        for (let q = p + 1; q <= end; q++) {\n            const mr = maxRight[q];\n            if (mr === null) continue;\n            const s = mr - mpl;\n            if (s > best) best = s;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

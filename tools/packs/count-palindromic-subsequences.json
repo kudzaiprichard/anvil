@@ -1,0 +1,37 @@
+{
+  "slug": "count-palindromic-subsequences",
+  "judge": "exact",
+  "pattern": "A length-five palindrome is fixed by its first two and last two digits, so counting prefix and suffix digit-pair frequencies around each center yields the total in linear time.",
+  "hints": [
+    "A five-character palindrome looks like a b c b a, so its shape is decided by the outer two-digit pattern on each side and a free middle.",
+    "For each possible center position, you need how many times each ordered digit pair appears to its left and the mirrored pair to its right.",
+    "Maintain rolling counts of two-digit prefixes ending before index i and two-digit suffixes starting after i; for each center i and each pair xy, add prefix[xy] times suffix[xy], all modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two palindromes equal as strings", "input": ["103301"] },
+    { "kind": "trap", "description": "all same digit, many subsequences", "input": ["0000000"] },
+    { "kind": "trap", "description": "two disjoint runs give exactly two", "input": ["9999900000"] },
+    { "kind": "boundary", "description": "shorter than five has none", "input": ["1234"] },
+    { "kind": "edge", "description": "exactly five characters non-palindrome", "input": ["12345"] },
+    { "kind": "edge", "description": "exactly five characters palindrome", "input": ["12321"] },
+    { "kind": "boundary", "description": "single digit", "input": ["7"] }
+  ],
+  "stress": [
+    {
+      "description": "random short digit strings within brute-force reach",
+      "seed": 31,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 40)))\n    return [''.join(rng.choice('0123456789') for _ in range(n))]\n",
+      "note": "kept under ~40 chars so the C(n,5) oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPalindromes(self, s):\n        from itertools import combinations\n        MOD = 10**9 + 7\n        n = len(s)\n        count = 0\n        for combo in combinations(range(n), 5):\n            a, b, c, d, e = (s[i] for i in combo)\n            if a == e and b == d:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPalindromes(self, s):\n        MOD = 10**9 + 7\n        n = len(s)\n        digits = '0123456789'\n        pairs = [a + b for a in digits for b in digits]\n        suffix = {p: 0 for p in pairs}\n        suffix_single = [0] * 10\n        ans = 0\n        # build full suffix pair counts first (pairs i<j to the right)\n        # we sweep center from right to left, maintaining suffix pairs for indices > center\n        # prefix pairs for indices < center maintained on the fly\n        # We'll do two passes: first compute suffix pair counts for each center.\n        # suffixPairCount[c][pair] is heavy; instead sweep.\n        # Right-to-left build of suffix single and pair counts.\n        suf_pair = [None] * (n + 1)\n        cnt_single = [0] * 10\n        cnt_pair = {p: 0 for p in pairs}\n        suf_pair[n] = dict(cnt_pair)\n        for i in range(n - 1, -1, -1):\n            d = int(s[i])\n            for x in range(10):\n                # pair starting with s[i] then a later single digit x\n                cnt_pair[s[i] + digits[x]] += cnt_single[x]\n            cnt_single[d] += 1\n            suf_pair[i] = dict(cnt_pair)\n        pre_single = [0] * 10\n        pre_pair = {p: 0 for p in pairs}\n        for c in range(n):\n            sp = suf_pair[c + 1]\n            for p in pairs:\n                rev = p[1] + p[0]\n                if pre_pair[p] and sp[rev]:\n                    ans += pre_pair[p] * sp[rev]\n            # update prefix with s[c]\n            d = int(s[c])\n            for x in range(10):\n                pre_pair[digits[x] + s[c]] += pre_single[x]\n            pre_single[d] += 1\n        return ans % MOD\n",
+    "javascript": "var countPalindromes = function(s) {\n    const MOD = 1000000007n;\n    const n = s.length;\n    const idx = c => c.charCodeAt(0) - 48;\n    const sufSingle = new Array(10).fill(0);\n    const sufPair = Array.from({ length: 10 }, () => new Array(10).fill(0n));\n    const sufPairSnap = new Array(n + 1);\n    const snap = () => sufPair.map(row => row.slice());\n    sufPairSnap[n] = snap();\n    for (let i = n - 1; i >= 0; i--) {\n        const a = idx(s[i]);\n        for (let x = 0; x < 10; x++) sufPair[a][x] += BigInt(sufSingle[x]);\n        sufSingle[a]++;\n        sufPairSnap[i] = snap();\n    }\n    const preSingle = new Array(10).fill(0);\n    const prePair = Array.from({ length: 10 }, () => new Array(10).fill(0n));\n    let ans = 0n;\n    for (let c = 0; c < n; c++) {\n        const sp = sufPairSnap[c + 1];\n        for (let a = 0; a < 10; a++) {\n            for (let b = 0; b < 10; b++) {\n                if (prePair[a][b] && sp[b][a]) {\n                    ans = (ans + prePair[a][b] * sp[b][a]) % MOD;\n                }\n            }\n        }\n        const d = idx(s[c]);\n        for (let x = 0; x < 10; x++) prePair[x][d] += BigInt(preSingle[x]);\n        preSingle[d]++;\n    }\n    return Number(ans % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(100*n)", "space": "O(100*n)" }
+}

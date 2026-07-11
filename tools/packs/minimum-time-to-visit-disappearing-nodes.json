@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-time-to-visit-disappearing-nodes",
+  "judge": "exact",
+  "pattern": "Dijkstra from node 0 with the extra constraint that reaching node i is only valid if the arrival time is strictly less than disappear[i].",
+  "hints": [
+    "Run Dijkstra starting from node 0; initialize dist[0] = 0 (node 0 is reachable at time 0 because 0 < disappear[0]).",
+    "When relaxing an edge to neighbor v with cost len, only update if the new arrival time < disappear[v].",
+    "After Dijkstra completes, set any node whose dist is still infinity (or was never reached) to -1 in the output."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 50000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000] },
+    { "param": "disappear", "kind": "int[]", "len": [1, 50000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "node 1 disappears exactly at arrival time — unreachable", "input": [2, [[0,1,1]], [1,1]] },
+    { "kind": "edge", "description": "node 1 disappears one step after arrival — reachable", "input": [2, [[0,1,1]], [5,2]] },
+    { "kind": "edge", "description": "no edges — only node 0 reachable", "input": [3, [], [5,5,5]] },
+    { "kind": "trap", "description": "indirect path is faster than direct", "input": [3, [[0,1,2],[1,2,1],[0,2,4]], [1,3,5]] },
+    { "kind": "boundary", "description": "single node", "input": [1, [], [10]] },
+    { "kind": "trap", "description": "node 0 has small disappear but we start there at time 0", "input": [2, [[0,1,1]], [1, 5]] },
+    { "kind": "edge", "description": "multiple edges between same nodes", "input": [2, [[0,1,5],[0,1,3]], [10,10]] },
+    { "kind": "trap", "description": "disconnected component", "input": [4, [[0,1,1],[2,3,1]], [10,10,10,10]] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse graph with disappear times",
+      "seed": 21,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = size\n    edges = []\n    for _ in range(size):\n        u = rng.randint(0, n-1)\n        v = rng.randint(0, n-1)\n        if u != v:\n            l = rng.randint(1, 100)\n            edges.append([u, v, l])\n    disappear = [rng.randint(1, 1000) for _ in range(n)]\n    disappear[0] = max(disappear[0], 1)  # node 0 must be accessible at time 0\n    return [n, edges, disappear]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTime(self, n: int, edges, disappear) -> list:\n        import heapq\n        graph = [[] for _ in range(n)]\n        for u, v, l in edges:\n            graph[u].append((v, l))\n            graph[v].append((u, l))\n        INF = float('inf')\n        dist = [INF] * n\n        dist[0] = 0\n        heap = [(0, 0)]\n        while heap:\n            d, u = heapq.heappop(heap)\n            if d > dist[u]:\n                continue\n            for v, w in graph[u]:\n                nd = d + w\n                if nd < disappear[v] and nd < dist[v]:\n                    dist[v] = nd\n                    heapq.heappush(heap, (nd, v))\n        return [-1 if dist[i] == INF else dist[i] for i in range(n)]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumTime(self, n: int, edges, disappear) -> list:\n        import heapq\n        graph = [[] for _ in range(n)]\n        for u, v, l in edges:\n            graph[u].append((v, l))\n            graph[v].append((u, l))\n        INF = float('inf')\n        dist = [INF] * n\n        dist[0] = 0\n        heap = [(0, 0)]\n        while heap:\n            d, u = heapq.heappop(heap)\n            if d > dist[u]:\n                continue\n            for v, w in graph[u]:\n                nd = d + w\n                if nd < disappear[v] and nd < dist[v]:\n                    dist[v] = nd\n                    heapq.heappush(heap, (nd, v))\n        return [-1 if dist[i] == INF else dist[i] for i in range(n)]\n",
+    "javascript": "var minimumTime = function(n, edges, disappear) {\n    const graph = Array.from({length: n}, () => []);\n    for (const [u, v, l] of edges) {\n        graph[u].push([v, l]);\n        graph[v].push([u, l]);\n    }\n    const INF = Infinity;\n    const dist = new Array(n).fill(INF);\n    dist[0] = 0;\n    // min-heap via sorted approach (small n for stress)\n    const heap = [[0, 0]];\n    while (heap.length > 0) {\n        heap.sort((a, b) => a[0] - b[0]);\n        const [d, u] = heap.shift();\n        if (d > dist[u]) continue;\n        for (const [v, w] of graph[u]) {\n            const nd = d + w;\n            if (nd < disappear[v] && nd < dist[v]) {\n                dist[v] = nd;\n                heap.push([nd, v]);\n            }\n        }\n    }\n    return dist.map(d => d === INF ? -1 : d);\n};"
+  },
+  "complexity": { "time": "O((E+N) log N)", "space": "O(E+N)" }
+}

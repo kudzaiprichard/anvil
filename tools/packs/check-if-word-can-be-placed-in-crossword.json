@@ -1,0 +1,176 @@
+{
+  "judge": "exact",
+  "pattern": "A word can only ever sit inside a maximal run of non-blocked cells whose length exactly matches the word's length, so splitting every row and every column into its runs between blocked cells and checking each run (forward and reversed) against every empty-or-matching cell reduces the whole board to a handful of independent line checks.",
+  "hints": [
+    "In any single row or column, the blocked cells split it into independent runs of cells that could hold a word; a run only qualifies if its length equals the word's length exactly.",
+    "For a qualifying run, the word fits if, at every position, the board cell is either empty or already holds the exact matching letter -- check this for both the word and its reverse, since it can be typed in either direction.",
+    "Repeat the same run-splitting check across every row and then, separately, across every column (by reading top to bottom); the word can be placed if any single row-run or column-run accepts it."
+  ],
+  "constraints": [
+    {
+      "param": "board",
+      "kind": "char[][]",
+      "len": [
+        1,
+        200000
+      ]
+    },
+    {
+      "param": "word",
+      "kind": "string",
+      "len": [
+        1,
+        200000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "an empty column of blank cells accepts the word top to bottom",
+      "input": [
+        [
+          [
+            "#",
+            " ",
+            "#"
+          ],
+          [
+            " ",
+            " ",
+            "#"
+          ],
+          [
+            "#",
+            "c",
+            " "
+          ]
+        ],
+        "abc"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "blocked cells above and below the only candidate run make placement impossible",
+      "input": [
+        [
+          [
+            " ",
+            "#",
+            "a"
+          ],
+          [
+            " ",
+            "#",
+            "c"
+          ],
+          [
+            " ",
+            "#",
+            "a"
+          ]
+        ],
+        "ac"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible board, a single blocked cell",
+      "input": [
+        [
+          [
+            "#"
+          ]
+        ],
+        "a"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible board, a single blank cell matching a one-letter word",
+      "input": [
+        [
+          [
+            " "
+          ]
+        ],
+        "z"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the word matches forward against existing letters exactly",
+      "input": [
+        [
+          [
+            "c",
+            "a",
+            "t"
+          ]
+        ],
+        "cat"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the word conflicts with an existing letter and must be rejected",
+      "input": [
+        [
+          [
+            "c",
+            "a",
+            "x"
+          ]
+        ],
+        "cat"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "only the reversed spelling of the word matches the existing letters",
+      "input": [
+        [
+          [
+            "t",
+            "a",
+            "c"
+          ]
+        ],
+        "cat"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a run longer than the word cannot hold it, since extra letters would sit directly alongside it",
+      "input": [
+        [
+          [
+            " ",
+            " ",
+            " ",
+            " "
+          ]
+        ],
+        "ab"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random board of empty, blocked, and lowercase-letter cells with a random word length bounded by the board's larger dimension",
+      "seed": 66,
+      "size": 200000,
+      "generator_python": "def gen(rng, size):\n    total = max(1, min(size, 200000))\n    m = max(1, min(300, int(total ** 0.5) or 1))\n    n = max(1, min(200000, total // m))\n    board = []\n    for _ in range(m):\n        row = []\n        for _ in range(n):\n            r = rng.random()\n            if r < 0.3:\n                row.append('#')\n            elif r < 0.6:\n                row.append(' ')\n            else:\n                row.append(rng.choice('abcdefghijklmnopqrstuvwxyz'))\n        board.append(row)\n    max_dim = max(m, n)\n    length = rng.randint(1, max_dim)\n    word = ''.join(rng.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(length))\n    return [board, word]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def placeWordInCrossword(self, board, word):\n        m, n = len(board), len(board[0])\n        L = len(word)\n        candidates = [word, word[::-1]]\n        def matches(segment, w):\n            if len(segment) != L:\n                return False\n            for a, b in zip(segment, w):\n                if a != ' ' and a != b:\n                    return False\n            return True\n        lines = []\n        for r in range(m):\n            lines.append(''.join(board[r]))\n        for c in range(n):\n            lines.append(''.join(board[r][c] for r in range(m)))\n        for line in lines:\n            for seg in line.split('#'):\n                for w in candidates:\n                    if matches(seg, w):\n                        return True\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def placeWordInCrossword(self, board, word):\n        m = len(board)\n        n = len(board[0])\n        L = len(word)\n        rev = word[::-1]\n        def check_line(line):\n            i = 0\n            size = len(line)\n            while i < size:\n                if line[i] == '#':\n                    i += 1\n                    continue\n                j = i\n                while j < size and line[j] != '#':\n                    j += 1\n                if j - i == L:\n                    for w in (word, rev):\n                        ok = True\n                        for k in range(L):\n                            c = line[i + k]\n                            if c != ' ' and c != w[k]:\n                                ok = False\n                                break\n                        if ok:\n                            return True\n                i = j\n            return False\n        for r in range(m):\n            if check_line(board[r]):\n                return True\n        for c in range(n):\n            col = [board[r][c] for r in range(m)]\n            if check_line(col):\n                return True\n        return False\n",
+    "javascript": "var placeWordInCrossword = function(board, word) {\n    const m = board.length;\n    const n = board[0].length;\n    const L = word.length;\n    const rev = word.split('').reverse().join('');\n    function checkLine(line) {\n        const size = line.length;\n        let i = 0;\n        while (i < size) {\n            if (line[i] === '#') { i++; continue; }\n            let j = i;\n            while (j < size && line[j] !== '#') j++;\n            if (j - i === L) {\n                for (const w of [word, rev]) {\n                    let ok = true;\n                    for (let k = 0; k < L; k++) {\n                        const c = line[i + k];\n                        if (c !== ' ' && c !== w[k]) { ok = false; break; }\n                    }\n                    if (ok) return true;\n                }\n            }\n            i = j;\n        }\n        return false;\n    }\n    for (let r = 0; r < m; r++) {\n        if (checkLine(board[r])) return true;\n    }\n    for (let c = 0; c < n; c++) {\n        const col = [];\n        for (let r = 0; r < m; r++) col.push(board[r][c]);\n        if (checkLine(col)) return true;\n    }\n    return false;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m * n)",
+    "space": "O(max(m, n))"
+  },
+  "slug": "check-if-word-can-be-placed-in-crossword"
+}

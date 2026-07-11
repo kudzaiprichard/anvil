@@ -1,0 +1,198 @@
+{
+  "slug": "count-substrings-that-satisfy-k-constraint-ii",
+  "judge": "exact",
+  "pattern": "Because a substring's validity can only get worse as it grows, each start index has one farthest reachable end - a two-pointer sweep finds them all, and a query then splits cleanly at the point where that reach first exceeds the query's right bound.",
+  "hints": [
+    "For a fixed left end, as you extend the right end the zero-count and one-count only grow, so min(zeros, ones) is non-decreasing - once a substring stops satisfying the constraint, extending it further never satisfies it again.",
+    "That means for every start index i there is a single farthest index reach[i] such that s[i..reach[i]] is valid and s[i..reach[i]+1] is not; compute the whole reach[] array with one O(n) two-pointer sweep (reach[] itself never decreases as i grows).",
+    "For a query [l, r], substrings starting at i contribute min(reach[i], r) - i + 1 valid substrings. Since reach[] is sorted, binary-search for the split point where reach[i] first exceeds r, sum the exact part with a prefix sum, and the clamped part with a closed-form arithmetic sum."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "str",
+      "len": [
+        1,
+        100000
+      ],
+      "charset": "01"
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single query spanning the whole string",
+      "input": [
+        "0001111",
+        2,
+        [
+          [
+            0,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several overlapping queries",
+      "input": [
+        "010101",
+        1,
+        [
+          [
+            0,
+            5
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "k covers everything (whole string always valid)",
+      "input": [
+        "1100110011",
+        10,
+        [
+          [
+            0,
+            9
+          ],
+          [
+            2,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-character queries across the string",
+      "input": [
+        "01010",
+        1,
+        [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length string, single query",
+      "input": [
+        "0",
+        1,
+        [
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "long uniform run then long alternating run, query crosses the boundary",
+      "input": [
+        "0000000011010101",
+        2,
+        [
+          [
+            0,
+            15
+          ],
+          [
+            4,
+            12
+          ],
+          [
+            8,
+            15
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "query strictly inside a very restrictive region",
+      "input": [
+        "111000111000",
+        1,
+        [
+          [
+            2,
+            9
+          ],
+          [
+            0,
+            11
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random binary string and random distinct queries near maximum scale",
+      "seed": 12,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    s = ''.join(rng.choice('01') for _ in range(n))\n    k = rng.randint(1, n)\n    q = min(n, 2000)\n    seen = set()\n    queries = []\n    attempts = 0\n    while len(queries) < q and attempts < q * 5:\n        attempts += 1\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        if (l, r) in seen:\n            continue\n        seen.add((l, r))\n        queries.append([l, r])\n    return [s, k, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countKConstraintSubstrings(self, s, k, queries):\n        res = []\n        for l, r in queries:\n            count = 0\n            for i in range(l, r + 1):\n                zeros = ones = 0\n                for j in range(i, r + 1):\n                    if s[j] == '0':\n                        zeros += 1\n                    else:\n                        ones += 1\n                    if zeros <= k or ones <= k:\n                        count += 1\n            res.append(count)\n        return res\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass Solution:\n    def countKConstraintSubstrings(self, s, k, queries):\n        n = len(s)\n        farthest = [0] * n\n        zeros = ones = 0\n        j = 0\n        for i in range(n):\n            if j < i:\n                j = i\n                zeros = ones = 0\n            while j < n:\n                if s[j] == '0':\n                    nz, no = zeros + 1, ones\n                else:\n                    nz, no = zeros, ones + 1\n                if min(nz, no) <= k:\n                    zeros, ones = nz, no\n                    j += 1\n                else:\n                    break\n            farthest[i] = j - 1\n            if s[i] == '0':\n                zeros -= 1\n            else:\n                ones -= 1\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + (farthest[i] - i + 1)\n        res = []\n        for l, r in queries:\n            idx = bisect.bisect_right(farthest, r, l, r + 1)\n            total = prefix[idx] - prefix[l]\n            t = r - idx + 1\n            if t > 0:\n                total += t * (t + 1) // 2\n            res.append(total)\n        return res\n",
+    "javascript": "var countKConstraintSubstrings = function(s, k, queries) {\n    const n = s.length;\n    const farthest = new Array(n).fill(0);\n    let zeros = 0, ones = 0;\n    let j = 0;\n    for (let i = 0; i < n; i++) {\n        if (j < i) {\n            j = i;\n            zeros = 0; ones = 0;\n        }\n        while (j < n) {\n            const nz = zeros + (s[j] === '0' ? 1 : 0);\n            const no = ones + (s[j] === '1' ? 1 : 0);\n            if (Math.min(nz, no) <= k) {\n                zeros = nz; ones = no;\n                j++;\n            } else {\n                break;\n            }\n        }\n        farthest[i] = j - 1;\n        if (s[i] === '0') zeros--; else ones--;\n    }\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        prefix[i + 1] = prefix[i] + (farthest[i] - i + 1);\n    }\n    function bisectRight(l, r, x) {\n        let lo = l, hi = r + 1;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (farthest[mid] <= x) lo = mid + 1;\n            else hi = mid;\n        }\n        return lo;\n    }\n    const res = [];\n    for (const [l, r] of queries) {\n        const idx = bisectRight(l, r, r);\n        let total = prefix[idx] - prefix[l];\n        const t = r - idx + 1;\n        if (t > 0) total += t * (t + 1) / 2;\n        res.push(total);\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n + q log n)",
+    "space": "O(n)"
+  }
+}

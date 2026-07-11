@@ -1,0 +1,38 @@
+{
+  "slug": "find-weighted-median-node-in-tree",
+  "judge": "exact",
+  "pattern": "On a tree every pair has one simple path, so the weighted median is the first node where the running weight from the source reaches half the path total.",
+  "hints": [
+    "Between two nodes in a tree there is exactly one path; recover it through their lowest common ancestor.",
+    "Walk the path from the source, accumulating edge weights, and compare twice the running sum against the full path weight to avoid fractions.",
+    "The answer is the first node whose accumulated weight from the source is at least half the total path weight."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "edges", "kind": "int[][]" },
+    { "param": "queries", "kind": "int[][]" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single edge both directions", "input": [2, [[0,1,7]], [[1,0],[0,1]]] },
+    { "kind": "edge", "description": "path crossing the root", "input": [3, [[0,1,2],[2,0,4]], [[0,1],[2,0],[1,2]]] },
+    { "kind": "trap", "description": "deeper tree with median past the LCA", "input": [5, [[0,1,2],[0,2,5],[1,3,1],[2,4,3]], [[3,4],[1,2]]] },
+    { "kind": "boundary", "description": "query where source equals destination neighbor", "input": [2, [[0,1,5]], [[0,1]]] },
+    { "kind": "edge", "description": "star tree, all paths cross center", "input": [4, [[0,1,3],[0,2,3],[0,3,3]], [[1,2],[2,3],[1,3]]] },
+    { "kind": "trap", "description": "uneven weights so half falls between nodes", "input": [3, [[0,1,1],[1,2,10]], [[0,2],[2,0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random small trees with random query pairs",
+      "seed": 91,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, size))\n    edges = []\n    for v in range(1, n):\n        u = rng.randint(0, v - 1)\n        w = rng.randint(1, 1000)\n        edges.append([u, v, w])\n    q = rng.randint(1, 30)\n    queries = []\n    for _ in range(q):\n        a = rng.randint(0, n - 1)\n        b = rng.randint(0, n - 1)\n        while b == a:\n            b = rng.randint(0, n - 1)\n        queries.append([a, b])\n    return [n, edges, queries]\n",
+      "note": "tree built by attaching each new node to an earlier one"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def findMedian(self, n, edges, queries):\n        adj = [[] for _ in range(n)]\n        for u, v, w in edges:\n            adj[u].append((v, w))\n            adj[v].append((u, w))\n        ans = []\n        for u, v in queries:\n            parent = [-1] * n\n            pw = [0] * n\n            seen = [False] * n\n            seen[u] = True\n            dq = deque([u])\n            while dq:\n                cur = dq.popleft()\n                if cur == v:\n                    break\n                for nx, w in adj[cur]:\n                    if not seen[nx]:\n                        seen[nx] = True\n                        parent[nx] = cur\n                        pw[nx] = w\n                        dq.append(nx)\n            path = []\n            cur = v\n            while cur != -1:\n                path.append(cur)\n                if cur == u:\n                    break\n                cur = parent[cur]\n            path.reverse()\n            total = 0\n            for i in range(1, len(path)):\n                total += pw[path[i]]\n            acc = 0\n            chosen = path[0]\n            for i in range(len(path)):\n                if i > 0:\n                    acc += pw[path[i]]\n                if 2 * acc >= total:\n                    chosen = path[i]\n                    break\n            ans.append(chosen)\n        return ans\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def findMedian(self, n, edges, queries):\n        adj = [[] for _ in range(n)]\n        for u, v, w in edges:\n            adj[u].append((v, w))\n            adj[v].append((u, w))\n        parent = [-1] * n\n        pw = [0] * n\n        depth = [0] * n\n        seen = [False] * n\n        seen[0] = True\n        dq = deque([0])\n        while dq:\n            cur = dq.popleft()\n            for nx, w in adj[cur]:\n                if not seen[nx]:\n                    seen[nx] = True\n                    parent[nx] = cur\n                    pw[nx] = w\n                    depth[nx] = depth[cur] + 1\n                    dq.append(nx)\n        def path_nodes(a, b):\n            left, right = [], []\n            while depth[a] > depth[b]:\n                left.append(a)\n                a = parent[a]\n            while depth[b] > depth[a]:\n                right.append(b)\n                b = parent[b]\n            while a != b:\n                left.append(a)\n                right.append(b)\n                a = parent[a]\n                b = parent[b]\n            return left + [a] + right[::-1]\n        ans = []\n        for u, v in queries:\n            nodes = path_nodes(u, v)\n            weights = []\n            for i in range(1, len(nodes)):\n                x, y = nodes[i - 1], nodes[i]\n                if parent[y] == x:\n                    weights.append(pw[y])\n                else:\n                    weights.append(pw[x])\n            total = sum(weights)\n            acc = 0\n            chosen = nodes[0]\n            for i in range(len(nodes)):\n                if i > 0:\n                    acc += weights[i - 1]\n                if 2 * acc >= total:\n                    chosen = nodes[i]\n                    break\n            ans.append(chosen)\n        return ans\n",
+    "javascript": "var findMedian = function(n, edges, queries) {\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v, w] of edges) { adj[u].push([v, w]); adj[v].push([u, w]); }\n    const ans = [];\n    for (const [u, v] of queries) {\n        const parent = new Int32Array(n).fill(-1);\n        const pw = new Array(n).fill(0);\n        const seen = new Uint8Array(n);\n        seen[u] = 1;\n        const dq = [u];\n        let head = 0;\n        while (head < dq.length) {\n            const cur = dq[head++];\n            if (cur === v) break;\n            for (const [nx, w] of adj[cur]) {\n                if (!seen[nx]) { seen[nx] = 1; parent[nx] = cur; pw[nx] = w; dq.push(nx); }\n            }\n        }\n        const path = [];\n        let cur = v;\n        while (cur !== -1) { path.push(cur); if (cur === u) break; cur = parent[cur]; }\n        path.reverse();\n        let total = 0;\n        for (let i = 1; i < path.length; i++) total += pw[path[i]];\n        let acc = 0, chosen = path[0];\n        for (let i = 0; i < path.length; i++) {\n            if (i > 0) acc += pw[path[i]];\n            if (2 * acc >= total) { chosen = path[i]; break; }\n        }\n        ans.push(chosen);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) log n)", "space": "O(n log n)" }
+}

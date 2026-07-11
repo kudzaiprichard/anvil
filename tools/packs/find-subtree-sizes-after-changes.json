@@ -1,0 +1,157 @@
+{
+  "judge": "exact",
+  "pattern": "Every node's new parent only depends on the nearest same-letter ancestor along its original root path, so a single DFS that keeps one stack of 'most recent node seen' per letter can rewire the whole tree in one pass.",
+  "hints": [
+    "The reparenting rule only ever looks upward along the ORIGINAL tree's root-to-node path, and it happens for every node at once, so the answer can be computed with one traversal of the original tree rather than repeatedly walking upward from each node.",
+    "Walk the original tree depth-first, and for each of the 26 letters keep a stack of the ancestors on the current path that carry that letter, most recently entered on top; when you arrive at a node, the top of its own letter's stack (if any) is exactly the closest same-letter ancestor it should be reparented to.",
+    "Push the current node onto its letter's stack before recursing into its children and pop it back off when you finish that node, so the stacks always reflect exactly the path from the root to wherever the traversal currently is; once every node's new parent is known, rebuild the tree and sum subtree sizes bottom-up."
+  ],
+  "constraints": [
+    {
+      "param": "parent",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, one node gets reparented",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        "abaabc"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, two simultaneous reparenting changes",
+      "input": [
+        [
+          -1,
+          0,
+          4,
+          0,
+          1
+        ],
+        "abbba"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single root node",
+      "input": [
+        [
+          -1
+        ],
+        "a"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "no two nodes share a letter along any path, so nothing changes",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2
+        ],
+        "abcd"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a wide star where every leaf reparents straight to the root",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "aaaaaa"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a long chain of identical letters collapses every node onto the root",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "aaaaaa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a chain where only every other node shares a letter with an ancestor",
+      "input": [
+        [
+          -1,
+          0,
+          1,
+          2,
+          3
+        ],
+        "ababa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a branching tree where sibling subtrees have independent letter matches",
+      "input": [
+        [
+          -1,
+          0,
+          0,
+          1,
+          2
+        ],
+        "abaab"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random attachment tree with a small alphabet so plenty of ancestor matches occur",
+      "seed": 13,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 3000))\n    parent = [-1] * n\n    for i in range(1, n):\n        parent[i] = rng.randint(0, i - 1)\n    alphabet = ['a', 'b', 'c']\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    return [parent, s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findSubtreeSizes(self, parent, s):\n        n = len(parent)\n        new_parent = list(parent)\n        for x in range(1, n):\n            y = parent[x]\n            found = -1\n            while y != -1:\n                if s[y] == s[x]:\n                    found = y\n                    break\n                y = parent[y]\n            if found != -1:\n                new_parent[x] = found\n        new_children = [[] for _ in range(n)]\n        for i in range(1, n):\n            new_children[new_parent[i]].append(i)\n        size = [1] * n\n\n        def dfs(x):\n            for y in new_children[x]:\n                dfs(y)\n                size[x] += size[y]\n\n        dfs(0)\n        return size\n",
+  "solutions": {
+    "python": "class Solution:\n    def findSubtreeSizes(self, parent: List[int], s: str) -> List[int]:\n        n = len(parent)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parent[i]].append(i)\n        new_parent = list(parent)\n        letter_stack = [[] for _ in range(26)]\n        c0 = ord(s[0]) - 97\n        letter_stack[c0].append(0)\n        stack = [[0, 0]]\n        while stack:\n            node, idx = stack[-1]\n            if idx < len(children[node]):\n                stack[-1][1] += 1\n                child = children[node][idx]\n                c = ord(s[child]) - 97\n                if letter_stack[c]:\n                    new_parent[child] = letter_stack[c][-1]\n                letter_stack[c].append(child)\n                stack.append([child, 0])\n            else:\n                c = ord(s[node]) - 97\n                letter_stack[c].pop()\n                stack.pop()\n        new_children = [[] for _ in range(n)]\n        for i in range(1, n):\n            new_children[new_parent[i]].append(i)\n        size = [1] * n\n        order = []\n        stack2 = [0]\n        while stack2:\n            node = stack2.pop()\n            order.append(node)\n            for ch in new_children[node]:\n                stack2.append(ch)\n        for node in reversed(order):\n            if node != 0:\n                size[new_parent[node]] += size[node]\n        return size\n",
+    "javascript": "var findSubtreeSizes = function(parent, s) {\n    const n = parent.length;\n    const children = Array.from({ length: n }, () => []);\n    for (let i = 1; i < n; i++) children[parent[i]].push(i);\n    const newParent = parent.slice();\n    const letterStack = Array.from({ length: 26 }, () => []);\n    letterStack[s.charCodeAt(0) - 97].push(0);\n    const stack = [[0, 0]];\n    while (stack.length) {\n        const top = stack[stack.length - 1];\n        const node = top[0];\n        if (top[1] < children[node].length) {\n            const child = children[node][top[1]];\n            top[1]++;\n            const c = s.charCodeAt(child) - 97;\n            if (letterStack[c].length) {\n                newParent[child] = letterStack[c][letterStack[c].length - 1];\n            }\n            letterStack[c].push(child);\n            stack.push([child, 0]);\n        } else {\n            const c = s.charCodeAt(node) - 97;\n            letterStack[c].pop();\n            stack.pop();\n        }\n    }\n    const newChildren = Array.from({ length: n }, () => []);\n    for (let i = 1; i < n; i++) newChildren[newParent[i]].push(i);\n    const size = new Array(n).fill(1);\n    const order = [];\n    const stack2 = [0];\n    while (stack2.length) {\n        const node = stack2.pop();\n        order.push(node);\n        for (const ch of newChildren[node]) stack2.push(ch);\n    }\n    for (let i = order.length - 1; i >= 0; i--) {\n        const node = order[i];\n        if (node !== 0) size[newParent[node]] += size[node];\n    }\n    return size;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  },
+  "slug": "find-subtree-sizes-after-changes"
+}

@@ -1,0 +1,47 @@
+{
+  "slug": "minimum-deletions-to-make-alternating-substring",
+  "judge": "exact",
+  "pattern": "For a two-letter alphabet the longest alternating subsequence you can keep from any range is exactly one character per maximal run of equal letters, so the deletions needed collapse to range length minus run count, and a flip only ever changes the run/non-run status of its two neighboring boundaries.",
+  "hints": [
+    "With only two possible letters, keeping one representative from every maximal run of equal characters already gives an alternating result, and you can never do better -- so the answer for a range is its length minus its number of runs.",
+    "Track, for every position after the first, whether it starts a new run (differs from its left neighbor); the run count of a range is one plus how many of those \"new run\" markers fall strictly inside it.",
+    "A point update at a Fenwick/BIT-style structure over the \"new run\" markers turns each query into one range-sum lookup, and a flip only ever needs to re-evaluate the two markers adjacent to the flipped index."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000], "note": "consists only of the characters 'A' and 'B'" },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "note": "each entry is [1, j] (flip index j) or [2, l, r] (query the range l..r inclusive)" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": ["ABA", [[2, 1, 2], [1, 1], [2, 0, 2]]] },
+    { "kind": "edge", "description": "statement example two", "input": ["ABB", [[2, 0, 2], [1, 2], [2, 0, 2]]] },
+    { "kind": "edge", "description": "statement example three", "input": ["BABA", [[2, 0, 3], [1, 1], [2, 1, 3]]] },
+    { "kind": "edge", "description": "single-character range is always free, even after a flip", "input": ["A", [[2, 0, 0], [1, 0], [2, 0, 0]]] },
+    { "kind": "trap", "description": "an already-alternating full range needs zero deletions", "input": ["ABAB", [[2, 0, 3]]] },
+    { "kind": "trap", "description": "flipping one interior character breaks an all-same run into two smaller runs", "input": ["AAAA", [[2, 0, 3], [1, 0], [2, 0, 3]]] },
+    { "kind": "trap", "description": "flipping the same index twice must restore the original run structure exactly", "input": ["AB", [[1, 0], [1, 0], [2, 0, 1]]] },
+    { "kind": "trap", "description": "many queries in a row with no flips must all report the same answer for the same range", "input": ["ABBA", [[2, 0, 3], [2, 0, 3], [2, 1, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "mixed flips and range queries over a moderate-length string",
+      "seed": 6601,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    s = ''.join(rng.choice('AB') for _ in range(n))\n    q_count = max(1, min(size, 4000))\n    queries = []\n    for _ in range(q_count):\n        if rng.random() < 0.4:\n            queries.append([1, rng.randint(0, n - 1)])\n        else:\n            l = rng.randint(0, n - 1)\n            r = rng.randint(l, n - 1)\n            queries.append([2, l, r])\n    return [s, queries]\n"
+    },
+    {
+      "description": "long runs of the same character, heavily flipped near the boundaries",
+      "seed": 6602,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 3000))\n    s = 'A' * n\n    queries = []\n    for _ in range(max(1, n // 2)):\n        queries.append([1, rng.randint(0, n - 1)])\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        queries.append([2, l, r])\n    return [s, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minDeletions(self, s, queries):\n        arr = list(s)\n        res = []\n        for q in queries:\n            if q[0] == 1:\n                j = q[1]\n                arr[j] = 'B' if arr[j] == 'A' else 'A'\n            else:\n                l, r = q[1], q[2]\n                sub = arr[l:r + 1]\n                runs = 1\n                for i in range(1, len(sub)):\n                    if sub[i] != sub[i - 1]:\n                        runs += 1\n                res.append(len(sub) - runs)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def minDeletions(self, s, queries):\n        n = len(s)\n        arr = list(s)\n        tree = [0] * (n + 1)\n        def bit_update(i, delta):\n            i += 1\n            while i <= n:\n                tree[i] += delta\n                i += i & (-i)\n        def bit_prefix(i):\n            i += 1\n            total = 0\n            while i > 0:\n                total += tree[i]\n                i -= i & (-i)\n            return total\n        def range_sum(l, r):\n            if r < l:\n                return 0\n            res = bit_prefix(r)\n            if l > 0:\n                res -= bit_prefix(l - 1)\n            return res\n        t = [0] * n\n        for i in range(1, n):\n            t[i] = 1 if arr[i] != arr[i - 1] else 0\n            if t[i]:\n                bit_update(i, 1)\n        res = []\n        for q in queries:\n            if q[0] == 1:\n                j = q[1]\n                arr[j] = 'B' if arr[j] == 'A' else 'A'\n                for idx in (j, j + 1):\n                    if 1 <= idx < n:\n                        newval = 1 if arr[idx] != arr[idx - 1] else 0\n                        if newval != t[idx]:\n                            bit_update(idx, newval - t[idx])\n                            t[idx] = newval\n            else:\n                l, r = q[1], q[2]\n                if l == r:\n                    res.append(0)\n                    continue\n                runs = 1 + range_sum(l + 1, r)\n                res.append((r - l + 1) - runs)\n        return res\n",
+    "javascript": "var minDeletions = function(s, queries) {\n    const n = s.length;\n    const arr = s.split('');\n    const tree = new Array(n + 1).fill(0);\n    function bitUpdate(i, delta) {\n        i += 1;\n        while (i <= n) {\n            tree[i] += delta;\n            i += i & (-i);\n        }\n    }\n    function bitPrefix(i) {\n        i += 1;\n        let total = 0;\n        while (i > 0) {\n            total += tree[i];\n            i -= i & (-i);\n        }\n        return total;\n    }\n    function rangeSum(l, r) {\n        if (r < l) return 0;\n        let res = bitPrefix(r);\n        if (l > 0) res -= bitPrefix(l - 1);\n        return res;\n    }\n    const t = new Array(n).fill(0);\n    for (let i = 1; i < n; i++) {\n        t[i] = arr[i] !== arr[i - 1] ? 1 : 0;\n        if (t[i]) bitUpdate(i, 1);\n    }\n    const res = [];\n    for (const q of queries) {\n        if (q[0] === 1) {\n            const j = q[1];\n            arr[j] = arr[j] === 'A' ? 'B' : 'A';\n            for (const idx of [j, j + 1]) {\n                if (idx >= 1 && idx < n) {\n                    const newval = arr[idx] !== arr[idx - 1] ? 1 : 0;\n                    if (newval !== t[idx]) {\n                        bitUpdate(idx, newval - t[idx]);\n                        t[idx] = newval;\n                    }\n                }\n            }\n        } else {\n            const l = q[1], r = q[2];\n            if (l === r) {\n                res.push(0);\n                continue;\n            }\n            const runs = 1 + rangeSum(l + 1, r);\n            res.push((r - l + 1) - runs);\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + q) log n)",
+    "space": "O(n)"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "slug": "create-sorted-array-through-instructions",
+  "judge": "exact",
+  "pattern": "The cost of inserting a value into a growing sorted array is the smaller of how many already-placed values are less than it and how many are greater, and a Fenwick tree over the value range lets you answer both counts in logarithmic time as you insert one value at a time.",
+  "hints": [
+    "You never need to actually build or shift a sorted array -- for each incoming value, all you need are two counts among the values already inserted: how many are strictly smaller, and how many are strictly greater.",
+    "A Fenwick tree (binary indexed tree) indexed by value lets you get 'how many inserted values are <= v' in logarithmic time, from which both the smaller-count and the greater-count fall out immediately.",
+    "Process the values one at a time in the given order: query the tree for counts before inserting the current value, add min(smaller, greater) to a running total, then insert the value into the tree and move on -- remember the total can be large, so return it modulo 1,000,000,007."
+  ],
+  "constraints": [
+    { "param": "instructions", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, short sequence",
+      "input": [[1, 5, 6, 2]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, mixed ascending and descending run",
+      "input": [[1, 2, 3, 6, 5, 4]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, repeated middle values",
+      "input": [[1, 3, 3, 3, 2, 4, 2, 1, 2]]
+    },
+    {
+      "kind": "boundary",
+      "description": "single instruction",
+      "input": [[42]]
+    },
+    {
+      "kind": "boundary",
+      "description": "strictly increasing sequence, every insert costs nothing",
+      "input": [[1, 2, 3, 4, 5]]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly decreasing sequence, every insert costs the full count so far",
+      "input": [[5, 4, 3, 2, 1]]
+    },
+    {
+      "kind": "trap",
+      "description": "every value identical, all counted as neither strictly smaller nor greater",
+      "input": [[7, 7, 7, 7, 7]]
+    },
+    {
+      "kind": "trap",
+      "description": "values at the extreme boundaries of the allowed range",
+      "input": [[1, 100000, 1, 100000, 1, 100000]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random values across a moderate range and length",
+      "seed": 21,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 20000))\n    return [[rng.randint(1, 100000) for _ in range(n)]]\n"
+    },
+    {
+      "description": "large sequence at the real constraint size with a narrow value range to force many ties",
+      "seed": 314,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    return [[rng.randint(1, 50) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def createSortedArray(self, instructions):\n        import bisect\n        MOD = 10 ** 9 + 7\n        arr = []\n        cost = 0\n        for v in instructions:\n            less = bisect.bisect_left(arr, v)\n            greater = len(arr) - bisect.bisect_right(arr, v)\n            cost += min(less, greater)\n            bisect.insort(arr, v)\n        return cost % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def createSortedArray(self, instructions):\n        MOD = 10 ** 9 + 7\n        max_val = max(instructions)\n        bit = [0] * (max_val + 1)\n\n        def update(pos):\n            while pos <= max_val:\n                bit[pos] += 1\n                pos += pos & (-pos)\n\n        def query(pos):\n            s = 0\n            while pos > 0:\n                s += bit[pos]\n                pos -= pos & (-pos)\n            return s\n\n        cost = 0\n        for idx, v in enumerate(instructions):\n            less = query(v - 1)\n            leq = query(v)\n            greater = idx - leq\n            cost += min(less, greater)\n            update(v)\n        return cost % MOD\n",
+    "javascript": "var createSortedArray = function(instructions) {\n    const MOD = 1000000007;\n    let maxVal = 0;\n    for (const v of instructions) if (v > maxVal) maxVal = v;\n    const bit = new Array(maxVal + 1).fill(0);\n\n    function update(pos) {\n        while (pos <= maxVal) {\n            bit[pos] += 1;\n            pos += pos & (-pos);\n        }\n    }\n\n    function query(pos) {\n        let s = 0;\n        while (pos > 0) {\n            s += bit[pos];\n            pos -= pos & (-pos);\n        }\n        return s;\n    }\n\n    let cost = 0;\n    for (let idx = 0; idx < instructions.length; idx++) {\n        const v = instructions[idx];\n        const less = query(v - 1);\n        const leq = query(v);\n        const greater = idx - leq;\n        cost += Math.min(less, greater);\n        update(v);\n    }\n    return cost % MOD;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log m)",
+    "space": "O(m)"
+  }
+}

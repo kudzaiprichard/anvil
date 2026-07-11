@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-swaps-to-arrange-a-binary-grid",
+  "judge": "exact",
+  "pattern": "Working top to bottom, each row only needs enough trailing zeros for its position, so greedily pulling up the closest qualifying row below with adjacent swaps is always optimal.",
+  "hints": [
+    "Precompute, for every row, how many zeros trail it from the right — that count is what determines which position a row is allowed to sit in.",
+    "Process rows top to bottom: a row already has enough trailing zeros for its position, or it needs to borrow a better row from further down.",
+    "Search downward for the closest row with enough trailing zeros, bubble it up one adjacent swap at a time (each swap counts as one operation), and give up with -1 the moment no such row exists below."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 200], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "already valid grid needs no swaps", "input": [[[1, 0, 0], [1, 1, 0], [1, 1, 1]]] },
+    { "kind": "edge", "description": "one adjacent swap fixes it", "input": [[[0, 0, 1], [1, 1, 0], [1, 0, 0]]] },
+    { "kind": "boundary", "description": "single cell grid is trivially valid", "input": [[[0]]] },
+    { "kind": "boundary", "description": "smallest 2x2 grid", "input": [[[0, 0], [1, 0]]] },
+    { "kind": "trap", "description": "identical rows can never satisfy the diagonal condition", "input": [[[0, 1, 1], [0, 1, 1], [0, 1, 1]]] },
+    { "kind": "trap", "description": "the qualifying row sits far from where it is needed", "input": [[[1, 1, 1, 0], [0, 0, 0, 0], [1, 1, 0, 0], [1, 0, 0, 0]]] },
+    { "kind": "edge", "description": "moderate grid needing multiple swaps", "input": [[[1, 1, 0, 0], [1, 1, 1, 0], [1, 1, 1, 1], [0, 0, 0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "large random binary grid, some instances unsolvable",
+      "seed": 60,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    grid = [[rng.randint(0, 1) for _ in range(n)] for _ in range(n)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSwaps(self, grid):\n        import itertools\n        n = len(grid)\n        def trailing_zeros(row):\n            z = 0\n            for v in reversed(row):\n                if v == 0:\n                    z += 1\n                else:\n                    break\n            return z\n        best = None\n        for perm in itertools.permutations(range(n)):\n            valid = all(trailing_zeros(grid[perm[i]]) >= n - i - 1 for i in range(n))\n            if not valid:\n                continue\n            a = list(perm)\n            swaps = 0\n            for i in range(n):\n                if a[i] != i:\n                    j = a.index(i)\n                    while j > i:\n                        a[j], a[j - 1] = a[j - 1], a[j]\n                        j -= 1\n                        swaps += 1\n            if best is None or swaps < best:\n                best = swaps\n        return best if best is not None else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSwaps(self, grid):\n        n = len(grid)\n        trailing = []\n        for row in grid:\n            z = 0\n            for v in reversed(row):\n                if v == 0:\n                    z += 1\n                else:\n                    break\n            trailing.append(z)\n        ans = 0\n        for i in range(n):\n            need = n - i - 1\n            if trailing[i] >= need:\n                continue\n            j = i + 1\n            while j < n and trailing[j] < need:\n                j += 1\n            if j == n:\n                return -1\n            row = trailing.pop(j)\n            trailing.insert(i, row)\n            ans += j - i\n        return ans\n",
+    "javascript": "var minSwaps = function(grid) {\n    const n = grid.length;\n    const trailing = grid.map(row => {\n        let z = 0;\n        for (let i = row.length - 1; i >= 0; i--) {\n            if (row[i] === 0) z++; else break;\n        }\n        return z;\n    });\n    let ans = 0;\n    for (let i = 0; i < n; i++) {\n        const need = n - i - 1;\n        if (trailing[i] >= need) continue;\n        let j = i + 1;\n        while (j < n && trailing[j] < need) j++;\n        if (j === n) return -1;\n        const [row] = trailing.splice(j, 1);\n        trailing.splice(i, 0, row);\n        ans += j - i;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

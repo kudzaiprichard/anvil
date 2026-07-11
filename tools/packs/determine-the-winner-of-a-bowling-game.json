@@ -1,0 +1,69 @@
+{
+  "slug": "determine-the-winner-of-a-bowling-game",
+  "judge": "exact",
+  "pattern": "Each frame's own contribution depends only on whether either of that player's two immediately preceding frames was a strike, so a single left-to-right pass that looks back at most two positions (independently per player) is enough to total up both scores and compare them.",
+  "hints": [
+    "A frame's value depends only on that same player's own two immediately preceding frames -- never the other player's frames, and never frames further back than two.",
+    "Walk each player's frames from left to right, and for every frame check whether either of the (up to two) frames directly before it in that same player's own list was a strike; if so this frame counts double, otherwise it counts once.",
+    "Sum each player's doubled-or-not frame values into a total score, then compare the two totals: return 1 if the first is strictly greater, 2 if the second is strictly greater, and 0 if they are equal."
+  ],
+  "constraints": [
+    { "param": "player1", "kind": "int[]", "len": [1, 1000], "value": [0, 10] },
+    { "param": "player2", "kind": "int[]", "len": [1, 1000], "value": [0, 10] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "a single frame each, the smallest possible game",
+      "input": [[5], [7]]
+    },
+    {
+      "kind": "edge",
+      "description": "a tie produced through the doubling rule rather than equal raw pin counts",
+      "input": [[10, 0], [0, 10]]
+    },
+    {
+      "kind": "trap",
+      "description": "two consecutive strikes before a frame must still only double it once, not stack the bonus",
+      "input": [[10, 10, 5], [1, 1, 1]]
+    },
+    {
+      "kind": "trap",
+      "description": "the last frame is a strike, which must never wrap around to bonus the very first frame",
+      "input": [[9, 1, 10], [0, 0, 0]]
+    },
+    {
+      "kind": "boundary",
+      "description": "every frame is a strike for both players, exercising the maximum pin value repeatedly",
+      "input": [[10, 10, 10], [10, 10, 10]]
+    },
+    {
+      "kind": "edge",
+      "description": "a longer mixed game with no strikes at all, so no doubling ever applies",
+      "input": [[7, 8, 9, 6, 2], [6, 9, 1, 4, 3]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long random games with an even spread of pin counts for both players",
+      "seed": 3,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    p1 = [rng.randint(0, 10) for _ in range(n)]\n    p2 = [rng.randint(0, 10) for _ in range(n)]\n    return [p1, p2]\n"
+    },
+    {
+      "description": "long random games biased toward frequent strikes, stressing the doubling logic",
+      "seed": 29,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    p1 = [10 if rng.random() < 0.5 else rng.randint(0, 9) for _ in range(n)]\n    p2 = [10 if rng.random() < 0.5 else rng.randint(0, 9) for _ in range(n)]\n    return [p1, p2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isWinner(self, player1, player2):\n        def score(frames):\n            n = len(frames)\n            multipliers = [1] * n\n            for i in range(n):\n                for j in (i - 1, i - 2):\n                    if 0 <= j < n and frames[j] == 10:\n                        multipliers[i] = 2\n                        break\n            return sum(f * m for f, m in zip(frames, multipliers))\n\n        s1 = score(player1)\n        s2 = score(player2)\n        if s1 == s2:\n            return 0\n        return 1 if s1 > s2 else 2\n",
+  "solutions": {
+    "python": "class Solution:\n    def isWinner(self, player1, player2):\n        def score(frames):\n            total = 0\n            for i, x in enumerate(frames):\n                bonus = 2 if (i >= 1 and frames[i - 1] == 10) or (i >= 2 and frames[i - 2] == 10) else 1\n                total += bonus * x\n            return total\n\n        s1 = score(player1)\n        s2 = score(player2)\n        if s1 > s2:\n            return 1\n        if s2 > s1:\n            return 2\n        return 0\n",
+    "javascript": "var isWinner = function(player1, player2) {\n    function score(frames) {\n        let total = 0;\n        for (let i = 0; i < frames.length; i++) {\n            const bonus = ((i >= 1 && frames[i - 1] === 10) || (i >= 2 && frames[i - 2] === 10)) ? 2 : 1;\n            total += bonus * frames[i];\n        }\n        return total;\n    }\n    const s1 = score(player1);\n    const s2 = score(player2);\n    if (s1 > s2) return 1;\n    if (s2 > s1) return 2;\n    return 0;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(1)"
+  }
+}

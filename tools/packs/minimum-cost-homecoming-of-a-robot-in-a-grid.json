@@ -1,0 +1,95 @@
+{
+  "slug": "minimum-cost-homecoming-of-a-robot-in-a-grid",
+  "judge": "exact",
+  "pattern": "Since every move cost is non-negative and depends only on the row or column being entered, no detour can ever help, so the minimum cost collapses to simply summing the row costs crossed while walking straight toward the home row plus the column costs crossed while walking straight toward the home column.",
+  "hints": [
+    "There is no need to search or explore the grid at all -- with only non-negative costs that depend purely on the destination row or column of each step, moving straight toward home is always at least as cheap as any detour.",
+    "Walk from the start row toward the home row one row at a time (in whichever direction is needed) and add up the row cost of every row you enter along the way; do the same separately for columns.",
+    "The final answer is just that row-direction sum plus that column-direction sum -- watch the direction: if home is behind you (a smaller row or column index than where you start), you still need to add the costs of every row or column you pass while moving backward, not just forward."
+  ],
+  "constraints": [
+    {
+      "param": "startPos",
+      "kind": "int[]",
+      "len": [2, 2],
+      "value": [0, 99999]
+    },
+    {
+      "param": "homePos",
+      "kind": "int[]",
+      "len": [2, 2],
+      "value": [0, 99999]
+    },
+    {
+      "param": "rowCosts",
+      "kind": "int[]",
+      "len": [1, 100000],
+      "value": [0, 10000]
+    },
+    {
+      "param": "colCosts",
+      "kind": "int[]",
+      "len": [1, 100000],
+      "value": [0, 10000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a path requiring both a downward row move and several rightward column moves",
+      "input": [[1, 0], [2, 3], [5, 4, 3], [8, 2, 6, 7]]
+    },
+    {
+      "kind": "boundary",
+      "description": "start and home are the same cell, so no moves and no cost are incurred",
+      "input": [[0, 0], [0, 0], [5], [26]]
+    },
+    {
+      "kind": "trap",
+      "description": "home is in the same row, so only column costs should ever be added",
+      "input": [[2, 1], [2, 4], [1, 1, 1], [2, 3, 4, 5, 6]]
+    },
+    {
+      "kind": "trap",
+      "description": "home is in the same column, so only row costs should ever be added",
+      "input": [[0, 2], [3, 2], [1, 2, 3, 4], [5, 5, 5]]
+    },
+    {
+      "kind": "trap",
+      "description": "home row is above the start row, so the walk moves upward through decreasing row indices",
+      "input": [[3, 0], [0, 0], [10, 20, 30, 40], [7]]
+    },
+    {
+      "kind": "trap",
+      "description": "home column is to the left of the start column, so the walk moves through decreasing column indices",
+      "input": [[0, 3], [0, 0], [9], [1, 2, 3, 4]]
+    },
+    {
+      "kind": "trap",
+      "description": "some rows and columns along the path have zero cost and must contribute nothing without breaking the sum",
+      "input": [[0, 0], [0, 2], [5], [0, 0, 0]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a diagonal corner-to-corner walk combining both row and column movement on a small grid",
+      "input": [[0, 0], [2, 2], [0, 5, 10], [0, 3, 6]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random grid dimensions, start/home positions, and cost arrays (including some zero costs)",
+      "seed": 21,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 3000)))\n    n = rng.randint(1, max(1, min(size, 3000)))\n    sr = rng.randint(0, m - 1)\n    sc = rng.randint(0, n - 1)\n    hr = rng.randint(0, m - 1)\n    hc = rng.randint(0, n - 1)\n    rowCosts = [0 if rng.random() < 0.1 else rng.randint(0, 10000) for _ in range(m)]\n    colCosts = [0 if rng.random() < 0.1 else rng.randint(0, 10000) for _ in range(n)]\n    return [[sr, sc], [hr, hc], rowCosts, colCosts]\n"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def minCost(self, startPos, homePos, rowCosts, colCosts):\n        m = len(rowCosts)\n        n = len(colCosts)\n        sr, sc = startPos\n        hr, hc = homePos\n        INF = float('inf')\n        dist = [[INF] * n for _ in range(m)]\n        dist[sr][sc] = 0\n        pq = [(0, sr, sc)]\n        while pq:\n            d, r, c = heapq.heappop(pq)\n            if d > dist[r][c]:\n                continue\n            if r == hr and c == hc:\n                return d\n            candidates = []\n            if r - 1 >= 0:\n                candidates.append((r - 1, c, rowCosts[r - 1]))\n            if r + 1 < m:\n                candidates.append((r + 1, c, rowCosts[r + 1]))\n            if c - 1 >= 0:\n                candidates.append((r, c - 1, colCosts[c - 1]))\n            if c + 1 < n:\n                candidates.append((r, c + 1, colCosts[c + 1]))\n            for nr, nc, cost in candidates:\n                nd = d + cost\n                if nd < dist[nr][nc]:\n                    dist[nr][nc] = nd\n                    heapq.heappush(pq, (nd, nr, nc))\n        return dist[hr][hc]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCost(self, startPos, homePos, rowCosts, colCosts):\n        sr, sc = startPos\n        hr, hc = homePos\n        total = 0\n        if hr >= sr:\n            for r in range(sr + 1, hr + 1):\n                total += rowCosts[r]\n        else:\n            for r in range(sr - 1, hr - 1, -1):\n                total += rowCosts[r]\n        if hc >= sc:\n            for c in range(sc + 1, hc + 1):\n                total += colCosts[c]\n        else:\n            for c in range(sc - 1, hc - 1, -1):\n                total += colCosts[c]\n        return total\n",
+    "javascript": "var minCost = function(startPos, homePos, rowCosts, colCosts) {\n    const [sr, sc] = startPos;\n    const [hr, hc] = homePos;\n    let total = 0;\n    if (hr >= sr) {\n        for (let r = sr + 1; r <= hr; r++) total += rowCosts[r];\n    } else {\n        for (let r = sr - 1; r >= hr; r--) total += rowCosts[r];\n    }\n    if (hc >= sc) {\n        for (let c = sc + 1; c <= hc; c++) total += colCosts[c];\n    } else {\n        for (let c = sc - 1; c >= hc; c--) total += colCosts[c];\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(|startRow - homeRow| + |startCol - homeCol|)",
+    "space": "O(1)"
+  }
+}

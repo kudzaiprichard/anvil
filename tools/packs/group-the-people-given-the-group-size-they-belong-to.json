@@ -1,0 +1,40 @@
+{
+  "slug": "group-the-people-given-the-group-size-they-belong-to",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    groupSizes = args[0]\n    n = len(groupSizes)\n    if not isinstance(output, list):\n        return False\n    # every person appears exactly once\n    seen = []\n    for grp in output:\n        if not isinstance(grp, list):\n            return False\n        seen.extend(grp)\n    if sorted(seen) != list(range(n)):\n        return False\n    # each group has the correct size and all members agree on that size\n    for grp in output:\n        sz = len(grp)\n        for idx in grp:\n            if not (0 <= idx < n):\n                return False\n            if groupSizes[idx] != sz:\n                return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const groupSizes = args[0];\n    const n = groupSizes.length;\n    if (!Array.isArray(output)) return false;\n    const seen = [];\n    for (const grp of output) {\n        if (!Array.isArray(grp)) return false;\n        for (const idx of grp) seen.push(idx);\n    }\n    if (seen.length !== n) return false;\n    seen.sort((a, b) => a - b);\n    for (let i = 0; i < n; i++) if (seen[i] !== i) return false;\n    for (const grp of output) {\n        const sz = grp.length;\n        for (const idx of grp) {\n            if (idx < 0 || idx >= n) return false;\n            if (groupSizes[idx] !== sz) return false;\n        }\n    }\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Bucket people by their required group size; greedily fill each bucket and emit a complete group whenever it reaches the target size.",
+  "hints": [
+    "People who share the same required group size must be packed together — collect indices per size in a hash map.",
+    "Drain each bucket in fixed-size chunks: as soon as you have accumulated enough indices for one full group, record it and start a new chunk.",
+    "The problem guarantees a valid assignment exists, so every bucket's length is divisible by its key; emit groups of exactly that size."
+  ],
+  "constraints": [
+    { "param": "groupSizes", "kind": "int[]", "len": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "everyone is in a group of size 1", "input": [[1, 1, 1]], "description2": "each person is their own group" },
+    { "kind": "edge", "description": "everyone is in one big group", "input": [[4, 4, 4, 4]] },
+    { "kind": "trap", "description": "mixed sizes requiring multiple separate groupings", "input": [[3, 3, 3, 3, 3, 1, 3]] },
+    { "kind": "edge", "description": "two separate pairs", "input": [[2, 1, 3, 3, 3, 2]] },
+    { "kind": "boundary", "description": "single person group", "input": [[1]] },
+    { "kind": "trap", "description": "sizes 2 and 3 interleaved", "input": [[2, 3, 2, 3, 3, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random valid groupSizes array",
+      "seed": 103,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    # build a valid groupSizes by choosing a divisor of n or building from groups\n    result = []\n    remaining = n\n    while remaining > 0:\n        # pick a group size that divides cleanly into remaining\n        max_s = min(remaining, 20)\n        gs = rng.randint(1, max_s)\n        # round down to a multiple of gs\n        count = (remaining // gs) if remaining >= gs else 1\n        actual = gs * count if remaining >= gs else remaining\n        if actual == 0:\n            actual = 1\n            gs = 1\n        result.extend([gs] * actual)\n        remaining -= actual\n    rng.shuffle(result)\n    return [result]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def groupThePeople(self, groupSizes):\n        from collections import defaultdict\n        buckets = defaultdict(list)\n        for i, s in enumerate(groupSizes):\n            buckets[s].append(i)\n        result = []\n        for s, indices in buckets.items():\n            for start in range(0, len(indices), s):\n                result.append(sorted(indices[start:start + s]))\n        result.sort()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def groupThePeople(self, groupSizes):\n        from collections import defaultdict\n        buckets = defaultdict(list)\n        for i, s in enumerate(groupSizes):\n            buckets[s].append(i)\n        result = []\n        for s, indices in buckets.items():\n            for start in range(0, len(indices), s):\n                result.append(sorted(indices[start:start + s]))\n        result.sort()\n        return result\n",
+    "javascript": "var groupThePeople = function(groupSizes) {\n    const buckets = new Map();\n    for (let i = 0; i < groupSizes.length; i++) {\n        const s = groupSizes[i];\n        if (!buckets.has(s)) buckets.set(s, []);\n        buckets.get(s).push(i);\n    }\n    const result = [];\n    for (const [s, indices] of buckets) {\n        for (let start = 0; start < indices.length; start += s) {\n            const grp = indices.slice(start, start + s).sort((a, b) => a - b);\n            result.push(grp);\n        }\n    }\n    result.sort((a, b) => {\n        const n = Math.min(a.length, b.length);\n        for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return a.length - b.length;\n    });\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,35 @@
+{
+  "slug": "symmetric-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "A mirror-symmetric tree reads the same flipped left-to-right — compare the left subtree against the right subtree as mirror images, outer child against outer child.",
+  "hints": [
+    "Symmetry is about the two halves of the tree being mirror images of each other.",
+    "Compare the left and right subtrees as a pair, matching the left's left child with the right's right child.",
+    "Two subtrees mirror when their roots are equal and (left.left vs right.right) and (left.right vs right.left) both mirror."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 1000], "value": [-100, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single node is trivially symmetric", "input": [[1]] },
+    { "kind": "edge", "description": "classic symmetric tree", "input": [[1, 2, 2, 3, 4, 4, 3]] },
+    { "kind": "trap", "description": "mirror shape but the inner values break symmetry", "input": [[1, 2, 2, null, 3, null, 3]] },
+    { "kind": "trap", "description": "values mirror but the structure does not", "input": [[1, 2, 2, 2, null, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "build a random left half and mirror it, then sometimes corrupt one value",
+      "seed": 39,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    depth = 2 + (max(1, min(size, 1000)) % 7)\n    def build(d):\n        if d == 0 or rng.random() < 0.25:\n            return None\n        return {'v': rng.randint(-5, 5), 'l': build(d - 1), 'r': build(d - 1)}\n    def mirror(n):\n        if n is None:\n            return None\n        return {'v': n['v'], 'l': mirror(n['r']), 'r': mirror(n['l'])}\n    half = build(depth)\n    root = {'v': 0, 'l': half, 'r': mirror(half)}\n    if rng.random() < 0.5 and root['l'] is not None:\n        root['l']['v'] += 1\n    # serialize to level-order with nulls\n    arr = []\n    queue = [root]\n    while queue:\n        node = queue.pop(0)\n        if node is None:\n            arr.append(None)\n            continue\n        arr.append(node['v'])\n        queue.append(node['l'])\n        queue.append(node['r'])\n    while arr and arr[-1] is None:\n        arr.pop()\n    return [arr]\n",
+      "note": "root always present; half the time symmetric, half the time broken"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isSymmetric(self, root):\n        def collect(node, side):\n            # side-aware traversal: a sentinel marks empties so structure matters\n            if node is None:\n                return [None]\n            if side == 'L':\n                return [node.val] + collect(node.left, 'L') + collect(node.right, 'L')\n            else:\n                return [node.val] + collect(node.right, 'R') + collect(node.left, 'R')\n        if root is None:\n            return True\n        return collect(root.left, 'L') == collect(root.right, 'R')\n",
+  "solutions": {
+    "python": "class Solution:\n    def isSymmetric(self, root):\n        def mirror(a, b):\n            if a is None and b is None:\n                return True\n            if a is None or b is None:\n                return False\n            return a.val == b.val and mirror(a.left, b.right) and mirror(a.right, b.left)\n        if root is None:\n            return True\n        return mirror(root.left, root.right)\n",
+    "javascript": "var isSymmetric = function(root) {\n    const mirror = (a, b) => {\n        if (a === null && b === null) return true;\n        if (a === null || b === null) return false;\n        return a.val === b.val && mirror(a.left, b.right) && mirror(a.right, b.left);\n    };\n    if (root === null) return true;\n    return mirror(root.left, root.right);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

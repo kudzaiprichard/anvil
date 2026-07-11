@@ -1,0 +1,101 @@
+{
+  "judge": "exact",
+  "pattern": "Because n can reach half a million, the same-letter runs of the string must be scanned only once; per letter, its three longest runs are all that is needed to decide the best length that repeats three times.",
+  "hints": [
+    "Scan the string once to find every maximal run of a single repeated letter, grouping run lengths by which letter they belong to -- this alone is O(n) and independent of how large n gets.",
+    "For a fixed letter, a length-k block can reach three occurrences in only three shapes: three copies out of one run, two out of the longest run plus one out of the next, or one copy each from three distinct runs -- nothing else is possible.",
+    "So keep each letter's top three run lengths only (everything past the third longest run can be discarded on the fly), and combine them as max(longest - 2, min(longest - 1, second), third); the answer is the max of that over all letters, or -1 if every letter's best value is non-positive."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        3,
+        500000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, a single run long enough to repeat a pair three times",
+      "input": [
+        "aaaa"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, no letter ever repeats a block",
+      "input": [
+        "abcdef"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, only single letters repeat three times",
+      "input": [
+        "abcaba"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length, one run exactly long enough for length 1",
+      "input": [
+        "aaa"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length, all distinct letters",
+      "input": [
+        "abc"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a letter appearing only as three separate single-character runs",
+      "input": [
+        "abababa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "requires combining the two longest runs of the same letter, not just cubing the longest one",
+      "input": [
+        "aaaabaaa"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a moderately long single run interrupted once, testing the combine-two-runs case at larger scale",
+      "input": [
+        "aaaaaaaaaabaaaaaaaaaaaaaaa"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large string built from many short random-length runs over a small alphabet",
+      "seed": 42,
+      "size": 500000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 500000))\n    alphabet = 'abcd'\n    parts = []\n    total = 0\n    while total < n:\n        c = rng.choice(alphabet)\n        run_len = rng.randint(1, 50)\n        run_len = min(run_len, n - total)\n        if run_len <= 0:\n            break\n        parts.append(c * run_len)\n        total += run_len\n    result = ''.join(parts)\n    if len(result) < 3:\n        result = (result + 'aaa')[:3]\n    return [result]\n"
+    },
+    {
+      "description": "one dominant letter across the whole large string with a handful of interruptions, stressing the single-long-run formula at scale",
+      "seed": 99,
+      "size": 500000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 500000))\n    s = list('a' * n)\n    num_breaks = max(1, n // 10000)\n    for _ in range(num_breaks):\n        idx = rng.randint(0, n - 1)\n        s[idx] = rng.choice('bcd')\n    return [''.join(s)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumLength(self, s):\n        n = len(s)\n        runs = {}\n        i = 0\n        while i < n:\n            j = i\n            while j < n and s[j] == s[i]:\n                j += 1\n            c = s[i]\n            runs.setdefault(c, []).append(j - i)\n            i = j\n        for k in range(n, 0, -1):\n            for lst in runs.values():\n                total = 0\n                for r in lst:\n                    if r >= k:\n                        total += r - k + 1\n                if total >= 3:\n                    return k\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumLength(self, s: str) -> int:\n        runs = {}\n        n = len(s)\n        i = 0\n        while i < n:\n            j = i\n            while j < n and s[j] == s[i]:\n                j += 1\n            length = j - i\n            c = s[i]\n            lst = runs.setdefault(c, [])\n            lst.append(length)\n            lst.sort(reverse=True)\n            if len(lst) > 3:\n                lst.pop()\n            i = j\n        ans = -1\n        for lst in runs.values():\n            r1 = lst[0] if len(lst) > 0 else 0\n            r2 = lst[1] if len(lst) > 1 else 0\n            r3 = lst[2] if len(lst) > 2 else 0\n            if r1 >= 3:\n                ans = max(ans, r1 - 2)\n            if r1 >= 1 and r2 >= 1:\n                cand = min(r1 - 1, r2)\n                if cand >= 1:\n                    ans = max(ans, cand)\n            if r3 >= 1:\n                ans = max(ans, r3)\n        return ans\n",
+    "javascript": "var maximumLength = function(s) {\n    const runs = {};\n    const n = s.length;\n    let i = 0;\n    while (i < n) {\n        let j = i;\n        while (j < n && s[j] === s[i]) j++;\n        const length = j - i;\n        const c = s[i];\n        if (!runs[c]) runs[c] = [];\n        runs[c].push(length);\n        runs[c].sort((a, b) => b - a);\n        if (runs[c].length > 3) runs[c].pop();\n        i = j;\n    }\n    let ans = -1;\n    for (const c in runs) {\n        const lst = runs[c];\n        const r1 = lst[0] || 0;\n        const r2 = lst[1] || 0;\n        const r3 = lst[2] || 0;\n        if (r1 >= 3) ans = Math.max(ans, r1 - 2);\n        if (r1 >= 1 && r2 >= 1) {\n            const cand = Math.min(r1 - 1, r2);\n            if (cand >= 1) ans = Math.max(ans, cand);\n        }\n        if (r3 >= 1) ans = Math.max(ans, r3);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(1) (bounded by the alphabet size)"
+  },
+  "slug": "find-longest-special-substring-that-occurs-thrice-ii"
+}

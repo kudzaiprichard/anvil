@@ -1,0 +1,38 @@
+{
+  "slug": "total-cost-to-hire-k-workers",
+  "judge": "exact",
+  "pattern": "Two min-heaps guarding the front and back candidate windows let each hiring round pick the globally cheapest worker with deterministic tie-breaking while the windows advance inward.",
+  "hints": [
+    "Each round you only ever consider the cheapest of the first or last candidates, so keep both ends in priority queues.",
+    "After hiring from one end, pull a fresh worker from the still-untouched middle into that same end's queue if any remain.",
+    "Seed a front heap with the first c workers and a back heap with the last c, hire k times always taking the smaller top (front wins ties), and refill from a shrinking middle pointer."
+  ],
+  "constraints": [
+    { "param": "costs", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] },
+    { "param": "candidates", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "windows overlap and a worker is shared", "input": [[17, 12, 10, 2, 7, 2, 11, 20, 8], 3, 4] },
+    { "kind": "trap", "description": "candidates cover the whole array, no refills", "input": [[1, 2, 4, 1], 3, 3] },
+    { "kind": "boundary", "description": "single worker hired once", "input": [[5], 1, 1] },
+    { "kind": "edge", "description": "tie broken toward the lower index", "input": [[3, 2, 7, 7, 1, 2], 4, 2] },
+    { "kind": "trap", "description": "candidates exceeds half so windows immediately overlap", "input": [[10, 20, 30, 40], 2, 4] },
+    { "kind": "edge", "description": "hire every worker in order of refills", "input": [[8, 6, 4, 2, 1, 3, 5, 7], 8, 2] }
+  ],
+  "stress": [
+    {
+      "description": "large cost array with small candidate windows and many rounds",
+      "seed": 77,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    costs = [rng.randint(1, 1000) for _ in range(n)]\n    k = rng.randint(1, n)\n    candidates = rng.randint(1, n)\n    return [costs, k, candidates]\n",
+      "note": "random k and candidates exercise refill and overlap paths"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def totalCost(self, costs, k, candidates):\n        a = list(costs)\n        total = 0\n        for _ in range(k):\n            n = len(a)\n            best_val = None\n            best_idx = -1\n            front = list(range(min(candidates, n)))\n            back = list(range(max(0, n - candidates), n))\n            pool = sorted(set(front + back))\n            for idx in pool:\n                if best_val is None or a[idx] < best_val:\n                    best_val = a[idx]\n                    best_idx = idx\n            total += best_val\n            a.pop(best_idx)\n        return total\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def totalCost(self, costs, k, candidates):\n        n = len(costs)\n        left = 0\n        right = n - 1\n        front = []\n        back = []\n        for _ in range(candidates):\n            if left <= right:\n                heapq.heappush(front, costs[left])\n                left += 1\n        for _ in range(candidates):\n            if left <= right:\n                heapq.heappush(back, costs[right])\n                right -= 1\n        total = 0\n        for _ in range(k):\n            if front and (not back or front[0] <= back[0]):\n                total += heapq.heappop(front)\n                if left <= right:\n                    heapq.heappush(front, costs[left])\n                    left += 1\n            else:\n                total += heapq.heappop(back)\n                if left <= right:\n                    heapq.heappush(back, costs[right])\n                    right -= 1\n        return total\n",
+    "javascript": "class MinHeap {\n    constructor() { this.h = []; }\n    size() { return this.h.length; }\n    top() { return this.h[0]; }\n    push(v) {\n        const h = this.h; h.push(v);\n        let i = h.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (h[p] <= h[i]) break;\n            [h[p], h[i]] = [h[i], h[p]]; i = p;\n        }\n    }\n    pop() {\n        const h = this.h;\n        const top = h[0];\n        const last = h.pop();\n        if (h.length) {\n            h[0] = last;\n            let i = 0;\n            const n = h.length;\n            while (true) {\n                let s = i; const l = 2 * i + 1, r = 2 * i + 2;\n                if (l < n && h[l] < h[s]) s = l;\n                if (r < n && h[r] < h[s]) s = r;\n                if (s === i) break;\n                [h[s], h[i]] = [h[i], h[s]]; i = s;\n            }\n        }\n        return top;\n    }\n}\nvar totalCost = function(costs, k, candidates) {\n    const n = costs.length;\n    let left = 0, right = n - 1;\n    const front = new MinHeap(), back = new MinHeap();\n    for (let i = 0; i < candidates && left <= right; i++) { front.push(costs[left++]); }\n    for (let i = 0; i < candidates && left <= right; i++) { back.push(costs[right--]); }\n    let total = 0;\n    for (let i = 0; i < k; i++) {\n        if (front.size() && (!back.size() || front.top() <= back.top())) {\n            total += front.pop();\n            if (left <= right) front.push(costs[left++]);\n        } else {\n            total += back.pop();\n            if (left <= right) back.push(costs[right--]);\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O((candidates + k) log candidates)", "space": "O(candidates)" }
+}

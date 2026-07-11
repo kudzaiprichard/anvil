@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-number-of-work-sessions-to-finish-the-tasks",
+  "judge": "exact",
+  "pattern": "Every task must land whole inside some work session, so the problem is really about partitioning the task set into the fewest groups whose sums each fit the session budget - a bitmask subset-cover search over which tasks share a session.",
+  "hints": [
+    "A task can never be split across two sessions, so think in terms of grouping the whole set of tasks into sessions rather than scheduling them one at a time.",
+    "For every subset of tasks, precompute whether that subset's total time fits in one session; then the answer is the fewest such subsets needed to cover everyone.",
+    "Build a table over all 2^n subsets: the minimum sessions to finish a subset is one plus the minimum over any of its fitting sub-subsets for the rest, so iterate over sub-masks of each mask."
+  ],
+  "constraints": [
+    { "param": "tasks", "kind": "int[]", "len": [1, 14], "value": [1, 15] },
+    { "param": "sessionTime", "kind": "int", "value": [1, 15] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three tasks, two share a session", "input": [[1, 2, 3], 3] },
+    { "kind": "edge", "description": "five tasks needing two sessions", "input": [[3, 1, 3, 1, 1], 8] },
+    { "kind": "edge", "description": "five tasks all fit one long session", "input": [[1, 2, 3, 4, 5], 15] },
+    { "kind": "boundary", "description": "single task exactly equal to the session time", "input": [[5], 5] },
+    { "kind": "trap", "description": "three equal tasks that each already fill the session alone", "input": [[4, 4, 4], 4] },
+    { "kind": "trap", "description": "four tasks that pair up perfectly two per session", "input": [[2, 2, 2, 2], 4] },
+    { "kind": "boundary", "description": "max task count, all tiny, one session suffices", "input": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 15] },
+    { "kind": "boundary", "description": "max task count, each task saturates the session alone", "input": [[15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15], 15] },
+    { "kind": "trap", "description": "a small filler task only fits with one particular neighbor", "input": [[1, 5, 5, 5], 6] }
+  ],
+  "stress": [
+    {
+      "description": "random task sets near the max subset-search size",
+      "seed": 7,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = min(size, 14)\n    session_time = rng.randint(5, 15)\n    tasks = [rng.randint(1, session_time) for _ in range(n)]\n    return [tasks, session_time]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSessions(self, tasks, sessionTime):\n        n = len(tasks)\n        order = sorted(tasks, reverse=True)\n        def feasible(k):\n            bins = [0] * k\n            def backtrack(i):\n                if i == n:\n                    return True\n                seen = set()\n                for b in range(k):\n                    if bins[b] in seen:\n                        continue\n                    seen.add(bins[b])\n                    if bins[b] + order[i] <= sessionTime:\n                        bins[b] += order[i]\n                        if backtrack(i + 1):\n                            return True\n                        bins[b] -= order[i]\n                    if bins[b] == 0:\n                        break\n                return False\n            return backtrack(0)\n        k = 1\n        while not feasible(k):\n            k += 1\n        return k\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSessions(self, tasks, sessionTime):\n        n = len(tasks)\n        subset_time = [0] * (1 << n)\n        for mask in range(1, 1 << n):\n            i = (mask & -mask).bit_length() - 1\n            subset_time[mask] = subset_time[mask ^ (1 << i)] + tasks[i]\n        INF = float('inf')\n        dp = [INF] * (1 << n)\n        dp[0] = 0\n        for mask in range(1, 1 << n):\n            sub = mask\n            while sub > 0:\n                if subset_time[sub] <= sessionTime and dp[mask ^ sub] + 1 < dp[mask]:\n                    dp[mask] = dp[mask ^ sub] + 1\n                sub = (sub - 1) & mask\n        return dp[(1 << n) - 1]\n",
+    "javascript": "var minSessions = function(tasks, sessionTime) {\n    const n = tasks.length;\n    const subsetTime = new Array(1 << n).fill(0);\n    for (let mask = 1; mask < (1 << n); mask++) {\n        const i = 31 - Math.clz32(mask & -mask);\n        subsetTime[mask] = subsetTime[mask ^ (1 << i)] + tasks[i];\n    }\n    const INF = Infinity;\n    const dp = new Array(1 << n).fill(INF);\n    dp[0] = 0;\n    for (let mask = 1; mask < (1 << n); mask++) {\n        let sub = mask;\n        while (sub > 0) {\n            if (subsetTime[sub] <= sessionTime && dp[mask ^ sub] + 1 < dp[mask]) {\n                dp[mask] = dp[mask ^ sub] + 1;\n            }\n            sub = (sub - 1) & mask;\n        }\n    }\n    return dp[(1 << n) - 1];\n};\n"
+  },
+  "complexity": { "time": "O(3^n)", "space": "O(2^n)" }
+}

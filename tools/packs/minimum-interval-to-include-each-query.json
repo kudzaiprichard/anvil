@@ -1,0 +1,46 @@
+{
+  "slug": "minimum-interval-to-include-each-query",
+  "judge": "exact",
+  "pattern": "Process queries in sorted order, sweeping intervals into a min-heap keyed by size as their left endpoint comes into range and discarding intervals whose right endpoint has fallen behind, so the heap top is always the smallest interval covering the current query.",
+  "hints": [
+    "Answering each query independently by scanning all intervals is too slow; sorting both intervals and queries lets you reuse work across queries.",
+    "Sort queries ascending and add every interval whose left endpoint is at or below the current query into a structure keyed by interval size.",
+    "Use a min-heap of (size, right); before reading an answer, pop intervals whose right endpoint is below the query, then the heap's smallest remaining size is the answer (or -1 if empty)."
+  ],
+  "constraints": [
+    { "param": "intervals", "kind": "int[][]", "len": [1, 100000], "value": [1, 10000000] },
+    { "param": "queries", "kind": "int[]", "len": [1, 100000], "value": [1, 10000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single interval covers some queries and misses others", "input": [[[2, 5]], [1, 3, 6]] },
+    { "kind": "edge", "description": "single query lands inside one interval", "input": [[[1, 4], [2, 4], [3, 6], [4, 4]], [4]] },
+    { "kind": "edge", "description": "point intervals of size one", "input": [[[3, 3], [5, 5]], [3, 4, 5]] },
+    { "kind": "boundary", "description": "query below all intervals returns -1", "input": [[[5, 10]], [1]] },
+    { "kind": "boundary", "description": "query above all intervals returns -1", "input": [[[1, 3]], [10]] },
+    { "kind": "trap", "description": "a wide interval contains a query but a narrower nested one is the real answer", "input": [[[1, 8], [2, 3]], [2, 3]] },
+    { "kind": "trap", "description": "queries given out of order must still pair with their own interval", "input": [[[2, 3], [2, 5], [1, 8], [20, 25]], [22, 5, 19, 2]] },
+    { "kind": "trap", "description": "an interval ending exactly at the query must still count", "input": [[[1, 4]], [4]] }
+  ],
+  "stress": [
+    {
+      "description": "random small-range intervals and queries to create many overlaps and gaps",
+      "seed": 11,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    intervals = []\n    for _ in range(n):\n        a = rng.randint(1, 200)\n        b = rng.randint(a, 200)\n        intervals.append([a, b])\n    queries = [rng.randint(1, 220) for _ in range(n)]\n    return [intervals, queries]\n",
+      "note": "dense overlaps stress heap eviction and tie handling"
+    },
+    {
+      "description": "wide-range sparse intervals so many queries miss every interval",
+      "seed": 29,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    intervals = []\n    for _ in range(n):\n        a = rng.randint(1, 10000000)\n        b = rng.randint(a, min(10000000, a + rng.randint(0, 1000)))\n        intervals.append([a, b])\n    queries = [rng.randint(1, 10000000) for _ in range(n)]\n    return [intervals, queries]\n",
+      "note": "sparse coverage exercises the -1 path frequently"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minInterval(self, intervals, queries):\n        ans = []\n        for q in queries:\n            best = -1\n            for l, r in intervals:\n                if l <= q <= r:\n                    size = r - l + 1\n                    if best == -1 or size < best:\n                        best = size\n            ans.append(best)\n        return ans\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def minInterval(self, intervals, queries):\n        intervals.sort()\n        order = sorted(range(len(queries)), key=lambda i: queries[i])\n        ans = [-1] * len(queries)\n        heap = []\n        idx = 0\n        n = len(intervals)\n        for qi in order:\n            q = queries[qi]\n            while idx < n and intervals[idx][0] <= q:\n                l, r = intervals[idx]\n                heapq.heappush(heap, (r - l + 1, r))\n                idx += 1\n            while heap and heap[0][1] < q:\n                heapq.heappop(heap)\n            if heap:\n                ans[qi] = heap[0][0]\n        return ans\n",
+    "javascript": "var minInterval = function(intervals, queries) {\n    intervals.sort((a, b) => a[0] - b[0]);\n    const order = queries.map((q, i) => i).sort((a, b) => queries[a] - queries[b]);\n    const ans = new Array(queries.length).fill(-1);\n    // min-heap of [size, right]\n    const heap = [];\n    const up = (i) => {\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p][0] <= heap[i][0]) break;\n            [heap[p], heap[i]] = [heap[i], heap[p]];\n            i = p;\n        }\n    };\n    const down = (i) => {\n        const n = heap.length;\n        while (true) {\n            let s = i, l = 2 * i + 1, r = 2 * i + 2;\n            if (l < n && heap[l][0] < heap[s][0]) s = l;\n            if (r < n && heap[r][0] < heap[s][0]) s = r;\n            if (s === i) break;\n            [heap[s], heap[i]] = [heap[i], heap[s]];\n            i = s;\n        }\n    };\n    const push = (v) => { heap.push(v); up(heap.length - 1); };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) { heap[0] = last; down(0); }\n        return top;\n    };\n    let idx = 0;\n    const n = intervals.length;\n    for (const qi of order) {\n        const q = queries[qi];\n        while (idx < n && intervals[idx][0] <= q) {\n            const [l, r] = intervals[idx];\n            push([r - l + 1, r]);\n            idx++;\n        }\n        while (heap.length && heap[0][1] < q) pop();\n        if (heap.length) ans[qi] = heap[0][0];\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) log n)", "space": "O(n)" }
+}

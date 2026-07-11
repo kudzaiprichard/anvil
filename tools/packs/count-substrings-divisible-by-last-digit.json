@@ -1,0 +1,38 @@
+{
+  "slug": "count-substrings-divisible-by-last-digit",
+  "judge": "exact",
+  "pattern": "The divisor for a substring is fixed by its own last digit, so tracking, for every possible small divisor 1-9, how many active start points currently sit at each remainder lets every substring ending at the current position be counted in O(1) amortized work instead of re-scanning it.",
+  "hints": [
+    "A substring's last digit is also its divisor, and that divisor only ever takes one of 9 possible values -- so you can afford to track state separately for each of them.",
+    "For a fixed divisor d, as you extend the string one digit to the right, every previously-tracked start position's remainder updates the same way: new_remainder = (old_remainder * 10 + new_digit) mod d. Maintain a small remainder->count table per d and remap it each step, then add a fresh start at the current index.",
+    "After updating divisor d = current last digit's table for this position, the number of substrings ending here that are divisible by it is exactly the count sitting at remainder 0 in that table (this always includes the single-digit substring itself)."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": ["12936"] },
+    { "kind": "edge", "description": "statement example two, many divisibility hits", "input": ["5701283"] },
+    { "kind": "edge", "description": "statement example three, repeating pattern", "input": ["1010101010"] },
+    { "kind": "boundary", "description": "single non-zero digit", "input": ["7"] },
+    { "kind": "boundary", "description": "single zero digit, never counted as its own divisor", "input": ["0"] },
+    { "kind": "trap", "description": "leading zeros inside substrings must still be read as a numeric value", "input": ["00500"] },
+    { "kind": "trap", "description": "all same non-zero digit, every substring divisible by itself", "input": ["3333333333"] },
+    { "kind": "trap", "description": "all zero digits, no substring ever counted", "input": ["0000000"] },
+    { "kind": "edge", "description": "mixed digits with several zeros interleaved", "input": ["102030405"] }
+  ],
+  "stress": [
+    {
+      "description": "random digit string at scale, exercises the O(n) per-divisor remainder tracking",
+      "seed": 7,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    s = ''.join(rng.choice('0123456789') for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countSubstrings(self, s: str) -> int:\n        n = len(s)\n        total = 0\n        for i in range(n):\n            for j in range(i, n):\n                d = int(s[j])\n                if d == 0:\n                    continue\n                if int(s[i:j+1]) % d == 0:\n                    total += 1\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def countSubstrings(self, s: str) -> int:\n        n = len(s)\n        cnt = [None] + [[0] * d for d in range(1, 10)]\n        total = 0\n        for ch in s:\n            digit = int(ch)\n            for d in range(1, 10):\n                old = cnt[d]\n                new = [0] * d\n                for r in range(d):\n                    c = old[r]\n                    if c:\n                        nr = (r * 10 + digit) % d\n                        new[nr] += c\n                new[digit % d] += 1\n                cnt[d] = new\n            if digit != 0:\n                total += cnt[digit][0]\n        return total\n",
+    "javascript": "var countSubstrings = function(s) {\n    let cnt = [null];\n    for (let d = 1; d <= 9; d++) cnt.push(new Array(d).fill(0));\n    let total = 0;\n    for (let idx = 0; idx < s.length; idx++) {\n        const digit = s.charCodeAt(idx) - 48;\n        for (let d = 1; d <= 9; d++) {\n            const old = cnt[d];\n            const fresh = new Array(d).fill(0);\n            for (let r = 0; r < d; r++) {\n                const c = old[r];\n                if (c) {\n                    const nr = (r * 10 + digit) % d;\n                    fresh[nr] += c;\n                }\n            }\n            fresh[digit % d] += 1;\n            cnt[d] = fresh;\n        }\n        if (digit !== 0) total += cnt[digit][0];\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n) (45 remainder slots tracked per position)", "space": "O(1)" }
+}

@@ -1,0 +1,47 @@
+{
+  "slug": "remove-k-balanced-substrings",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "A run-length stack collapses each block of k opens immediately followed by k closes in one pass, letting newly adjacent runs merge so cascading removals fall out naturally.",
+  "hints": [
+    "After a removal, the characters on either side become adjacent and may form a new removable block, so a fresh left-to-right rescan would be wasteful.",
+    "Keep a stack of (character, run-length) groups; a removal happens exactly when a group of k closing brackets sits directly on a group of k opening brackets.",
+    "Push characters, coalescing equal neighbours into run lengths. Whenever the top group is k ')' over a group of k '(', pop both and merge the groups newly exposed; the answer is the surviving runs concatenated."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [2, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 50000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "fully cancels with k=1 in two cascading steps", "input": ["(())", 1] },
+    { "kind": "edge", "description": "one unmatched pair removed, stray brackets remain", "input": ["(()(", 1] },
+    { "kind": "edge", "description": "one k=3 block removed leaving balanced k=1 pairs that are not k-balanced", "input": ["((()))()()()", 3] },
+    { "kind": "trap", "description": "k=2 needs exactly two-and-two, single pairs do not qualify", "input": ["()()", 2] },
+    { "kind": "trap", "description": "nesting cascades from the inside out", "input": ["((()))", 1] },
+    { "kind": "boundary", "description": "nothing removable, all opens", "input": ["((((", 2] },
+    { "kind": "trap", "description": "removal exposes a new k-balanced block", "input": ["(()())", 1] },
+    { "kind": "edge", "description": "k equals half the length, whole string vanishes", "input": ["(((())))", 4] }
+  ],
+  "stress": [
+    {
+      "description": "random bracket strings with small k so removals cascade often",
+      "seed": 211,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    s = ''.join(rng.choice('()') for _ in range(n))\n    k = rng.randrange(1, max(2, n // 2 + 1))\n    return [s, k]\n",
+      "note": "k bounded by n/2 per the constraint"
+    },
+    {
+      "description": "balanced nested strings that fully or partially collapse",
+      "seed": 212,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    depth = max(1, size // 2)\n    s = '(' * depth + ')' * depth\n    k = rng.randrange(1, depth + 1)\n    return [s, k]\n",
+      "note": "deep single nest stresses the run-length merging"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def removeSubstring(self, s, k):\n        target = '(' * k + ')' * k\n        while True:\n            idx = s.find(target)\n            if idx == -1:\n                return s\n            s = s[:idx] + s[idx + 2 * k:]\n",
+  "solutions": {
+    "python": "class Solution:\n    def removeSubstring(self, s, k):\n        stack = []  # list of [char, count]\n        for c in s:\n            if stack and stack[-1][0] == c:\n                stack[-1][1] += 1\n            else:\n                stack.append([c, 1])\n            if (c == ')' and stack[-1][1] >= k and len(stack) >= 2\n                    and stack[-2][0] == '(' and stack[-2][1] >= k):\n                # remove exactly k closes and k opens\n                stack[-1][1] -= k\n                stack[-2][1] -= k\n                if stack[-1][1] == 0:\n                    stack.pop()\n                if stack and stack[-1][1] == 0:\n                    stack.pop()\n                # merge newly adjacent equal runs\n                if len(stack) >= 2 and stack[-1][0] == stack[-2][0]:\n                    stack[-2][1] += stack[-1][1]\n                    stack.pop()\n        return ''.join(ch * cnt for ch, cnt in stack)\n",
+    "javascript": "var removeSubstring = function(s, k) {\n    const stack = [];\n    for (const c of s) {\n        if (stack.length && stack[stack.length - 1][0] === c) {\n            stack[stack.length - 1][1] += 1;\n        } else {\n            stack.push([c, 1]);\n        }\n        const top = stack[stack.length - 1];\n        if (c === ')' && top[1] >= k && stack.length >= 2 &&\n            stack[stack.length - 2][0] === '(' && stack[stack.length - 2][1] >= k) {\n            stack[stack.length - 1][1] -= k;\n            stack[stack.length - 2][1] -= k;\n            if (stack[stack.length - 1][1] === 0) stack.pop();\n            if (stack.length && stack[stack.length - 1][1] === 0) stack.pop();\n            if (stack.length >= 2 && stack[stack.length - 1][0] === stack[stack.length - 2][0]) {\n                stack[stack.length - 2][1] += stack[stack.length - 1][1];\n                stack.pop();\n            }\n        }\n    }\n    let res = '';\n    for (const [ch, cnt] of stack) res += ch.repeat(cnt);\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

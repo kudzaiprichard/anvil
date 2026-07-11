@@ -1,0 +1,38 @@
+{
+  "slug": "find-the-k-sum-of-an-array",
+  "judge": "exact",
+  "pattern": "The maximum subsequence sum takes every positive element, and every other sum is that maximum minus a chosen subset of absolute values, so a best-first search over those reductions finds the k-th largest.",
+  "hints": [
+    "The largest possible sum keeps all positive numbers; flipping any choice only ever subtracts from it.",
+    "Replace each number by its absolute value and sort; every reachable sum is the maximum minus some subset sum of these magnitudes.",
+    "Start from the maximum and use a min-heap of (reduction, index) pairs to enumerate the smallest subset reductions in order, popping k-1 times to reach the k-th largest sum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [-1000000000, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed signs, mid-rank query", "input": [[2, 4, -2], 5] },
+    { "kind": "edge", "description": "larger array deep rank", "input": [[1, -2, 3, 4, -10, 12], 16] },
+    { "kind": "boundary", "description": "k equals one returns the maximum sum", "input": [[5, 3, 1], 1] },
+    { "kind": "trap", "description": "all negative, maximum is the empty subsequence", "input": [[-1, -2, -3], 1] },
+    { "kind": "trap", "description": "all negative, second largest", "input": [[-1, -2, -3], 2] },
+    { "kind": "edge", "description": "single positive element", "input": [[7], 2] },
+    { "kind": "edge", "description": "single negative element", "input": [[-7], 1] },
+    { "kind": "trap", "description": "duplicate magnitudes create equal sums", "input": [[3, 3, 3], 4] }
+  ],
+  "stress": [
+    {
+      "description": "moderate array with mixed signs and a deep but valid k",
+      "seed": 29,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 18))\n    nums = [rng.randint(-50, 50) for _ in range(n)]\n    total = 2 ** n\n    k = rng.randint(1, min(2000, total))\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def kSum(self, nums, k):\n        n = len(nums)\n        sums = [0]\n        for v in nums:\n            sums = sums + [s + v for s in sums]\n        sums.sort(reverse=True)\n        return sums[k - 1]\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def kSum(self, nums, k):\n        maxsum = sum(v for v in nums if v > 0)\n        mags = sorted(abs(v) for v in nums)\n        n = len(mags)\n        heap = [(mags[0], 0)] if n else []\n        result = maxsum\n        for _ in range(k - 1):\n            if not heap:\n                break\n            red, i = heapq.heappop(heap)\n            result = maxsum - red\n            if i + 1 < n:\n                heapq.heappush(heap, (red + mags[i + 1], i + 1))\n                heapq.heappush(heap, (red - mags[i] + mags[i + 1], i + 1))\n        return result\n",
+    "javascript": "var kSum = function(nums, k) {\n    let maxsum = 0;\n    for (const v of nums) if (v > 0) maxsum += v;\n    const mags = nums.map(v => Math.abs(v)).sort((a, b) => a - b);\n    const n = mags.length;\n    // min-heap of [reduction, index]\n    const heap = [];\n    const push = (item) => {\n        heap.push(item);\n        let c = heap.length - 1;\n        while (c > 0) {\n            const p = (c - 1) >> 1;\n            if (heap[p][0] <= heap[c][0]) break;\n            [heap[p], heap[c]] = [heap[c], heap[p]];\n            c = p;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let c = 0;\n            const m = heap.length;\n            while (true) {\n                let l = 2 * c + 1, r = 2 * c + 2, s = c;\n                if (l < m && heap[l][0] < heap[s][0]) s = l;\n                if (r < m && heap[r][0] < heap[s][0]) s = r;\n                if (s === c) break;\n                [heap[s], heap[c]] = [heap[c], heap[s]];\n                c = s;\n            }\n        }\n        return top;\n    };\n    if (n) push([mags[0], 0]);\n    let result = maxsum;\n    for (let step = 0; step < k - 1; step++) {\n        if (!heap.length) break;\n        const [red, i] = pop();\n        result = maxsum - red;\n        if (i + 1 < n) {\n            push([red + mags[i + 1], i + 1]);\n            push([red - mags[i] + mags[i + 1], i + 1]);\n        }\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n log n + k log k)", "space": "O(n + k)" }
+}

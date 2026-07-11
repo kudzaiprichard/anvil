@@ -1,0 +1,36 @@
+{
+  "slug": "number-of-increasing-paths-in-a-grid",
+  "judge": "exact",
+  "pattern": "Each cell's count of strictly increasing paths ending there equals one plus the sum of the counts of its strictly-smaller neighbours, computed with memoized search over the grid.",
+  "hints": [
+    "Count paths that end at each cell; a single-cell path always exists, contributing the plus one.",
+    "A path ending at a cell can extend from any orthogonal neighbour with a strictly smaller value, so add up those neighbours' counts.",
+    "Memoize per cell because the dependency graph is acyclic by strictly-increasing value; sum every cell's count under the modulus."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single cell has exactly one path", "input": [[[7]]] },
+    { "kind": "edge", "description": "single column strictly increasing", "input": [[[1], [2]]] },
+    { "kind": "trap", "description": "equal neighbours do not extend a strictly increasing path", "input": [[[1, 1], [3, 4]]] },
+    { "kind": "trap", "description": "plateau of equal values yields only length-one paths", "input": [[[5, 5], [5, 5]]] },
+    { "kind": "boundary", "description": "monotone row exercising chaining", "input": [[[1, 2, 3, 4]]] },
+    { "kind": "edge", "description": "mixed grid with branching increases", "input": [[[3, 1, 2], [2, 4, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "random small grid with values drawn from a modest range to create ties and chains",
+      "seed": 29,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    cap = max(1, min(size, 12))\n    m = rng.randint(1, cap)\n    n = rng.randint(1, cap)\n    hi = rng.randint(2, 9)\n    grid = [[rng.randint(1, hi) for _ in range(n)] for _ in range(m)]\n    return [grid]\n",
+      "note": "small dimensions keep the exponential oracle fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPaths(self, grid):\n        MOD = 10**9 + 7\n        m, n = len(grid), len(grid[0])\n        total = 0\n        # brute DFS counting every strictly increasing path from every start\n        def dfs(r, c):\n            cnt = 1\n            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] > grid[r][c]:\n                    cnt += dfs(nr, nc)\n            return cnt\n        for r in range(m):\n            for c in range(n):\n                total = (total + dfs(r, c)) % MOD\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPaths(self, grid):\n        MOD = 10**9 + 7\n        m, n = len(grid), len(grid[0])\n        from functools import lru_cache\n        import sys\n        sys.setrecursionlimit(300000)\n        memo = [[-1] * n for _ in range(m)]\n        def dfs(r, c):\n            if memo[r][c] != -1:\n                return memo[r][c]\n            res = 1\n            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] > grid[r][c]:\n                    res = (res + dfs(nr, nc)) % MOD\n            memo[r][c] = res\n            return res\n        total = 0\n        for r in range(m):\n            for c in range(n):\n                total = (total + dfs(r, c)) % MOD\n        return total\n",
+    "javascript": "var countPaths = function(grid) {\n    const MOD = 1000000007;\n    const m = grid.length, n = grid[0].length;\n    const memo = Array.from({length: m}, () => new Array(n).fill(-1));\n    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];\n    const dfs = (r, c) => {\n        if (memo[r][c] !== -1) return memo[r][c];\n        let res = 1;\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < m && nc >= 0 && nc < n && grid[nr][nc] > grid[r][c]) {\n                res = (res + dfs(nr, nc)) % MOD;\n            }\n        }\n        memo[r][c] = res;\n        return res;\n    };\n    let total = 0;\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            total = (total + dfs(r, c)) % MOD;\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

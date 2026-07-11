@@ -1,0 +1,96 @@
+{
+  "slug": "count-the-number-of-substrings-with-dominant-ones",
+  "judge": "exact",
+  "pattern": "Because the ones-count needed to dominate grows with the square of the zero-count, only a handful of distinct zero-counts are ever possible in a valid window, so fixing that small zero-count and sliding between consecutive zero positions turns an O(n^2) scan into one bounded by n*sqrt(n).",
+  "hints": [
+    "If a window has z zeros, it needs at least z^2 ones, and its length is at most n -- so z itself can never exceed roughly sqrt(n), meaning there are only a few distinct zero-counts worth checking at all.",
+    "Handle the all-ones case (z = 0) on its own by summing, for every maximal run of consecutive ones of length L, the L*(L+1)/2 substrings inside it.",
+    "For each z from 1 upward, slide a window of exactly z consecutive zero-positions; the ones between and around them can be freely extended left/right up to the neighboring zeros, so count how many of those (left-extension, right-extension) pairs push the total ones to at least z^2, using simple bounded-sum counting instead of enumerating every extension."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        40000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example with a short zero run then ones",
+      "input": [
+        "00011"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, mixed zeros and ones throughout",
+      "input": [
+        "101101"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character, zero",
+      "input": [
+        "0"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character, one",
+      "input": [
+        "1"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all zeros -- no substring can ever dominate",
+      "input": [
+        "0000"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all ones -- every substring dominates",
+      "input": [
+        "11111"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one lonely zero between long one runs, testing extension on both sides",
+      "input": [
+        "111101111"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two zeros close enough together that some windows need real extension to qualify",
+      "input": [
+        "1001001"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a longer random binary string biased toward ones, so dominant substrings are common but zero-runs still vary",
+      "seed": 31,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    s = ''.join('0' if rng.random() < 0.2 else '1' for _ in range(n))\n    return [s]\n",
+      "note": "n kept at 2000 so the O(n^2) definition-following oracle finishes quickly; the optimized O(n*sqrt(n)) solution scales far beyond this in practice"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfSubstrings(self, s):\n        n = len(s)\n        count = 0\n        for i in range(n):\n            zeros = 0\n            ones = 0\n            for j in range(i, n):\n                if s[j] == '0':\n                    zeros += 1\n                else:\n                    ones += 1\n                if ones >= zeros * zeros:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfSubstrings(self, s):\n        n = len(s)\n        zero_pos = [i for i, c in enumerate(s) if c == '0']\n        m = len(zero_pos)\n        total = 0\n        run = 0\n        for c in s:\n            if c == '1':\n                run += 1\n                total += run\n            else:\n                run = 0\n        z = 1\n        while z * z <= n and z <= m:\n            for i in range(0, m - z + 1):\n                left_zero = zero_pos[i]\n                right_zero = zero_pos[i + z - 1]\n                prev_zero = zero_pos[i - 1] if i > 0 else -1\n                next_zero = zero_pos[i + z] if i + z < m else n\n                left_avail = left_zero - prev_zero - 1\n                right_avail = next_zero - right_zero - 1\n                fixed_ones = right_zero - left_zero - (z - 1)\n                need = z * z - fixed_ones\n                if need <= 0:\n                    total += (left_avail + 1) * (right_avail + 1)\n                else:\n                    total += self._count_at_least(left_avail, right_avail, need)\n            z += 1\n        return total\n\n    @staticmethod\n    def _count_at_least(A, B, need):\n        total_pairs = (A + 1) * (B + 1)\n        t = need - 1\n        if t < 0:\n            return total_pairs\n        if t >= A + B:\n            return 0\n        upper_a = min(A, t)\n        a0 = min(upper_a, t - B)\n        cnt_le = 0\n        start2 = 0\n        if a0 >= 0:\n            cnt_le += (a0 + 1) * (B + 1)\n            start2 = a0 + 1\n        if start2 <= upper_a:\n            cnt2 = upper_a - start2 + 1\n            first_val = t - start2 + 1\n            last_val = t - upper_a + 1\n            cnt_le += cnt2 * (first_val + last_val) // 2\n        return total_pairs - cnt_le\n",
+    "javascript": "var numberOfSubstrings = function(s) {\n    const n = s.length;\n    const zeroPos = [];\n    for (let i = 0; i < n; i++) if (s[i] === '0') zeroPos.push(i);\n    const m = zeroPos.length;\n    let total = 0;\n    let run = 0;\n    for (let i = 0; i < n; i++) {\n        if (s[i] === '1') {\n            run += 1;\n            total += run;\n        } else {\n            run = 0;\n        }\n    }\n    function countAtLeast(A, B, need) {\n        const totalPairs = (A + 1) * (B + 1);\n        const t = need - 1;\n        if (t < 0) return totalPairs;\n        if (t >= A + B) return 0;\n        const upperA = Math.min(A, t);\n        const a0 = Math.min(upperA, t - B);\n        let cntLe = 0;\n        let start2 = 0;\n        if (a0 >= 0) {\n            cntLe += (a0 + 1) * (B + 1);\n            start2 = a0 + 1;\n        }\n        if (start2 <= upperA) {\n            const cnt2 = upperA - start2 + 1;\n            const firstVal = t - start2 + 1;\n            const lastVal = t - upperA + 1;\n            cntLe += cnt2 * (firstVal + lastVal) / 2;\n        }\n        return totalPairs - cntLe;\n    }\n    let z = 1;\n    while (z * z <= n && z <= m) {\n        for (let i = 0; i <= m - z; i++) {\n            const leftZero = zeroPos[i];\n            const rightZero = zeroPos[i + z - 1];\n            const prevZero = i > 0 ? zeroPos[i - 1] : -1;\n            const nextZero = i + z < m ? zeroPos[i + z] : n;\n            const leftAvail = leftZero - prevZero - 1;\n            const rightAvail = nextZero - rightZero - 1;\n            const fixedOnes = rightZero - leftZero - (z - 1);\n            const need = z * z - fixedOnes;\n            if (need <= 0) {\n                total += (leftAvail + 1) * (rightAvail + 1);\n            } else {\n                total += countAtLeast(leftAvail, rightAvail, need);\n            }\n        }\n        z += 1;\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * sqrt(n))",
+    "space": "O(n)"
+  }
+}

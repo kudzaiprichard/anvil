@@ -1,0 +1,111 @@
+{
+  "slug": "abbreviating-the-product-of-a-range",
+  "judge": "exact",
+  "pattern": "Stripping all trailing zeros from a product only needs the count of 2s and 5s across the range (their minimum), the last handful of surviving digits via a bounded running product, and the leading digits via a running sum of logarithms -- never the full, astronomically large product itself.",
+  "hints": [
+    "The number of trailing zeros in the product equals the smaller of (total factors of 2) and (total factors of 5) across every number in the range -- strip those out as you multiply so the running product never explodes.",
+    "If what's left after stripping trailing zeros has 10 digits or fewer, you can keep an exact running value modulo a big enough power of ten (bigger than what 10 digits need) and print it directly.",
+    "When there are more than 10 digits left, you only need the first five and last five: last five comes from that same bounded running product, and first five comes from the fractional part of a running sum of log10 of every number multiplied in."
+  ],
+  "constraints": [
+    {
+      "param": "left",
+      "kind": "int",
+      "value": [
+        1,
+        10000
+      ]
+    },
+    {
+      "param": "right",
+      "kind": "int",
+      "value": [
+        1,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "small range with no trailing zeros, short enough to print in full",
+      "input": [
+        1,
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "small range whose product has trailing zeros but still fits in 10 digits",
+      "input": [
+        2,
+        11
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single number range",
+      "input": [
+        7,
+        7
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single number that is itself a multiple of ten",
+      "input": [
+        10,
+        10
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "range short but large enough that the product needs the abbreviated first/last-five form",
+      "input": [
+        371,
+        375
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "range with heavy trailing-zero accumulation from consecutive multiples of five and two",
+      "input": [
+        1,
+        20
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "moderately wide range to exercise the log-based leading digits",
+      "input": [
+        50,
+        60
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "range at the far end of the constraint values",
+      "input": [
+        9999,
+        10000
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random ranges of varying widths across the full constraint space, including the maximum width",
+      "seed": 121,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    width = max(1, min(size, 10000))\n    left = rng.randint(1, max(1, 10000 - width + 1))\n    right = min(10000, left + width - 1)\n    return [left, right]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def abbreviateProduct(self, left: int, right: int) -> str:\n        prod = 1\n        for x in range(left, right + 1):\n            prod *= x\n        s = str(prod)\n        c = 0\n        while s.endswith('0'):\n            s = s[:-1]\n            c += 1\n        if len(s) <= 10:\n            return f'{s}e{c}'\n        return f'{s[:5]}...{s[-5:]}e{c}'\n",
+  "solutions": {
+    "python": "import math\n\nclass Solution:\n    def abbreviateProduct(self, left: int, right: int) -> str:\n        mod = 10 ** 11\n        last = 1\n        c2 = c5 = 0\n        digits_sum = 0.0\n        for x in range(left, right + 1):\n            digits_sum += math.log10(x)\n            while x % 2 == 0:\n                x //= 2\n                c2 += 1\n            while x % 5 == 0:\n                x //= 5\n                c5 += 1\n            last = (last * x) % mod\n        c = min(c2, c5)\n        last = (last * pow(2, c2 - c, mod)) % mod\n        last = (last * pow(5, c5 - c, mod)) % mod\n        total_digits = int(digits_sum) + 1\n        prod_digits = total_digits - c\n        if prod_digits <= 10:\n            return f'{last}e{c}'\n        last5 = last % 100000\n        frac = digits_sum - math.floor(digits_sum)\n        first5 = int(10 ** (frac + 4))\n        return f'{first5}...{last5:05d}e{c}'\n",
+    "javascript": "function modpow(base, exp, mod) {\n    let result = 1n;\n    base = base % mod;\n    while (exp > 0n) {\n        if (exp % 2n === 1n) result = (result * base) % mod;\n        exp = exp / 2n;\n        base = (base * base) % mod;\n    }\n    return result;\n}\n\nvar abbreviateProduct = function(left, right) {\n    const mod = 100000000000n;\n    let last = 1n;\n    let c2 = 0, c5 = 0;\n    let digitsSum = 0;\n    for (let x = left; x <= right; x++) {\n        digitsSum += Math.log10(x);\n        let v = x;\n        while (v % 2 === 0) { v = Math.floor(v / 2); c2++; }\n        while (v % 5 === 0) { v = Math.floor(v / 5); c5++; }\n        last = (last * BigInt(v)) % mod;\n    }\n    const c = Math.min(c2, c5);\n    last = (last * modpow(2n, BigInt(c2 - c), mod)) % mod;\n    last = (last * modpow(5n, BigInt(c5 - c), mod)) % mod;\n    const totalDigits = Math.floor(digitsSum) + 1;\n    const prodDigits = totalDigits - c;\n    if (prodDigits <= 10) {\n        const val = last.toString();\n        return `${val}e${c}`;\n    }\n    const last5 = (last % 100000n).toString().padStart(5, '0');\n    const frac = digitsSum - Math.floor(digitsSum);\n    const first5 = Math.floor(Math.pow(10, frac + 4)).toString();\n    return `${first5}...${last5}e${c}`;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(1)"
+  }
+}

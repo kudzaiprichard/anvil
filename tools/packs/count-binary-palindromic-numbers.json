@@ -1,0 +1,44 @@
+{
+  "slug": "count-binary-palindromic-numbers",
+  "judge": "exact",
+  "pattern": "Every binary palindrome is fixed by its first half of bits, so the count up to a bound is found by summing, over each bit length, how many half-prefixes mirror into a value within the limit.",
+  "hints": [
+    "Iterating every integer is hopeless at this scale; instead generate palindromes directly from their leading half.",
+    "A palindrome of a given bit length is decided entirely by its top half of bits (the leading bit being one), and mirroring is monotonic, so for each length you only need the count of valid half-prefixes whose mirrored value stays within the bound.",
+    "Treat zero as a special single case, then for each length L take the half-prefix range, observe that the mirrored value grows with the prefix, and binary search (or arithmetic) for how many prefixes produce a palindrome at most n."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [0, 1000000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small bound covering several palindromes", "input": [9] },
+    { "kind": "boundary", "description": "zero is itself a palindrome", "input": [0] },
+    { "kind": "edge", "description": "one", "input": [1] },
+    { "kind": "trap", "description": "just below a new palindrome length boundary", "input": [6] },
+    { "kind": "trap", "description": "exactly a palindrome value", "input": [5] },
+    { "kind": "edge", "description": "moderate value", "input": [1000] },
+    { "kind": "boundary", "description": "maximum bound", "input": [1000000000000000] }
+  ],
+  "stress": [
+    {
+      "description": "random bounds across the full magnitude range",
+      "seed": 22,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    return [rng.randrange(0, 1000000000000001)]\n",
+      "note": "single integer argument up to 1e15"
+    },
+    {
+      "description": "small bounds where counts are dense",
+      "seed": 23,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    return [rng.randrange(0, 100000)]\n",
+      "note": "exercises the short-length cases"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countBinaryPalindromes(self, n):\n        if n < 0:\n            return 0\n        count = 1\n        for L in range(1, 51):\n            if (1 << (L - 1)) > n:\n                break\n            half = (L + 1) // 2\n            lo = 1 << (half - 1)\n            def pal_val(p):\n                s = bin(p)[2:]\n                full = s + s[::-1] if L % 2 == 0 else s + s[-2::-1]\n                return int(full, 2)\n            if n >= (1 << L):\n                hi = (1 << half) - 1\n                count += hi - lo + 1\n                continue\n            cand = n >> (L - half)\n            if cand < lo:\n                continue\n            if pal_val(cand) <= n:\n                count += cand - lo + 1\n            else:\n                count += cand - lo\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countBinaryPalindromes(self, n):\n        if n < 0:\n            return 0\n        count = 1\n        for L in range(1, 51):\n            if (1 << (L - 1)) > n:\n                break\n            half = (L + 1) // 2\n            lo = 1 << (half - 1)\n            hi = (1 << half) - 1\n            def pal_val(p):\n                s = bin(p)[2:]\n                full = s + s[::-1] if L % 2 == 0 else s + s[-2::-1]\n                return int(full, 2)\n            if pal_val(lo) > n:\n                continue\n            a, b = lo, hi\n            while a < b:\n                mid = (a + b + 1) // 2\n                if pal_val(mid) <= n:\n                    a = mid\n                else:\n                    b = mid - 1\n            count += a - lo + 1\n        return count\n",
+    "javascript": "var countBinaryPalindromes = function(n) {\n    n = BigInt(n);\n    if (n < 0n) return 0;\n    let count = 1n;\n    for (let L = 1; L <= 50; L++) {\n        const Lb = BigInt(L);\n        if ((1n << (Lb - 1n)) > n) break;\n        const half = Math.floor((L + 1) / 2);\n        const hb = BigInt(half);\n        const lo = 1n << (hb - 1n);\n        const hi = (1n << hb) - 1n;\n        const palVal = (p) => {\n            const s = p.toString(2);\n            let full;\n            if (L % 2 === 0) full = s + s.split('').reverse().join('');\n            else full = s + s.slice(0, -1).split('').reverse().join('');\n            return BigInt('0b' + full);\n        };\n        if (palVal(lo) > n) continue;\n        let a = lo, b = hi;\n        while (a < b) {\n            const mid = (a + b + 1n) / 2n;\n            if (palVal(mid) <= n) a = mid;\n            else b = mid - 1n;\n        }\n        count += a - lo + 1n;\n    }\n    return Number(count);\n};\n"
+  },
+  "complexity": { "time": "O((log n)^2)", "space": "O(log n)" }
+}

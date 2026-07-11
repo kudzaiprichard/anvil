@@ -1,0 +1,130 @@
+{
+  "slug": "minimum-partition-score",
+  "judge": "exact",
+  "pattern": "A standard partition DP over prefix sums - best score splitting the first i elements into j subarrays - handles the triangular subarray cost directly, since it depends only on each piece's sum.",
+  "hints": [
+    "The cost of one subarray only depends on its sum, so precompute prefix sums and you can price any subarray in O(1).",
+    "This is a partition-into-exactly-k-groups problem: let dp[j][i] be the minimum score splitting the first i elements into j subarrays, built from dp[j-1][m] for every earlier cut point m.",
+    "dp[j][i] = min over m < i of dp[j-1][m] + triangular(prefix[i]-prefix[m]), where triangular(s) = s*(s+1)/2; the answer is dp[k][n]."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        10000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ],
+      "note": "1<=k<=nums.length"
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "k equals the array length: every element is its own subarray",
+      "input": [
+        [
+          2,
+          3,
+          1,
+          4
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k is one: the whole array is a single subarray",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum possible array and k",
+      "input": [
+        [
+          7
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an isolated spike should end up isolated in its own subarray",
+      "input": [
+        [
+          1,
+          1,
+          100,
+          1,
+          1
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all equal elements: partitions should balance evenly",
+      "input": [
+        [
+          4,
+          4,
+          4,
+          4
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "k is between one and the array length",
+      "input": [
+        [
+          9,
+          1,
+          1,
+          1,
+          9
+        ],
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "moderately large array split into a random number of parts",
+      "seed": 19,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    nums = [rng.randint(1, 10000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\nclass Solution:\n    def minPartitionScore(self, nums, k):\n        n = len(nums)\n        if k == 1:\n            s = sum(nums)\n            return s * (s + 1) // 2\n        best = None\n        gaps = list(range(1, n))\n        for cuts in combinations(gaps, k - 1):\n            bounds = [0] + list(cuts) + [n]\n            score = 0\n            for a, b in zip(bounds, bounds[1:]):\n                s = sum(nums[a:b])\n                score += s * (s + 1) // 2\n            if best is None or score < best:\n                best = score\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minPartitionScore(self, nums, k):\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i, x in enumerate(nums):\n            prefix[i + 1] = prefix[i] + x\n\n        def tri(s):\n            return s * (s + 1) // 2\n\n        INF = float('inf')\n        dp_prev = [INF] * (n + 1)\n        dp_prev[0] = 0\n        for j in range(1, k + 1):\n            dp_cur = [INF] * (n + 1)\n            for i in range(j, n + 1):\n                best = INF\n                for m in range(j - 1, i):\n                    if dp_prev[m] == INF:\n                        continue\n                    s = prefix[i] - prefix[m]\n                    cand = dp_prev[m] + tri(s)\n                    if cand < best:\n                        best = cand\n                dp_cur[i] = best\n            dp_prev = dp_cur\n        return dp_prev[n]\n",
+    "javascript": "var minPartitionScore = function(nums, k) {\n    const n = nums.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i];\n\n    const tri = (s) => (s * (s + 1)) / 2;\n\n    const INF = Infinity;\n    let dpPrev = new Array(n + 1).fill(INF);\n    dpPrev[0] = 0;\n    for (let j = 1; j <= k; j++) {\n        const dpCur = new Array(n + 1).fill(INF);\n        for (let i = j; i <= n; i++) {\n            let best = INF;\n            for (let m = j - 1; m < i; m++) {\n                if (dpPrev[m] === INF) continue;\n                const s = prefix[i] - prefix[m];\n                const cand = dpPrev[m] + tri(s);\n                if (cand < best) best = cand;\n            }\n            dpCur[i] = best;\n        }\n        dpPrev = dpCur;\n    }\n    return dpPrev[n];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2 * k)",
+    "space": "O(n)"
+  }
+}

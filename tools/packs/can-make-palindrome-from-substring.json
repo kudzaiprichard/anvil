@@ -1,0 +1,37 @@
+{
+  "slug": "can-make-palindrome-from-substring",
+  "judge": "exact",
+  "pattern": "Since rearrangement is free, only the count of odd-frequency letters in a range matters, and prefix parity bitmasks answer that count per query in constant time.",
+  "hints": [
+    "Because you may rearrange the substring, its exact letters do not matter, only how many letters appear an odd number of times within the range.",
+    "Pairs of equal letters cost nothing to mirror; each replacement can fix two odd letters at once, so you need at most floor(odd_count / 2) replacements.",
+    "Track a 26-bit parity prefix where bit c flips on each occurrence; XOR of two prefixes gives the parity inside a range, and popcount/2 compared to k answers each query."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed queries including a single character", "input": ["abcda", [[3, 3, 0], [1, 2, 0], [0, 3, 1], [0, 3, 2], [0, 4, 1]]] },
+    { "kind": "edge", "description": "short string, two queries", "input": ["lyb", [[0, 1, 0], [2, 2, 1]]] },
+    { "kind": "trap", "description": "already a palindrome needs zero replacements", "input": ["aabaa", [[0, 4, 0]]] },
+    { "kind": "boundary", "description": "full range with zero budget but odd letters", "input": ["abc", [[0, 2, 0]]] },
+    { "kind": "trap", "description": "exactly enough budget to fix all odd letters", "input": ["abcd", [[0, 3, 2], [0, 3, 1]]] },
+    { "kind": "edge", "description": "repeated identical letters always palindromic", "input": ["zzzz", [[0, 3, 0], [1, 2, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "long string and many random ranges with varied budgets",
+      "seed": 61,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    s = ''.join(rng.choice('abcde') for _ in range(n))\n    q = rng.randint(1, min(2000, n))\n    queries = []\n    for _ in range(q):\n        a = rng.randrange(0, n)\n        b = rng.randrange(0, n)\n        if a > b:\n            a, b = b, a\n        k = rng.randint(0, n)\n        queries.append([a, b, k])\n    return [s, queries]\n",
+      "note": "narrow alphabet yields frequent palindromic ranges and ties"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canMakePaliQueries(self, s, queries):\n        res = []\n        for a, b, k in queries:\n            cnt = {}\n            for c in s[a:b + 1]:\n                cnt[c] = cnt.get(c, 0) + 1\n            odd = sum(1 for v in cnt.values() if v % 2 == 1)\n            res.append(odd // 2 <= k)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def canMakePaliQueries(self, s, queries):\n        n = len(s)\n        pre = [0] * (n + 1)\n        for i, c in enumerate(s):\n            pre[i + 1] = pre[i] ^ (1 << (ord(c) - 97))\n        res = []\n        for a, b, k in queries:\n            mask = pre[b + 1] ^ pre[a]\n            odd = bin(mask).count('1')\n            res.append(odd // 2 <= k)\n        return res\n",
+    "javascript": "var canMakePaliQueries = function(s, queries) {\n    const n = s.length;\n    const pre = new Int32Array(n + 1);\n    for (let i = 0; i < n; i++) {\n        pre[i + 1] = pre[i] ^ (1 << (s.charCodeAt(i) - 97));\n    }\n    const popcount = x => {\n        let c = 0;\n        while (x) { x &= x - 1; c++; }\n        return c;\n    };\n    return queries.map(([a, b, k]) => {\n        const mask = pre[b + 1] ^ pre[a];\n        return Math.floor(popcount(mask) / 2) <= k;\n    });\n};\n"
+  },
+  "complexity": { "time": "O(n + q)", "space": "O(n)" }
+}

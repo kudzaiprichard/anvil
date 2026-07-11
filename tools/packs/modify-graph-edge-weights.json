@@ -1,0 +1,261 @@
+{
+  "slug": "modify-graph-edge-weights",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    import heapq\n    n, edges, source, destination, target = args\n    m = len(edges)\n\n    adj = [[] for _ in range(n)]\n    for i, (u, v, _w) in enumerate(edges):\n        adj[u].append((v, i))\n        adj[v].append((u, i))\n\n    def dijkstra(weights):\n        dist = [float('inf')] * n\n        dist[source] = 0\n        pq = [(0, source)]\n        while pq:\n            d, u = heapq.heappop(pq)\n            if d > dist[u]:\n                continue\n            for v, i in adj[u]:\n                nd = d + weights[i]\n                if nd < dist[v]:\n                    dist[v] = nd\n                    heapq.heappush(pq, (nd, v))\n        return dist\n\n    if output == []:\n        w_min = [w if w != -1 else 1 for _, _, w in edges]\n        w_max = [w if w != -1 else 2000000000 for _, _, w in edges]\n        d_min = dijkstra(w_min)[destination]\n        d_max = dijkstra(w_max)[destination]\n        return d_min > target or d_max < target\n\n    if not isinstance(output, list) or len(output) != m:\n        return False\n\n    remaining = {}\n    for i, (u, v, w) in enumerate(edges):\n        key = frozenset((u, v))\n        remaining.setdefault(key, []).append((i, w))\n\n    weights = [None] * m\n    for item in output:\n        if not (isinstance(item, list) and len(item) == 3):\n            return False\n        ou, ov, ow = item\n        key = frozenset((ou, ov))\n        bucket = remaining.get(key)\n        if not bucket:\n            return False\n        idx, ew = bucket.pop()\n        if not bucket:\n            del remaining[key]\n        if ew != -1:\n            if ow != ew:\n                return False\n        else:\n            if not isinstance(ow, int) or isinstance(ow, bool) or not (1 <= ow <= 2000000000):\n                return False\n        weights[idx] = ow\n\n    if remaining or any(w is None for w in weights):\n        return False\n\n    dist = dijkstra(weights)\n    return dist[destination] == target\n",
+    "validator_javascript": "function validate(args, output) {\n    const [n, edges, source, destination, target] = args;\n    const m = edges.length;\n    const adj = Array.from({ length: n }, () => []);\n    edges.forEach(([u, v], i) => { adj[u].push([v, i]); adj[v].push([u, i]); });\n\n    function dijkstra(weights) {\n        const dist = new Array(n).fill(Infinity);\n        dist[source] = 0;\n        const pq = [[0, source]];\n        while (pq.length) {\n            let mi = 0;\n            for (let i = 1; i < pq.length; i++) if (pq[i][0] < pq[mi][0]) mi = i;\n            const [d, u] = pq.splice(mi, 1)[0];\n            if (d > dist[u]) continue;\n            for (const [v, i] of adj[u]) {\n                const nd = d + weights[i];\n                if (nd < dist[v]) { dist[v] = nd; pq.push([nd, v]); }\n            }\n        }\n        return dist;\n    }\n\n    if (Array.isArray(output) && output.length === 0) {\n        const wMin = edges.map(([, , w]) => (w === -1 ? 1 : w));\n        const wMax = edges.map(([, , w]) => (w === -1 ? 2000000000 : w));\n        const dMin = dijkstra(wMin)[destination];\n        const dMax = dijkstra(wMax)[destination];\n        return dMin > target || dMax < target;\n    }\n\n    if (!Array.isArray(output) || output.length !== m) return false;\n\n    const remaining = new Map();\n    edges.forEach(([u, v, w], i) => {\n        const key = [Math.min(u, v), Math.max(u, v)].join(',');\n        if (!remaining.has(key)) remaining.set(key, []);\n        remaining.get(key).push([i, w]);\n    });\n\n    const weights = new Array(m).fill(null);\n    for (const item of output) {\n        if (!Array.isArray(item) || item.length !== 3) return false;\n        const [ou, ov, ow] = item;\n        const key = [Math.min(ou, ov), Math.max(ou, ov)].join(',');\n        const bucket = remaining.get(key);\n        if (!bucket || bucket.length === 0) return false;\n        const [idx, ew] = bucket.pop();\n        if (bucket.length === 0) remaining.delete(key);\n        if (ew !== -1) {\n            if (ow !== ew) return false;\n        } else {\n            if (!Number.isInteger(ow) || ow < 1 || ow > 2000000000) return false;\n        }\n        weights[idx] = ow;\n    }\n\n    if (remaining.size > 0 || weights.some((w) => w === null)) return false;\n\n    const dist = dijkstra(weights);\n    return dist[destination] === target;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Setting every free edge to its minimum legal weight gives the shortest possible distance, so nudging one free edge at a time toward the gap closes it without ever overshooting.",
+  "hints": [
+    "Set every -1 edge to weight 1 first and run Dijkstra -- that gives the smallest distance the graph can ever have, since 1 is the cheapest legal weight.",
+    "If that smallest distance already exceeds the target, no assignment can work; if it already equals the target, you're done, and the interesting case is when it's still too small.",
+    "Walk the -1 edges one at a time: recompute the current shortest distance, and if it's still short of the target, raise just that edge's weight by exactly the remaining gap, then re-check -- a single edge's raise can never overshoot the target by more than it needed to."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        100
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        1,
+        4950
+      ]
+    },
+    {
+      "param": "source",
+      "kind": "int",
+      "value": [
+        0,
+        99
+      ]
+    },
+    {
+      "param": "destination",
+      "kind": "int",
+      "value": [
+        0,
+        99
+      ]
+    },
+    {
+      "param": "target",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "several free edges, one needs stretching to reach the target",
+      "input": [
+        5,
+        [
+          [
+            4,
+            1,
+            -1
+          ],
+          [
+            2,
+            0,
+            -1
+          ],
+          [
+            0,
+            3,
+            -1
+          ],
+          [
+            4,
+            3,
+            -1
+          ]
+        ],
+        0,
+        1,
+        5
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "impossible: the only free edge cannot influence the target pair",
+      "input": [
+        3,
+        [
+          [
+            0,
+            1,
+            -1
+          ],
+          [
+            0,
+            2,
+            5
+          ]
+        ],
+        0,
+        2,
+        6
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "the fixed-and-free mix already hits the target at baseline",
+      "input": [
+        4,
+        [
+          [
+            1,
+            0,
+            4
+          ],
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            2,
+            3,
+            5
+          ],
+          [
+            0,
+            3,
+            -1
+          ]
+        ],
+        0,
+        2,
+        6
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible graph, one free edge",
+      "input": [
+        2,
+        [
+          [
+            0,
+            1,
+            -1
+          ]
+        ],
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no free edges at all, distance already matches target",
+      "input": [
+        2,
+        [
+          [
+            0,
+            1,
+            4
+          ]
+        ],
+        0,
+        1,
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no free edges at all, distance can never change to match target",
+      "input": [
+        2,
+        [
+          [
+            0,
+            1,
+            4
+          ]
+        ],
+        0,
+        1,
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a fixed alternate path caps the shortest distance no matter how the free edges are set",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            3,
+            1
+          ],
+          [
+            0,
+            2,
+            -1
+          ],
+          [
+            2,
+            3,
+            -1
+          ]
+        ],
+        0,
+        3,
+        5
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "target at the maximum legal value",
+      "input": [
+        2,
+        [
+          [
+            0,
+            1,
+            -1
+          ]
+        ],
+        0,
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random connected graphs (spanning tree plus a few extra edges) with mixed fixed/free weights",
+      "seed": 31,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 30))\n    nodes = list(range(n))\n    rng.shuffle(nodes)\n    edges = []\n    edge_set = set()\n    for i in range(1, n):\n        a = nodes[i]\n        b = nodes[rng.randint(0, i - 1)]\n        u, v = min(a, b), max(a, b)\n        w = -1 if rng.random() < 0.6 else rng.randint(1, 10 ** 7)\n        edges.append([u, v, w])\n        edge_set.add((u, v))\n    extra = rng.randint(0, min(5, n))\n    attempts = 0\n    while extra > 0 and attempts < 50:\n        attempts += 1\n        a, b = rng.randint(0, n - 1), rng.randint(0, n - 1)\n        if a == b:\n            continue\n        u, v = min(a, b), max(a, b)\n        if (u, v) in edge_set:\n            continue\n        edge_set.add((u, v))\n        w = -1 if rng.random() < 0.4 else rng.randint(1, 10 ** 7)\n        edges.append([u, v, w])\n        extra -= 1\n    source = rng.randint(0, n - 1)\n    destination = rng.randint(0, n - 1)\n    while destination == source:\n        destination = rng.randint(0, n - 1)\n    target = rng.randint(1, 10 ** 7)\n    return [n, edges, source, destination, target]\n"
+    }
+  ],
+  "solutions": {
+    "python": "import heapq\nfrom collections import defaultdict\n\nclass Solution:\n    def modifiedGraphEdges(self, n, edges, source, destination, target):\n        adj = defaultdict(list)\n        for i, (u, v, w) in enumerate(edges):\n            adj[u].append((v, i))\n            adj[v].append((u, i))\n\n        def dijkstra(weights):\n            dist = [float('inf')] * n\n            dist[source] = 0\n            pq = [(0, source)]\n            while pq:\n                d, u = heapq.heappop(pq)\n                if d > dist[u]:\n                    continue\n                for v, i in adj[u]:\n                    nd = d + weights[i]\n                    if nd < dist[v]:\n                        dist[v] = nd\n                        heapq.heappush(pq, (nd, v))\n            return dist\n\n        weights = [w if w != -1 else 1 for _, _, w in edges]\n        dist = dijkstra(weights)\n        if dist[destination] > target:\n            return []\n        if dist[destination] == target:\n            return [[u, v, weights[i]] for i, (u, v, w) in enumerate(edges)]\n\n        for i, (u, v, w) in enumerate(edges):\n            if w != -1:\n                continue\n            cur_dist = dijkstra(weights)[destination]\n            if cur_dist < target:\n                weights[i] = 1 + (target - cur_dist)\n                if dijkstra(weights)[destination] == target:\n                    break\n\n        final_dist = dijkstra(weights)[destination]\n        if final_dist == target:\n            return [[u, v, weights[i]] for i, (u, v, w) in enumerate(edges)]\n        return []\n",
+    "javascript": "var modifiedGraphEdges = function(n, edges, source, destination, target) {\n    const m = edges.length;\n    const adj = Array.from({ length: n }, () => []);\n    for (let i = 0; i < m; i++) {\n        const [u, v] = edges[i];\n        adj[u].push([v, i]);\n        adj[v].push([u, i]);\n    }\n\n    function dijkstra(weights) {\n        const dist = new Array(n).fill(Infinity);\n        dist[source] = 0;\n        const pq = [[0, source]];\n        while (pq.length) {\n            let mi = 0;\n            for (let i = 1; i < pq.length; i++) if (pq[i][0] < pq[mi][0]) mi = i;\n            const [d, u] = pq.splice(mi, 1)[0];\n            if (d > dist[u]) continue;\n            for (const [v, i] of adj[u]) {\n                const nd = d + weights[i];\n                if (nd < dist[v]) { dist[v] = nd; pq.push([nd, v]); }\n            }\n        }\n        return dist;\n    }\n\n    const weights = edges.map(([, , w]) => (w === -1 ? 1 : w));\n    let dist = dijkstra(weights);\n    if (dist[destination] > target) return [];\n    if (dist[destination] === target) {\n        return edges.map((e, i) => [e[0], e[1], weights[i]]);\n    }\n\n    for (let i = 0; i < m; i++) {\n        if (edges[i][2] !== -1) continue;\n        const curDist = dijkstra(weights)[destination];\n        if (curDist < target) {\n            weights[i] = 1 + (target - curDist);\n            if (dijkstra(weights)[destination] === target) break;\n        }\n    }\n\n    const finalDist = dijkstra(weights)[destination];\n    if (finalDist === target) {\n        return edges.map((e, i) => [e[0], e[1], weights[i]]);\n    }\n    return [];\n};\n"
+  },
+  "complexity": {
+    "time": "O(e^2 log v)",
+    "space": "O(n + e)"
+  }
+}

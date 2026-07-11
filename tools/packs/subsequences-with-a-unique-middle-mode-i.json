@@ -1,0 +1,41 @@
+{
+  "slug": "subsequences-with-a-unique-middle-mode-i",
+  "judge": "exact",
+  "pattern": "Anchoring a subsequence at its fixed middle position turns 'unique mode' into a counting problem about how many of the remaining four picks can share the middle's value without any other value catching up.",
+  "hints": [
+    "Fix which chosen index will end up third among the five and call its value v; then everything about validity comes down to how many of the two picks before it and the two picks after it also happen to equal v.",
+    "Split each side's remaining candidates into 'equal to v' and 'anything else', and case on how many of the four leftover picks (0, 1, or 2 from each side) are equal to v -- that count, plus the guaranteed middle occurrence, has to beat every other value's count among the five you chose.",
+    "When the leftover 'other' picks number three or more, you can't just multiply pool sizes freely -- you have to subtract off the cases where two of those leftover picks accidentally land on the same value and tie v's count, which is the one place a naive product over-counts."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [5, 1000], "value": [-1000000000, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, all identical values", "input": [[1,1,1,1,1,1]] },
+    { "kind": "edge", "description": "statement example, mixed duplicates", "input": [[1,2,2,3,3,4]] },
+    { "kind": "edge", "description": "statement example, all distinct values", "input": [[0,1,2,3,4,5,6,7,8]] },
+    { "kind": "boundary", "description": "minimal length, all distinct", "input": [[1,2,3,4,5]] },
+    { "kind": "boundary", "description": "minimal length, all identical", "input": [[7,7,7,7,7]] },
+    { "kind": "trap", "description": "minimal length whose only candidate has a tied mode, so it must be rejected", "input": [[5,9,9,3,3]] },
+    { "kind": "trap", "description": "negative values sharing frequencies across both sides", "input": [[-5,-5,3,3,-5,7,7]] },
+    { "kind": "edge", "description": "single repeated value long enough for several middle choices", "input": [[2,2,2,2,2,2,2]] }
+  ],
+  "stress": [
+    {
+      "description": "arrays drawn from a small vocabulary of large offsets so ties and shared modes are common",
+      "seed": 5,
+      "size": 900,
+      "generator_python": "def gen(rng, size):\n    n = min(max(size, 5), 1000)\n    vocab = rng.randint(1, 30)\n    offsets = [rng.randint(-1000000000, 1000000000) for _ in range(vocab)]\n    return [[rng.choice(offsets) for _ in range(n)]]\n",
+      "note": "a small vocabulary forces frequent frequency ties, exercising the exclusion logic in the f=2 case"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nfrom collections import Counter\n\nclass Solution:\n    def subsequencesWithMiddleMode(self, nums):\n        n = len(nums)\n        mod = 1000000007\n        count = 0\n        for idx in combinations(range(n), 5):\n            vals = [nums[i] for i in idx]\n            v = vals[2]\n            c = Counter(vals)\n            top = max(c.values())\n            if c[v] == top and list(c.values()).count(top) == 1:\n                count += 1\n        return count % mod\n",
+  "solutions": {
+    "python": "class Solution:\n    def subsequencesWithMiddleMode(self, nums):\n        mod = 1000000007\n        n = len(nums)\n\n        def comb2(x):\n            return x * (x - 1) // 2 if x >= 2 else 0\n\n        from collections import defaultdict\n        freqL = defaultdict(int)\n        freqR = defaultdict(int)\n        for x in nums:\n            freqR[x] += 1\n        s2r = sum(c * c for c in freqR.values())\n        s2l = 0\n        full1 = full2 = full3 = 0\n        ans = 0\n        for m in range(n):\n            v = nums[m]\n            r = freqR[v]\n            l = freqL[v]\n            full1 -= l\n            full2 -= l * (2 * r - 1)\n            full3 -= l * l\n            s2r -= (2 * r - 1)\n            freqR[v] = r - 1\n            cr = r - 1\n            cl = l\n            otherL = m - cl\n            otherR = (n - 1 - m) - cr\n            os2l = s2l - cl * cl\n            os2r = s2r - cr * cr\n            c1 = full1 - cl * cr\n            c2 = full2 - cl * cr * cr\n            c3 = full3 - cl * cl * cr\n\n            total = 0\n            if cl >= 2 and cr >= 2:\n                total += comb2(cl) * comb2(cr)\n            if cl >= 2:\n                total += comb2(cl) * cr * otherR\n            if cr >= 2:\n                total += cl * otherL * comb2(cr)\n            if cl >= 2:\n                total += comb2(cl) * comb2(otherR)\n            if cr >= 2:\n                total += comb2(otherL) * comb2(cr)\n            total += cl * otherL * cr * otherR\n\n            p_r2 = (otherR * otherR - os2r) // 2\n            p_l2 = (otherL * otherL - os2l) // 2\n            total += cl * (p_r2 * otherL - otherR * c1 + c2)\n            total += cr * (p_l2 * otherR - otherL * c1 + c3)\n\n            ans += total\n\n            s2l += (2 * l + 1)\n            full1 += cr\n            full2 += cr * cr\n            full3 += (2 * l + 1) * cr\n            freqL[v] = l + 1\n        return ans % mod\n",
+    "javascript": "var subsequencesWithMiddleMode = function(nums) {\n    const MOD = 1000000007;\n    const n = nums.length;\n    const comb2 = (x) => x >= 2 ? (x * (x - 1)) / 2 : 0;\n    const freqL = new Map();\n    const freqR = new Map();\n    const get = (m, k) => m.has(k) ? m.get(k) : 0;\n    for (const x of nums) freqR.set(x, get(freqR, x) + 1);\n    let s2r = 0;\n    for (const c of freqR.values()) s2r += c * c;\n    let s2l = 0;\n    let full1 = 0, full2 = 0, full3 = 0;\n    let ans = 0;\n    for (let m = 0; m < n; m++) {\n        const v = nums[m];\n        const r = get(freqR, v);\n        const l = get(freqL, v);\n        full1 -= l;\n        full2 -= l * (2 * r - 1);\n        full3 -= l * l;\n        s2r -= (2 * r - 1);\n        freqR.set(v, r - 1);\n        const cr = r - 1;\n        const cl = l;\n        const otherL = m - cl;\n        const otherR = (n - 1 - m) - cr;\n        const os2l = s2l - cl * cl;\n        const os2r = s2r - cr * cr;\n        const c1 = full1 - cl * cr;\n        const c2 = full2 - cl * cr * cr;\n        const c3 = full3 - cl * cl * cr;\n\n        let total = 0;\n        if (cl >= 2 && cr >= 2) total += comb2(cl) * comb2(cr);\n        if (cl >= 2) total += comb2(cl) * cr * otherR;\n        if (cr >= 2) total += cl * otherL * comb2(cr);\n        if (cl >= 2) total += comb2(cl) * comb2(otherR);\n        if (cr >= 2) total += comb2(otherL) * comb2(cr);\n        total += cl * otherL * cr * otherR;\n\n        const pR2 = (otherR * otherR - os2r) / 2;\n        const pL2 = (otherL * otherL - os2l) / 2;\n        total += cl * (pR2 * otherL - otherR * c1 + c2);\n        total += cr * (pL2 * otherR - otherL * c1 + c3);\n\n        ans = (ans + total) % MOD;\n\n        s2l += (2 * l + 1);\n        full1 += cr;\n        full2 += cr * cr;\n        full3 += (2 * l + 1) * cr;\n        freqL.set(v, l + 1);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n) with incrementally maintained frequency aggregates",
+    "space": "O(n)"
+  }
+}

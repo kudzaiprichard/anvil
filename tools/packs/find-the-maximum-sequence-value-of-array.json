@@ -1,0 +1,82 @@
+{
+  "slug": "find-the-maximum-sequence-value-of-array",
+  "judge": "exact",
+  "pattern": "Because every value is small, tracking the full SET of achievable OR-results for choosing exactly j elements from a prefix (and separately from a suffix) lets every split point be combined by brute-force XOR over two small sets.",
+  "hints": [
+    "Values are small (well under 128), so instead of tracking one best OR value per prefix, track the entire set of OR values achievable by choosing exactly j elements from the first i elements -- there are at most ~128 distinct values in that set.",
+    "Build this achievable-set table from the left (prefix, exactly k elements chosen) and independently from the right (suffix, exactly k elements chosen); each new element either gets skipped or OR'd into one more chosen slot.",
+    "For every split point between the first k picks and the last k picks, XOR every achievable prefix-OR value against every achievable suffix-OR value and keep the largest result."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [2, 400],
+      "value": [1, 127]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [1, 200]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, small case",
+      "input": [[2, 6, 7], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, k=2",
+      "input": [[4, 2, 5, 6, 7], 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible array, k=1",
+      "input": [[1, 2], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "all identical values, OR and XOR collapse",
+      "input": [[9, 9, 9, 9], 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "values at the maximum allowed",
+      "input": [[127, 127, 127, 127], 1]
+    },
+    {
+      "kind": "trap",
+      "description": "greedily taking the two largest values on each side is not optimal for XOR",
+      "input": [[64, 63, 1, 2], 1]
+    },
+    {
+      "kind": "trap",
+      "description": "k spans exactly half the array, forcing one specific split point",
+      "input": [[1, 2, 3, 4, 5, 6], 3]
+    },
+    {
+      "kind": "edge",
+      "description": "powers of two so OR combinations are easy to reason about but XOR still needs the full search",
+      "input": [[1, 2, 4, 8, 16, 32], 2]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random values within the small range, random valid k",
+      "seed": 23,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(60, size))\n    if n % 2 == 1:\n        n -= 1\n        n = max(2, n)\n    nums = [rng.randint(1, 127) for _ in range(n)]\n    k = rng.randint(1, n // 2)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def maxValue(self, nums, k):\n        n = len(nums)\n        best = 0\n        for idxs in combinations(range(n), 2 * k):\n            first = idxs[:k]\n            second = idxs[k:]\n            a = 0\n            for i in first:\n                a |= nums[i]\n            b = 0\n            for i in second:\n                b |= nums[i]\n            if (a ^ b) > best:\n                best = a ^ b\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxValue(self, nums, k):\n        n = len(nums)\n\n        def merge(bitmask, x):\n            res = 0\n            m = bitmask\n            while m:\n                lsb = m & (-m)\n                v = lsb.bit_length() - 1\n                res |= 1 << (v | x)\n                m ^= lsb\n            return res\n\n        prefix = [[0] * (k + 1) for _ in range(n + 1)]\n        prefix[0][0] = 1\n        for i in range(1, n + 1):\n            x = nums[i - 1]\n            prefix[i][0] = 1\n            for j in range(1, k + 1):\n                prefix[i][j] = prefix[i - 1][j] | merge(prefix[i - 1][j - 1], x)\n\n        suffix = [[0] * (k + 1) for _ in range(n + 1)]\n        suffix[n][0] = 1\n        for i in range(n - 1, -1, -1):\n            x = nums[i]\n            suffix[i][0] = 1\n            for j in range(1, k + 1):\n                suffix[i][j] = suffix[i + 1][j] | merge(suffix[i + 1][j - 1], x)\n\n        best = 0\n        for p in range(k, n - k + 1):\n            a_mask = prefix[p][k]\n            b_mask = suffix[p][k]\n            a = a_mask\n            av = 0\n            while a:\n                if a & 1:\n                    b = b_mask\n                    bv = 0\n                    while b:\n                        if b & 1:\n                            val = av ^ bv\n                            if val > best:\n                                best = val\n                        b >>= 1\n                        bv += 1\n                a >>= 1\n                av += 1\n        return best\n",
+    "javascript": "var maxValue = function(nums, k) {\n    const n = nums.length;\n    const U = 128;\n\n    function merge(arr, x) {\n        const res = new Array(U).fill(false);\n        for (let v = 0; v < U; v++) {\n            if (arr[v]) res[v | x] = true;\n        }\n        return res;\n    }\n    function orArr(a, b) {\n        const res = new Array(U).fill(false);\n        for (let v = 0; v < U; v++) res[v] = a[v] || b[v];\n        return res;\n    }\n\n    const prefix = new Array(n + 1);\n    for (let i = 0; i <= n; i++) {\n        prefix[i] = new Array(k + 1);\n        for (let j = 0; j <= k; j++) prefix[i][j] = new Array(U).fill(false);\n    }\n    prefix[0][0][0] = true;\n    for (let i = 1; i <= n; i++) {\n        const x = nums[i - 1];\n        prefix[i][0][0] = true;\n        for (let j = 1; j <= k; j++) {\n            prefix[i][j] = orArr(prefix[i - 1][j], merge(prefix[i - 1][j - 1], x));\n        }\n    }\n\n    const suffix = new Array(n + 1);\n    for (let i = 0; i <= n; i++) {\n        suffix[i] = new Array(k + 1);\n        for (let j = 0; j <= k; j++) suffix[i][j] = new Array(U).fill(false);\n    }\n    suffix[n][0][0] = true;\n    for (let i = n - 1; i >= 0; i--) {\n        const x = nums[i];\n        suffix[i][0][0] = true;\n        for (let j = 1; j <= k; j++) {\n            suffix[i][j] = orArr(suffix[i + 1][j], merge(suffix[i + 1][j - 1], x));\n        }\n    }\n\n    let best = 0;\n    for (let p = k; p <= n - k; p++) {\n        const A = prefix[p][k];\n        const B = suffix[p][k];\n        for (let a = 0; a < U; a++) {\n            if (!A[a]) continue;\n            for (let b = 0; b < U; b++) {\n                if (B[b]) {\n                    const val = a ^ b;\n                    if (val > best) best = val;\n                }\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n*k*127)",
+    "space": "O(n*k)"
+  }
+}

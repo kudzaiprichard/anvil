@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-total-distance-traveled",
+  "judge": "exact",
+  "pattern": "After sorting both robots and factories by position, an optimal assignment never crosses, so a dynamic program over robots and factories with a per-factory capacity loop minimizes total travel.",
+  "hints": [
+    "An optimal matching of points on a line never has two assignments cross, so sort robots and factories first.",
+    "Process factories one at a time, deciding how many of the next consecutive robots each factory takes.",
+    "Let dp[i][j] be the min distance to assign the first i robots using the first j factories; transition by trying that factory repair the next t robots up to its limit, paying the summed distances."
+  ],
+  "constraints": [
+    { "param": "robot", "kind": "int[]", "len": [1, 100], "value": [-1000000000, 1000000000] },
+    { "param": "factory", "kind": "int[][]", "len": [1, 100], "value": [-1000000000, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two factories share three robots", "input": [[0, 4, 6], [[2, 2], [6, 2]]] },
+    { "kind": "edge", "description": "one factory absorbs both robots", "input": [[1, -1], [[-2, 1], [2, 1]]] },
+    { "kind": "boundary", "description": "single robot single factory", "input": [[5], [[3, 1]]] },
+    { "kind": "trap", "description": "factory at same spot as a robot costs zero for it", "input": [[2, 8], [[2, 1], [8, 1]]] },
+    { "kind": "trap", "description": "limited capacity forces a far factory to help", "input": [[0, 0 ,0], [[1, 1], [9, 5]]] },
+    { "kind": "edge", "description": "all robots on one side of all factories", "input": [[10, 20, 30], [[0, 2], [5, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "random robots and factories with enough total capacity to repair everyone",
+      "seed": 78,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    m = max(1, size)\n    f = max(1, size // 3)\n    robots = rng.sample(range(-500, 500), m)\n    fpos = rng.sample(range(-500, 500), f)\n    cap_each = -(-m // f) + 1\n    factory = [[p, rng.randint(cap_each, cap_each + 2)] for p in fpos]\n    return [robots, factory]\n",
+      "note": "capacities chosen so total limit comfortably covers all robots"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTotalDistance(self, robot, factory):\n        robot = sorted(robot)\n        fac = sorted(factory)\n        m = len(robot)\n        INF = float('inf')\n        import sys\n        sys.setrecursionlimit(100000)\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def solve(i, j):\n            if i == m:\n                return 0\n            if j == len(fac):\n                return INF\n            best = solve(i, j + 1)\n            pos, lim = fac[j]\n            cost = 0\n            for t in range(1, lim + 1):\n                if i + t - 1 >= m:\n                    break\n                cost += abs(robot[i + t - 1] - pos)\n                sub = solve(i + t, j + 1)\n                if sub != INF:\n                    best = min(best, cost + sub)\n            return best\n        return solve(0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumTotalDistance(self, robot, factory):\n        robot.sort()\n        factory.sort()\n        m = len(robot)\n        INF = float('inf')\n        dp = [INF] * (m + 1)\n        dp[0] = 0\n        for pos, lim in factory:\n            ndp = dp[:]\n            for i in range(1, m + 1):\n                cost = 0\n                for t in range(1, min(lim, i) + 1):\n                    cost += abs(robot[i - t] - pos)\n                    if dp[i - t] != INF:\n                        ndp[i] = min(ndp[i], dp[i - t] + cost)\n            dp = ndp\n        return dp[m]\n",
+    "javascript": "var minimumTotalDistance = function(robot, factory) {\n    robot.sort((a, b) => a - b);\n    factory.sort((a, b) => a[0] - b[0]);\n    const m = robot.length;\n    const INF = Infinity;\n    let dp = new Array(m + 1).fill(INF);\n    dp[0] = 0;\n    for (const [pos, lim] of factory) {\n        const ndp = dp.slice();\n        for (let i = 1; i <= m; i++) {\n            let cost = 0;\n            const maxT = Math.min(lim, i);\n            for (let t = 1; t <= maxT; t++) {\n                cost += Math.abs(robot[i - t] - pos);\n                if (dp[i - t] !== INF) {\n                    ndp[i] = Math.min(ndp[i], dp[i - t] + cost);\n                }\n            }\n        }\n        dp = ndp;\n    }\n    return dp[m];\n};\n"
+  },
+  "complexity": { "time": "O(m^2 * f)", "space": "O(m)" }
+}

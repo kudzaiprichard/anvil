@@ -1,0 +1,42 @@
+{
+  "slug": "find-substring-with-given-hash-value",
+  "judge": "exact",
+  "pattern": "The hash of a fixed-length window differs from its neighbor's hash by a simple multiply-and-adjust relationship, so every window's hash can be derived from the next one in a single backward pass instead of recomputing from scratch.",
+  "hints": [
+    "Recomputing the polynomial hash of every length-k window from the definition costs O(k) per window and is too slow for the largest strings -- there must be a way to reuse the previous window's work.",
+    "Compute the hash of the rightmost window directly, then walk leftward: each time the window shifts left by one character, one letter's contribution can be added back in and the letter that fell off the far end can be subtracted out, using the fact that its power-of-p weight is always the same, p^k.",
+    "Because you are sweeping from the last window to the first, simply remember the leftmost start index seen so far whose hash equals the target -- by the time the sweep reaches index 0, whatever you last recorded is the earliest matching substring."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 20000] },
+    { "param": "power", "kind": "int", "value": [1, 1000000000] },
+    { "param": "modulo", "kind": "int", "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 20000] },
+    { "param": "hashValue", "kind": "int", "value": [0, 999999999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small string, two-letter window", "input": ["leetcode", 7, 20, 2, 0] },
+    { "kind": "edge", "description": "small string, three-letter window", "input": ["fbxzaad", 31, 100, 3, 32] },
+    { "kind": "boundary", "description": "window length equals the whole string, only one possible substring", "input": ["leet", 13, 997, 4, 994] },
+    { "kind": "boundary", "description": "window length one, hashing single characters", "input": ["xyz", 131, 1000000007, 1, 24] },
+    { "kind": "trap", "description": "modulo of one collapses every hash to zero, forcing the leftmost tie-break", "input": ["ab", 5, 1, 1, 0] },
+    { "kind": "trap", "description": "repeated letters make every window's hash identical, so only picking the first match is correct", "input": ["aaaaa", 1, 100, 2, 2] },
+    { "kind": "trap", "description": "power and modulo both at the upper constraint bound, every window tying again", "input": ["zzzzzz", 1000000000, 1000000000, 3, 26] },
+    { "kind": "edge", "description": "longer string where the unique matching window sits well past the start", "input": ["thisisatestexample", 997, 1000000007, 5, 746531140] }
+  ],
+  "stress": [
+    {
+      "description": "a near-maximum-length random lowercase string with a planted match, forcing the full backward rolling-hash sweep",
+      "seed": 4,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 20000))\n    s = ''.join(rng.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(n))\n    k = max(1, min(n, n // 2 if n // 2 >= 1 else 1))\n    power = rng.randint(1, 10**9)\n    modulo = rng.randint(1, 10**9)\n    start = rng.randint(0, n - k)\n    def val(c):\n        return ord(c) - 97 + 1\n    h = 0\n    p_pow = 1\n    for t in range(k):\n        h = (h + val(s[start + t]) * p_pow) % modulo\n        p_pow = (p_pow * power) % modulo\n    return [s, power, modulo, k, h]\n",
+      "note": "hashValue is derived by hashing a planted substring directly (definition-order loop), independent of the reference's own backward-rolling formula, so the stress case does not silently rely on the same code path being right twice"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def subStrHash(self, s, power, modulo, k, hashValue):\n        n = len(s)\n        def val(c):\n            return ord(c) - ord('a') + 1\n        for i in range(n - k + 1):\n            h = 0\n            p_pow = 1\n            for t in range(k):\n                h = (h + val(s[i + t]) * p_pow) % modulo\n                p_pow = (p_pow * power) % modulo\n            if h == hashValue:\n                return s[i:i + k]\n        return ''\n",
+  "solutions": {
+    "python": "class Solution:\n    def subStrHash(self, s, power, modulo, k, hashValue):\n        n = len(s)\n        def val(c):\n            return ord(c) - ord('a') + 1\n        h = 0\n        for t in range(k - 1, -1, -1):\n            h = (h * power + val(s[n - k + t])) % modulo\n        pk = pow(power, k, modulo)\n        ans = n - k if h == hashValue else -1\n        for i in range(n - k - 1, -1, -1):\n            h = (h * power + val(s[i]) - val(s[i + k]) * pk) % modulo\n            if h == hashValue:\n                ans = i\n        return s[ans:ans + k]\n",
+    "javascript": "var subStrHash = function(s, power, modulo, k, hashValue) {\n    const n = s.length;\n    const P = BigInt(power);\n    const M = BigInt(modulo);\n    const HV = BigInt(hashValue);\n    const val = (c) => BigInt(c.charCodeAt(0) - 96);\n    let h = 0n;\n    for (let t = k - 1; t >= 0; t--) {\n        h = (h * P + val(s[n - k + t])) % M;\n    }\n    let pk = 1n;\n    for (let i = 0; i < k; i++) pk = (pk * P) % M;\n    let ans = (h === HV) ? n - k : -1;\n    for (let i = n - k - 1; i >= 0; i--) {\n        let diff = (h * P + val(s[i]) - val(s[i + k]) * pk) % M;\n        if (diff < 0n) diff += M;\n        h = diff;\n        if (h === HV) ans = i;\n    }\n    return s.substring(ans, ans + k);\n};\n"
+  },
+  "complexity": { "time": "O(n + k)", "space": "O(1)" }
+}

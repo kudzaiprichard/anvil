@@ -1,0 +1,45 @@
+{
+  "slug": "hand-of-straights",
+  "judge": "exact",
+  "pattern": "Greedily start each group at the smallest remaining card and consume the next consecutive values, which forces a valid partition into equal consecutive runs if one exists.",
+  "hints": [
+    "If the total number of cards is not divisible by the group size, the answer is immediately no.",
+    "The smallest available card must begin some group, and that group is forced to take the next consecutive values.",
+    "Count card frequencies, then repeatedly take the lowest remaining value as a group start and decrement the counts of the next groupSize consecutive values; fail if any of them is missing."
+  ],
+  "constraints": [
+    { "param": "hand", "kind": "int[]", "len": [1, 10000], "value": [0, 1000000000] },
+    { "param": "groupSize", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "splits into three consecutive runs of three", "input": [[1, 2, 3, 6, 2, 3, 4, 7, 8], 3] },
+    { "kind": "trap", "description": "count not divisible by group size", "input": [[1, 2, 3, 4, 5], 4] },
+    { "kind": "boundary", "description": "group size one always succeeds", "input": [[8, 3, 5, 1], 1] },
+    { "kind": "edge", "description": "whole hand is one straight", "input": [[1, 2, 3, 4], 4] },
+    { "kind": "trap", "description": "a gap in values blocks a straight", "input": [[1, 2, 4, 5], 2] },
+    { "kind": "trap", "description": "duplicates that cannot all pair into runs", "input": [[1, 1, 2, 2, 3, 3], 2] },
+    { "kind": "edge", "description": "large gap between two valid pairs", "input": [[1, 2, 100, 101], 2] }
+  ],
+  "stress": [
+    {
+      "description": "construct several consecutive runs then shuffle, guaranteeing a valid partition",
+      "seed": 31,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    g = rng.randint(1, 5)\n    groups = max(1, size // g)\n    hand = []\n    for _ in range(groups):\n        start = rng.randint(0, 1000)\n        for d in range(g):\n            hand.append(start + d)\n    rng.shuffle(hand)\n    return [hand, g]\n",
+      "note": "always solvable so the greedy must succeed; values can collide across runs"
+    },
+    {
+      "description": "random hands that are usually unsolvable, divisibility permitting",
+      "seed": 32,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    g = rng.randint(2, 5)\n    n = (max(1, size) // g) * g\n    if n == 0:\n        n = g\n    hand = [rng.randint(0, 30) for _ in range(n)]\n    return [hand, g]\n",
+      "note": "random values exercise the failure path"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isNStraightHand(self, hand, groupSize):\n        if len(hand) % groupSize != 0:\n            return False\n        from collections import Counter\n        cnt = Counter(hand)\n        for v in sorted(cnt):\n            c = cnt[v]\n            if c <= 0:\n                continue\n            for d in range(groupSize):\n                if cnt[v + d] < c:\n                    return False\n                cnt[v + d] -= c\n        return True\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def isNStraightHand(self, hand, groupSize):\n        if len(hand) % groupSize != 0:\n            return False\n        from collections import Counter\n        cnt = Counter(hand)\n        heap = list(cnt.keys())\n        heapq.heapify(heap)\n        while heap:\n            start = heap[0]\n            need = cnt[start]\n            for v in range(start, start + groupSize):\n                if cnt[v] < need:\n                    return False\n                cnt[v] -= need\n                if cnt[v] == 0:\n                    if v != heap[0]:\n                        return False\n                    heapq.heappop(heap)\n        return True\n",
+    "javascript": "var isNStraightHand = function(hand, groupSize) {\n    if (hand.length % groupSize !== 0) return false;\n    const cnt = new Map();\n    for (const v of hand) cnt.set(v, (cnt.get(v) || 0) + 1);\n    const keys = [...cnt.keys()].sort((a, b) => a - b);\n    for (const start of keys) {\n        const need = cnt.get(start);\n        if (need <= 0) continue;\n        for (let v = start; v < start + groupSize; v++) {\n            const c = cnt.get(v) || 0;\n            if (c < need) return false;\n            cnt.set(v, c - need);\n        }\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

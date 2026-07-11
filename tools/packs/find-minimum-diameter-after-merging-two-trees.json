@@ -1,0 +1,37 @@
+{
+  "slug": "find-minimum-diameter-after-merging-two-trees",
+  "judge": "exact",
+  "pattern": "The merged tree's diameter is determined by the diameters of the two original trees and the new edge — connect the optimal centers to minimize the longest path.",
+  "hints": [
+    "Compute the diameter d1 and d2 of each tree using two BFS/DFS passes (first BFS from any node finds one endpoint; second BFS from that endpoint gives the diameter).",
+    "When you add one edge between the two trees, the worst-case path that crosses the edge is ceil(d1/2) + 1 + ceil(d2/2), because you can root each tree at its center to minimize its radius.",
+    "The answer is the maximum of d1, d2, and ceil(d1/2) + 1 + ceil(d2/2), since the final diameter is whichever of these three is largest."
+  ],
+  "constraints": [
+    { "param": "edges1", "kind": "int[][]", "len": [0, 99999] },
+    { "param": "edges2", "kind": "int[][]", "len": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "both trees are single nodes — merged diameter is 1", "input": [[], []] },
+    { "kind": "edge", "description": "first tree is a path of 4 nodes, second is single node", "input": [[[0,1],[1,2],[2,3]], []] },
+    { "kind": "edge", "description": "both trees as in example 1", "input": [[[0,1],[0,2],[0,3]], [[0,1]]] },
+    { "kind": "edge", "description": "both trees as in example 2", "input": [[[0,1],[0,2],[0,3],[2,4],[2,5],[3,6],[2,7]], [[0,1],[0,2],[0,3],[2,4],[2,5],[3,6],[2,7]]] },
+    { "kind": "trap", "description": "long chain tree vs single node — diameter determined by the chain", "input": [[[0,1],[1,2],[2,3],[3,4]], []] },
+    { "kind": "boundary", "description": "both trees are single edges", "input": [[[0,1]], [[0,1]]] },
+    { "kind": "trap", "description": "star graph — diameter 2 — merging two stars checks radius calculation", "input": [[[0,1],[0,2],[0,3],[0,4]], [[0,1],[0,2],[0,3],[0,4]]] }
+  ],
+  "stress": [
+    {
+      "description": "random trees built by connecting each new node to a random existing one",
+      "seed": 12,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    m = max(1, size // 2)\n    def random_tree(sz):\n        if sz == 1:\n            return []\n        edges = []\n        for i in range(1, sz):\n            parent = rng.randint(0, i - 1)\n            edges.append([parent, i])\n        return edges\n    return [random_tree(n), random_tree(m)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumDiameterAfterMerge(self, edges1, edges2) -> int:\n        from collections import deque\n        def build_adj(edges, n):\n            adj = [[] for _ in range(n)]\n            for u, v in edges:\n                adj[u].append(v)\n                adj[v].append(u)\n            return adj\n        def bfs_farthest(adj, start):\n            n = len(adj)\n            dist = [-1] * n\n            dist[start] = 0\n            q = deque([start])\n            far = start\n            while q:\n                u = q.popleft()\n                for v in adj[u]:\n                    if dist[v] == -1:\n                        dist[v] = dist[u] + 1\n                        if dist[v] > dist[far]:\n                            far = v\n                        q.append(v)\n            return far, dist[far]\n        def tree_diameter(edges, n):\n            if n == 1:\n                return 0\n            adj = build_adj(edges, n)\n            far1, _ = bfs_farthest(adj, 0)\n            far2, d = bfs_farthest(adj, far1)\n            return d\n        n1 = len(edges1) + 1\n        n2 = len(edges2) + 1\n        d1 = tree_diameter(edges1, n1)\n        d2 = tree_diameter(edges2, n2)\n        merged = (d1 + 1) // 2 + 1 + (d2 + 1) // 2\n        return max(d1, d2, merged)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumDiameterAfterMerge(self, edges1, edges2) -> int:\n        from collections import deque\n        def diameter(edges):\n            n = len(edges) + 1\n            if n == 1:\n                return 0\n            adj = [[] for _ in range(n)]\n            for u, v in edges:\n                adj[u].append(v)\n                adj[v].append(u)\n            def bfs(s):\n                dist = [-1] * n\n                dist[s] = 0\n                q = deque([s])\n                far = s\n                while q:\n                    u = q.popleft()\n                    for v in adj[u]:\n                        if dist[v] < 0:\n                            dist[v] = dist[u] + 1\n                            if dist[v] > dist[far]: far = v\n                            q.append(v)\n                return far, dist[far]\n            f, _ = bfs(0)\n            _, d = bfs(f)\n            return d\n        d1, d2 = diameter(edges1), diameter(edges2)\n        return max(d1, d2, (d1 + 1) // 2 + 1 + (d2 + 1) // 2)\n",
+    "javascript": "var minimumDiameterAfterMerge = function(edges1, edges2) {\n    function diameter(edges) {\n        const n = edges.length + 1;\n        if (n === 1) return 0;\n        const adj = Array.from({length: n}, () => []);\n        for (const [u, v] of edges) { adj[u].push(v); adj[v].push(u); }\n        function bfs(s) {\n            const dist = new Array(n).fill(-1);\n            dist[s] = 0;\n            const q = [s];\n            let far = s;\n            for (let i = 0; i < q.length; i++) {\n                const u = q[i];\n                for (const v of adj[u]) {\n                    if (dist[v] < 0) {\n                        dist[v] = dist[u] + 1;\n                        if (dist[v] > dist[far]) far = v;\n                        q.push(v);\n                    }\n                }\n            }\n            return [far, dist[far]];\n        }\n        const [f] = bfs(0);\n        const [, d] = bfs(f);\n        return d;\n    }\n    const d1 = diameter(edges1), d2 = diameter(edges2);\n    return Math.max(d1, d2, Math.floor((d1 + 1) / 2) + 1 + Math.floor((d2 + 1) / 2));\n};\n"
+  },
+  "complexity": { "time": "O(n + m)", "space": "O(n + m)" }
+}

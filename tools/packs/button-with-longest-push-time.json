@@ -1,0 +1,37 @@
+{
+  "slug": "button-with-longest-push-time",
+  "judge": "exact",
+  "pattern": "Turning a running timeline into consecutive gaps reduces \"which press took longest\" to a single linear scan with an index tie-break.",
+  "hints": [
+    "Each entry's own press duration is the time since the previous entry - except the very first entry, whose duration is simply its own timestamp.",
+    "Walk the events once, keep a running \"time of the previous press\", and compare each computed gap against the best gap seen so far.",
+    "Track (bestIndex, bestDuration) starting from the first event; on a strictly greater duration replace both, and on an equal duration only replace if the new index is smaller."
+  ],
+  "constraints": [
+    { "param": "events", "kind": "int[][]", "len": [1, 1000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single event: its own timestamp is trivially the longest (and only) duration", "input": [[[7, 50]]] },
+    { "kind": "edge", "description": "same button pressed twice, the second gap is the longer one", "input": [[[4, 3], [4, 20]]] },
+    { "kind": "trap", "description": "the very first event's duration equals its raw timestamp, larger than any later gap", "input": [[[9, 100], [2, 105], [3, 108]]] },
+    { "kind": "trap", "description": "two different buttons tie on duration; the smaller index wins", "input": [[[5, 10], [1, 16], [8, 22]]] },
+    { "kind": "trap", "description": "a button index is reused three times but only one of its presses has the longest single duration", "input": [[[2, 1], [2, 2], [2, 20], [2, 21]]] },
+    { "kind": "boundary", "description": "minimum and maximum index/time magnitudes in a two-event sequence", "input": [[[1, 1], [100000, 100000]]] },
+    { "kind": "trap", "description": "a large raw index has a short duration while a small index has the longest gap", "input": [[[99999, 5], [1, 6], [50000, 40]]] }
+  ],
+  "stress": [
+    {
+      "description": "max-length event list with strictly increasing times and random indices, occasionally repeating an index",
+      "seed": 11,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    t = 0\n    events = []\n    for _ in range(n):\n        t += rng.randint(1, 90)\n        idx = rng.randint(1, 100000)\n        events.append([idx, t])\n    return [events]\n",
+      "note": "times are strictly increasing as required by the constraints"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def buttonWithLongestTime(self, events):\n        prev = 0\n        rows = []\n        for i, (idx, t) in enumerate(events):\n            dur = t if i == 0 else t - prev\n            rows.append((idx, dur))\n            prev = t\n        rows.sort(key=lambda r: (-r[1], r[0]))\n        return rows[0][0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def buttonWithLongestTime(self, events):\n        best_idx, best_time = events[0]\n        prev_time = events[0][1]\n        for idx, t in events[1:]:\n            dur = t - prev_time\n            if dur > best_time or (dur == best_time and idx < best_idx):\n                best_time = dur\n                best_idx = idx\n            prev_time = t\n        return best_idx\n",
+    "javascript": "var buttonWithLongestTime = function(events) {\n    let bestIdx = events[0][0];\n    let bestTime = events[0][1];\n    let prevTime = events[0][1];\n    for (let i = 1; i < events.length; i++) {\n        const [idx, t] = events[i];\n        const dur = t - prevTime;\n        if (dur > bestTime || (dur === bestTime && idx < bestIdx)) {\n            bestTime = dur;\n            bestIdx = idx;\n        }\n        prevTime = t;\n    }\n    return bestIdx;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

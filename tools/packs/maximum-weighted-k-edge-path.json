@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-weighted-k-edge-path",
+  "judge": "exact",
+  "pattern": "A DP over (node, edges used) tracking the set of achievable sums below the threshold finds the largest k-edge path weight that stays strictly under t.",
+  "hints": [
+    "Only path weights below t are ever useful, and weights are tiny, so the reachable sums per node form a small set bounded by t.",
+    "Process edges in layers: after e relaxations you know, for each node, which path-sums under t are reachable using exactly e edges.",
+    "Iterate e from 1 to k; for each node u and each reachable sum s, extend along edges (u,v,w) keeping only s+w < t; after k layers take the max reachable sum, or -1 if none."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 300] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 300], "value": [0, 299] },
+    { "param": "k", "kind": "int", "value": [0, 300] },
+    { "param": "t", "kind": "int", "value": [1, 600] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single two-edge chain under the threshold", "input": [3, [[0, 1, 1], [1, 2, 2]], 2, 4] },
+    { "kind": "trap", "description": "equal-to-t weight is not allowed (strict)", "input": [3, [[0, 1, 2], [0, 2, 3]], 1, 3] },
+    { "kind": "trap", "description": "no path stays strictly below t, return -1", "input": [3, [[0, 1, 6], [1, 2, 8]], 1, 6] },
+    { "kind": "boundary", "description": "k=0 means a single node, weight 0 < t", "input": [2, [[0, 1, 5]], 0, 1] },
+    { "kind": "trap", "description": "k exceeds longest path length, no k-edge path exists", "input": [3, [[0, 1, 1], [1, 2, 1]], 3, 100] },
+    { "kind": "edge", "description": "branching, must pick the heavier branch under t", "input": [4, [[0, 1, 4], [0, 2, 5], [1, 3, 4], [2, 3, 4]], 2, 11] }
+  ],
+  "stress": [
+    {
+      "description": "random DAG (edges from lower to higher index) with small weights",
+      "seed": 9,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 40))\n    edges = []\n    for u in range(n):\n        for v in range(u + 1, n):\n            if rng.random() < 0.3 and len(edges) < 300:\n                edges.append([u, v, rng.randrange(1, 11)])\n    k = rng.randrange(0, 8)\n    t = rng.randrange(1, 60)\n    return [n, edges, k, t]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxWeight(self, n, edges, k, t):\n        adj = [[] for _ in range(n)]\n        for u, v, w in edges:\n            adj[u].append((v, w))\n        best = [-1]\n        import sys\n        sys.setrecursionlimit(10000)\n        def dfs(node, e, s):\n            if s >= t:\n                return\n            if e == k:\n                if s > best[0]:\n                    best[0] = s\n                return\n            for (v, w) in adj[node]:\n                dfs(v, e + 1, s + w)\n        if k == 0:\n            return 0 if 0 < t else -1\n        for start in range(n):\n            dfs(start, 0, 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxWeight(self, n, edges, k, t):\n        adj = [[] for _ in range(n)]\n        for u, v, w in edges:\n            adj[u].append((v, w))\n        if k == 0:\n            return 0 if 0 < t else -1\n        cur = [set([0]) for _ in range(n)]\n        for _ in range(k):\n            nxt = [set() for _ in range(n)]\n            for u in range(n):\n                cu = cur[u]\n                if not cu:\n                    continue\n                for (v, w) in adj[u]:\n                    nv = nxt[v]\n                    for s in cu:\n                        ns = s + w\n                        if ns < t:\n                            nv.add(ns)\n            cur = nxt\n        best = -1\n        for node in range(n):\n            for s in cur[node]:\n                if s > best:\n                    best = s\n        return best\n",
+    "javascript": "var maxWeight = function(n, edges, k, t) {\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v, w] of edges) adj[u].push([v, w]);\n    if (k === 0) return 0 < t ? 0 : -1;\n    let cur = Array.from({length: n}, () => new Set([0]));\n    for (let e = 0; e < k; e++) {\n        const nxt = Array.from({length: n}, () => new Set());\n        for (let u = 0; u < n; u++) {\n            if (cur[u].size === 0) continue;\n            for (const [v, w] of adj[u]) {\n                const nv = nxt[v];\n                for (const s of cur[u]) {\n                    const ns = s + w;\n                    if (ns < t) nv.add(ns);\n                }\n            }\n        }\n        cur = nxt;\n    }\n    let best = -1;\n    for (let node = 0; node < n; node++) {\n        for (const s of cur[node]) if (s > best) best = s;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(k * E * t)", "space": "O(n * t)" }
+}

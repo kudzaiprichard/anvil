@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-time-to-revert-word-to-initial-state-ii",
+  "judge": "exact",
+  "pattern": "Use the KMP failure function to find all positions p where word[p:] is a prefix of word; the minimum t is the smallest t>=1 such that t*k >= len(word) or t*k is one of those positions.",
+  "hints": [
+    "After t operations only word[t*k:] must match a prefix of the original word (the t*k appended characters can be chosen freely).",
+    "A position p is a valid split point if word[p:] equals word[:len(word)-p]; these are exactly the positions stored in the KMP failure/prefix array.",
+    "Build the KMP prefix table for the original word; collect all positions p where the failure link chain reaches the full-match state, then find the smallest t where t*k is such a position or t*k >= len(word)."
+  ],
+  "constraints": [
+    { "param": "word", "kind": "string", "len": [1, 1000000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "needs two steps to revert", "input": ["abacaba", 3] },
+    { "kind": "edge", "description": "reverts after one step", "input": ["abacaba", 4] },
+    { "kind": "edge", "description": "no overlap, must consume fully", "input": ["abcbabcd", 2] },
+    { "kind": "boundary", "description": "k equals length, one step always suffices", "input": ["abcdef", 6] },
+    { "kind": "boundary", "description": "single character", "input": ["z", 1] },
+    { "kind": "trap", "description": "highly periodic string allows early revert", "input": ["abababab", 2] },
+    { "kind": "trap", "description": "period not aligned with k", "input": ["abcabcabc", 4] }
+  ],
+  "stress": [
+    {
+      "description": "long periodic string for KMP stress",
+      "seed": 9,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    period = rng.randint(1, max(1, size // 10))\n    unit = ''.join(rng.choice('abcd') for _ in range(period))\n    word = (unit * ((size // period) + 1))[:size]\n    k = rng.randint(1, max(1, period))\n    return [word, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTimeToInitialState(self, word, k):\n        n = len(word)\n        for t in range(1, n // k + 2):\n            start = t * k\n            if start >= n:\n                return t\n            if word[start:] == word[:n - start]:\n                return t\n        return (n + k - 1) // k\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumTimeToInitialState(self, word, k):\n        n = len(word)\n        # KMP prefix function\n        fail = [0] * n\n        j = 0\n        for i in range(1, n):\n            while j and word[i] != word[j]:\n                j = fail[j-1]\n            if word[i] == word[j]:\n                j += 1\n            fail[i] = j\n        # Positions where word[p:] is a prefix of word\n        valid = set()\n        p = fail[n-1]\n        while p:\n            valid.add(n - p)\n            p = fail[p-1]\n        valid.add(n)  # fully consumed\n        for t in range(1, n // k + 2):\n            if t * k in valid or t * k >= n:\n                return t\n        return (n + k - 1) // k\n",
+    "javascript": "var minimumTimeToInitialState = function(word, k) {\n    const n = word.length;\n    const fail = new Int32Array(n);\n    let j = 0;\n    for (let i = 1; i < n; i++) {\n        while (j && word[i] !== word[j]) j = fail[j-1];\n        if (word[i] === word[j]) j++;\n        fail[i] = j;\n    }\n    const valid = new Set();\n    let p = fail[n-1];\n    while (p) { valid.add(n - p); p = fail[p-1]; }\n    valid.add(n);\n    for (let t = 1; ; t++) {\n        const s = t * k;\n        if (s >= n || valid.has(s)) return t;\n    }\n};"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

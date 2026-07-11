@@ -1,0 +1,42 @@
+{
+  "slug": "count-ways-to-build-rooms-in-an-ant-colony",
+  "judge": "exact",
+  "pattern": "The number of valid build orders is the count of topological orderings of the rooted tree, which a bottom-up pass computes as a product of multinomial choices over each node's subtree sizes, all under the prime modulus.",
+  "hints": [
+    "Each room depends only on its parent, so the build order is a topological ordering of a rooted tree; count those orderings.",
+    "For a subtree of size s with children subtrees of sizes a, b, ..., the orderings interleave the children freely, giving a multinomial coefficient times the product of each child's own count.",
+    "Process nodes from the leaves up: ways(u) = (size[u]-1)! / product(size[c]!) times product(ways(c)); compute factorials and modular inverses once."
+  ],
+  "constraints": [
+    { "param": "prevRoom", "kind": "int[]", "len": [2, 100000], "value": [-1, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "straight chain has one order", "input": [[-1, 0, 1]] },
+    { "kind": "edge", "description": "branching tree with six orders", "input": [[-1, 0, 0, 1, 2]] },
+    { "kind": "boundary", "description": "smallest tree", "input": [[-1, 0]] },
+    { "kind": "trap", "description": "star: all rooms hang off the root", "input": [[-1, 0, 0, 0, 0]] },
+    { "kind": "trap", "description": "two independent chains from the root", "input": [[-1, 0, 1, 0, 3]] },
+    { "kind": "edge", "description": "balanced binary-ish tree", "input": [[-1, 0, 0, 1, 1, 2, 2]] },
+    { "kind": "trap", "description": "deep chain then a branch at the tip", "input": [[-1, 0, 1, 2, 3, 4, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random rooted tree where each room attaches to an earlier room",
+      "seed": 41,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(4000, size))\n    prev = [-1]\n    for i in range(1, n):\n        prev.append(rng.randint(0, i - 1))\n    return [prev]\n"
+    },
+    {
+      "description": "deep chain to exercise large subtree sizes",
+      "seed": 7,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(4000, size))\n    return [[-1] + list(range(0, n - 1))]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def waysToBuildRooms(self, prevRoom):\n        MOD = 10 ** 9 + 7\n        n = len(prevRoom)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[prevRoom[i]].append(i)\n        size = [1] * n\n        order = []\n        st = [(0, False)]\n        while st:\n            node, processed = st.pop()\n            if processed:\n                order.append(node)\n                continue\n            st.append((node, True))\n            for c in children[node]:\n                st.append((c, False))\n        for node in order:\n            for c in children[node]:\n                size[node] += size[c]\n        # independent check: exact integer multinomial (n-1)! / prod_{v != root} size[v]\n        from math import factorial\n        num = factorial(n - 1)\n        den = 1\n        for v in range(1, n):\n            den *= size[v]\n        return (num // den) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def waysToBuildRooms(self, prevRoom):\n        MOD = 10 ** 9 + 7\n        n = len(prevRoom)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[prevRoom[i]].append(i)\n        size = [1] * n\n        order = []\n        st = [(0, False)]\n        while st:\n            node, processed = st.pop()\n            if processed:\n                order.append(node)\n                continue\n            st.append((node, True))\n            for c in children[node]:\n                st.append((c, False))\n        for node in order:\n            for c in children[node]:\n                size[node] += size[c]\n        maxn = n + 1\n        fact = [1] * maxn\n        for i in range(1, maxn):\n            fact[i] = fact[i - 1] * i % MOD\n        inv_fact = [1] * maxn\n        inv_fact[maxn - 1] = pow(fact[maxn - 1], MOD - 2, MOD)\n        for i in range(maxn - 2, -1, -1):\n            inv_fact[i] = inv_fact[i + 1] * (i + 1) % MOD\n        res = [1] * n\n        for node in order:\n            r = fact[size[node] - 1]\n            for c in children[node]:\n                r = r * res[c] % MOD\n                r = r * inv_fact[size[c]] % MOD\n            res[node] = r\n        return res[0]\n",
+    "javascript": "var waysToBuildRooms = function(prevRoom) {\n    const MOD = 1000000007n;\n    const n = prevRoom.length;\n    const children = Array.from({length: n}, () => []);\n    for (let i = 1; i < n; i++) children[prevRoom[i]].push(i);\n    const size = new Array(n).fill(1);\n    const order = [];\n    const st = [[0, false]];\n    while (st.length) {\n        const top = st.pop();\n        const node = top[0], processed = top[1];\n        if (processed) { order.push(node); continue; }\n        st.push([node, true]);\n        for (const c of children[node]) st.push([c, false]);\n    }\n    for (const node of order) for (const c of children[node]) size[node] += size[c];\n    const maxn = n + 1;\n    const fact = new Array(maxn).fill(1n);\n    for (let i = 1; i < maxn; i++) fact[i] = fact[i - 1] * BigInt(i) % MOD;\n    const power = (b, e) => { let r = 1n; b %= MOD; while (e > 0n) { if (e & 1n) r = r * b % MOD; b = b * b % MOD; e >>= 1n; } return r; };\n    const invFact = new Array(maxn).fill(1n);\n    invFact[maxn - 1] = power(fact[maxn - 1], MOD - 2n);\n    for (let i = maxn - 2; i >= 0; i--) invFact[i] = invFact[i + 1] * BigInt(i + 1) % MOD;\n    const res = new Array(n).fill(1n);\n    for (const node of order) {\n        let r = fact[size[node] - 1];\n        for (const c of children[node]) {\n            r = r * res[c] % MOD;\n            r = r * invFact[size[c]] % MOD;\n        }\n        res[node] = r;\n    }\n    return Number(res[0]);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

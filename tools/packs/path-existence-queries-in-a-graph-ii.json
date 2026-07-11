@@ -1,0 +1,39 @@
+{
+  "slug": "path-existence-queries-in-a-graph-ii",
+  "judge": "exact",
+  "pattern": "Sorting by value turns each node's reachable set into a contiguous value window, so shortest hops are found by always jumping to the farthest still-reachable node from the current frontier.",
+  "hints": [
+    "From any node you can reach, in one step, every node whose value lies within the threshold - a contiguous band once values are sorted.",
+    "Shortest distance is a greedy interval-cover: from your current reachable span, extend to the farthest node any boundary node can reach.",
+    "Work in sorted order, track the current covered interval, and count how many one-step expansions are needed to bring the target inside it; map answers back to original indices and return -1 when stuck."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000] },
+    { "param": "maxDiff", "kind": "int", "value": [0, 1000000000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "both queries one hop away", "input": [5, [1, 8, 3, 4, 2], 3, [[0, 3], [2, 4]]] },
+    { "kind": "edge", "description": "mix of reachable, two-hop, and disconnected", "input": [5, [5, 3, 1, 9, 10], 2, [[0, 1], [0, 2], [2, 3], [4, 3]]] },
+    { "kind": "edge", "description": "self queries and unreachable pairs", "input": [3, [3, 6, 1], 1, [[0, 0], [0, 1], [1, 2]]] },
+    { "kind": "boundary", "description": "single node self distance zero", "input": [1, [4], 5, [[0, 0]]] },
+    { "kind": "trap", "description": "maxDiff zero only links equal values", "input": [4, [2, 2, 5, 2], 0, [[0, 1], [0, 3], [0, 2]]] },
+    { "kind": "trap", "description": "must chain through several intermediate values", "input": [5, [1, 2, 3, 4, 5], 1, [[0, 4], [4, 0], [1, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "unsorted random values, several queries - brute BFS stays cheap at this size",
+      "seed": 83,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(0, 200) for _ in range(n)]\n    maxDiff = rng.randint(0, 8)\n    q = rng.randint(1, 60)\n    queries = [[rng.randrange(n), rng.randrange(n)] for _ in range(q)]\n    return [n, nums, maxDiff, queries]\n",
+      "note": "small maxDiff produces both reachable and -1 outcomes"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def pathExistenceQueries(self, n, nums, maxDiff, queries):\n        adj = [[] for _ in range(n)]\n        for i in range(n):\n            for j in range(i + 1, n):\n                if abs(nums[i] - nums[j]) <= maxDiff:\n                    adj[i].append(j)\n                    adj[j].append(i)\n        ans = []\n        for u, v in queries:\n            if u == v:\n                ans.append(0)\n                continue\n            dist = [-1] * n\n            dist[u] = 0\n            dq = deque([u])\n            while dq:\n                x = dq.popleft()\n                for y in adj[x]:\n                    if dist[y] == -1:\n                        dist[y] = dist[x] + 1\n                        dq.append(y)\n            ans.append(dist[v])\n        return ans\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def pathExistenceQueries(self, n, nums, maxDiff, queries):\n        order = sorted(range(n), key=lambda i: nums[i])\n        pos = [0] * n\n        sv = [0] * n\n        for p, idx in enumerate(order):\n            pos[idx] = p\n            sv[p] = nums[idx]\n        ans = []\n        for u, v in queries:\n            pu, pv = pos[u], pos[v]\n            if pu == pv:\n                ans.append(0)\n                continue\n            lo, hi = (pu, pv) if pu < pv else (pv, pu)\n            steps = 0\n            cur_lo, cur_hi = lo, lo\n            reached = False\n            while True:\n                if cur_lo <= hi <= cur_hi:\n                    reached = True\n                    break\n                left = bisect.bisect_left(sv, sv[cur_lo] - maxDiff)\n                right = bisect.bisect_right(sv, sv[cur_hi] + maxDiff) - 1\n                if left == cur_lo and right == cur_hi:\n                    break\n                cur_lo, cur_hi = left, right\n                steps += 1\n            ans.append(steps if reached else -1)\n        return ans\n",
+    "javascript": "function lowerBound(arr, x) {\n    let lo = 0, hi = arr.length;\n    while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < x) lo = m + 1; else hi = m; }\n    return lo;\n}\nfunction upperBound(arr, x) {\n    let lo = 0, hi = arr.length;\n    while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] <= x) lo = m + 1; else hi = m; }\n    return lo;\n}\nvar pathExistenceQueries = function(n, nums, maxDiff, queries) {\n    const order = Array.from({ length: n }, (_, i) => i);\n    order.sort((a, b) => nums[a] - nums[b]);\n    const pos = new Array(n);\n    const sv = new Array(n);\n    for (let p = 0; p < n; p++) { pos[order[p]] = p; sv[p] = nums[order[p]]; }\n    const ans = [];\n    for (const [u, v] of queries) {\n        const pu = pos[u], pv = pos[v];\n        if (pu === pv) { ans.push(0); continue; }\n        const lo = Math.min(pu, pv), hi = Math.max(pu, pv);\n        let steps = 0, curLo = lo, curHi = lo, reached = false;\n        while (true) {\n            if (curLo <= hi && hi <= curHi) { reached = true; break; }\n            const left = lowerBound(sv, sv[curLo] - maxDiff);\n            const right = upperBound(sv, sv[curHi] + maxDiff) - 1;\n            if (left === curLo && right === curHi) break;\n            curLo = left; curHi = right; steps++;\n        }\n        ans.push(reached ? steps : -1);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) log n)", "space": "O(n)" }
+}

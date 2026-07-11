@@ -1,0 +1,37 @@
+{
+  "slug": "count-pairs-of-nodes",
+  "judge": "exact",
+  "pattern": "incident(a,b) is deg(a)+deg(b) minus the edges between a and b, so sort degrees, two-pointer count pairs by degree sum, then correct only the few pairs that actually share edges.",
+  "hints": [
+    "The number of edges touching a or b equals deg(a) + deg(b) minus the edges that connect a and b directly.",
+    "Ignore shared edges first: with degrees sorted, a two-pointer counts how many pairs have deg(a)+deg(b) > query.",
+    "Then revisit only the directly-connected pairs (there are at most O(edges) of them): the true count deducts shared edges, so move any pair that crossed the threshold on degree sum alone but fails after subtracting shared edges."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 20000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000] },
+    { "param": "queries", "kind": "int[]", "len": [1, 20], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "multigraph with two queries", "input": [4, [[1, 2], [2, 4], [1, 3], [2, 3], [2, 1]], [2, 3]] },
+    { "kind": "edge", "description": "parallel edges and five queries", "input": [5, [[1, 5], [1, 5], [3, 4], [2, 5], [1, 3], [5, 1], [2, 3], [2, 5]], [1, 2, 3, 4, 5]] },
+    { "kind": "boundary", "description": "two nodes single edge", "input": [2, [[1, 2]], [0, 1, 2]] },
+    { "kind": "trap", "description": "shared edges must be subtracted", "input": [3, [[1, 2], [1, 2], [1, 2]], [2, 3]] },
+    { "kind": "trap", "description": "query at the boundary value", "input": [4, [[1, 2], [3, 4]], [1]] },
+    { "kind": "edge", "description": "star graph", "input": [5, [[1, 2], [1, 3], [1, 4], [1, 5]], [0, 1, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random multigraph with a few queries",
+      "seed": 61,
+      "size": 8000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(2, 201)\n    m = max(1, min(size, 8000))\n    edges = []\n    for _ in range(m):\n        u = rng.randrange(1, n + 1)\n        v = rng.randrange(1, n + 1)\n        while v == u:\n            v = rng.randrange(1, n + 1)\n        edges.append([u, v])\n    q = rng.randrange(1, 21)\n    queries = [rng.randrange(0, m) for _ in range(q)]\n    return [n, edges, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPairs(self, n, edges, queries):\n        deg = [0] * (n + 1)\n        shared = {}\n        for u, v in edges:\n            deg[u] += 1\n            deg[v] += 1\n            if u > v:\n                u, v = v, u\n            shared[(u, v)] = shared.get((u, v), 0) + 1\n        ans = []\n        for q in queries:\n            cnt = 0\n            for a in range(1, n + 1):\n                for b in range(a + 1, n + 1):\n                    inc = deg[a] + deg[b] - shared.get((a, b), 0)\n                    if inc > q:\n                        cnt += 1\n            ans.append(cnt)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPairs(self, n, edges, queries):\n        deg = [0] * (n + 1)\n        shared = {}\n        for u, v in edges:\n            deg[u] += 1\n            deg[v] += 1\n            if u > v:\n                u, v = v, u\n            shared[(u, v)] = shared.get((u, v), 0) + 1\n        sdeg = sorted(deg[1:])\n        ans = []\n        for q in queries:\n            cnt = 0\n            lo, hi = 0, n - 1\n            while lo < hi:\n                if sdeg[lo] + sdeg[hi] > q:\n                    cnt += hi - lo\n                    hi -= 1\n                else:\n                    lo += 1\n            for (a, b), c in shared.items():\n                da, db = deg[a], deg[b]\n                if da + db > q and da + db - c <= q:\n                    cnt -= 1\n            ans.append(cnt)\n        return ans\n",
+    "javascript": "var countPairs = function(n, edges, queries) {\n    const deg = new Array(n + 1).fill(0);\n    const shared = new Map();\n    for (let [u, v] of edges) {\n        deg[u]++; deg[v]++;\n        if (u > v) { const t = u; u = v; v = t; }\n        const key = u * 100000 + v;\n        shared.set(key, (shared.get(key) || 0) + 1);\n    }\n    const sdeg = deg.slice(1).sort((a, b) => a - b);\n    const ans = [];\n    for (const q of queries) {\n        let cnt = 0;\n        let lo = 0, hi = n - 1;\n        while (lo < hi) {\n            if (sdeg[lo] + sdeg[hi] > q) { cnt += hi - lo; hi--; }\n            else lo++;\n        }\n        for (const [key, c] of shared) {\n            const a = Math.floor(key / 100000), b = key % 100000;\n            const sum = deg[a] + deg[b];\n            if (sum > q && sum - c <= q) cnt--;\n        }\n        ans.push(cnt);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((n + E) * Q)", "space": "O(n + E)" }
+}

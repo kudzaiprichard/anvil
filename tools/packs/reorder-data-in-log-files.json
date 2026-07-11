@@ -1,0 +1,35 @@
+{
+  "slug": "reorder-data-in-log-files",
+  "judge": "exact",
+  "pattern": "Partition logs into letter-logs and digit-logs, then stable-sort letter-logs by (content, identifier) while preserving digit-log relative order.",
+  "hints": [
+    "Split each log at the first space to get the identifier and body. A log is a digit-log if every character in the body is a digit or space; otherwise it is a letter-log.",
+    "Sort letter-logs with a two-part key: (body, identifier). Python's tuple sort and JavaScript's localeCompare both give the right lexicographic order.",
+    "Concatenate the sorted letter-logs followed by the digit-logs in their original order."
+  ],
+  "constraints": [
+    { "param": "logs", "kind": "string[]", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge",     "description": "only digit logs, return in original order", "input": [["d1 1 2 3", "d2 4 5 6"]] },
+    { "kind": "edge",     "description": "only letter logs, sort by content then identifier", "input": [["b1 dog cat", "a1 dog cat", "a2 act bar"]] },
+    { "kind": "boundary", "description": "single log", "input": [["x1 foo bar"]] },
+    { "kind": "trap",     "description": "tie on content breaks by identifier", "input": [["let1 art can", "let3 art zero", "let2 own kit dig", "dig1 8 1 5 1", "dig2 3 6"]] },
+    { "kind": "trap",     "description": "digit-logs must keep relative order even when mixed among letter-logs", "input": [["a1 9 2 3 1", "g1 act car", "zo4 4 7", "ab1 off key dog", "a8 act zoo"]] },
+    { "kind": "trap",     "description": "identifier that looks like a digit does not make a letter-log into a digit-log", "input": [["123 abc def", "456 1 2 3"]] }
+  ],
+  "stress": [
+    {
+      "description": "50 mixed letter/digit logs with varied identifiers",
+      "seed": 9,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, size)\n    logs = []\n    for i in range(n):\n        ident = rng.choice(string.ascii_lowercase) + str(rng.randint(1, 99))\n        if rng.random() < 0.5:\n            words = [rng.choice(string.ascii_lowercase) * rng.randint(1, 4) for _ in range(rng.randint(1, 3))]\n            logs.append(ident + ' ' + ' '.join(words))\n        else:\n            nums = [str(rng.randint(0, 9)) for _ in range(rng.randint(1, 4))]\n            logs.append(ident + ' ' + ' '.join(nums))\n    return [logs]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def reorderLogFiles(self, logs):\n        def is_digit_log(log):\n            parts = log.split()\n            return parts[1].isdigit()\n        letter_logs = [l for l in logs if not is_digit_log(l)]\n        digit_logs = [l for l in logs if is_digit_log(l)]\n        letter_logs.sort(key=lambda l: (l.split(' ', 1)[1], l.split(' ', 1)[0]))\n        return letter_logs + digit_logs\n",
+  "solutions": {
+    "python": "class Solution:\n    def reorderLogFiles(self, logs):\n        def key(log):\n            ident, rest = log.split(' ', 1)\n            return (0, rest, ident) if rest[0].isalpha() else (1,)\n        return sorted(logs, key=key)\n",
+    "javascript": "var reorderLogFiles = function(logs) {\n    const isDigit = log => /^\\d/.test(log.split(' ')[1]);\n    const letters = [], digits = [];\n    for (const log of logs) {\n        (isDigit(log) ? digits : letters).push(log);\n    }\n    letters.sort((a, b) => {\n        const [ai, ...arest] = a.split(' ');\n        const [bi, ...brest] = b.split(' ');\n        const ac = arest.join(' '), bc = brest.join(' ');\n        if (ac !== bc) return ac < bc ? -1 : 1;\n        return ai < bi ? -1 : ai > bi ? 1 : 0;\n    });\n    return [...letters, ...digits];\n};\n"
+  },
+  "complexity": { "time": "O(n log n * L)", "space": "O(n)" }
+}

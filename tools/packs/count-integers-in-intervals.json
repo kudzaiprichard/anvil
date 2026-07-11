@@ -1,0 +1,46 @@
+{
+  "slug": "count-integers-in-intervals",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Keeping a set of non-overlapping intervals and merging each insertion into its neighbours lets you maintain a running covered-count without ever enumerating the integers.",
+  "hints": [
+    "Counting integers by walking every value is hopeless when ranges can span a billion, so track the covered length directly instead of the individual numbers.",
+    "Store the intervals so they never overlap: when a new interval arrives, absorb every existing interval it touches into one, adjusting the running total as you remove and add.",
+    "Hold the intervals in order by their endpoint, find the ones the new range intersects, subtract their lengths, merge them with the new range, and add the merged length back."
+  ],
+  "constraints": [
+    { "param": "left", "kind": "int", "value": [1, 1000000000] },
+    { "param": "right", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: two disjoint adds then a third that bridges them",
+      "input": [["CountIntervals", "add", "add", "count", "add", "count"], [[], [2, 3], [7, 10], [], [5, 8], []]] },
+    { "kind": "boundary", "description": "single point interval where left equals right",
+      "input": [["CountIntervals", "add", "count"], [[], [5, 5], []]] },
+    { "kind": "trap", "description": "fully nested add must not double-count already-covered integers",
+      "input": [["CountIntervals", "add", "add", "count"], [[], [1, 100], [40, 60], []]] },
+    { "kind": "trap", "description": "adjacent touching intervals merge into one contiguous block",
+      "input": [["CountIntervals", "add", "add", "count"], [[], [1, 5], [6, 10], []]] },
+    { "kind": "trap", "description": "an add that swallows several existing disjoint intervals at once",
+      "input": [["CountIntervals", "add", "add", "add", "count", "add", "count"], [[], [1, 2], [10, 11], [20, 21], [], [1, 30], []]] },
+    { "kind": "edge", "description": "duplicate identical adds leave the count unchanged",
+      "input": [["CountIntervals", "add", "count", "add", "count"], [[], [3, 9], [], [3, 9], []]] },
+    { "kind": "edge", "description": "count called before any add returns zero",
+      "input": [["CountIntervals", "count", "add", "count"], [[], [], [2, 2], []]] }
+  ],
+  "stress": [
+    {
+      "description": "many random adds over a small coordinate space so overlaps and merges happen often, interleaved with counts",
+      "seed": 23,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    ops = ['CountIntervals']\n    args = [[]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.7:\n            a = rng.randint(1, 400)\n            b = rng.randint(a, min(400, a + 80))\n            ops.append('add'); args.append([a, b])\n        else:\n            ops.append('count'); args.append([])\n    ops.append('count'); args.append([])\n    return [ops, args]\n",
+      "note": "small value range keeps the brute set-of-integers oracle fast"
+    }
+  ],
+  "oracle_python": "class CountIntervals:\n    def __init__(self):\n        self.s = set()\n    def add(self, left, right):\n        for x in range(left, right + 1):\n            self.s.add(x)\n        return None\n    def count(self):\n        return len(self.s)\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass CountIntervals:\n    def __init__(self):\n        self.ends = []\n        self.spans = []\n        self.total = 0\n    def add(self, left, right):\n        lo, hi = left, right\n        i = bisect.bisect_left(self.ends, lo - 1)\n        merged = []\n        while i < len(self.ends) and self.spans[i][0] <= hi + 1:\n            s, e = self.spans[i]\n            self.total -= (e - s + 1)\n            lo = min(lo, s)\n            hi = max(hi, e)\n            i += 1\n        j = bisect.bisect_left(self.ends, left - 1)\n        del self.spans[j:i]\n        del self.ends[j:i]\n        self.spans.insert(j, (lo, hi))\n        self.ends.insert(j, hi)\n        self.total += (hi - lo + 1)\n        return None\n    def count(self):\n        return self.total\n",
+    "javascript": "var CountIntervals = function() {\n    this.spans = [];\n    this.total = 0;\n};\nCountIntervals.prototype.add = function(left, right) {\n    let newLeft = left, newRight = right;\n    const kept = [];\n    for (const [lo, hi] of this.spans) {\n        if (hi < newLeft - 1 || lo > newRight + 1) {\n            kept.push([lo, hi]);\n        } else {\n            this.total -= (hi - lo + 1);\n            newLeft = Math.min(newLeft, lo);\n            newRight = Math.max(newRight, hi);\n        }\n    }\n    kept.push([newLeft, newRight]);\n    this.total += (newRight - newLeft + 1);\n    this.spans = kept;\n    return null;\n};\nCountIntervals.prototype.count = function() {\n    return this.total;\n};\n"
+  },
+  "complexity": { "time": "O(n) worst-case per add, amortized fast", "space": "O(n)" }
+}

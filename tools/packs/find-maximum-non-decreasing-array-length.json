@@ -1,0 +1,47 @@
+{
+  "slug": "find-maximum-non-decreasing-array-length",
+  "judge": "exact",
+  "pattern": "Cutting the array into contiguous pieces and summing each piece turns the problem into choosing cut points so piece sums never decrease, and the most pieces you can get is found by tracking, per prefix, the best (piece count, smallest last-piece sum) pair, trying every earlier prefix as the start of the final piece.",
+  "hints": [
+    "Think of the final array as the sums of contiguous pieces that partition the original array; you are choosing where to cut, and you want as many pieces as possible whose sums never decrease left to right.",
+    "For every prefix, remember the largest number of pieces it can be split into, and the smallest possible sum for the very last of those pieces -- extending forward means finding an earlier prefix whose remembered last-piece sum is small enough for the new piece (the rest of the array up to there) to beat or match.",
+    "For a prefix ending at position i, check every earlier cut point j: if the piece from j to i sums to at least j's remembered last-piece sum, that's a valid way to extend, so scan all of them and keep whichever gives the most pieces, breaking ties toward the smallest resulting sum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three elements collapse to one", "input": [[5, 2, 2]] },
+    { "kind": "edge", "description": "statement example, already non-decreasing", "input": [[1, 2, 3, 4]] },
+    { "kind": "edge", "description": "statement example, one merge in the middle", "input": [[4, 3, 2, 6]] },
+    { "kind": "boundary", "description": "single element needs no merging", "input": [[7]] },
+    { "kind": "boundary", "description": "two elements, largest possible drop forces one merge", "input": [[100000, 1]] },
+    { "kind": "edge", "description": "all equal values need no merging", "input": [[2, 2, 2, 2]] },
+    { "kind": "trap", "description": "strictly decreasing run, tempting to assume only one piece survives", "input": [[5, 4, 3, 2, 1]] },
+    { "kind": "trap", "description": "a large leading value forces several small trailing values to be merged together", "input": [[50, 1, 1, 1, 1, 1, 1]] },
+    { "kind": "trap", "description": "a longer mixed sequence exercising many merge decisions at once", "input": [[8, 3, 5, 1, 9, 2, 7, 4, 6, 10, 1, 1, 1, 1, 1, 1, 1, 1, 50, 2, 2, 2, 2, 2, 100]] }
+  ],
+  "stress": [
+    {
+      "description": "random values at a large array length",
+      "seed": 7,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "long strictly decreasing run forcing many merges",
+      "seed": 11,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    nums = [n - i for i in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMaximumLength(self, nums):\n        n = len(nums)\n        best = 0\n\n        def rec(i, prev_sum, count):\n            nonlocal best\n            if i == n:\n                if count > best:\n                    best = count\n                return\n            s = 0\n            for j in range(i, n):\n                s += nums[j]\n                if s >= prev_sum:\n                    rec(j + 1, s, count + 1)\n\n        rec(0, 0, 0)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMaximumLength(self, nums):\n        n = len(nums)\n        P = [0] * (n + 1)\n        for i in range(n):\n            P[i + 1] = P[i] + nums[i]\n        dp_f = [0] * (n + 1)\n        dp_g = [0] * (n + 1)\n        for i in range(1, n + 1):\n            best_len = -1\n            best_sum = None\n            for j in range(i):\n                seg = P[i] - P[j]\n                if seg >= dp_g[j]:\n                    cand = dp_f[j] + 1\n                    if cand > best_len or (cand == best_len and seg < best_sum):\n                        best_len = cand\n                        best_sum = seg\n            dp_f[i] = best_len\n            dp_g[i] = best_sum\n        return dp_f[n]\n",
+    "javascript": "var findMaximumLength = function(nums) {\n    const n = nums.length;\n    const P = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) P[i + 1] = P[i] + nums[i];\n    const dpF = new Array(n + 1).fill(0);\n    const dpG = new Array(n + 1).fill(0);\n    for (let i = 1; i <= n; i++) {\n        let bestLen = -1;\n        let bestSum = Infinity;\n        for (let j = 0; j < i; j++) {\n            const seg = P[i] - P[j];\n            if (seg >= dpG[j]) {\n                const cand = dpF[j] + 1;\n                if (cand > bestLen || (cand === bestLen && seg < bestSum)) {\n                    bestLen = cand;\n                    bestSum = seg;\n                }\n            }\n        }\n        dpF[i] = bestLen;\n        dpG[i] = bestSum;\n    }\n    return dpF[n];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2)",
+    "space": "O(n)"
+  }
+}

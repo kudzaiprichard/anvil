@@ -1,0 +1,38 @@
+{
+  "slug": "kth-smallest-amount-with-single-denomination-combination",
+  "judge": "exact",
+  "pattern": "Binary search on the answer combined with inclusion-exclusion over LCMs to count how many valid amounts are <= a given value.",
+  "hints": [
+    "Binary search on the answer x: find the smallest x such that the count of positive multiples of any coin <= x is >= k.",
+    "Use inclusion-exclusion on the coin set: count multiples of each coin, subtract double-counted intersections (LCM of pairs), add back triple intersections, etc.",
+    "Since coins are at most 15 in number, enumerate all 2^15 non-empty subsets; for each subset compute the LCM and add or subtract floor(x / LCM) depending on subset size parity."
+  ],
+  "constraints": [
+    { "param": "coins", "kind": "int[]", "len": [1, 15], "value": [1, 25] },
+    { "param": "k", "kind": "int", "value": [1, 2000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single coin k=1 — answer is the coin itself", "input": [[5], 1] },
+    { "kind": "edge", "description": "single coin k=3", "input": [[4], 3] },
+    { "kind": "edge", "description": "coins share factors — LCM deduplication matters", "input": [[3,6,9], 3] },
+    { "kind": "edge", "description": "coprime coins", "input": [[5,2], 7] },
+    { "kind": "trap", "description": "k larger than first few multiples", "input": [[2,3], 10] },
+    { "kind": "trap", "description": "one coin divides another — subsets with larger coin add nothing", "input": [[2,4], 5] },
+    { "kind": "boundary", "description": "large k — answer is large", "input": [[1], 2000000000] },
+    { "kind": "boundary", "description": "many coprime coins", "input": [[2,3,5,7,11], 20] }
+  ],
+  "stress": [
+    {
+      "description": "random subset of distinct coins 1-25 with moderate k",
+      "seed": 41,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    all_coins = list(range(1, 26))\n    rng.shuffle(all_coins)\n    coins = sorted(all_coins[:size])\n    k = rng.randint(1, 1000)\n    return [coins, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findKthSmallest(self, coins, k: int) -> int:\n        from math import gcd\n        def lcm(a, b):\n            return a * b // gcd(a, b)\n        n = len(coins)\n        def count_le(x):\n            # inclusion-exclusion over all non-empty subsets\n            total = 0\n            for mask in range(1, 1 << n):\n                l = 1\n                bits = 0\n                for i in range(n):\n                    if mask >> i & 1:\n                        l = lcm(l, coins[i])\n                        bits += 1\n                        if l > x:\n                            break\n                else:\n                    total += (x // l) * (1 if bits % 2 == 1 else -1)\n            return total\n        lo, hi = 1, coins[0] * k\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if count_le(mid) >= k:\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+  "solutions": {
+    "python": "class Solution:\n    def findKthSmallest(self, coins, k: int) -> int:\n        from math import gcd\n        def lcm(a, b): return a * b // gcd(a, b)\n        n = len(coins)\n        # Precompute subset LCMs\n        subsets = []  # (lcm_val, parity) where parity=+1 or -1\n        for mask in range(1, 1 << n):\n            l = 1\n            bits = 0\n            ok = True\n            for i in range(n):\n                if mask >> i & 1:\n                    l = lcm(l, coins[i])\n                    bits += 1\n                    if l > 2 * 10**13:  # cap: no multiples within range\n                        ok = False\n                        break\n            if ok:\n                subsets.append((l, 1 if bits % 2 == 1 else -1))\n        def count_le(x):\n            return sum(sign * (x // l) for l, sign in subsets)\n        lo, hi = min(coins), min(coins) * k\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if count_le(mid) >= k:\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var findKthSmallest = function(coins, k) {\n    function gcd(a, b) { while (b) { [a, b] = [b, a % b]; } return a; }\n    function lcm(a, b) { return a / gcd(a, b) * b; }\n    const n = coins.length;\n    const subsets = [];\n    for (let mask = 1; mask < (1 << n); mask++) {\n        let l = 1, bits = 0, ok = true;\n        for (let i = 0; i < n; i++) {\n            if (mask >> i & 1) {\n                l = lcm(l, coins[i]);\n                bits++;\n                if (l > 2e13) { ok = false; break; }\n            }\n        }\n        if (ok) subsets.push([l, bits % 2 === 1 ? 1 : -1]);\n    }\n    function countLe(x) {\n        let total = 0;\n        for (const [l, sign] of subsets) total += sign * Math.floor(x / l);\n        return total;\n    }\n    let lo = Math.min(...coins), hi = lo * k;\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (countLe(mid) >= k) hi = mid;\n        else lo = mid + 1;\n    }\n    return lo;\n};"
+  },
+  "complexity": { "time": "O(2^C * log(k*C))", "space": "O(2^C)" }
+}

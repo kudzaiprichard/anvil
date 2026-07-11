@@ -1,0 +1,197 @@
+{
+  "slug": "number-of-valid-move-combinations-on-chessboard",
+  "judge": "exact",
+  "pattern": "With at most four pieces, enumerating every piece's candidate destinations and backtracking through the small Cartesian product of choices while simulating second-by-second occupancy finds every collision-free combination.",
+  "hints": [
+    "For each piece, list every square it could travel toward in a straight line (including staying put) as a (direction, distance) pair.",
+    "A move combination is one candidate per piece; because there are at most four pieces, you can afford to try every combination.",
+    "For a chosen combination, replay time second by second: a piece's position at time t is its start plus direction times min(t, its distance), and the combination is invalid the instant two pieces share a square at the same second."
+  ],
+  "constraints": [
+    {
+      "param": "pieces",
+      "kind": "string[]",
+      "len": [
+        1,
+        4
+      ]
+    },
+    {
+      "param": "positions",
+      "kind": "int[][]",
+      "len": [
+        1,
+        4
+      ],
+      "value": [
+        1,
+        8
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single rook away from the corner",
+      "input": [
+        [
+          "rook"
+        ],
+        [
+          [
+            4,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single bishop pinned to a corner, only one diagonal available",
+      "input": [
+        [
+          "bishop"
+        ],
+        [
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "four pieces filling the maximum piece count with no queen",
+      "input": [
+        [
+          "rook",
+          "rook",
+          "bishop",
+          "bishop"
+        ],
+        [
+          [
+            1,
+            1
+          ],
+          [
+            8,
+            8
+          ],
+          [
+            1,
+            8
+          ],
+          [
+            8,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two rooks directly adjacent on the same row, forcing many near-miss collisions",
+      "input": [
+        [
+          "rook",
+          "rook"
+        ],
+        [
+          [
+            4,
+            4
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two bishops on the same diagonal one step apart",
+      "input": [
+        [
+          "bishop",
+          "bishop"
+        ],
+        [
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a queen and a rook sharing a row from opposite ends",
+      "input": [
+        [
+          "queen",
+          "rook"
+        ],
+        [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            8
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three mixed pieces including the only queen allowed on the board",
+      "input": [
+        [
+          "bishop",
+          "rook",
+          "queen"
+        ],
+        [
+          [
+            1,
+            1
+          ],
+          [
+            8,
+            1
+          ],
+          [
+            8,
+            8
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random legal piece sets (at most one queen) at random distinct squares",
+      "seed": 7,
+      "size": 4,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 4)\n    types = ['rook', 'bishop']\n    kinds = []\n    if rng.random() < 0.5:\n        kinds.append('queen')\n    while len(kinds) < n:\n        kinds.append(rng.choice(types))\n    rng.shuffle(kinds)\n    all_cells = [(r, c) for r in range(1, 9) for c in range(1, 9)]\n    rng.shuffle(all_cells)\n    positions = [[r, c] for r, c in all_cells[:n]]\n    return [kinds, positions]\n",
+      "note": "state space is inherently bounded by n<=4 pieces on an 8x8 board, so 'size' just seeds variety, not scale"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countCombinations(self, pieces, positions):\n        import itertools\n        n = len(pieces)\n        DIRS = {\n            'rook': [(1, 0), (-1, 0), (0, 1), (0, -1)],\n            'bishop': [(1, 1), (1, -1), (-1, 1), (-1, -1)],\n            'queen': [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)],\n        }\n\n        def moves_for(i):\n            r0, c0 = positions[i]\n            res = [(0, 0, 0)]\n            for dr, dc in DIRS[pieces[i]]:\n                r, c = r0, c0\n                step = 0\n                while 1 <= r + dr <= 8 and 1 <= c + dc <= 8:\n                    r += dr\n                    c += dc\n                    step += 1\n                    res.append((dr, dc, step))\n            return res\n\n        all_moves = [moves_for(i) for i in range(n)]\n        count = 0\n        for combo in itertools.product(*all_moves):\n            max_t = max(m[2] for m in combo)\n            paths = []\n            for i, (dr, dc, steps) in enumerate(combo):\n                r0, c0 = positions[i]\n                path = []\n                for t in range(max_t + 1):\n                    s = min(t, steps)\n                    path.append((r0 + dr * s, c0 + dc * s))\n                paths.append(path)\n            ok = True\n            for t in range(max_t + 1):\n                seen = set()\n                for i in range(n):\n                    p = paths[i][t]\n                    if p in seen:\n                        ok = False\n                        break\n                    seen.add(p)\n                if not ok:\n                    break\n            if ok:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countCombinations(self, pieces, positions):\n        n = len(pieces)\n        DIRS = {\n            'rook': [(1, 0), (-1, 0), (0, 1), (0, -1)],\n            'bishop': [(1, 1), (1, -1), (-1, 1), (-1, -1)],\n            'queen': [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)],\n        }\n\n        def moves_for(i):\n            r0, c0 = positions[i]\n            res = [(0, 0, 0)]\n            for dr, dc in DIRS[pieces[i]]:\n                r, c = r0, c0\n                step = 0\n                while 1 <= r + dr <= 8 and 1 <= c + dc <= 8:\n                    r += dr\n                    c += dc\n                    step += 1\n                    res.append((dr, dc, step))\n            return res\n\n        all_moves = [moves_for(i) for i in range(n)]\n        count = 0\n\n        def simulate(chosen):\n            max_t = max(m[2] for m in chosen)\n            for t in range(max_t + 1):\n                seen = set()\n                for i, (dr, dc, steps) in enumerate(chosen):\n                    s = min(t, steps)\n                    r0, c0 = positions[i]\n                    p = (r0 + dr * s, c0 + dc * s)\n                    if p in seen:\n                        return False\n                    seen.add(p)\n            return True\n\n        chosen = []\n\n        def backtrack(i):\n            nonlocal count\n            if i == n:\n                if simulate(chosen):\n                    count += 1\n                return\n            for mv in all_moves[i]:\n                chosen.append(mv)\n                backtrack(i + 1)\n                chosen.pop()\n\n        backtrack(0)\n        return count\n",
+    "javascript": "var countCombinations = function(pieces, positions) {\n    const n = pieces.length;\n    const DIRS = {\n        rook: [[1, 0], [-1, 0], [0, 1], [0, -1]],\n        bishop: [[1, 1], [1, -1], [-1, 1], [-1, -1]],\n        queen: [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]],\n    };\n    function movesFor(i) {\n        const [r0, c0] = positions[i];\n        const res = [[0, 0, 0]];\n        for (const [dr, dc] of DIRS[pieces[i]]) {\n            let r = r0, c = c0, step = 0;\n            while (r + dr >= 1 && r + dr <= 8 && c + dc >= 1 && c + dc <= 8) {\n                r += dr; c += dc; step += 1;\n                res.push([dr, dc, step]);\n            }\n        }\n        return res;\n    }\n    const allMoves = [];\n    for (let i = 0; i < n; i++) allMoves.push(movesFor(i));\n    let count = 0;\n\n    function simulate(chosen) {\n        let maxT = 0;\n        for (const m of chosen) maxT = Math.max(maxT, m[2]);\n        for (let t = 0; t <= maxT; t++) {\n            const seen = new Set();\n            for (let i = 0; i < chosen.length; i++) {\n                const [dr, dc, steps] = chosen[i];\n                const s = Math.min(t, steps);\n                const [r0, c0] = positions[i];\n                const key = (r0 + dr * s) * 16 + (c0 + dc * s);\n                if (seen.has(key)) return false;\n                seen.add(key);\n            }\n        }\n        return true;\n    }\n\n    const chosen = [];\n    function backtrack(i) {\n        if (i === n) {\n            if (simulate(chosen)) count++;\n            return;\n        }\n        for (const mv of allMoves[i]) {\n            chosen.push(mv);\n            backtrack(i + 1);\n            chosen.pop();\n        }\n    }\n    backtrack(0);\n    return count;\n};\n"
+  },
+  "complexity": {
+    "time": "O((max moves per piece)^n * maxTime)",
+    "space": "O(n)"
+  }
+}

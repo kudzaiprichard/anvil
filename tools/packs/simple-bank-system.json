@@ -1,0 +1,47 @@
+{
+  "slug": "simple-bank-system",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Every transaction is validated against the same two rules (account numbers in range, and sufficient funds for money leaving an account) before any balance is mutated, so a rejected transaction never has partial side effects.",
+  "hints": [
+    "Store the balances so account numbers (1-indexed) map directly to them; validate an account number is in range before touching anything.",
+    "transfer, deposit, and withdraw all share the same validity shape: check every account number involved is in range, and for money LEAVING an account, check the balance covers it, before changing any state.",
+    "Compute whether the transaction is valid first, and only mutate balances if it is; a transfer that fails the balance check must leave both accounts completely untouched, not partially debited."
+  ],
+  "constraints": [
+    { "param": "balance", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000000] },
+    { "param": "account", "kind": "int", "value": [1, 100000] },
+    { "param": "account1", "kind": "int", "value": [1, 100000] },
+    { "param": "account2", "kind": "int", "value": [1, 100000] },
+    { "param": "money", "kind": "int", "value": [0, 1000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: a valid withdraw, a valid transfer, a valid deposit, a transfer that overdraws, and a withdraw on a nonexistent account",
+      "input": [["Bank", "withdraw", "transfer", "deposit", "transfer", "withdraw"], [[[10, 100, 20, 50, 30]], [3, 10], [5, 1, 20], [5, 20], [3, 4, 15], [10, 50]]] },
+    { "kind": "boundary", "description": "account number equal to n (the last valid account) succeeds; n + 1 is out of range and fails",
+      "input": [["Bank", "deposit", "deposit"], [[[1, 2, 3]], [3, 5], [4, 5]]] },
+    { "kind": "trap", "description": "withdrawing or transferring exactly the full balance succeeds and leaves exactly zero, one unit more fails",
+      "input": [["Bank", "withdraw", "withdraw", "deposit", "transfer", "transfer"], [[[100, 0]], [1, 100], [1, 1], [1, 100], [1, 2, 100], [1, 2, 1]]] },
+    { "kind": "trap", "description": "a transfer from an account to itself still requires sufficient balance and is otherwise a no-op on the net total",
+      "input": [["Bank", "transfer", "transfer"], [[[50]], [1, 1, 50], [1, 1, 1]]] },
+    { "kind": "trap", "description": "withdrawing or transferring zero money is always valid regardless of balance", "input": [["Bank", "withdraw", "transfer"], [[[0, 0]], [1, 0], [1, 2, 0]]] },
+    { "kind": "boundary", "description": "a single-account bank rejects any transfer (both endpoints must be valid, and account 2 does not exist)",
+      "input": [["Bank", "transfer", "deposit", "withdraw"], [[[10]], [1, 2, 5], [1, 5], [1, 1000000000000]]] },
+    { "kind": "boundary", "description": "money at the constraint's upper bound deposited then withdrawn", "input": [["Bank", "deposit", "withdraw"], [[[0]], [1, 1000000000000], [1, 1000000000000]]] }
+  ],
+  "stress": [
+    {
+      "description": "random mix of transfer/deposit/withdraw across a modest number of accounts, including frequent out-of-range account numbers and near-balance amounts",
+      "seed": 31,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = 30\n    balances = [rng.randint(0, 1000) for _ in range(n)]\n    ops = ['Bank']\n    args = [[balances]]\n    for _ in range(max(1, size)):\n        c = rng.choice(['transfer', 'deposit', 'withdraw'])\n        acct_choices = list(range(1, n + 1)) + [n + 1, n + 5]\n        if c == 'transfer':\n            a1 = rng.choice(acct_choices)\n            a2 = rng.choice(acct_choices)\n            money = rng.randint(0, 500)\n            ops.append('transfer'); args.append([a1, a2, money])\n        elif c == 'deposit':\n            a = rng.choice(acct_choices)\n            money = rng.randint(0, 500)\n            ops.append('deposit'); args.append([a, money])\n        else:\n            a = rng.choice(acct_choices)\n            money = rng.randint(0, 500)\n            ops.append('withdraw'); args.append([a, money])\n    return [ops, args]\n",
+      "note": "occasionally sampling account numbers just past n forces the out-of-range rejection path often"
+    }
+  ],
+  "oracle_python": "class Bank:\n    def __init__(self, balance):\n        self.acct = {i + 1: b for i, b in enumerate(balance)}\n\n    def transfer(self, account1, account2, money):\n        if account1 not in self.acct or account2 not in self.acct:\n            return False\n        if self.acct[account1] < money:\n            return False\n        self.acct[account1] -= money\n        self.acct[account2] += money\n        return True\n\n    def deposit(self, account, money):\n        if account not in self.acct:\n            return False\n        self.acct[account] += money\n        return True\n\n    def withdraw(self, account, money):\n        if account not in self.acct:\n            return False\n        if self.acct[account] < money:\n            return False\n        self.acct[account] -= money\n        return True\n",
+  "solutions": {
+    "python": "class Bank:\n    def __init__(self, balance):\n        self.balance = balance[:]\n        self.n = len(balance)\n\n    def _valid(self, account):\n        return 1 <= account <= self.n\n\n    def transfer(self, account1, account2, money):\n        if not self._valid(account1) or not self._valid(account2):\n            return False\n        if self.balance[account1 - 1] < money:\n            return False\n        self.balance[account1 - 1] -= money\n        self.balance[account2 - 1] += money\n        return True\n\n    def deposit(self, account, money):\n        if not self._valid(account):\n            return False\n        self.balance[account - 1] += money\n        return True\n\n    def withdraw(self, account, money):\n        if not self._valid(account):\n            return False\n        if self.balance[account - 1] < money:\n            return False\n        self.balance[account - 1] -= money\n        return True\n",
+    "javascript": "class Bank {\n    constructor(balance) {\n        this.balance = balance.slice();\n        this.n = balance.length;\n    }\n\n    _valid(account) {\n        return account >= 1 && account <= this.n;\n    }\n\n    transfer(account1, account2, money) {\n        if (!this._valid(account1) || !this._valid(account2)) return false;\n        if (this.balance[account1 - 1] < money) return false;\n        this.balance[account1 - 1] -= money;\n        this.balance[account2 - 1] += money;\n        return true;\n    }\n\n    deposit(account, money) {\n        if (!this._valid(account)) return false;\n        this.balance[account - 1] += money;\n        return true;\n    }\n\n    withdraw(account, money) {\n        if (!this._valid(account)) return false;\n        if (this.balance[account - 1] < money) return false;\n        this.balance[account - 1] -= money;\n        return true;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(n)" }
+}

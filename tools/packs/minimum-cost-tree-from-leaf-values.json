@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-cost-tree-from-leaf-values",
+  "judge": "exact",
+  "pattern": "Every internal node multiplies two subtree maxima, so greedily removing the smallest leaf by pairing it with its smaller neighbor (a monotonic-stack sweep) minimizes the total product cost.",
+  "hints": [
+    "Each non-leaf value is the product of the max leaf on its left and the max leaf on its right, so a small leaf squeezed between two larger ones will be multiplied once by the cheaper neighbor and then disappear.",
+    "Think about which leaf to merge away first: the smallest one, paired with the smaller of its two neighbors, to keep its contribution minimal.",
+    "Sweep with a decreasing monotonic stack; when the next value is larger than the top, pop the top and add top*min(next, new-top), since that popped leaf can no longer be anyone's max."
+  ],
+  "constraints": [
+    { "param": "arr", "kind": "int[]", "len": [2, 40], "value": [1, 15] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small leaf between two larger leaves", "input": [[6, 2, 4]] },
+    { "kind": "boundary", "description": "minimum length, only one tree shape", "input": [[4, 11]] },
+    { "kind": "trap", "description": "strictly increasing favors merging from the small end", "input": [[1, 2, 3, 4, 5]] },
+    { "kind": "trap", "description": "strictly decreasing is the mirror case", "input": [[5, 4, 3, 2, 1]] },
+    { "kind": "edge", "description": "valley shape with a dip in the middle", "input": [[7, 12, 8, 10]] },
+    { "kind": "edge", "description": "all equal leaves", "input": [[3, 3, 3, 3]] }
+  ],
+  "stress": [
+    {
+      "description": "random small arrays within the tight value bound",
+      "seed": 16,
+      "size": 16,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 16)))\n    return [[rng.randint(1, 15) for _ in range(n)]]\n",
+      "note": "length kept modest so the cubic DP oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mctFromLeafValues(self, arr):\n        import functools\n        n = len(arr)\n        # interval DP: maxleaf[i][j] = max leaf in arr[i..j]\n        maxleaf = [[0] * n for _ in range(n)]\n        for i in range(n):\n            m = arr[i]\n            for j in range(i, n):\n                m = max(m, arr[j])\n                maxleaf[i][j] = m\n        @functools.lru_cache(None)\n        def dp(i, j):\n            if i == j:\n                return 0\n            best = float('inf')\n            for k in range(i, j):\n                cost = dp(i, k) + dp(k + 1, j) + maxleaf[i][k] * maxleaf[k + 1][j]\n                best = min(best, cost)\n            return best\n        return dp(0, n - 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def mctFromLeafValues(self, arr):\n        stack = [float('inf')]\n        total = 0\n        for x in arr:\n            while stack[-1] <= x:\n                mid = stack.pop()\n                total += mid * min(stack[-1], x)\n            stack.append(x)\n        while len(stack) > 2:\n            total += stack.pop() * stack[-1]\n        return total\n",
+    "javascript": "var mctFromLeafValues = function(arr) {\n    const stack = [Infinity];\n    let total = 0;\n    for (const x of arr) {\n        while (stack[stack.length - 1] <= x) {\n            const mid = stack.pop();\n            total += mid * Math.min(stack[stack.length - 1], x);\n        }\n        stack.push(x);\n    }\n    while (stack.length > 2) {\n        total += stack.pop() * stack[stack.length - 1];\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

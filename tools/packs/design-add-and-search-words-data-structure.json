@@ -1,0 +1,41 @@
+{
+  "slug": "design-add-and-search-words-data-structure",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Storing words in a trie lets a wildcard search branch into every child whenever it meets a dot, turning prefix-by-prefix matching into a bounded depth-first walk.",
+  "hints": [
+    "Words share prefixes, so a character tree (trie) keeps lookups proportional to the word length rather than the number of stored words.",
+    "Insertion walks the tree creating missing child nodes and marks the final node as a complete word.",
+    "Search recurses character by character; a normal letter follows one child, while a dot must try every existing child at that position before failing."
+  ],
+  "constraints": [
+    { "param": "word_length", "kind": "int", "value": [1, 25] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "add three words then query exact, missing, and dotted patterns",
+      "input": [["WordDictionary", "addWord", "addWord", "addWord", "search", "search", "search", "search"], [[], ["bad"], ["dad"], ["mad"], ["pad"], ["bad"], [".ad"], ["b.."]]] },
+    { "kind": "boundary", "description": "single one-letter word matched by an exact letter and by a dot",
+      "input": [["WordDictionary", "addWord", "search", "search", "search"], [[], ["a"], ["a"], ["."], ["b"]]] },
+    { "kind": "trap", "description": "a pattern shorter or longer than every stored word must not match",
+      "input": [["WordDictionary", "addWord", "search", "search", "search"], [[], ["abc"], ["ab"], ["abcd"], ["a.c"]]] },
+    { "kind": "trap", "description": "all dots match any stored word of that exact length only",
+      "input": [["WordDictionary", "addWord", "addWord", "search", "search", "search"], [[], ["cat"], ["cars"], ["..."], ["...."], ["....."]]] },
+    { "kind": "trap", "description": "searching before anything is added always fails",
+      "input": [["WordDictionary", "search", "addWord", "search"], [[], ["x"], ["x"], ["x"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random short lowercase words over a small alphabet with dotted and plain queries",
+      "seed": 53,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    ops = ['WordDictionary']\n    args = [[]]\n    added = []\n    for _ in range(max(1, size)):\n        if not added or rng.random() < 0.5:\n            ln = rng.randint(1, 5)\n            w = ''.join(rng.choice('abc') for _ in range(ln))\n            added.append(w)\n            ops.append('addWord'); args.append([w])\n        else:\n            base = rng.choice(added)\n            chars = list(base)\n            ndots = rng.randint(0, min(2, len(chars)))\n            for pos in rng.sample(range(len(chars)), ndots):\n                chars[pos] = '.'\n            if rng.random() < 0.3 and chars:\n                chars[rng.randrange(len(chars))] = rng.choice('xyz')\n            ops.append('search'); args.append([''.join(chars)])\n    return [ops, args]\n",
+      "note": "queries derive from added words so both matches and misses occur; at most 2 dots per query"
+    }
+  ],
+  "oracle_python": "class WordDictionary:\n    def __init__(self):\n        self.words = []\n    def addWord(self, word):\n        self.words.append(word)\n    def search(self, word):\n        for w in self.words:\n            if len(w) != len(word):\n                continue\n            if all(p == '.' or p == c for p, c in zip(word, w)):\n                return True\n        return False\n",
+  "solutions": {
+    "python": "class WordDictionary:\n    def __init__(self):\n        self.root = {}\n    def addWord(self, word):\n        node = self.root\n        for c in word:\n            node = node.setdefault(c, {})\n        node['$'] = True\n    def search(self, word):\n        def dfs(node, i):\n            if i == len(word):\n                return '$' in node\n            c = word[i]\n            if c == '.':\n                for k, child in node.items():\n                    if k != '$' and dfs(child, i + 1):\n                        return True\n                return False\n            if c in node:\n                return dfs(node[c], i + 1)\n            return False\n        return dfs(self.root, 0)\n",
+    "javascript": "var WordDictionary = function() {\n    this.root = {};\n};\nWordDictionary.prototype.addWord = function(word) {\n    let node = this.root;\n    for (const c of word) {\n        if (!node[c]) node[c] = {};\n        node = node[c];\n    }\n    node['$'] = true;\n};\nWordDictionary.prototype.search = function(word) {\n    const dfs = (node, i) => {\n        if (i === word.length) return node['$'] === true;\n        const c = word[i];\n        if (c === '.') {\n            for (const k of Object.keys(node)) {\n                if (k !== '$' && dfs(node[k], i + 1)) return true;\n            }\n            return false;\n        }\n        if (node[c]) return dfs(node[c], i + 1);\n        return false;\n    };\n    return dfs(this.root, 0);\n};\n"
+  },
+  "complexity": { "time": "O(L) add, O(26^d * L) search", "space": "O(total chars)" }
+}

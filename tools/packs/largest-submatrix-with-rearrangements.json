@@ -1,0 +1,39 @@
+{
+  "slug": "largest-submatrix-with-rearrangements",
+  "judge": "exact",
+  "pattern": "Rows stay fixed but columns can be freely reordered, so for every possible bottom row, sorting the columns by how many consecutive ones sit directly above it turns finding the best all-ones rectangle into picking a width and height off a sorted list.",
+  "hints": [
+    "Rows can't move, only columns can be permuted -- so any rectangle you pick is really a contiguous band of rows together with some chosen set of columns that are all ones through that whole band.",
+    "For each cell, track how many ones are stacked directly above it (including itself) in the same column, resetting to zero the moment a zero appears -- this turns each column into a running 'height' at every row.",
+    "For a fixed bottom row, sort that row's heights from tallest to shortest: since columns can be placed in any order, taking the k tallest heights and using the k-th tallest as the rectangle's height gives area = height * k -- try every k for every row and keep the best."
+  ],
+  "constraints": [
+    { "param": "matrix", "kind": "int[][]", "len": [1, 300], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, 3x3 grid", "input": [[[0, 0, 1], [1, 1, 1], [1, 0, 1]]] },
+    { "kind": "edge", "description": "statement example, single row with gaps", "input": [[[1, 0, 1, 0, 1]]] },
+    { "kind": "edge", "description": "statement example, two rows", "input": [[[1, 1, 0], [1, 0, 1]]] },
+    { "kind": "boundary", "description": "single cell, one", "input": [[[1]]] },
+    { "kind": "boundary", "description": "single cell, zero", "input": [[[0]]] },
+    { "kind": "trap", "description": "all zeros, no valid rectangle bigger than empty", "input": [[[0, 0], [0, 0]]] },
+    { "kind": "trap", "description": "all ones, entire grid qualifies", "input": [[[1, 1, 1], [1, 1, 1]]] },
+    { "kind": "edge", "description": "single row, only column order can be rearranged", "input": [[[1, 1, 0, 1, 1, 1]]] },
+    { "kind": "edge", "description": "single column, only vertical runs matter", "input": [[[1], [1], [0], [1]]] },
+    { "kind": "trap", "description": "a tall thin run competes with a short wide run for the best area", "input": [[[1, 1, 1, 1], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random binary matrices at a range of shapes up to a moderate cap",
+      "seed": 17,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(2, min(size, 120)))\n    n = rng.randint(1, max(2, min(size, 120)))\n    grid = [[rng.randint(0, 1) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestSubmatrix(self, matrix):\n        m = len(matrix)\n        n = len(matrix[0])\n        prefix = [[0] * n for _ in range(m + 1)]\n        for i in range(m):\n            for j in range(n):\n                prefix[i + 1][j] = prefix[i][j] + matrix[i][j]\n        best = 0\n        for top in range(m):\n            for bottom in range(top, m):\n                height = bottom - top + 1\n                width = 0\n                for j in range(n):\n                    col_ones = prefix[bottom + 1][j] - prefix[top][j]\n                    if col_ones == height:\n                        width += 1\n                area = width * height\n                if area > best:\n                    best = area\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestSubmatrix(self, matrix):\n        m = len(matrix)\n        n = len(matrix[0])\n        heights = [[0] * n for _ in range(m)]\n        for j in range(n):\n            for i in range(m):\n                if matrix[i][j] == 1:\n                    heights[i][j] = (heights[i - 1][j] + 1) if i > 0 else 1\n                else:\n                    heights[i][j] = 0\n        best = 0\n        for i in range(m):\n            row = sorted(heights[i], reverse=True)\n            for k in range(n):\n                area = row[k] * (k + 1)\n                if area > best:\n                    best = area\n        return best\n",
+    "javascript": "var largestSubmatrix = function(matrix) {\n    const m = matrix.length;\n    const n = matrix[0].length;\n    const heights = Array.from({ length: m }, () => new Array(n).fill(0));\n    for (let j = 0; j < n; j++) {\n        for (let i = 0; i < m; i++) {\n            if (matrix[i][j] === 1) {\n                heights[i][j] = i > 0 ? heights[i - 1][j] + 1 : 1;\n            } else {\n                heights[i][j] = 0;\n            }\n        }\n    }\n    let best = 0;\n    for (let i = 0; i < m; i++) {\n        const row = heights[i].slice().sort((a, b) => b - a);\n        for (let k = 0; k < n; k++) {\n            const area = row[k] * (k + 1);\n            if (area > best) best = area;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(m * n log n)", "space": "O(m * n)" }
+}

@@ -1,0 +1,45 @@
+{
+  "slug": "merge-adjacent-equal-elements",
+  "judge": "exact",
+  "pattern": "Repeatedly merging the leftmost adjacent equal pair is exactly what a stack replicates: keep collapsing the top of the stack against the next incoming value until it stops matching, which reproduces the same shrinking sequence in linear time instead of rescanning the whole array after every single merge.",
+  "hints": [
+    "Simulating the process literally -- rescanning the whole array from the front after every merge -- is correct but wastes a lot of repeated scanning; look for a way to touch each number only once.",
+    "Keep a running stack of already-settled values. When the next incoming number equals the value on top of the stack, that is exactly the situation where a merge would happen next, so combine them into a single new value -- and then check again, because that new value might now match whatever is below it.",
+    "For each incoming number, keep folding it into the top of the stack while they are equal (replacing the number with the new sum each time) before finally pushing it; whatever remains on the stack at the end, in order, is the fully-merged array."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element, nothing to merge", "input": [[5]] },
+    { "kind": "edge", "description": "cascading merge collapses the array down to two elements", "input": [[3, 1, 1, 2]] },
+    { "kind": "edge", "description": "two rounds of merging fully collapse the array to one element", "input": [[2, 2, 4]] },
+    { "kind": "edge", "description": "no adjacent equal elements anywhere, array is returned unchanged", "input": [[3, 7, 5]] },
+    { "kind": "trap", "description": "three equal elements only merge the first pair; they never fully collapse into one", "input": [[1, 1, 1]] },
+    { "kind": "trap", "description": "a matching pair in the middle merges without disturbing the untouched values on either side", "input": [[5, 3, 3, 5]] },
+    { "kind": "trap", "description": "repeated values that are never adjacent to each other must not be merged at all", "input": [[1, 2, 1, 2]] },
+    { "kind": "boundary", "description": "both elements at the maximum allowed value; the merged sum exceeds that bound", "input": [[100000, 100000]] },
+    { "kind": "boundary", "description": "a single element already at the maximum allowed value", "input": [[100000]] }
+  ],
+  "stress": [
+    {
+      "description": "a long run of one repeated value forces a full chain of cascading merges down to a single element",
+      "seed": 7,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = 1\n    while n * 2 <= size:\n        n *= 2\n    v = rng.randint(1, 100000)\n    return [[v] * n]\n",
+      "note": "n is rounded down to the nearest power of two so the stack solution runs a clean full-collapse chain"
+    },
+    {
+      "description": "a large array of mostly-random values with scattered adjacent duplicates sprinkled in, triggering scattered (non-cascading) merges instead of one big collapse",
+      "seed": 13,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    for _ in range(n // 20):\n        i = rng.randint(0, n - 2)\n        nums[i + 1] = nums[i]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mergeAdjacent(self, nums: List[int]) -> List[int]:\n        # Literal simulation of the spec: repeatedly scan from the very start\n        # for the leftmost adjacent equal pair, merge just that pair, then\n        # rescan from scratch. Independent of (and much slower than) the\n        # stack-based optimal solution -- used only as a differential check.\n        arr = list(nums)\n        while True:\n            merge_at = -1\n            for i in range(len(arr) - 1):\n                if arr[i] == arr[i + 1]:\n                    merge_at = i\n                    break\n            if merge_at == -1:\n                return arr\n            arr[merge_at:merge_at + 2] = [arr[merge_at] + arr[merge_at + 1]]\n",
+  "solutions": {
+    "python": "class Solution:\n    def mergeAdjacent(self, nums: List[int]) -> List[int]:\n        stack: List[int] = []\n        for num in nums:\n            cur = num\n            while stack and stack[-1] == cur:\n                cur += stack.pop()\n            stack.append(cur)\n        return stack\n",
+    "javascript": "var mergeAdjacent = function(nums) {\n    const stack = [];\n    for (const num of nums) {\n        let cur = num;\n        while (stack.length && stack[stack.length - 1] === cur) {\n            cur += stack.pop();\n        }\n        stack.push(cur);\n    }\n    return stack;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

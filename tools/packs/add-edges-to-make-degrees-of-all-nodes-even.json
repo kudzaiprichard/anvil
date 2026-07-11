@@ -1,0 +1,39 @@
+{
+  "slug": "add-edges-to-make-degrees-of-all-nodes-even",
+  "judge": "exact",
+  "pattern": "Only nodes with odd degree ever need fixing, and adding an edge flips the parity of exactly its two endpoints, so the whole question collapses to: can the (always even-sized) set of odd-degree nodes be paired off using at most two brand-new edges, possibly routing one pair through a helper node.",
+  "hints": [
+    "Compute every node's degree; if none are odd you're already done with zero edges added — the number of odd-degree nodes is always even, so the only real cases are 0, 2, or 4 of them (more than 4 can never be fixed with just two edges).",
+    "With exactly two odd nodes, try connecting them directly first; if that edge already exists, look for any third node that shares no edge with either of them and route through it instead (two new edges, one to each odd node).",
+    "With exactly four odd nodes, there are only three ways to split them into two pairs — check each pairing and see whether both of its two edges are new (not already present); if none of the three pairings works, it's impossible."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [3, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [2, 100000], "note": "each inner pair [a,b], 1<=a,b<=n, a!=b, no repeated edge" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "path of three nodes — the two odd-degree endpoints can be joined directly", "input": [3, [[1, 2], [2, 3]]] },
+    { "kind": "edge", "description": "a 4-cycle — every degree is already even, zero edges needed", "input": [4, [[1, 2], [2, 3], [3, 4], [4, 1]]] },
+    { "kind": "edge", "description": "the two odd-degree nodes already share a direct edge, and no third node is free of both — impossible", "input": [4, [[1, 2], [1, 3], [1, 4], [2, 3]]] },
+    { "kind": "edge", "description": "the two odd-degree nodes already share a direct edge, but an isolated fifth node can route both new edges through it", "input": [5, [[1, 2], [1, 3], [1, 4], [2, 3]]] },
+    { "kind": "boundary", "description": "smallest possible n, star with two edges — direct fix between the two odd leaves", "input": [3, [[1, 2], [1, 3]]] },
+    { "kind": "boundary", "description": "the minimum allowed number of edges (two), forming two disjoint odd pairs among four odd nodes", "input": [6, [[1, 2], [3, 4]]] },
+    { "kind": "trap", "description": "a hub node already connected to all three other odd nodes blocks every one of the three possible pairings — impossible even though there are only four odd nodes", "input": [5, [[1, 2], [1, 3], [1, 4]]] },
+    { "kind": "trap", "description": "a solution that only tries the first pairing of the four odd nodes would wrongly report impossible; the second pairing is the one that actually works", "input": [5, [[1, 2], [3, 5], [5, 4]]] },
+    { "kind": "trap", "description": "six nodes end up with odd degree — more than four odd nodes can never be fixed with only two edges, regardless of how they're arranged", "input": [6, [[1, 2], [3, 6], [4, 6], [5, 6]]] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse graph up to 100000 nodes and 100000 edges with no duplicate or self-loop edges",
+      "seed": 19,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(100000, size))\n    max_e = min(100000, n * (n - 1) // 2)\n    num_edges = min(max_e, max(2, size // 2))\n    edge_set = set()\n    edges = []\n    attempts = 0\n    while len(edges) < num_edges and attempts < num_edges * 5:\n        attempts += 1\n        a = rng.randint(1, n)\n        b = rng.randint(1, n)\n        if a == b:\n            continue\n        key = (min(a, b), max(a, b))\n        if key in edge_set:\n            continue\n        edge_set.add(key)\n        edges.append([a, b])\n    if len(edges) < 2:\n        edges = [[1, 2], [2, 3]]\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isPossible(self, n, edges):\n        edge_set = set()\n        deg = [0] * (n + 1)\n        for a, b in edges:\n            edge_set.add((min(a, b), max(a, b)))\n            deg[a] += 1\n            deg[b] += 1\n        if all(deg[i] % 2 == 0 for i in range(1, n + 1)):\n            return True\n        candidates = []\n        for a in range(1, n + 1):\n            for b in range(a + 1, n + 1):\n                if (a, b) not in edge_set:\n                    candidates.append((a, b))\n        for (a, b) in candidates:\n            d = deg[:]\n            d[a] += 1\n            d[b] += 1\n            if all(d[i] % 2 == 0 for i in range(1, n + 1)):\n                return True\n        m = len(candidates)\n        for i in range(m):\n            a1, b1 = candidates[i]\n            for j in range(i + 1, m):\n                a2, b2 = candidates[j]\n                d = deg[:]\n                d[a1] += 1\n                d[b1] += 1\n                d[a2] += 1\n                d[b2] += 1\n                if all(d[k] % 2 == 0 for k in range(1, n + 1)):\n                    return True\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def isPossible(self, n, edges):\n        adj = [set() for _ in range(n + 1)]\n        deg = [0] * (n + 1)\n        for a, b in edges:\n            adj[a].add(b)\n            adj[b].add(a)\n            deg[a] += 1\n            deg[b] += 1\n        odd = [i for i in range(1, n + 1) if deg[i] % 2 == 1]\n        if len(odd) == 0:\n            return True\n        if len(odd) == 2:\n            u, v = odd\n            if v not in adj[u]:\n                return True\n            for w in range(1, n + 1):\n                if w != u and w != v and w not in adj[u] and w not in adj[v]:\n                    return True\n            return False\n        if len(odd) == 4:\n            a, b, c, d = odd\n            pairings = [((a, b), (c, d)), ((a, c), (b, d)), ((a, d), (b, c))]\n            for (x1, y1), (x2, y2) in pairings:\n                if y1 not in adj[x1] and y2 not in adj[x2]:\n                    return True\n            return False\n        return False\n",
+    "javascript": "var isPossible = function(n, edges) {\n    const adj = Array.from({ length: n + 1 }, () => new Set());\n    const deg = new Array(n + 1).fill(0);\n    for (const [a, b] of edges) {\n        adj[a].add(b);\n        adj[b].add(a);\n        deg[a]++;\n        deg[b]++;\n    }\n    const odd = [];\n    for (let i = 1; i <= n; i++) if (deg[i] % 2 === 1) odd.push(i);\n    if (odd.length === 0) return true;\n    if (odd.length === 2) {\n        const [u, v] = odd;\n        if (!adj[u].has(v)) return true;\n        for (let w = 1; w <= n; w++) {\n            if (w !== u && w !== v && !adj[u].has(w) && !adj[v].has(w)) return true;\n        }\n        return false;\n    }\n    if (odd.length === 4) {\n        const [a, b, c, d] = odd;\n        const pairings = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]];\n        for (const [[x1, y1], [x2, y2]] of pairings) {\n            if (!adj[x1].has(y1) && !adj[x2].has(y2)) return true;\n        }\n        return false;\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(n + e)", "space": "O(n + e)" }
+}

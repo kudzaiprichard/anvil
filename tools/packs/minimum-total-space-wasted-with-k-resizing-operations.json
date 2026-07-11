@@ -1,0 +1,40 @@
+{
+  "slug": "minimum-total-space-wasted-with-k-resizing-operations",
+  "judge": "exact",
+  "pattern": "Partition a timeline into at most k+1 contiguous segments where each segment is sized to its own maximum, and minimize total slack with an interval-cost dynamic program.",
+  "hints": [
+    "Within any stretch of time between two resizes the array size is constant, so it must equal the largest demand in that stretch; everything below it is wasted.",
+    "Precompute the waste of making the slice from index i to j a single segment, then choose where to place the resizes.",
+    "Let dp[i][c] be the least waste covering the prefix up to time i using c segments. Transition by trying every previous cut point and adding the precomputed segment waste; with k resizes you get up to k+1 segments."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 200], "value": [1, 1000000] },
+    { "param": "k", "kind": "int", "value": [0, 199] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two times, no resizes allowed, single size covers both", "input": [[10, 20], 0] },
+    { "kind": "edge", "description": "one resize lets a tall final demand stand alone", "input": [[10, 20, 30], 1] },
+    { "kind": "edge", "description": "valley in the middle exploited by two resizes", "input": [[10, 20, 15, 30, 20], 2] },
+    { "kind": "boundary", "description": "single element wastes nothing", "input": [[7], 0] },
+    { "kind": "boundary", "description": "enough resizes to give every time its own size", "input": [[5, 3, 8, 1], 3] },
+    { "kind": "trap", "description": "already non-decreasing but no resizes forces the peak on everyone", "input": [[1, 2, 3, 4, 5], 0] },
+    { "kind": "trap", "description": "decreasing sequence with one resize", "input": [[9, 7, 5, 3, 1], 1] },
+    { "kind": "edge", "description": "all equal demands waste nothing regardless of k", "input": [[6, 6, 6, 6], 2] },
+    { "kind": "boundary", "description": "large magnitude values", "input": [[1000000, 1, 1000000, 1], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random demands with a random feasible resize budget",
+      "seed": 7,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    nums = [rng.randrange(1, 1000001) for _ in range(n)]\n    k = rng.randrange(0, n)\n    return [nums, k]\n",
+      "note": "k stays within 0..n-1"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minSpaceWastedKResizing(self, nums, k):\n        import sys\n        n = len(nums)\n        # cost[i][j] = waste of one segment covering indices i..j inclusive\n        cost = [[0] * n for _ in range(n)]\n        for i in range(n):\n            mx = 0\n            tot = 0\n            for j in range(i, n):\n                mx = max(mx, nums[j])\n                tot += nums[j]\n                cost[i][j] = mx * (j - i + 1) - tot\n        INF = float('inf')\n        # dp recursion: best(start, segs) = min waste covering start..n-1 with at most segs segments\n        from functools import lru_cache\n        import sys as _sys\n        _sys.setrecursionlimit(10000)\n        memo = {}\n        def best(start, segs):\n            if start == n:\n                return 0\n            if segs == 0:\n                return INF\n            key = (start, segs)\n            if key in memo:\n                return memo[key]\n            ans = INF\n            for end in range(start, n):\n                rest = best(end + 1, segs - 1)\n                if rest < INF:\n                    ans = min(ans, cost[start][end] + rest)\n            memo[key] = ans\n            return ans\n        return best(0, k + 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minSpaceWastedKResizing(self, nums, k):\n        n = len(nums)\n        k += 1  # number of segments allowed\n        cost = [[0] * n for _ in range(n)]\n        for i in range(n):\n            mx = 0\n            tot = 0\n            for j in range(i, n):\n                if nums[j] > mx:\n                    mx = nums[j]\n                tot += nums[j]\n                cost[i][j] = mx * (j - i + 1) - tot\n        INF = float('inf')\n        # dp[c][i] = min waste for prefix of length i using c segments\n        dp = [[INF] * (n + 1) for _ in range(k + 1)]\n        dp[0][0] = 0\n        for c in range(1, k + 1):\n            for i in range(1, n + 1):\n                for p in range(c - 1, i):\n                    if dp[c - 1][p] < INF:\n                        cand = dp[c - 1][p] + cost[p][i - 1]\n                        if cand < dp[c][i]:\n                            dp[c][i] = cand\n        return min(dp[c][n] for c in range(1, k + 1))\n",
+    "javascript": "var minSpaceWastedKResizing = function(nums, k) {\n    const n = nums.length;\n    const segs = k + 1;\n    const cost = Array.from({length: n}, () => new Array(n).fill(0));\n    for (let i = 0; i < n; i++) {\n        let mx = 0, tot = 0;\n        for (let j = i; j < n; j++) {\n            if (nums[j] > mx) mx = nums[j];\n            tot += nums[j];\n            cost[i][j] = mx * (j - i + 1) - tot;\n        }\n    }\n    const INF = Infinity;\n    const dp = Array.from({length: segs + 1}, () => new Array(n + 1).fill(INF));\n    dp[0][0] = 0;\n    for (let c = 1; c <= segs; c++) {\n        for (let i = 1; i <= n; i++) {\n            for (let p = c - 1; p < i; p++) {\n                if (dp[c - 1][p] < INF) {\n                    const cand = dp[c - 1][p] + cost[p][i - 1];\n                    if (cand < dp[c][i]) dp[c][i] = cand;\n                }\n            }\n        }\n    }\n    let ans = INF;\n    for (let c = 1; c <= segs; c++) ans = Math.min(ans, dp[c][n]);\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(k*n^2)", "space": "O(k*n)" }
+}

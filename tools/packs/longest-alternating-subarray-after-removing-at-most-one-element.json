@@ -1,0 +1,44 @@
+{
+  "slug": "longest-alternating-subarray-after-removing-at-most-one-element",
+  "judge": "exact",
+  "pattern": "Zigzag-with-one-deletion problems reduce to a small rolling state machine: at every index track the best run length ending there for each of (last step was up, last step was down) crossed with (deletion budget still unused, deletion budget already spent), where a fresh restart is always a legal fallback.",
+  "hints": [
+    "Two adjacent equal values can never sit next to each other in a valid alternating run, so an equal pair always forces either a fresh restart or spending your one deletion to bridge across it.",
+    "For each position, keep four running best lengths: the longest alternating run ending here going up with zero deletions used, going down with zero deletions used, and the same two going up/down but having already used the single deletion somewhere earlier in the run.",
+    "A deletion can also be spent right at this step by connecting the current element directly to the one two positions back (skipping the element in between); only allow that jump from a zero-deletions state, landing you in a one-deletion state, and always allow any state to fall back to a fresh length-1 restart."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "whole array already alternates down-up-down with zero deletions needed", "input": [[2, 1, 3, 2]] },
+    { "kind": "edge", "description": "a mid-length array where one internal deletion unlocks a longer alternating run than any zero-deletion window", "input": [[3, 2, 1, 2, 3, 2, 1]] },
+    { "kind": "boundary", "description": "two equal values at the maximum value bound: no comparison can ever be strict, so even after removing one element only length 1 remains", "input": [[100000, 100000]] },
+    { "kind": "boundary", "description": "the two smallest legal distinct values, already alternating with no deletion needed", "input": [[1, 2]] },
+    { "kind": "trap", "description": "a strictly monotonic run of five: removing any single element still leaves a monotonic (non-alternating) remainder past length two, so the cap stays at 2 no matter which element is dropped", "input": [[1, 2, 3, 4, 5]] },
+    { "kind": "trap", "description": "five identical values: every adjacent pair ties, so no single deletion can ever produce an alternating run longer than one element", "input": [[5, 5, 5, 5, 5]] },
+    { "kind": "trap", "description": "a single equal-adjacent tie buried in the middle of an otherwise-alternating run, fixable by dropping one of the tied pair", "input": [[1, 3, 2, 2, 4] ] },
+    { "kind": "edge", "description": "a long run that already alternates perfectly for its full length with zero deletions", "input": [[1, 2, 1, 2, 1, 2, 1, 2]] },
+    { "kind": "boundary", "description": "extreme values swinging between the minimum and maximum bound, alternating for the full length with zero deletions", "input": [[100000, 1, 100000, 1, 100000]] }
+  ],
+  "stress": [
+    {
+      "description": "full-range random values across a moderate length, exercising both zero- and one-deletion runs at scale",
+      "seed": 7,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    return [[rng.randint(1, 100000) for _ in range(n)]]\n"
+    },
+    {
+      "description": "a small value alphabet forces frequent ties and short bursts, stressing the tie/restart handling at moderate scale",
+      "seed": 42,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    return [[rng.randint(1, 5) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestAlternating(self, nums):\n        # Independent formulation: for every choice of which single index to delete\n        # (including deleting nothing), build the resulting array directly and scan\n        # it for the longest alternating contiguous run. Structurally different from\n        # the rolling-state DP used in the optimal solution below.\n        def longest_alt_run(arr):\n            if not arr:\n                return 0\n            best = 1\n            cur = 1\n            prev_dir = None\n            for i in range(1, len(arr)):\n                if arr[i] == arr[i - 1]:\n                    cur = 1\n                    prev_dir = None\n                else:\n                    d = arr[i] > arr[i - 1]\n                    if prev_dir is None or d != prev_dir:\n                        cur += 1\n                    else:\n                        cur = 2\n                    prev_dir = d\n                best = max(best, cur)\n            return best\n\n        n = len(nums)\n        best = longest_alt_run(nums)\n        for d in range(n):\n            modified = nums[:d] + nums[d + 1:]\n            best = max(best, longest_alt_run(modified))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestAlternating(self, nums: List[int]) -> int:\n        n = len(nums)\n        up0 = [1] * n\n        down0 = [1] * n\n        up1 = [1] * n\n        down1 = [1] * n\n        for i in range(1, n):\n            if nums[i] > nums[i - 1]:\n                up0[i] = max(up0[i], down0[i - 1] + 1)\n                up1[i] = max(up1[i], down1[i - 1] + 1)\n            elif nums[i] < nums[i - 1]:\n                down0[i] = max(down0[i], up0[i - 1] + 1)\n                down1[i] = max(down1[i], up1[i - 1] + 1)\n            if i >= 2:\n                if nums[i] > nums[i - 2]:\n                    up1[i] = max(up1[i], down0[i - 2] + 1)\n                if nums[i] < nums[i - 2]:\n                    down1[i] = max(down1[i], up0[i - 2] + 1)\n        ans = 1\n        for i in range(n):\n            ans = max(ans, up0[i], down0[i], up1[i], down1[i])\n        return ans\n",
+    "javascript": "var longestAlternating = function(nums) {\n    const n = nums.length;\n    const up0 = new Array(n).fill(1);\n    const down0 = new Array(n).fill(1);\n    const up1 = new Array(n).fill(1);\n    const down1 = new Array(n).fill(1);\n    for (let i = 1; i < n; i++) {\n        if (nums[i] > nums[i - 1]) {\n            up0[i] = Math.max(up0[i], down0[i - 1] + 1);\n            up1[i] = Math.max(up1[i], down1[i - 1] + 1);\n        } else if (nums[i] < nums[i - 1]) {\n            down0[i] = Math.max(down0[i], up0[i - 1] + 1);\n            down1[i] = Math.max(down1[i], up1[i - 1] + 1);\n        }\n        if (i >= 2) {\n            if (nums[i] > nums[i - 2]) {\n                up1[i] = Math.max(up1[i], down0[i - 2] + 1);\n            }\n            if (nums[i] < nums[i - 2]) {\n                down1[i] = Math.max(down1[i], up0[i - 2] + 1);\n            }\n        }\n    }\n    let ans = 1;\n    for (let i = 0; i < n; i++) {\n        ans = Math.max(ans, up0[i], down0[i], up1[i], down1[i]);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

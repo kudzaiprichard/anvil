@@ -1,0 +1,37 @@
+{
+  "slug": "smallest-string-with-swaps",
+  "judge": "exact",
+  "pattern": "Swappable index pairs are edges, so within each connected component any permutation of characters is reachable; sorting each component's letters and placing them back in sorted index order yields the lexicographically smallest string.",
+  "hints": [
+    "Two indices you can swap directly, or chain swaps between, can hold each other's characters in any arrangement.",
+    "Group indices into connected components using the swap pairs as edges.",
+    "For each component, take its indices in sorted order and its characters in sorted order, then assign the smallest available character to the smallest index."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two disjoint swap pairs", "input": ["dcab", [[0, 3], [1, 2]]] },
+    { "kind": "edge", "description": "overlapping pairs merge into one component", "input": ["dcab", [[0, 3], [1, 2], [0, 2]]] },
+    { "kind": "edge", "description": "chain of swaps connects all indices", "input": ["cba", [[0, 1], [1, 2]]] },
+    { "kind": "boundary", "description": "no pairs leaves the string unchanged", "input": ["leetcode", []] },
+    { "kind": "trap", "description": "self-pair is a no-op edge", "input": ["ba", [[0, 0], [1, 1]]] },
+    { "kind": "edge", "description": "single character", "input": ["z", []] },
+    { "kind": "trap", "description": "duplicate letters within a component sort correctly", "input": ["bbaa", [[0, 2], [1, 3], [0, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random string with random swap pairs forming several components",
+      "seed": 37,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, size)\n    s = ''.join(rng.choice('abcde') for _ in range(n))\n    pairs = []\n    for _ in range(n):\n        a = rng.randrange(0, n)\n        b = rng.randrange(0, n)\n        pairs.append([a, b])\n    return [s, pairs]\n",
+      "note": "dense pairs over a small alphabet stress component merging and duplicate sorting"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def smallestStringWithSwaps(self, s, pairs):\n        n = len(s)\n        adj = [[] for _ in range(n)]\n        for a, b in pairs:\n            adj[a].append(b)\n            adj[b].append(a)\n        seen = [False] * n\n        res = list(s)\n        for i in range(n):\n            if seen[i]:\n                continue\n            stack = [i]\n            seen[i] = True\n            comp = []\n            while stack:\n                u = stack.pop()\n                comp.append(u)\n                for v in adj[u]:\n                    if not seen[v]:\n                        seen[v] = True\n                        stack.append(v)\n            idxs = sorted(comp)\n            chars = sorted(s[j] for j in comp)\n            for k, j in enumerate(idxs):\n                res[j] = chars[k]\n        return ''.join(res)\n",
+  "solutions": {
+    "python": "class Solution:\n    def smallestStringWithSwaps(self, s, pairs):\n        n = len(s)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        for a, b in pairs:\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        from collections import defaultdict\n        groups = defaultdict(list)\n        for i in range(n):\n            groups[find(i)].append(i)\n        res = list(s)\n        for idxs in groups.values():\n            chars = sorted(s[i] for i in idxs)\n            for k, i in enumerate(sorted(idxs)):\n                res[i] = chars[k]\n        return ''.join(res)\n",
+    "javascript": "var smallestStringWithSwaps = function(s, pairs) {\n    const n = s.length;\n    const parent = Array.from({length: n}, (_, i) => i);\n    const find = (x) => {\n        while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }\n        return x;\n    };\n    for (const [a, b] of pairs) {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent[ra] = rb;\n    }\n    const groups = new Map();\n    for (let i = 0; i < n; i++) {\n        const r = find(i);\n        if (!groups.has(r)) groups.set(r, []);\n        groups.get(r).push(i);\n    }\n    const res = s.split('');\n    for (const idxs of groups.values()) {\n        const chars = idxs.map(i => s[i]).sort();\n        const sortedIdx = idxs.slice().sort((a, b) => a - b);\n        for (let k = 0; k < sortedIdx.length; k++) res[sortedIdx[k]] = chars[k];\n    }\n    return res.join('');\n};\n"
+  },
+  "complexity": { "time": "O((n + p) log n)", "space": "O(n)" }
+}

@@ -1,0 +1,52 @@
+{
+  "slug": "maximum-score-using-exactly-k-pairs",
+  "judge": "exact",
+  "pattern": "Picking exactly k pairs from two independently-increasing index sequences is a three-dimensional prefix DP: the state must remember how far along each array you are AND how many pairs you have already committed to, because a pair from early positions can still be worth more than one from late positions once sign flips are involved.",
+  "hints": [
+    "This is not two-pointer greedy — because scores can be negative, the best pairing sometimes means skipping a locally-great product to preserve the ability to make later, even-better ones (or to avoid being forced into a bad one). Think about what state you need to remember as you scan both arrays.",
+    "Define dp[i][j][t] as the best score achievable using only the first i elements of nums1 and the first j elements of nums2, having committed to exactly t pairs so far. From dp[i][j][t] you can either not use nums1[i-1] (fall back to dp[i-1][j][t]), not use nums2[j-1] (dp[i][j-1][t]), or pair them up as the t-th pair (dp[i-1][j-1][t-1] + nums1[i-1]*nums2[j-1]).",
+      "Initialize dp[i][j][0] = 0 everywhere (using zero pairs always scores zero), and mark every dp[i][j][t] with t > 0 as unreachable whenever i == 0 or j == 0 (you cannot form a pair without elements on both sides) using a sentinel so far below any real achievable score that it can never win a max() by accident. The answer is dp[n][m][k]."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 100], "value": [-1000000, 1000000] },
+    { "param": "nums2", "kind": "int[]", "len": [1, 100], "value": [-1000000, 1000000] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small mixed-sign case with a clear two-pair combination", "input": [[1, 3, 2], [4, 5, 1], 2] },
+    { "kind": "edge", "description": "different lengths, mixed signs, still k=2", "input": [[-2, 0, 5], [-3, 4, -1, 2], 2] },
+    { "kind": "trap", "description": "k forces using every element of both (n=m=k=2); positive-times-negative products cannot be avoided", "input": [[-3, -2], [1, 2], 2] },
+    { "kind": "edge", "description": "k=1 reduces the problem to picking the single best product pair anywhere in the grid", "input": [[2, -3, 4], [-1, 5, 2], 1] },
+    { "kind": "edge", "description": "unequal array lengths (n=2, m=5) with all-positive values", "input": [[10, 6], [1, 2, 3, 9, 4], 2] },
+    { "kind": "trap", "description": "k == n == m forces the identity pairing (only one increasing triple exists on each side); a negative-times-positive array pairing must yield a negative total", "input": [[-5, -3, -1], [1, 2, 3], 3] },
+    { "kind": "boundary", "description": "single element on each side at the value magnitude ceiling", "input": [[-1000000], [1000000], 1] },
+    { "kind": "trap", "description": "n != m and k == min(n, m) forces every index of the shorter array to be used, while the longer array still has real choices to make", "input": [[1, 10, 2, 9, 3, 8], [5, 1, 4], 3] },
+    { "kind": "trap", "description": "zero values mixed with positive and negative numbers, to catch a solution that mishandles multiplying by zero", "input": [[0, 5, -3], [4, 0, -2], 2] }
+  ],
+  "stress": [
+    {
+      "description": "random n, m, k within bounds and random values across the full magnitude range",
+      "seed": 7,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    cap = max(1, min(100, size))\n    n = rng.randint(1, cap)\n    m = rng.randint(1, cap)\n    k = rng.randint(1, min(n, m))\n    nums1 = [rng.randint(-1000000, 1000000) for _ in range(n)]\n    nums2 = [rng.randint(-1000000, 1000000) for _ in range(m)]\n    return [nums1, nums2, k]\n"
+    },
+    {
+      "description": "maximum-size grid (n=m=k=100) to exercise the full O(n*m*k) DP for performance",
+      "seed": 42,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    cap = max(1, min(100, size))\n    n = m = k = cap\n    nums1 = [rng.randint(-1000000, 1000000) for _ in range(n)]\n    nums2 = [rng.randint(-1000000, 1000000) for _ in range(m)]\n    return [nums1, nums2, k]\n"
+    },
+    {
+      "description": "all-negative nums1 against all-positive nums2 at moderate size, forcing many negative products while still leaving real index choices",
+      "seed": 99,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = m = max(2, min(60, size))\n    k = rng.randint(1, min(n, m))\n    nums1 = [-rng.randint(1, 1000000) for _ in range(n)]\n    nums2 = [rng.randint(1, 1000000) for _ in range(m)]\n    return [nums1, nums2, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\nclass Solution:\n    def maxScore(self, nums1, nums2, k):\n        # Genuinely independent from the DP: directly enumerate every strictly\n        # increasing index subsequence of length k from nums1 and every one from\n        # nums2 (itertools.combinations already yields them in sorted/increasing\n        # order), pair the t-th chosen index of each sequence together, and take\n        # the best total. Only intended for small n, m (this file only feeds it\n        # small edge_inputs; large sizes are exercised via the DP-only stress path).\n        n, m = len(nums1), len(nums2)\n        best = None\n        for idx1 in combinations(range(n), k):\n            for idx2 in combinations(range(m), k):\n                score = 0\n                for t in range(k):\n                    score += nums1[idx1[t]] * nums2[idx2[t]]\n                if best is None or score > best:\n                    best = score\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxScore(self, nums1, nums2, k: int) -> int:\n        n, m = len(nums1), len(nums2)\n        NEG = -10 ** 18\n        # prev holds dp[.][.][t-1]; start at t=0 where every state is reachable at score 0.\n        prev = [[0] * (m + 1) for _ in range(n + 1)]\n        for t in range(1, k + 1):\n            cur = [[NEG] * (m + 1) for _ in range(n + 1)]\n            for i in range(1, n + 1):\n                row = cur[i]\n                above = cur[i - 1]\n                diag_row = prev[i - 1]\n                a = nums1[i - 1]\n                for j in range(1, m + 1):\n                    best = row[j - 1]\n                    if above[j] > best:\n                        best = above[j]\n                    diag = diag_row[j - 1]\n                    candidate = diag + a * nums2[j - 1]\n                    if candidate > best:\n                        best = candidate\n                    row[j] = best\n            prev = cur\n        return prev[n][m]\n",
+    "javascript": "var maxScore = function(nums1, nums2, k) {\n    const n = nums1.length, m = nums2.length;\n    const NEG = -1e15;\n    let prev = [];\n    for (let i = 0; i <= n; i++) prev.push(new Array(m + 1).fill(0));\n    for (let t = 1; t <= k; t++) {\n        const cur = [];\n        for (let i = 0; i <= n; i++) cur.push(new Array(m + 1).fill(NEG));\n        for (let i = 1; i <= n; i++) {\n            const row = cur[i];\n            const above = cur[i - 1];\n            const diagRow = prev[i - 1];\n            const a = nums1[i - 1];\n            for (let j = 1; j <= m; j++) {\n                let best = row[j - 1];\n                if (above[j] > best) best = above[j];\n                const diag = diagRow[j - 1];\n                const candidate = diag + a * nums2[j - 1];\n                if (candidate > best) best = candidate;\n                row[j] = best;\n            }\n        }\n        prev = cur;\n    }\n    return prev[n][m];\n};\n"
+  },
+  "complexity": { "time": "O(n * m * k)", "space": "O(n * m)" }
+}

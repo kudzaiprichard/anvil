@@ -1,0 +1,38 @@
+{
+  "slug": "number-of-good-leaf-nodes-pairs",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json"], "returns": "json" },
+  "pattern": "Each subtree only needs to report how far its own leaves sit from it; merging two children lets leaves from different sides pair up whenever their combined depth stays within the limit.",
+  "hints": [
+    "Think post-order: what does a subtree need to hand back to its parent about the leaves inside it — not the leaves themselves, but how far each one currently sits from this node.",
+    "At a node, gather the list of leaf depths coming from the left child and from the right child (a leaf itself contributes a single depth of zero), then count every left-right pair whose depths sum to at most the limit.",
+    "Return upward one combined list of those depths incremented by one, dropping any that already exceed the limit, so higher ancestors can keep pairing across further leaves."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 1024], "value": [1, 100] },
+    { "param": "distance", "kind": "int", "value": [1, 10] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single node has no pairs", "input": [[1], 5] },
+    { "kind": "edge", "description": "two leaves directly under the root", "input": [[1, 2, 3], 2] },
+    { "kind": "boundary", "description": "distance one step too small excludes the only pair", "input": [[1, 2, 3], 1] },
+    { "kind": "trap", "description": "a full small tree pairs only adjacent leaf siblings", "input": [[1, 2, 3, 4, 5, 6, 7], 2] },
+    { "kind": "trap", "description": "a long skewed chain has at most one leaf", "input": [[1, 2, null, 3, null, 4], 5] },
+    { "kind": "edge", "description": "unbalanced tree mixing shallow and deep leaves", "input": [[1, 2, 3, 4, null, null, 5, 6, 7], 4] },
+    { "kind": "boundary", "description": "minimum allowed distance", "input": [[1, 2, 3], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random binary tree with a modest node budget",
+      "seed": 21,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    from collections import deque\n    n = max(1, min(size, 300))\n    vals = [rng.randint(1, 100) for _ in range(n)]\n    class N:\n        def __init__(self, val):\n            self.val = val\n            self.left = None\n            self.right = None\n    root = N(vals[0])\n    nodes = [root]\n    for v in vals[1:]:\n        for _ in range(20):\n            parent = rng.choice(nodes)\n            if parent.left is None or parent.right is None:\n                break\n        if parent.left is None and (parent.right is not None or rng.random() < 0.5):\n            parent.left = N(v)\n            nodes.append(parent.left)\n        elif parent.right is None:\n            parent.right = N(v)\n            nodes.append(parent.right)\n    result = [root.val]\n    q = deque([root])\n    while q:\n        node = q.popleft()\n        for child in (node.left, node.right):\n            if child is not None:\n                result.append(child.val)\n                q.append(child)\n            else:\n                result.append(None)\n    while result and result[-1] is None:\n        result.pop()\n    distance = rng.randint(1, 10)\n    return [result, distance]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPairs(self, root, distance):\n        from collections import deque, defaultdict\n        adj = defaultdict(list)\n        leaves = []\n        def dfs(node, parent):\n            if not node:\n                return\n            if parent is not None:\n                adj[id(node)].append(id(parent))\n                adj[id(parent)].append(id(node))\n            if not node.left and not node.right:\n                leaves.append(id(node))\n            dfs(node.left, node)\n            dfs(node.right, node)\n        dfs(root, None)\n        count = 0\n        for i in range(len(leaves)):\n            dist = {leaves[i]: 0}\n            q = deque([leaves[i]])\n            while q:\n                u = q.popleft()\n                for v in adj[u]:\n                    if v not in dist:\n                        dist[v] = dist[u] + 1\n                        q.append(v)\n            for j in range(i + 1, len(leaves)):\n                if dist.get(leaves[j], float('inf')) <= distance:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPairs(self, root, distance):\n        self.ans = 0\n        def dfs(node):\n            if not node:\n                return []\n            if not node.left and not node.right:\n                return [1]\n            left = dfs(node.left)\n            right = dfs(node.right)\n            for l in left:\n                for r in right:\n                    if l + r <= distance:\n                        self.ans += 1\n            return [d + 1 for d in left + right if d + 1 <= distance]\n        dfs(root)\n        return self.ans\n",
+    "javascript": "var countPairs = function(root, distance) {\n    let ans = 0;\n    const dfs = (node) => {\n        if (!node) return [];\n        if (!node.left && !node.right) return [1];\n        const left = dfs(node.left);\n        const right = dfs(node.right);\n        for (const l of left) {\n            for (const r of right) {\n                if (l + r <= distance) ans += 1;\n            }\n        }\n        const combined = left.concat(right).map(d => d + 1).filter(d => d <= distance);\n        return combined;\n    };\n    dfs(root);\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

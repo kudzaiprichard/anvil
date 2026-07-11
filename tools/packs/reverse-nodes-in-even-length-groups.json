@@ -1,0 +1,38 @@
+{
+  "slug": "reverse-nodes-in-even-length-groups",
+  "judge": "exact",
+  "io_types": { "params": ["linked_list"], "returns": "linked_list" },
+  "pattern": "Walk the list collecting nodes into successively longer groups (1, 2, 3, ...), and splice a group's own segment backwards in place whenever the group's actual node count — which may be cut short by the list ending — turns out even.",
+  "hints": [
+    "Track a `prev` pointer sitting just before the current group and grow the intended group size by one after every group, but stop collecting a group early if the list runs out of nodes.",
+    "Decide even-or-odd from how many nodes you actually collected for this group, not from the intended group size — a group cut short by the end of the list is judged by its real length.",
+    "When a group is even, reverse just that collected slice of pointers and reconnect `prev` to the new front of the slice and the old front of the slice to whatever node came after the group; odd groups are left untouched and `prev` simply moves to the group's last collected node."
+  ],
+  "constraints": [
+    { "param": "head", "kind": "linked_list", "len": [1, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "ten nodes spanning four groups, exercising both reversed and untouched groups together", "input": [[5, 2, 6, 3, 9, 1, 7, 3, 8, 4]] },
+    { "kind": "edge", "description": "the final group is shortened to exactly one node, staying odd and untouched", "input": [[1, 1, 0, 6]] },
+    { "kind": "trap", "description": "the final group is shortened but its actual length lands on two, so it still gets reversed", "input": [[1, 1, 0, 6, 5]] },
+    { "kind": "trap", "description": "a four-node final group shortened down to a single leftover node, which stays odd and untouched", "input": [[1, 2, 3, 4, 5, 6, 7]] },
+    { "kind": "boundary", "description": "a single-node list is just one odd group of length one, so the output equals the input", "input": [[9]] },
+    { "kind": "boundary", "description": "the list ends exactly on a group boundary after three full groups", "input": [[1, 2, 3, 4, 5, 6]] },
+    { "kind": "edge", "description": "a longer list spanning five full groups plus a shortened, odd-length final group", "input": [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]] },
+    { "kind": "edge", "description": "every node shares the same value, so only position (not value) distinguishes the reversal", "input": [[4, 4, 4, 4, 4, 4, 4, 4, 4, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random-length lists with random values, sized up to a couple thousand nodes to exercise many group boundaries",
+      "seed": 9,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 2000)))\n    vals = [rng.randint(0, 100000) for _ in range(n)]\n    return [vals]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def reverseEvenLengthGroups(self, head):\n        vals = []\n        node = head\n        while node:\n            vals.append(node.val)\n            node = node.next\n        result = []\n        i = 0\n        group_len = 1\n        while i < len(vals):\n            chunk = vals[i:i + group_len]\n            if len(chunk) % 2 == 0:\n                chunk = chunk[::-1]\n            result.extend(chunk)\n            i += group_len\n            group_len += 1\n        dummy = ListNode(0)\n        tail = dummy\n        for v in result:\n            tail.next = ListNode(v)\n            tail = tail.next\n        return dummy.next\n",
+  "solutions": {
+    "python": "class Solution:\n    def reverseEvenLengthGroups(self, head):\n        if not head:\n            return head\n        prev = head\n        group_len = 2\n        node = head.next\n        while node:\n            nodes = []\n            cur = node\n            while cur and len(nodes) < group_len:\n                nodes.append(cur)\n                cur = cur.next\n            count = len(nodes)\n            if count % 2 == 0:\n                for i in range(count - 1, 0, -1):\n                    nodes[i].next = nodes[i - 1]\n                prev.next = nodes[-1]\n                nodes[0].next = cur\n                prev = nodes[0]\n            elif nodes:\n                prev = nodes[-1]\n            node = cur\n            group_len += 1\n        return head\n",
+    "javascript": "var reverseEvenLengthGroups = function(head) {\n    if (!head) return head;\n    let prev = head;\n    let groupLen = 2;\n    let node = head.next;\n    while (node) {\n        const nodes = [];\n        let cur = node;\n        while (cur && nodes.length < groupLen) {\n            nodes.push(cur);\n            cur = cur.next;\n        }\n        const count = nodes.length;\n        if (count % 2 === 0) {\n            for (let i = count - 1; i > 0; i--) {\n                nodes[i].next = nodes[i - 1];\n            }\n            prev.next = nodes[count - 1];\n            nodes[0].next = cur;\n            prev = nodes[0];\n        } else if (count > 0) {\n            prev = nodes[count - 1];\n        }\n        node = cur;\n        groupLen += 1;\n    }\n    return head;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(sqrt(n)) auxiliary for the largest single group buffer" }
+}

@@ -1,0 +1,43 @@
+{
+  "slug": "longest-happy-string",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    a, b, c = args\n    s = output\n    # Empty is valid only when no letter can be placed\n    # Check structural validity\n    if 'aaa' in s or 'bbb' in s or 'ccc' in s:\n        return False\n    if s.count('a') > a or s.count('b') > b or s.count('c') > c:\n        return False\n    if any(ch not in 'abc' for ch in s):\n        return False\n    # Check maximality: can we append any character without violating?\n    # If output is not maximal, try to find a letter we could still add.\n    def can_add(s, counts, ch):\n        if counts[ch] == 0:\n            return False\n        if len(s) >= 2 and s[-1] == ch and s[-2] == ch:\n            return False\n        return True\n    counts = {'a': a - s.count('a'), 'b': b - s.count('b'), 'c': c - s.count('c')}\n    for ch in 'abc':\n        if can_add(s, counts, ch):\n            return False  # not maximal\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const [a, b, c] = args;\n    const s = output;\n    if (s.includes('aaa') || s.includes('bbb') || s.includes('ccc')) return false;\n    let ca = 0, cb = 0, cc = 0;\n    for (const ch of s) {\n        if (ch === 'a') ca++;\n        else if (ch === 'b') cb++;\n        else if (ch === 'c') cc++;\n        else return false;\n    }\n    if (ca > a || cb > b || cc > c) return false;\n    const rem = {a: a - ca, b: b - cb, c: c - cc};\n    function canAdd(s, rem, ch) {\n        if (rem[ch] === 0) return false;\n        if (s.length >= 2 && s[s.length-1] === ch && s[s.length-2] === ch) return false;\n        return true;\n    }\n    for (const ch of ['a','b','c']) {\n        if (canAdd(s, rem, ch)) return false;\n    }\n    return true;\n}"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Greedy: always append the letter with the most remaining uses that does not create a triple; use a heap to find it.",
+  "hints": [
+    "At each step, greedily pick the available letter with the highest remaining count, as long as it won't create three consecutive identical characters.",
+    "If the top-count letter would form a triple, try the second-highest instead; if neither can be placed, stop.",
+    "A max-heap of (count, letter) gives efficient extraction of the best candidate at each step."
+  ],
+  "constraints": [
+    { "param": "a", "kind": "int", "value": [0, 100] },
+    { "param": "b", "kind": "int", "value": [0, 100] },
+    { "param": "c", "kind": "int", "value": [0, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "only one letter type, stops after 2", "input": [5, 0, 0] },
+    { "kind": "edge", "description": "all counts equal", "input": [3, 3, 3] },
+    { "kind": "edge", "description": "a=1, b=1, c=7", "input": [1, 1, 7] },
+    { "kind": "edge", "description": "a=7, b=1, c=0", "input": [7, 1, 0] },
+    { "kind": "boundary", "description": "all zero but one", "input": [0, 0, 1] },
+    { "kind": "trap", "description": "dominant letter must yield to minority to avoid triple", "input": [10, 1, 1] },
+    { "kind": "trap", "description": "a+b+c>0 but all letters equal", "input": [1, 1, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random a,b,c in [0,100]",
+      "seed": 44,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    a = rng.randint(0, 100)\n    b = rng.randint(0, 100)\n    c = rng.randint(0, 100)\n    while a + b + c == 0:\n        a = rng.randint(0, 100)\n    return [a, b, c]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestDiverseString(self, a, b, c):\n        import heapq\n        heap = []\n        for cnt, ch in [(-a, 'a'), (-b, 'b'), (-c, 'c')]:\n            if cnt < 0:\n                heapq.heappush(heap, (cnt, ch))\n        res = []\n        while heap:\n            cnt1, ch1 = heapq.heappop(heap)\n            if len(res) >= 2 and res[-1] == ch1 and res[-2] == ch1:\n                if not heap:\n                    break\n                cnt2, ch2 = heapq.heappop(heap)\n                res.append(ch2)\n                cnt2 += 1\n                if cnt2 < 0:\n                    heapq.heappush(heap, (cnt2, ch2))\n                heapq.heappush(heap, (cnt1, ch1))\n            else:\n                res.append(ch1)\n                cnt1 += 1\n                if cnt1 < 0:\n                    heapq.heappush(heap, (cnt1, ch1))\n        return ''.join(res)\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestDiverseString(self, a, b, c):\n        import heapq\n        heap = []\n        for cnt, ch in [(-a, 'a'), (-b, 'b'), (-c, 'c')]:\n            if cnt < 0:\n                heapq.heappush(heap, (cnt, ch))\n        res = []\n        while heap:\n            cnt1, ch1 = heapq.heappop(heap)\n            if len(res) >= 2 and res[-1] == ch1 and res[-2] == ch1:\n                if not heap:\n                    break\n                cnt2, ch2 = heapq.heappop(heap)\n                res.append(ch2)\n                cnt2 += 1\n                if cnt2 < 0:\n                    heapq.heappush(heap, (cnt2, ch2))\n                heapq.heappush(heap, (cnt1, ch1))\n            else:\n                res.append(ch1)\n                cnt1 += 1\n                if cnt1 < 0:\n                    heapq.heappush(heap, (cnt1, ch1))\n        return ''.join(res)\n",
+    "javascript": "var longestDiverseString = function(a, b, c) {\n    // Mirror Python's heapq (max-count first, alpha-first on tie)\n    const counts = [['a', a], ['b', b], ['c', c]];\n    function sortCounts() {\n        counts.sort((x, y) => y[1] !== x[1] ? y[1] - x[1] : x[0] < y[0] ? -1 : 1);\n    }\n    const res = [];\n    while (true) {\n        sortCounts();\n        const [ch1, cnt1] = counts[0];\n        if (cnt1 === 0) break;\n        if (res.length >= 2 && res[res.length-1] === ch1 && res[res.length-2] === ch1) {\n            const [ch2, cnt2] = counts[1];\n            if (cnt2 === 0) break;\n            res.push(ch2);\n            counts[1][1]--;\n        } else {\n            res.push(ch1);\n            counts[0][1]--;\n        }\n    }\n    return res.join('');\n};\n"
+  },
+  "complexity": { "time": "O((a+b+c) log 3)", "space": "O(1)" }
+}

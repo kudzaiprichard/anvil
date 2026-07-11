@@ -1,0 +1,40 @@
+{
+  "slug": "combinations",
+  "judge": { "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    from math import comb\n    n, k = args[0], args[1]\n    if not isinstance(output, list):\n        return False\n    seen = set()\n    for combo in output:\n        if not isinstance(combo, list) or len(combo) != k:\n            return False\n        for v in combo:\n            if not isinstance(v, int) or v < 1 or v > n:\n                return False\n        key = tuple(sorted(combo))\n        if len(set(key)) != k:\n            return False\n        if key in seen:\n            return False\n        seen.add(key)\n    return len(seen) == comb(n, k)\n",
+    "validator_javascript": "function validate(args, output) {\n    const n = args[0], k = args[1];\n    if (!Array.isArray(output)) return false;\n    function comb(a, b) {\n        if (b < 0 || b > a) return 0;\n        b = Math.min(b, a - b);\n        let r = 1;\n        for (let i = 0; i < b; i++) r = r * (a - i) / (i + 1);\n        return Math.round(r);\n    }\n    const seen = new Set();\n    for (const combo of output) {\n        if (!Array.isArray(combo) || combo.length !== k) return false;\n        for (const v of combo) {\n            if (!Number.isInteger(v) || v < 1 || v > n) return false;\n        }\n        const sorted = combo.slice().sort((a, b) => a - b);\n        if (new Set(sorted).size !== k) return false;\n        const key = sorted.join(',');\n        if (seen.has(key)) return false;\n        seen.add(key);\n    }\n    return seen.size === comb(n, k);\n}\n"
+  },
+  "pattern": "Backtracking with an increasing start index builds every size-k selection of the numbers exactly once, pruning branches that cannot reach the required length.",
+  "hints": [
+    "Each combination is a set of distinct numbers, so fixing that you only ever add values larger than the last avoids generating the same set in different orders.",
+    "Recurse with a start index and the partial combination; once it reaches length k, record it and stop deepening that branch.",
+    "From the current start, try each next value, recurse with start advanced past it, and prune when too few numbers remain to ever complete a size-k combination."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 20] },
+    { "param": "k", "kind": "int", "value": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "choose two from four", "input": [4, 2] },
+    { "kind": "boundary", "description": "choose one from one", "input": [1, 1] },
+    { "kind": "trap", "description": "choose all of them, single combination", "input": [4, 4] },
+    { "kind": "edge", "description": "choose one of several", "input": [5, 1] },
+    { "kind": "edge", "description": "choose three from five", "input": [5, 3] },
+    { "kind": "boundary", "description": "choose from a slightly larger set", "input": [6, 2] }
+  ],
+  "stress": [
+    {
+      "description": "small n and k so the exponential oracle stays cheap",
+      "seed": 77,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 8)\n    k = rng.randint(1, n)\n    return [n, k]\n",
+      "note": "n capped at 8 keeps the enumeration small for the brute oracle"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def combine(self, n, k):\n        from itertools import combinations\n        res = [list(c) for c in combinations(range(1, n + 1), k)]\n        res.sort()\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def combine(self, n, k):\n        res = []\n        path = []\n        def bt(start):\n            if len(path) == k:\n                res.append(path[:])\n                return\n            for v in range(start, n + 1):\n                if n - v + 1 < k - len(path):\n                    break\n                path.append(v)\n                bt(v + 1)\n                path.pop()\n        bt(1)\n        res.sort()\n        return res\n",
+    "javascript": "var combine = function(n, k) {\n    const res = [];\n    const path = [];\n    function bt(start) {\n        if (path.length === k) {\n            res.push(path.slice());\n            return;\n        }\n        for (let v = start; v <= n; v++) {\n            if (n - v + 1 < k - path.length) break;\n            path.push(v);\n            bt(v + 1);\n            path.pop();\n        }\n    }\n    bt(1);\n    res.sort((a, b) => {\n        const m = Math.min(a.length, b.length);\n        for (let i = 0; i < m; i++) if (a[i] !== b[i]) return a[i] - b[i];\n        return a.length - b.length;\n    });\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(k * C(n,k))", "space": "O(k)" }
+}

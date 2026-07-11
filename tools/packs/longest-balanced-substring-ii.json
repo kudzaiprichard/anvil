@@ -1,0 +1,36 @@
+{
+  "slug": "longest-balanced-substring-ii",
+  "judge": "exact",
+  "pattern": "With the alphabet fixed to three letters, balance becomes a small set of prefix-count invariants, so a single pass with hashed difference keys replaces the quadratic window scan.",
+  "hints": [
+    "There are only three possible letters, so think about which subset of them is actually present inside a balanced window.",
+    "For a window to be balanced over a chosen pair, two prefix-count differences must match at both endpoints: the two present letters stay equal, and the third letter must not appear at all.",
+    "Track prefix counts of a, b, c and, for each subset of present letters, hash the relevant difference key (equal counts plus 'absent letter unchanged'); the earliest index seen for a key gives the longest balanced window ending here."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single character", "input": ["a"] },
+    { "kind": "edge", "description": "long run of one letter", "input": ["ccccccc"] },
+    { "kind": "edge", "description": "all three letters once", "input": ["abc"] },
+    { "kind": "boundary", "description": "two letters balanced with a third interrupting", "input": ["aabcc"] },
+    { "kind": "trap", "description": "interior pair balance surrounded by the third letter", "input": ["cabbac"] },
+    { "kind": "trap", "description": "three-letter balance across two blocks", "input": ["aabbcc"] },
+    { "kind": "trap", "description": "the longest balanced window omits one letter entirely", "input": ["aabbc"] }
+  ],
+  "stress": [
+    {
+      "description": "random three-letter string short enough for the quadratic oracle to confirm the linear solution",
+      "seed": 11,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1200))\n    s = ''.join(rng.choice('abc') for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestBalanced(self, s):\n        n = len(s)\n        best = 0\n        for i in range(n):\n            cnt = {'a': 0, 'b': 0, 'c': 0}\n            for j in range(i, n):\n                cnt[s[j]] += 1\n                vals = [v for v in cnt.values() if v > 0]\n                if len(set(vals)) == 1:\n                    best = max(best, j - i + 1)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestBalanced(self, s):\n        n = len(s)\n        ca = [0] * (n + 1)\n        cb = [0] * (n + 1)\n        cc = [0] * (n + 1)\n        for i, ch in enumerate(s):\n            ca[i+1] = ca[i] + (ch == 'a')\n            cb[i+1] = cb[i] + (ch == 'b')\n            cc[i+1] = cc[i] + (ch == 'c')\n        best = 0\n        # single-letter runs\n        run = 0\n        for i in range(n):\n            if i > 0 and s[i] == s[i-1]:\n                run += 1\n            else:\n                run = 1\n            if run > best:\n                best = run\n        # pair (a,b) third c absent: key (ca-cb, cc)\n        # pair (a,c) third b absent: key (ca-cc, cb)\n        # pair (b,c) third a absent: key (cb-cc, ca)\n        # triple: key (ca-cb, cb-cc)\n        def pair(d, e):\n            first = {}\n            local = 0\n            for i in range(n + 1):\n                key = (d[i], e[i])\n                if key in first:\n                    span = i - first[key]\n                    if span > local:\n                        local = span\n                else:\n                    first[key] = i\n            return local\n        diffa_b = [ca[i] - cb[i] for i in range(n + 1)]\n        diffa_c = [ca[i] - cc[i] for i in range(n + 1)]\n        diffb_c = [cb[i] - cc[i] for i in range(n + 1)]\n        best = max(best, pair(diffa_b, cc))\n        best = max(best, pair(diffa_c, cb))\n        best = max(best, pair(diffb_c, ca))\n        best = max(best, pair(diffa_b, diffb_c))\n        return best\n",
+    "javascript": "var longestBalanced = function(s) {\n    const n = s.length;\n    const ca = new Array(n + 1).fill(0);\n    const cb = new Array(n + 1).fill(0);\n    const cc = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        ca[i+1] = ca[i] + (s[i] === 'a' ? 1 : 0);\n        cb[i+1] = cb[i] + (s[i] === 'b' ? 1 : 0);\n        cc[i+1] = cc[i] + (s[i] === 'c' ? 1 : 0);\n    }\n    let best = 0;\n    let run = 0;\n    for (let i = 0; i < n; i++) {\n        if (i > 0 && s[i] === s[i-1]) run++; else run = 1;\n        if (run > best) best = run;\n    }\n    const pair = (d, e) => {\n        const first = new Map();\n        let local = 0;\n        for (let i = 0; i <= n; i++) {\n            const key = d[i] + ',' + e[i];\n            if (first.has(key)) {\n                const span = i - first.get(key);\n                if (span > local) local = span;\n            } else {\n                first.set(key, i);\n            }\n        }\n        return local;\n    };\n    const diffAB = new Array(n + 1), diffAC = new Array(n + 1), diffBC = new Array(n + 1);\n    for (let i = 0; i <= n; i++) { diffAB[i] = ca[i] - cb[i]; diffAC[i] = ca[i] - cc[i]; diffBC[i] = cb[i] - cc[i]; }\n    best = Math.max(best, pair(diffAB, cc));\n    best = Math.max(best, pair(diffAC, cb));\n    best = Math.max(best, pair(diffBC, ca));\n    best = Math.max(best, pair(diffAB, diffBC));\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

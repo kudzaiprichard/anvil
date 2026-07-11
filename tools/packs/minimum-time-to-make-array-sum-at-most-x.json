@@ -1,0 +1,41 @@
+{
+  "slug": "minimum-time-to-make-array-sum-at-most-x",
+  "judge": "exact",
+  "pattern": "Zeroing an index at second t only saves you its current value plus t times its growth rate, so pick which indices to sacrifice - and in what order - with a knapsack over 'growth rate sorted ascending, larger time slots to faster growers'.",
+  "hints": [
+    "Every second adds nums2[i] to nums1[i] everywhere, even to indices you already zeroed earlier - so zeroing late is worth more the faster that index grows.",
+    "For a fixed number of seconds T, decide which T indices to zero and in which order: the value 'saved' by zeroing index i at time slot t (1-indexed, 1..T) is nums1[i] + t * nums2[i]. To maximize total savings, pair the largest time slots with the largest growth rates - sort by nums2 ascending and greedily reason from there.",
+    "Sort indices by nums2 ascending. Run a 0/1-knapsack style DP over 'choose exactly k of the first i items', where taking item i as the k-th chosen contributes nums1[i] + k * nums2[i]. For each T from 0 to n, the minimal sum is sum(nums1) + T*sum(nums2) - dp[T]; return the smallest T where that is <= x, or -1 if none in [0, n] works."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 1000], "value": [1, 1000] },
+    { "param": "nums2", "kind": "int[]", "len": [1, 1000], "value": [0, 1000] },
+    { "param": "x", "kind": "int", "value": [0, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three indices, a moderate target reachable in three seconds", "input": [[1, 2, 3], [1, 2, 3], 4] },
+    { "kind": "edge", "description": "growth rates too high for any number of operations to reach the target", "input": [[1, 2, 3], [3, 3, 3], 4] },
+    { "kind": "edge", "description": "single index already under target with zero growth", "input": [[5], [0], 10] },
+    { "kind": "edge", "description": "single index that needs exactly one zeroing operation", "input": [[5], [1], 3] },
+    { "kind": "boundary", "description": "target of zero is unreachable once more than one index grows", "input": [[1, 1, 1], [1, 1, 1], 0] },
+    { "kind": "boundary", "description": "target already satisfied at time zero, no operations needed", "input": [[1000, 1000], [1000, 1000], 1000000] },
+    { "kind": "trap", "description": "zero growth rates make slot order irrelevant, this is a pure top-two selection", "input": [[5, 5, 5], [0, 0, 0], 5] },
+    { "kind": "trap", "description": "already below target despite enormous growth rates, so the answer must stay zero rather than over-zeroing", "input": [[1, 1], [1000, 1000], 100] },
+    { "kind": "trap", "description": "target of zero stays unreachable even after using every available operation", "input": [[1000, 1000], [1000, 1000], 0] }
+  ],
+  "stress": [
+    {
+      "description": "1000 indices with random growth rates and a random target",
+      "seed": 11,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums1 = [rng.randrange(1, 1001) for _ in range(n)]\n    nums2 = [rng.randrange(0, 1001) for _ in range(n)]\n    x = rng.randrange(0, 1000001)\n    return [nums1, nums2, x]\n",
+      "note": "exercises the full O(n^2) DP at the constraint ceiling"
+    }
+  ],
+  "oracle_python": "import itertools\n\nclass Solution:\n    def minimumTime(self, nums1, nums2, x):\n        n = len(nums1)\n        total1 = sum(nums1)\n        total2 = sum(nums2)\n        for T in range(n + 1):\n            best = None\n            for order in itertools.permutations(range(n), T):\n                saved = 0\n                for slot, idx in enumerate(order, start=1):\n                    saved += nums1[idx] + slot * nums2[idx]\n                if best is None or saved > best:\n                    best = saved\n            if best is None:\n                best = 0\n            if total1 + T * total2 - best <= x:\n                return T\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumTime(self, nums1, nums2, x):\n        n = len(nums1)\n        pairs = sorted(zip(nums2, nums1))\n        NEG = float('-inf')\n        dp = [NEG] * (n + 1)\n        dp[0] = 0\n        for b, a in pairs:\n            for k in range(n, 0, -1):\n                if dp[k - 1] != NEG:\n                    cand = dp[k - 1] + a + k * b\n                    if cand > dp[k]:\n                        dp[k] = cand\n        total1 = sum(nums1)\n        total2 = sum(nums2)\n        for T in range(n + 1):\n            if dp[T] == NEG:\n                continue\n            if total1 + T * total2 - dp[T] <= x:\n                return T\n        return -1\n",
+    "javascript": "var minimumTime = function(nums1, nums2, x) {\n    const n = nums1.length;\n    const pairs = nums1.map((a, i) => [nums2[i], a]).sort((p, q) => p[0] - q[0]);\n    const NEG = -Infinity;\n    const dp = new Array(n + 1).fill(NEG);\n    dp[0] = 0;\n    for (const [b, a] of pairs) {\n        for (let k = n; k >= 1; k--) {\n            if (dp[k - 1] !== NEG) {\n                const cand = dp[k - 1] + a + k * b;\n                if (cand > dp[k]) dp[k] = cand;\n            }\n        }\n    }\n    const total1 = nums1.reduce((s, v) => s + v, 0);\n    const total2 = nums2.reduce((s, v) => s + v, 0);\n    for (let T = 0; T <= n; T++) {\n        if (dp[T] === NEG) continue;\n        if (total1 + T * total2 - dp[T] <= x) return T;\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "sum-of-beautiful-subsequences",
+  "judge": "exact",
+  "pattern": "Counting strictly increasing subsequences restricted to multiples of each g gives the gcd-divisible totals, and a divisor-sieve subtraction peels those down to exact-gcd counts weighted by g.",
+  "hints": [
+    "Counting strictly increasing subsequences whose gcd is exactly g is hard directly, but counting those whose every element is a multiple of g is easy with a Fenwick tree over values.",
+    "For each g, restrict to array elements divisible by g (in original order) and count all non-empty strictly increasing subsequences; that over-counts, since a gcd that is a true multiple of g also qualifies.",
+    "Go from large g down to small, subtracting the already-computed exact counts of every proper multiple of g to isolate the exact-gcd count, then add g times that count to the answer modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10000], "value": [1, 70000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small ascending trio", "input": [[1, 2, 3]] },
+    { "kind": "edge", "description": "pair with shared factor", "input": [[4, 6]] },
+    { "kind": "boundary", "description": "single element is its own gcd", "input": [[5]] },
+    { "kind": "trap", "description": "non-increasing values limit subsequences", "input": [[6, 4, 2]] },
+    { "kind": "trap", "description": "duplicates cannot extend a strict subsequence", "input": [[3, 3, 3]] },
+    { "kind": "edge", "description": "all share a common factor", "input": [[2, 4, 8, 16]] },
+    { "kind": "trap", "description": "coprime increasing values keep gcd one", "input": [[1, 5, 7, 11]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate array over a small value range so many subsequences and gcds appear",
+      "seed": 22,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 60) for _ in range(n)]\n    return [nums]\n",
+      "note": "size kept modest so the quadratic gcd-DP oracle stays fast"
+    }
+  ],
+  "oracle_python": "from math import gcd\nclass Solution:\n    def totalBeauty(self, nums):\n        MOD = 10**9 + 7\n        n = len(nums)\n        ans = 0\n        dp = [None] * n\n        for i in range(n):\n            d = {nums[i]: 1}\n            for j in range(i):\n                if nums[j] < nums[i]:\n                    for g, c in dp[j].items():\n                        ng = gcd(g, nums[i])\n                        d[ng] = (d.get(ng, 0) + c) % MOD\n            dp[i] = d\n            for g, c in d.items():\n                ans = (ans + g * c) % MOD\n        return ans % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def totalBeauty(self, nums):\n        MOD = 10**9 + 7\n        M = max(nums)\n        from collections import defaultdict\n        pos = defaultdict(list)\n        for idx, v in enumerate(nums):\n            pos[v].append(idx)\n        cntM = [0] * (M + 1)\n        for g in range(1, M + 1):\n            lst = []\n            m = g\n            while m <= M:\n                for idx in pos.get(m, ()):\n                    lst.append((idx, m))\n                m += g\n            if not lst:\n                continue\n            lst.sort()\n            vals = sorted(set(v for _, v in lst))\n            comp = {v: i + 1 for i, v in enumerate(vals)}\n            size = len(vals)\n            bit = [0] * (size + 1)\n            def upd(i, x):\n                while i <= size:\n                    bit[i] = (bit[i] + x) % MOD\n                    i += i & -i\n            def qry(i):\n                s = 0\n                while i > 0:\n                    s = (s + bit[i]) % MOD\n                    i -= i & -i\n                return s\n            tot = 0\n            for idx, v in lst:\n                c = comp[v]\n                dp = (1 + qry(c - 1)) % MOD\n                tot = (tot + dp) % MOD\n                upd(c, dp)\n            cntM[g] = tot\n        exact = [0] * (M + 1)\n        for g in range(M, 0, -1):\n            e = cntM[g]\n            m = 2 * g\n            while m <= M:\n                e = (e - exact[m]) % MOD\n                m += g\n            exact[g] = e % MOD\n        ans = 0\n        for g in range(1, M + 1):\n            ans = (ans + g * exact[g]) % MOD\n        return ans % MOD\n",
+    "javascript": "var totalBeauty = function(nums) {\n    const MOD = 1000000007n;\n    const M = Math.max(...nums);\n    const pos = new Map();\n    for (let idx = 0; idx < nums.length; idx++) {\n        const v = nums[idx];\n        if (!pos.has(v)) pos.set(v, []);\n        pos.get(v).push(idx);\n    }\n    const cntM = new Array(M + 1).fill(0n);\n    for (let g = 1; g <= M; g++) {\n        const lst = [];\n        for (let m = g; m <= M; m += g) {\n            const arr = pos.get(m);\n            if (arr) for (const idx of arr) lst.push([idx, m]);\n        }\n        if (lst.length === 0) continue;\n        lst.sort((a, b) => a[0] - b[0]);\n        const valSet = [...new Set(lst.map(x => x[1]))].sort((a, b) => a - b);\n        const comp = new Map();\n        valSet.forEach((v, i) => comp.set(v, i + 1));\n        const size = valSet.length;\n        const bit = new Array(size + 1).fill(0n);\n        const upd = (i, x) => { for (; i <= size; i += i & -i) bit[i] = (bit[i] + x) % MOD; };\n        const qry = (i) => { let s = 0n; for (; i > 0; i -= i & -i) s = (s + bit[i]) % MOD; return s; };\n        let tot = 0n;\n        for (const [idx, v] of lst) {\n            const c = comp.get(v);\n            const dp = (1n + qry(c - 1)) % MOD;\n            tot = (tot + dp) % MOD;\n            upd(c, dp);\n        }\n        cntM[g] = tot;\n    }\n    const exact = new Array(M + 1).fill(0n);\n    for (let g = M; g >= 1; g--) {\n        let e = cntM[g];\n        for (let m = 2 * g; m <= M; m += g) {\n            e = (e - exact[m]) % MOD;\n        }\n        e = ((e % MOD) + MOD) % MOD;\n        exact[g] = e;\n    }\n    let ans = 0n;\n    for (let g = 1; g <= M; g++) {\n        ans = (ans + BigInt(g) * exact[g]) % MOD;\n    }\n    return Number(ans % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(maxV log maxV + n log n per divisor)", "space": "O(n + maxV)" }
+}

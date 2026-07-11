@@ -1,0 +1,38 @@
+{
+  "slug": "sum-of-k-digit-numbers-in-a-range",
+  "judge": "exact",
+  "pattern": "By linearity, the total sum splits into one independent contribution per digit position: for a fixed position, every digit value from l to r appears equally often across all the other positions' free choices, so the whole sum reduces to (sum of digits l..r) times (how many ways to fill the remaining positions) times (the sum of all place values) -- three closed-form pieces, none of which need enumerating actual numbers.",
+  "hints": [
+    "Instead of imagining every k-digit number laid out, isolate a single digit position. However that position is filled, every OTHER position independently ranges over all (r - l + 1) choices, so a fixed digit value at this position occurs in exactly (r - l + 1)^(k-1) of the numbers -- the position's total contribution to the grand sum is (sum of digits from l to r) times that count, times the position's place value.",
+    "Summed across all k positions, the only thing that differs between positions is the place value (10^(k-1), 10^(k-2), ..., 10^0). Their sum is the k-digit repunit 111...1 (k ones), which has a closed form: (10^k - 1) / 9.",
+    "Putting it together: answer = (sum of integers from l to r) * (r - l + 1)^(k-1) * ((10^k - 1) / 9), all reduced modulo 1e9+7 -- use fast modular exponentiation for the two power terms (k can be up to 1e9) and the modular inverse of 9 (9 is invertible mod the prime 1e9+7) instead of real division."
+  ],
+  "constraints": [
+    { "param": "l", "kind": "int", "value": [0, 9] },
+    { "param": "r", "kind": "int", "value": [0, 9] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "l=0, r=0 — the only range digit is 0, so every k-digit combination sums to 0 no matter how large k is", "input": [0, 0, 5] },
+    { "kind": "edge", "description": "k=1 — reduces to a plain sum of the digits from l to r", "input": [0, 9, 1] },
+    { "kind": "trap", "description": "l=r (a single repeated digit) with k=3 — exercises the repunit/place-value part in isolation, with no digit-choice combinatorics", "input": [9, 9, 3] },
+    { "kind": "trap", "description": "l=r with a large k — the actual number is the digit repeated k times; verifies the modular repunit formula stays correct at scale for a fixed non-zero digit", "input": [7, 7, 1000000000] },
+    { "kind": "boundary", "description": "full digit range [0,9] at the maximum k — largest combinatorial count term combined with the largest repunit term", "input": [0, 9, 1000000000] },
+    { "kind": "boundary", "description": "l=r=0 at the maximum k — the zero-digit-sum short-circuit must still hold even at the largest scale", "input": [0, 0, 1000000000] },
+    { "kind": "boundary", "description": "k=1 at the minimum end of its range, full digit spread", "input": [0, 9, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random small (l, r) pairs with l<=r and random k across the full range, seeded",
+      "seed": 8,
+      "size": 1000000000,
+      "generator_python": "def gen(rng, size):\n    l = rng.randint(0, 9)\n    r = rng.randint(l, 9)\n    k = rng.randint(1, size)\n    return [l, r, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import product\n\nMOD = 10 ** 9 + 7\n\n\ndef _mat_mult(a, b):\n    return [\n        [(a[0][0] * b[0][0] + a[0][1] * b[1][0]) % MOD, (a[0][0] * b[0][1] + a[0][1] * b[1][1]) % MOD],\n        [(a[1][0] * b[0][0] + a[1][1] * b[1][0]) % MOD, (a[1][0] * b[0][1] + a[1][1] * b[1][1]) % MOD],\n    ]\n\n\ndef _mat_pow(m, p):\n    result = [[1, 0], [0, 1]]\n    base = m\n    while p > 0:\n        if p & 1:\n            result = _mat_mult(result, base)\n        base = _mat_mult(base, base)\n        p >>= 1\n    return result\n\n\ndef _repunit(k):\n    # Independent derivation of 111...1 (k ones) mod MOD via the linear\n    # recurrence R(k) = 10*R(k-1) + 1, solved with 2x2 matrix exponentiation --\n    # deliberately NOT the modular-inverse-of-9 closed form used by the optimal\n    # solution, so a bug in either derivation shows up as a disagreement.\n    if k == 0:\n        return 0\n    m = _mat_pow([[10, 1], [0, 1]], k)\n    return m[0][1] % MOD\n\n\nclass Solution:\n    def sumOfNumbers(self, l: int, r: int, k: int) -> int:\n        if k <= 6:\n            # Small k: brute-force enumerate every literal k-digit combination.\n            total = 0\n            for combo in product(range(l, r + 1), repeat=k):\n                num = 0\n                for d in combo:\n                    num = num * 10 + d\n                total += num\n            return total % MOD\n        # Large k: same three-piece decomposition as the optimal solution, but\n        # the repunit piece is computed by an unrelated method (see _repunit).\n        digit_sum = sum(range(l, r + 1)) % MOD\n        count = r - l + 1\n        return digit_sum * pow(count, k - 1, MOD) % MOD * _repunit(k) % MOD\n",
+  "solutions": {
+    "python": "MOD = 10 ** 9 + 7\n\n\nclass Solution:\n    def sumOfNumbers(self, l: int, r: int, k: int) -> int:\n        digit_sum = sum(range(l, r + 1)) % MOD\n        count = r - l + 1\n        inv9 = pow(9, MOD - 2, MOD)\n        repunit = (pow(10, k, MOD) - 1) * inv9 % MOD\n        return digit_sum * pow(count, k - 1, MOD) % MOD * repunit % MOD\n",
+    "javascript": "var sumOfNumbers = function(l, r, k) {\n    const MOD = 1000000007n;\n    function power(base, exp, mod) {\n        base %= mod;\n        let result = 1n;\n        while (exp > 0n) {\n            if (exp & 1n) result = (result * base) % mod;\n            base = (base * base) % mod;\n            exp >>= 1n;\n        }\n        return result;\n    }\n    let digitSum = 0n;\n    for (let d = l; d <= r; d++) digitSum += BigInt(d);\n    digitSum %= MOD;\n    const count = BigInt(r - l + 1);\n    const inv9 = power(9n, MOD - 2n, MOD);\n    const repunit = ((power(10n, BigInt(k), MOD) - 1n + MOD) % MOD) * inv9 % MOD;\n    const result = digitSum * power(count, BigInt(k - 1), MOD) % MOD * repunit % MOD;\n    return Number(result);\n};\n"
+  },
+  "complexity": { "time": "O(log k)", "space": "O(1)" }
+}

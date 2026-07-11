@@ -1,0 +1,36 @@
+{
+  "slug": "maximum-side-length-of-a-square-with-sum-less-than-or-equal-to-threshold",
+  "judge": "exact",
+  "pattern": "Build a 2-D prefix sum so any square's sum can be fetched in O(1), then binary-search the side length from 1 to min(m, n) — feasibility is monotone so binary search is valid.",
+  "hints": [
+    "Any submatrix sum is efficiently retrieved with a prefix-sum table: psum[r][c] = sum of the rectangle from (0,0) to (r-1,c-1); the square from (r,c) to (r+k-1,c+k-1) is psum[r+k][c+k] - psum[r][c+k] - psum[r+k][c] + psum[r][c].",
+    "If a side of length k fits under the threshold somewhere, then any side k' < k also fits — so binary-search for the largest valid k.",
+    "Build the prefix sum table, then binary-search on side length: for each candidate length check every valid top-left corner for a qualifying square."
+  ],
+  "constraints": [
+    { "param": "mat", "kind": "int[][]", "len": [1, 300] },
+    { "param": "threshold", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "1x1 matrix, single cell at or below threshold", "input": [[[3]], 3] },
+    { "kind": "edge", "description": "1x1 matrix, cell above threshold", "input": [[[5]], 4] },
+    { "kind": "boundary", "description": "threshold zero, only zero-value cells qualify", "input": [[[0, 0], [0, 1]], 0] },
+    { "kind": "trap", "description": "answer is 0 because every single cell exceeds threshold", "input": [[[2, 2, 2, 2, 2], [2, 2, 2, 2, 2], [2, 2, 2, 2, 2], [2, 2, 2, 2, 2], [2, 2, 2, 2, 2]], 1] },
+    { "kind": "trap", "description": "non-square matrix; side cannot exceed min(m,n)", "input": [[[1, 1, 3, 2, 4, 3, 2], [1, 1, 3, 2, 4, 3, 2], [1, 1, 3, 2, 4, 3, 2]], 4] },
+    { "kind": "edge", "description": "all zeros, answer is min(m,n)", "input": [[[0, 0, 0], [0, 0, 0]], 0] }
+  ],
+  "stress": [
+    {
+      "description": "moderately large random matrix",
+      "seed": 83,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, size)\n    n = rng.randint(1, size)\n    mat = [[rng.randint(0, 10000) for _ in range(n)] for _ in range(m)]\n    threshold = rng.randint(0, 100000)\n    return [mat, threshold]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSideLength(self, mat, threshold: int) -> int:\n        m, n = len(mat), len(mat[0])\n        # prefix sum\n        ps = [[0] * (n + 1) for _ in range(m + 1)]\n        for r in range(1, m + 1):\n            for c in range(1, n + 1):\n                ps[r][c] = mat[r-1][c-1] + ps[r-1][c] + ps[r][c-1] - ps[r-1][c-1]\n        best = 0\n        for k in range(1, min(m, n) + 1):\n            for r in range(k, m + 1):\n                for c in range(k, n + 1):\n                    s = ps[r][c] - ps[r-k][c] - ps[r][c-k] + ps[r-k][c-k]\n                    if s <= threshold:\n                        best = max(best, k)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSideLength(self, mat, threshold: int) -> int:\n        m, n = len(mat), len(mat[0])\n        ps = [[0] * (n + 1) for _ in range(m + 1)]\n        for r in range(1, m + 1):\n            for c in range(1, n + 1):\n                ps[r][c] = mat[r-1][c-1] + ps[r-1][c] + ps[r][c-1] - ps[r-1][c-1]\n        def feasible(k):\n            for r in range(k, m + 1):\n                for c in range(k, n + 1):\n                    if ps[r][c] - ps[r-k][c] - ps[r][c-k] + ps[r-k][c-k] <= threshold:\n                        return True\n            return False\n        lo, hi = 0, min(m, n)\n        while lo < hi:\n            mid = (lo + hi + 1) // 2\n            if feasible(mid):\n                lo = mid\n            else:\n                hi = mid - 1\n        return lo\n",
+    "javascript": "var maxSideLength = function(mat, threshold) {\n    const m = mat.length, n = mat[0].length;\n    const ps = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));\n    for (let r = 1; r <= m; r++)\n        for (let c = 1; c <= n; c++)\n            ps[r][c] = mat[r-1][c-1] + ps[r-1][c] + ps[r][c-1] - ps[r-1][c-1];\n    const feasible = (k) => {\n        for (let r = k; r <= m; r++)\n            for (let c = k; c <= n; c++)\n                if (ps[r][c] - ps[r-k][c] - ps[r][c-k] + ps[r-k][c-k] <= threshold)\n                    return true;\n        return false;\n    };\n    let lo = 0, hi = Math.min(m, n);\n    while (lo < hi) {\n        const mid = (lo + hi + 1) >> 1;\n        if (feasible(mid)) lo = mid; else hi = mid - 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": { "time": "O(mn log(min(m,n)))", "space": "O(mn)" }
+}

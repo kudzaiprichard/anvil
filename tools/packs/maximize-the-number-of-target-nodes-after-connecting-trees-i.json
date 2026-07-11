@@ -1,0 +1,237 @@
+{
+  "slug": "maximize-the-number-of-target-nodes-after-connecting-trees-i",
+  "judge": "exact",
+  "pattern": "Reachability within k edges from a fixed node in one tree never depends on the other tree, so precompute it once per node and separately find the single best node to bridge into on the other side.",
+  "hints": [
+    "For a fixed node in the first tree, count how many nodes (including itself) sit at most k edges away -- this only needs one search rooted at that node.",
+    "The new edge always adds exactly one hop before entering the second tree, so from the second tree you only care about nodes reachable within k-1 edges.",
+    "Because the bridge can be rewired independently for every query, the best node to connect to in the second tree is the same for every query -- compute that maximum once and add it to each node's own count."
+  ],
+  "constraints": [
+    {
+      "param": "edges1",
+      "kind": "int[][]",
+      "len": [
+        1,
+        999
+      ],
+      "value": [
+        0,
+        999
+      ]
+    },
+    {
+      "param": "edges2",
+      "kind": "int[][]",
+      "len": [
+        1,
+        999
+      ],
+      "value": [
+        0,
+        999
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two single-edge trees, k allows reaching the whole first tree already",
+      "input": [
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        5
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "k is zero, so a node only ever targets itself in tree one plus whichever second-tree node is picked",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        0
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k large enough to reach every node of both trees",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        1000
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a star-shaped first tree versus a path-shaped second tree",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a long path in the first tree so reachable counts vary a lot by position",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "minimal trees, one edge each, k of one",
+      "input": [
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        1
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "two random trees of moderate size with a mid-range k",
+      "seed": 303,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(1200, size if size >= 2 else 2))\n    m = max(2, min(1200, (size * 3 // 4) if size >= 3 else 2))\n    edges1 = [[rng.randint(0, i - 1), i] for i in range(1, n)]\n    edges2 = [[rng.randint(0, i - 1), i] for i in range(1, m)]\n    k = rng.randint(0, 8)\n    return [edges1, edges2, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxTargetNodes(self, edges1, edges2, k):\n        # independent re-derivation: literally attach each candidate bridge edge\n        # and re-run a bounded breadth-first search from scratch every time\n        from collections import deque\n        n = len(edges1) + 1\n        m = len(edges2) + 1\n        adj1 = [[] for _ in range(n)]\n        for a, b in edges1:\n            adj1[a].append(b); adj1[b].append(a)\n        adj2 = [[] for _ in range(m)]\n        for a, b in edges2:\n            adj2[a].append(b); adj2[b].append(a)\n        def within(adj, src, limit):\n            if limit < 0:\n                return 0\n            dist = {src: 0}\n            q = deque([src])\n            cnt = 0\n            while q:\n                u = q.popleft()\n                if dist[u] <= limit:\n                    cnt += 1\n                else:\n                    continue\n                for v in adj[u]:\n                    if v not in dist:\n                        dist[v] = dist[u] + 1\n                        q.append(v)\n            return cnt\n        best2 = max(within(adj2, j, k - 1) for j in range(m))\n        return [within(adj1, i, k) + best2 for i in range(n)]\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def maxTargetNodes(self, edges1, edges2, k):\n        def build(edges, n):\n            adj = [[] for _ in range(n)]\n            for a, b in edges:\n                adj[a].append(b); adj[b].append(a)\n            return adj\n        def count_within(adj, src, limit):\n            if limit < 0:\n                return 0\n            n = len(adj)\n            dist = [-1] * n\n            dist[src] = 0\n            q = deque([src])\n            cnt = 0\n            while q:\n                u = q.popleft()\n                if dist[u] <= limit:\n                    cnt += 1\n                else:\n                    continue\n                for v in adj[u]:\n                    if dist[v] == -1:\n                        dist[v] = dist[u] + 1\n                        q.append(v)\n            return cnt\n        n = len(edges1) + 1\n        m = len(edges2) + 1\n        adj1 = build(edges1, n)\n        adj2 = build(edges2, m)\n        cnt1 = [count_within(adj1, i, k) for i in range(n)]\n        best2 = max(count_within(adj2, j, k - 1) for j in range(m))\n        return [c + best2 for c in cnt1]\n",
+    "javascript": "var maxTargetNodes = function(edges1, edges2, k) {\n    function buildAdj(edges, n) {\n        const adj = Array.from({length: n}, () => []);\n        for (const [a, b] of edges) { adj[a].push(b); adj[b].push(a); }\n        return adj;\n    }\n    function countWithin(adj, src, limit) {\n        if (limit < 0) return 0;\n        const n = adj.length;\n        const dist = new Array(n).fill(-1);\n        dist[src] = 0;\n        const queue = [src];\n        let head = 0, cnt = 0;\n        while (head < queue.length) {\n            const u = queue[head++];\n            if (dist[u] <= limit) cnt++; else continue;\n            for (const v of adj[u]) {\n                if (dist[v] === -1) { dist[v] = dist[u] + 1; queue.push(v); }\n            }\n        }\n        return cnt;\n    }\n    const n = edges1.length + 1, m = edges2.length + 1;\n    const adj1 = buildAdj(edges1, n), adj2 = buildAdj(edges2, m);\n    const cnt1 = [];\n    for (let i = 0; i < n; i++) cnt1.push(countWithin(adj1, i, k));\n    let best2 = 0;\n    for (let j = 0; j < m; j++) best2 = Math.max(best2, countWithin(adj2, j, k - 1));\n    return cnt1.map(c => c + best2);\n};\n"
+  },
+  "complexity": {
+    "time": "O((n+m)*max(n,m))",
+    "space": "O(n+m)"
+  }
+}

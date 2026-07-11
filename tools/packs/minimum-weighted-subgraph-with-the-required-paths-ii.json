@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-weighted-subgraph-with-the-required-paths-ii",
+  "judge": "exact",
+  "pattern": "The minimal subtree joining three nodes in a tree has weight equal to half the sum of their three pairwise path distances, so binary-lifted LCA answers each query in logarithmic time.",
+  "hints": [
+    "A connected subtree spanning three given nodes is their Steiner tree; in a tree every edge on it is counted by exactly two of the three pairwise paths.",
+    "Therefore the answer is (dist(a,b) + dist(b,c) + dist(a,c)) / 2, an exact integer.",
+    "Precompute weighted depth and ancestors for LCA so each pairwise distance is depth[u] + depth[v] - 2 * depth[lca(u,v)]."
+  ],
+  "constraints": [
+    { "param": "edges", "kind": "int[][]", "len": [2, 100000], "value": [0, 100000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two queries on a small branching tree", "input": [[[0, 1, 2], [1, 2, 3], [1, 3, 5], [1, 4, 4], [2, 5, 6]], [[2, 3, 4], [0, 2, 5]]] },
+    { "kind": "edge", "description": "single query on a path of three nodes", "input": [[[1, 0, 8], [0, 2, 7]], [[0, 1, 2]]] },
+    { "kind": "edge", "description": "destination between the two sources", "input": [[[0, 1, 1], [1, 2, 1], [2, 3, 1], [3, 4, 1]], [[0, 4, 2]]] },
+    { "kind": "trap", "description": "all three meet at a common branch point", "input": [[[0, 1, 5], [0, 2, 5], [0, 3, 5]], [[1, 2, 3]]] },
+    { "kind": "boundary", "description": "minimum-size tree, single query", "input": [[[0, 1, 100000], [1, 2, 100000]], [[0, 2, 1]]] },
+    { "kind": "trap", "description": "sources on the same side of the destination", "input": [[[0, 1, 2], [1, 2, 2], [2, 3, 2], [0, 4, 9]], [[2, 3, 4]]] }
+  ],
+  "stress": [
+    {
+      "description": "random weighted tree plus random distinct-triple queries, checked by per-query BFS distances",
+      "seed": 47,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = max(3, size)\n    edges = []\n    for v in range(1, n):\n        u = rng.randrange(0, v)\n        w = rng.randrange(1, 10000)\n        edges.append([u, v, w])\n    queries = []\n    for _ in range(max(1, n // 3)):\n        trip = rng.sample(range(n), 3)\n        queries.append(trip)\n    return [edges, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumWeight(self, edges, queries):\n        from collections import defaultdict, deque\n        n = len(edges) + 1\n        g = defaultdict(list)\n        for u, v, w in edges:\n            g[u].append((v, w))\n            g[v].append((u, w))\n        def dist(a, b):\n            dq = deque([(a, 0)])\n            seen = {a}\n            while dq:\n                x, d = dq.popleft()\n                if x == b:\n                    return d\n                for y, w in g[x]:\n                    if y not in seen:\n                        seen.add(y)\n                        dq.append((y, d + w))\n            return -1\n        out = []\n        for s1, s2, dst in queries:\n            out.append((dist(s1, s2) + dist(s2, dst) + dist(s1, dst)) // 2)\n        return out\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumWeight(self, edges, queries):\n        from collections import defaultdict, deque\n        n = len(edges) + 1\n        g = defaultdict(list)\n        for u, v, w in edges:\n            g[u].append((v, w))\n            g[v].append((u, w))\n        LOG = max(1, (n).bit_length())\n        up = [[-1] * n for _ in range(LOG)]\n        depth = [0] * n\n        dw = [0] * n\n        order = []\n        dq = deque([0])\n        seen = [False] * n\n        seen[0] = True\n        while dq:\n            x = dq.popleft()\n            order.append(x)\n            for y, w in g[x]:\n                if not seen[y]:\n                    seen[y] = True\n                    up[0][y] = x\n                    depth[y] = depth[x] + 1\n                    dw[y] = dw[x] + w\n                    dq.append(y)\n        for j in range(1, LOG):\n            for i in range(n):\n                if up[j-1][i] != -1:\n                    up[j][i] = up[j-1][up[j-1][i]]\n        def lca(a, b):\n            if depth[a] < depth[b]:\n                a, b = b, a\n            diff = depth[a] - depth[b]\n            for j in range(LOG):\n                if (diff >> j) & 1:\n                    a = up[j][a]\n            if a == b:\n                return a\n            for j in range(LOG - 1, -1, -1):\n                if up[j][a] != up[j][b]:\n                    a = up[j][a]\n                    b = up[j][b]\n            return up[0][a]\n        def dist(a, b):\n            return dw[a] + dw[b] - 2 * dw[lca(a, b)]\n        out = []\n        for s1, s2, dst in queries:\n            out.append((dist(s1, s2) + dist(s2, dst) + dist(s1, dst)) // 2)\n        return out\n",
+    "javascript": "var minimumWeight = function(edges, queries) {\n    const n = edges.length + 1;\n    const g = Array.from({ length: n }, () => []);\n    for (const [u, v, w] of edges) { g[u].push([v, w]); g[v].push([u, w]); }\n    const LOG = Math.max(1, 32 - Math.clz32(n));\n    const up = Array.from({ length: LOG }, () => new Array(n).fill(-1));\n    const depth = new Array(n).fill(0);\n    const dw = new Array(n).fill(0);\n    const seen = new Array(n).fill(false);\n    const dq = [0]; let head = 0; seen[0] = true;\n    while (head < dq.length) {\n        const x = dq[head++];\n        for (const [y, w] of g[x]) {\n            if (!seen[y]) {\n                seen[y] = true;\n                up[0][y] = x;\n                depth[y] = depth[x] + 1;\n                dw[y] = dw[x] + w;\n                dq.push(y);\n            }\n        }\n    }\n    for (let j = 1; j < LOG; j++)\n        for (let i = 0; i < n; i++)\n            if (up[j-1][i] !== -1) up[j][i] = up[j-1][up[j-1][i]];\n    const lca = (a, b) => {\n        if (depth[a] < depth[b]) { const t = a; a = b; b = t; }\n        let diff = depth[a] - depth[b];\n        for (let j = 0; j < LOG; j++) if ((diff >> j) & 1) a = up[j][a];\n        if (a === b) return a;\n        for (let j = LOG - 1; j >= 0; j--) if (up[j][a] !== up[j][b]) { a = up[j][a]; b = up[j][b]; }\n        return up[0][a];\n    };\n    const dist = (a, b) => dw[a] + dw[b] - 2 * dw[lca(a, b)];\n    const out = [];\n    for (const [s1, s2, dst] of queries) {\n        out.push((dist(s1, s2) + dist(s2, dst) + dist(s1, dst)) / 2);\n    }\n    return out;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) log n)", "space": "O(n log n)" }
+}

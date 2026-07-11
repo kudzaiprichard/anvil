@@ -1,0 +1,73 @@
+{
+  "slug": "maximum-score-from-grid-operations",
+  "judge": "exact",
+  "pattern": "Only the depth each column gets painted matters, not the operations that produced it, so the whole problem reduces to choosing one blackout depth per column to maximize the exposed white cells next to a deeper neighbor.",
+  "hints": [
+    "Repeating the operation on the same column is wasted effort beyond the deepest row you ever chose, so the whole outcome for a column collapses to a single number: how far down it ends up painted.",
+    "A white cell scores only if a neighboring column is painted at least one row deeper than its own row - so a column's payoff depends on the larger of its two neighbors' painted depths, not both separately.",
+    "Process columns left to right, carrying the previous two columns' chosen depths as the DP state; a column's contribution can only be finalized once its right neighbor's depth is also known, so add it in on the transition to the next column."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 100], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a single cell can never have a horizontal neighbor, so the score is always zero",
+      "input": [[[42]]]
+    },
+    {
+      "kind": "edge",
+      "description": "two columns where painting one column fully exposes the other's value",
+      "input": [[[0, 3], [0, 0]]]
+    },
+    {
+      "kind": "edge",
+      "description": "a middle column benefits from whichever side is painted deeper, not from adding both",
+      "input": [[[0, 1, 0], [0, 1, 0], [5, 0, 5]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "an all-zero grid scores zero no matter what is painted",
+      "input": [[[0, 0], [0, 0]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "two columns at the maximum single-cell value",
+      "input": [[[1000000000, 0], [0, 1000000000]]]
+    },
+    {
+      "kind": "trap",
+      "description": "painting a column all the way down would bury a valuable cell that is only worth exposing, not covering",
+      "input": [[[0, 0, 0, 0], [0, 0, 0, 0], [0, 4, 0, 0], [9, 0, 9, 0]]]
+    },
+    {
+      "kind": "trap",
+      "description": "a partial paint depth beats painting the whole column, since a deeper value sits below a shallower one",
+      "input": [[[0, 2], [7, 0]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a near-max square grid of random values",
+      "seed": 40,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    grid = [[rng.randint(0, 1000000000) for _ in range(n)] for _ in range(n)]\n    return [grid]\n"
+    },
+    {
+      "description": "a sparse near-max grid with mostly zeros and a few large values, favoring specific paint depths",
+      "seed": 41,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    grid = [[0] * n for _ in range(n)]\n    for _ in range(n * 2):\n        i = rng.randint(0, n - 1)\n        j = rng.randint(0, n - 1)\n        grid[i][j] = rng.randint(1, 1000000000)\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "import itertools\n\n\nclass Solution:\n    def maximumScore(self, grid):\n        n = len(grid)\n        best = 0\n        for combo in itertools.product(range(n + 1), repeat=n):\n            score = 0\n            for j in range(n):\n                hleft = combo[j - 1] if j > 0 else 0\n                hright = combo[j + 1] if j < n - 1 else 0\n                m = max(hleft, hright)\n                for i in range(combo[j], m):\n                    score += grid[i][j]\n            if score > best:\n                best = score\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumScore(self, grid):\n        n = len(grid)\n        if n == 1:\n            return 0\n        colpre = [[0] * (n + 1) for _ in range(n)]\n        for j in range(n):\n            for i in range(n):\n                colpre[j][i + 1] = colpre[j][i] + grid[i][j]\n\n        def colsum(j, lo, hi):\n            if hi <= lo:\n                return 0\n            return colpre[j][hi] - colpre[j][lo]\n\n        NEG = float('-inf')\n        dp = [[NEG] * (n + 1) for _ in range(n + 1)]\n        for h0 in range(n + 1):\n            dp[0][h0] = 0\n\n        for j in range(n - 1):\n            newdp = [[NEG] * (n + 1) for _ in range(n + 1)]\n            for hcur in range(n + 1):\n                PM = [NEG] * (n + 2)\n                best = NEG\n                for hp in range(n + 1):\n                    v = dp[hp][hcur]\n                    if v > best:\n                        best = v\n                    PM[hp] = best\n                G = [NEG] * (n + 1)\n                for hp in range(n + 1):\n                    v = dp[hp][hcur]\n                    if v == NEG:\n                        continue\n                    G[hp] = v + colsum(j, hcur, hp)\n                SM = [NEG] * (n + 2)\n                best2 = NEG\n                for hp in range(n, -1, -1):\n                    if G[hp] > best2:\n                        best2 = G[hp]\n                    SM[hp] = best2\n                for hnext in range(n + 1):\n                    opt1 = NEG\n                    if PM[hnext] != NEG:\n                        opt1 = colsum(j, hcur, hnext) + PM[hnext]\n                    opt2 = SM[hnext + 1] if hnext + 1 <= n else NEG\n                    val = max(opt1, opt2)\n                    if val > newdp[hcur][hnext]:\n                        newdp[hcur][hnext] = val\n            dp = newdp\n\n        ans = NEG\n        last_j = n - 1\n        for hprev in range(n + 1):\n            for hlast in range(n + 1):\n                if dp[hprev][hlast] == NEG:\n                    continue\n                val = dp[hprev][hlast] + colsum(last_j, hlast, hprev)\n                if val > ans:\n                    ans = val\n        return ans\n",
+    "javascript": "var maximumScore = function(grid) {\n    const n = grid.length;\n    if (n === 1) return 0;\n    const colpre = Array.from({ length: n }, () => new Array(n + 1).fill(0));\n    for (let j = 0; j < n; j++) {\n        for (let i = 0; i < n; i++) {\n            colpre[j][i + 1] = colpre[j][i] + grid[i][j];\n        }\n    }\n    function colsum(j, lo, hi) {\n        if (hi <= lo) return 0;\n        return colpre[j][hi] - colpre[j][lo];\n    }\n    const NEG = -Infinity;\n    let dp = [];\n    for (let hp = 0; hp <= n; hp++) dp.push(new Array(n + 1).fill(NEG));\n    for (let h0 = 0; h0 <= n; h0++) dp[0][h0] = 0;\n\n    for (let j = 0; j < n - 1; j++) {\n        const newdp = [];\n        for (let hp = 0; hp <= n; hp++) newdp.push(new Array(n + 1).fill(NEG));\n        for (let hcur = 0; hcur <= n; hcur++) {\n            const PM = new Array(n + 2).fill(NEG);\n            let best = NEG;\n            for (let hp = 0; hp <= n; hp++) {\n                const v = dp[hp][hcur];\n                if (v > best) best = v;\n                PM[hp] = best;\n            }\n            const G = new Array(n + 1).fill(NEG);\n            for (let hp = 0; hp <= n; hp++) {\n                const v = dp[hp][hcur];\n                if (v === NEG) continue;\n                G[hp] = v + colsum(j, hcur, hp);\n            }\n            const SM = new Array(n + 2).fill(NEG);\n            let best2 = NEG;\n            for (let hp = n; hp >= 0; hp--) {\n                if (G[hp] > best2) best2 = G[hp];\n                SM[hp] = best2;\n            }\n            for (let hnext = 0; hnext <= n; hnext++) {\n                let opt1 = NEG;\n                if (PM[hnext] !== NEG) opt1 = colsum(j, hcur, hnext) + PM[hnext];\n                const opt2 = hnext + 1 <= n ? SM[hnext + 1] : NEG;\n                const val = Math.max(opt1, opt2);\n                if (val > newdp[hcur][hnext]) newdp[hcur][hnext] = val;\n            }\n        }\n        dp = newdp;\n    }\n\n    let ans = NEG;\n    const lastJ = n - 1;\n    for (let hprev = 0; hprev <= n; hprev++) {\n        for (let hlast = 0; hlast <= n; hlast++) {\n            if (dp[hprev][hlast] === NEG) continue;\n            const val = dp[hprev][hlast] + colsum(lastJ, hlast, hprev);\n            if (val > ans) ans = val;\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^3)",
+    "space": "O(n^2)"
+  }
+}

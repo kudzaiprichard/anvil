@@ -1,0 +1,40 @@
+{
+  "slug": "map-of-highest-peak",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    isWater = args[0]\n    m = len(isWater)\n    n = len(isWater[0]) if m else 0\n    if not isinstance(output, list) or len(output) != m:\n        return False\n    for row in output:\n        if not isinstance(row, list) or len(row) != n:\n            return False\n    for i in range(m):\n        for j in range(n):\n            h = output[i][j]\n            if not isinstance(h, int) or h < 0:\n                return False\n            if isWater[i][j] == 1 and h != 0:\n                return False\n    for i in range(m):\n        for j in range(n):\n            for di, dj in ((1, 0), (0, 1)):\n                ni, nj = i + di, j + dj\n                if ni < m and nj < n:\n                    if abs(output[i][j] - output[ni][nj]) > 1:\n                        return False\n    from collections import deque\n    dist = [[-1] * n for _ in range(m)]\n    dq = deque()\n    for i in range(m):\n        for j in range(n):\n            if isWater[i][j] == 1:\n                dist[i][j] = 0\n                dq.append((i, j))\n    while dq:\n        i, j = dq.popleft()\n        for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n            ni, nj = i + di, j + dj\n            if 0 <= ni < m and 0 <= nj < n and dist[ni][nj] == -1:\n                dist[ni][nj] = dist[i][j] + 1\n                dq.append((ni, nj))\n    true_max = max(max(r) for r in dist)\n    out_max = max(max(r) for r in output)\n    return out_max == true_max\n",
+    "validator_javascript": "function validate(args, output) {\n    const isWater = args[0];\n    const m = isWater.length;\n    const n = m ? isWater[0].length : 0;\n    if (!Array.isArray(output) || output.length !== m) return false;\n    for (const row of output) {\n        if (!Array.isArray(row) || row.length !== n) return false;\n    }\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            const h = output[i][j];\n            if (!Number.isInteger(h) || h < 0) return false;\n            if (isWater[i][j] === 1 && h !== 0) return false;\n        }\n    }\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            for (const [di, dj] of [[1, 0], [0, 1]]) {\n                const ni = i + di, nj = j + dj;\n                if (ni < m && nj < n) {\n                    if (Math.abs(output[i][j] - output[ni][nj]) > 1) return false;\n                }\n            }\n        }\n    }\n    const dist = Array.from({length: m}, () => new Array(n).fill(-1));\n    const q = [];\n    let head = 0;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (isWater[i][j] === 1) { dist[i][j] = 0; q.push([i, j]); }\n        }\n    }\n    while (head < q.length) {\n        const [i, j] = q[head++];\n        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {\n            const ni = i + di, nj = j + dj;\n            if (ni >= 0 && ni < m && nj >= 0 && nj < n && dist[ni][nj] === -1) {\n                dist[ni][nj] = dist[i][j] + 1;\n                q.push([ni, nj]);\n            }\n        }\n    }\n    let trueMax = 0, outMax = 0;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (dist[i][j] > trueMax) trueMax = dist[i][j];\n            if (output[i][j] > outMax) outMax = output[i][j];\n        }\n    }\n    return outMax === trueMax;\n}\n"
+  },
+  "pattern": "Multi-source BFS from all water cells assigns each land cell its distance to the nearest water, which maximizes the tallest peak.",
+  "hints": [
+    "Water cells are fixed at zero and neighbours may differ by at most one, so a cell's height can be at most its distance to the nearest water.",
+    "To make the highest peak as tall as possible, push every cell up to that limit simultaneously.",
+    "Run a breadth-first search seeded from all water cells at once; each cell's BFS layer number is its height."
+  ],
+  "constraints": [
+    { "param": "isWater", "kind": "int[][]", "len": [1, 1000], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small grid with one water cell", "input": [[[0, 1], [0, 0]]] },
+    { "kind": "edge", "description": "two water cells shaping the peaks", "input": [[[0, 0, 1], [1, 0, 0], [0, 0, 0]]] },
+    { "kind": "boundary", "description": "single water cell only", "input": [[[1]]] },
+    { "kind": "trap", "description": "all water, every height zero", "input": [[[1, 1], [1, 1]]] },
+    { "kind": "edge", "description": "single row, water at one end", "input": [[[1, 0, 0, 0, 0]]] },
+    { "kind": "edge", "description": "single column, water in the middle", "input": [[[0], [0], [1], [0]]] },
+    { "kind": "trap", "description": "water in the center radiating outward", "input": [[[0, 0, 0], [0, 1, 0], [0, 0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random grid with a guaranteed water cell",
+      "seed": 109,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 30))\n    n = max(1, min(size, 30))\n    grid = [[1 if rng.random() < 0.15 else 0 for _ in range(n)] for _ in range(m)]\n    if not any(1 in row for row in grid):\n        grid[rng.randrange(m)][rng.randrange(n)] = 1\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def highestPeak(self, isWater):\n        m, n = len(isWater), len(isWater[0])\n        h = [[-1] * n for _ in range(m)]\n        dq = deque()\n        for i in range(m):\n            for j in range(n):\n                if isWater[i][j] == 1:\n                    h[i][j] = 0\n                    dq.append((i, j))\n        while dq:\n            i, j = dq.popleft()\n            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                ni, nj = i + di, j + dj\n                if 0 <= ni < m and 0 <= nj < n and h[ni][nj] == -1:\n                    h[ni][nj] = h[i][j] + 1\n                    dq.append((ni, nj))\n        return h\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def highestPeak(self, isWater):\n        m, n = len(isWater), len(isWater[0])\n        height = [[-1] * n for _ in range(m)]\n        q = deque()\n        for i in range(m):\n            for j in range(n):\n                if isWater[i][j]:\n                    height[i][j] = 0\n                    q.append((i, j))\n        while q:\n            i, j = q.popleft()\n            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                ni, nj = i + di, j + dj\n                if 0 <= ni < m and 0 <= nj < n and height[ni][nj] == -1:\n                    height[ni][nj] = height[i][j] + 1\n                    q.append((ni, nj))\n        return height\n",
+    "javascript": "var highestPeak = function(isWater) {\n    const m = isWater.length, n = isWater[0].length;\n    const height = Array.from({length: m}, () => new Array(n).fill(-1));\n    const q = [];\n    let head = 0;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (isWater[i][j]) { height[i][j] = 0; q.push([i, j]); }\n        }\n    }\n    while (head < q.length) {\n        const [i, j] = q[head++];\n        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {\n            const ni = i + di, nj = j + dj;\n            if (ni >= 0 && ni < m && nj >= 0 && nj < n && height[ni][nj] === -1) {\n                height[ni][nj] = height[i][j] + 1;\n                q.push([ni, nj]);\n            }\n        }\n    }\n    return height;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

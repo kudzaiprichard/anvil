@@ -1,0 +1,38 @@
+{
+  "slug": "substring-with-concatenation-of-all-words",
+  "judge": "unordered",
+  "pattern": "Because all words share one length, a fixed-width sliding window over each starting offset can count word frequencies and match the required multiset exactly.",
+  "hints": [
+    "Every concatenation has the same total length: number of words times word length, and each window splits cleanly into equal-size chunks.",
+    "A start index works only if the chunks at that position form exactly the multiset of words, counting repeats.",
+    "Slide a window of length len(words)*wordLen; at each start, cut it into wordLen pieces and compare their frequency map to the words' frequency map, recording the start on a match."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 10000] },
+    { "param": "words", "kind": "string[]", "len": [1, 5000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two distinct words, two valid starts", "input": ["barfoothefoobarman", ["foo", "bar"]] },
+    { "kind": "trap", "description": "duplicate word demand never satisfied", "input": ["wordgoodgoodgoodbestword", ["word", "good", "best", "word"]] },
+    { "kind": "edge", "description": "three words with overlapping matches", "input": ["barfoofoobarthefoobarman", ["bar", "foo", "the"]] },
+    { "kind": "trap", "description": "repeated word must appear the right number of times", "input": ["aaaaaa", ["aa", "aa"]] },
+    { "kind": "boundary", "description": "single word equals whole string", "input": ["abc", ["abc"]] },
+    { "kind": "trap", "description": "words present but never adjacent in any order", "input": ["abcxyz", ["ab", "yz"]] },
+    { "kind": "edge", "description": "single-character words allow many starts", "input": ["ababab", ["a", "b", "a"]] }
+  ],
+  "stress": [
+    {
+      "description": "string built from a small word set so concatenations occur, plus noise",
+      "seed": 30,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    wlen = rng.randint(1, 3)\n    nwords = rng.randint(1, 4)\n    alphabet = 'abc'\n    pool = [''.join(rng.choice(alphabet) for _ in range(wlen)) for _ in range(nwords)]\n    words = [rng.choice(pool) for _ in range(nwords)]\n    parts = []\n    target_len = max(wlen, size)\n    while sum(len(p) for p in parts) < target_len:\n        if rng.random() < 0.5:\n            order = words[:]\n            rng.shuffle(order)\n            parts.append(''.join(order))\n        else:\n            parts.append(''.join(rng.choice(alphabet) for _ in range(rng.randint(1, wlen))))\n    s = ''.join(parts)\n    return [s, words]\n",
+      "note": "word length kept tiny so the window scan stays fast; planted concatenations create matches"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findSubstring(self, s, words):\n        from collections import Counter\n        wlen = len(words[0])\n        total = wlen * len(words)\n        need = Counter(words)\n        res = []\n        for i in range(len(s) - total + 1):\n            chunks = [s[i + j * wlen:i + (j + 1) * wlen] for j in range(len(words))]\n            if Counter(chunks) == need:\n                res.append(i)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def findSubstring(self, s, words):\n        from collections import Counter\n        wlen = len(words[0])\n        k = len(words)\n        total = wlen * k\n        need = Counter(words)\n        n = len(s)\n        res = []\n        for offset in range(wlen):\n            left = offset\n            count = 0\n            window = Counter()\n            j = offset\n            while j + wlen <= n:\n                w = s[j:j + wlen]\n                j += wlen\n                if w in need:\n                    window[w] += 1\n                    count += 1\n                    while window[w] > need[w]:\n                        lw = s[left:left + wlen]\n                        window[lw] -= 1\n                        left += wlen\n                        count -= 1\n                    if count == k:\n                        res.append(left)\n                        lw = s[left:left + wlen]\n                        window[lw] -= 1\n                        left += wlen\n                        count -= 1\n                else:\n                    window.clear()\n                    count = 0\n                    left = j\n        return res\n",
+    "javascript": "var findSubstring = function(s, words) {\n    const wlen = words[0].length;\n    const k = words.length;\n    const need = new Map();\n    for (const w of words) need.set(w, (need.get(w) || 0) + 1);\n    const n = s.length;\n    const res = [];\n    for (let offset = 0; offset < wlen; offset++) {\n        let left = offset, count = 0;\n        const window = new Map();\n        let j = offset;\n        while (j + wlen <= n) {\n            const w = s.substring(j, j + wlen);\n            j += wlen;\n            if (need.has(w)) {\n                window.set(w, (window.get(w) || 0) + 1);\n                count++;\n                while (window.get(w) > need.get(w)) {\n                    const lw = s.substring(left, left + wlen);\n                    window.set(lw, window.get(lw) - 1);\n                    left += wlen;\n                    count--;\n                }\n                if (count === k) {\n                    res.push(left);\n                    const lw = s.substring(left, left + wlen);\n                    window.set(lw, window.get(lw) - 1);\n                    left += wlen;\n                    count--;\n                }\n            } else {\n                window.clear();\n                count = 0;\n                left = j;\n            }\n        }\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n * wlen)", "space": "O(k)" }
+}

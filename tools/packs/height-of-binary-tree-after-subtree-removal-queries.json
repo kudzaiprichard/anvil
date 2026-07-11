@@ -1,0 +1,38 @@
+{
+  "slug": "height-of-binary-tree-after-subtree-removal-queries",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json"], "returns": "json" },
+  "pattern": "Precomputing each node's depth and subtree height, plus the best height achievable at each depth excluding any single node, lets every removal query be answered in constant time.",
+  "hints": [
+    "Removing a subtree only changes the answer through the longest root-to-leaf path that passed through it, so think about depths.",
+    "For a removed node at some depth, the surviving height is the deepest path that avoids that node, which depends on the other nodes at the same depth.",
+    "Precompute each node's depth and subtree height; then for every depth keep the top two reach values (depth + subtree height) so a removed node's answer is the best reach at its depth that is not its own."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [2, 100000], "value": [1, 100000] },
+    { "param": "queries", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single query on an asymmetric tree", "input": [[1, 3, 4, 2, null, 6, 5, null, null, null, null, null, 7], [4]] },
+    { "kind": "edge", "description": "several queries on a balanced tree", "input": [[5, 8, 9, 2, 1, 3, 7, 4, 6], [3, 2, 4, 8]] },
+    { "kind": "boundary", "description": "two-node tree, remove the only child", "input": [[1, 2], [2]] },
+    { "kind": "trap", "description": "removing a leaf off the longest path does not shrink height", "input": [[1, 2, 3, 4], [3]] },
+    { "kind": "trap", "description": "removing the node on the unique deepest path", "input": [[1, 2, 3, 4, null, null, null, 5], [4]] },
+    { "kind": "edge", "description": "repeated queries return consistent answers", "input": [[1, 2, 3], [2, 3, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random near-complete tree with many queries hitting varied nodes",
+      "seed": 82,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    vals = list(range(1, n + 1))\n    rng.shuffle(vals)\n    # build a random-shaped tree via a list-array but allow gaps to vary shape\n    # simplest valid: complete tree array form gives a dense tree of n nodes\n    tree = vals\n    m = rng.randint(1, min(n - 1, 500))\n    # query values are node values != root (root is tree[0])\n    pool = [v for v in vals if v != tree[0]]\n    queries = [rng.choice(pool) for _ in range(m)]\n    return [tree, queries]\n",
+      "note": "dense array form is a valid complete-tree level-order; queries avoid the root value"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def treeQueries(self, root, queries):\n        # naive: for each query, physically rebuild height excluding that subtree\n        def height(node):\n            if not node:\n                return -1\n            return 1 + max(height(node.left), height(node.right))\n        import sys\n        sys.setrecursionlimit(300000)\n        ans = []\n        for q in queries:\n            def h_excl(node):\n                if not node or node.val == q:\n                    return -1\n                return 1 + max(h_excl(node.left), h_excl(node.right))\n            ans.append(h_excl(root))\n        return ans\n",
+  "solutions": {
+    "python": "import sys\nclass Solution:\n    def treeQueries(self, root, queries):\n        sys.setrecursionlimit(300000)\n        height = {None: -1}\n        def calc_h(node):\n            if not node:\n                return -1\n            h = 1 + max(calc_h(node.left), calc_h(node.right))\n            height[node] = h\n            return h\n        calc_h(root)\n        answer = {}\n        def dfs(node, depth, rest):\n            # rest = deepest level (in edges from root) reachable on a path\n            # that never enters this node's subtree\n            if not node:\n                return\n            answer[node.val] = rest\n            lh = height[node.left]\n            rh = height[node.right]\n            dfs(node.left, depth + 1, max(rest, depth + 1 + rh))\n            dfs(node.right, depth + 1, max(rest, depth + 1 + lh))\n        dfs(root, 0, 0)\n        return [answer[q] for q in queries]\n",
+    "javascript": "var treeQueries = function(root, queries) {\n    const height = new Map();\n    const calcH = (node) => {\n        if (!node) return -1;\n        const h = 1 + Math.max(calcH(node.left), calcH(node.right));\n        height.set(node, h);\n        return h;\n    };\n    calcH(root);\n    const hOf = (node) => node ? height.get(node) : -1;\n    const answer = new Map();\n    const stack = [[root, 0, 0]];\n    while (stack.length) {\n        const [node, depth, rest] = stack.pop();\n        if (!node) continue;\n        answer.set(node.val, rest);\n        const lh = hOf(node.left);\n        const rh = hOf(node.right);\n        stack.push([node.left, depth + 1, Math.max(rest, depth + 1 + rh)]);\n        stack.push([node.right, depth + 1, Math.max(rest, depth + 1 + lh)]);\n    }\n    return queries.map(q => answer.get(q));\n};\n"
+  },
+  "complexity": { "time": "O(n + m)", "space": "O(n)" }
+}

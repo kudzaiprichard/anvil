@@ -1,0 +1,37 @@
+{
+  "slug": "number-of-submatrices-that-sum-to-target",
+  "judge": "exact",
+  "pattern": "Fixing a pair of rows collapses the matrix to a 1-D array of column sums, turning the count into the classic subarray-sum-equals-target hash-map scan over every row band.",
+  "hints": [
+    "For a fixed top and bottom row, a submatrix is determined by its left and right columns, so the band reduces to a single row of column sums.",
+    "Counting subarrays of that band summing to target is the prefix-sum-plus-hashmap trick used for subarray-sum-equals-k.",
+    "For every pair of rows (top, bottom), build per-column running sums then sweep left to right with a prefix-sum frequency map, adding the count of prefixes equal to current-prefix minus target."
+  ],
+  "constraints": [
+    { "param": "matrix", "kind": "int[][]", "len": [1, 100], "value": [-1000, 1000] },
+    { "param": "target", "kind": "int", "value": [-100000000, 100000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "count of zero-sum single cells", "input": [[[0, 1, 0], [1, 1, 1], [0, 1, 0]], 0] },
+    { "kind": "edge", "description": "cancelling values give several zero submatrices", "input": [[[1, -1], [-1, 1]], 0] },
+    { "kind": "trap", "description": "single cell that is not the target", "input": [[[904]], 0] },
+    { "kind": "edge", "description": "single matching cell", "input": [[[5]], 5] },
+    { "kind": "trap", "description": "negative target reachable only by a band", "input": [[[1, 2], [3, 4]], -1] },
+    { "kind": "boundary", "description": "row matrix with repeated prefix sums", "input": [[[1, 0, -1, 0, 1]], 0] }
+  ],
+  "stress": [
+    {
+      "description": "moderate matrix over a small value range so many bands hit the target",
+      "seed": 1212,
+      "size": 24,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 24)))\n    n = rng.randint(1, max(1, min(size, 24)))\n    matrix = [[rng.randint(-3, 3) for _ in range(n)] for _ in range(m)]\n    target = rng.randint(-5, 5)\n    return [matrix, target]\n",
+      "note": "small magnitudes concentrate sums so the target is frequently hit"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numSubmatrixSumTarget(self, matrix, target):\n        m = len(matrix)\n        n = len(matrix[0])\n        pre = [[0] * (n + 1) for _ in range(m + 1)]\n        for i in range(m):\n            for j in range(n):\n                pre[i + 1][j + 1] = matrix[i][j] + pre[i][j + 1] + pre[i + 1][j] - pre[i][j]\n        count = 0\n        for x1 in range(1, m + 1):\n            for x2 in range(x1, m + 1):\n                for y1 in range(1, n + 1):\n                    for y2 in range(y1, n + 1):\n                        s = pre[x2][y2] - pre[x1 - 1][y2] - pre[x2][y1 - 1] + pre[x1 - 1][y1 - 1]\n                        if s == target:\n                            count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def numSubmatrixSumTarget(self, matrix, target):\n        m = len(matrix)\n        n = len(matrix[0])\n        count = 0\n        for top in range(m):\n            col = [0] * n\n            for bottom in range(top, m):\n                for j in range(n):\n                    col[j] += matrix[bottom][j]\n                seen = {0: 1}\n                running = 0\n                for v in col:\n                    running += v\n                    count += seen.get(running - target, 0)\n                    seen[running] = seen.get(running, 0) + 1\n        return count\n",
+    "javascript": "var numSubmatrixSumTarget = function(matrix, target) {\n    const m = matrix.length, n = matrix[0].length;\n    let count = 0;\n    for (let top = 0; top < m; top++) {\n        const col = new Array(n).fill(0);\n        for (let bottom = top; bottom < m; bottom++) {\n            for (let j = 0; j < n; j++) col[j] += matrix[bottom][j];\n            const seen = new Map([[0, 1]]);\n            let running = 0;\n            for (const v of col) {\n                running += v;\n                count += seen.get(running - target) || 0;\n                seen.set(running, (seen.get(running) || 0) + 1);\n            }\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(m^2 * n)", "space": "O(n)" }
+}

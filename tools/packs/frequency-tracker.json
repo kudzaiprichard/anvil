@@ -1,0 +1,96 @@
+{
+  "slug": "frequency-tracker",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Answering 'does any value have this exact frequency' fast means indexing by frequency itself, not just by value: keep a second map from occurrence-count to how many distinct values currently sit at that count.",
+  "hints": [
+    "Scanning every distinct value to check its count on each hasFrequency call is too slow if the structure holds many values — track something that already answers the question directly.",
+    "Alongside a value-to-count map, keep a count-to-how-many-values-have-it map; a value's contribution to the old count must move out before it moves into the new one.",
+    "On add, increment a value's count and shift its contribution from the old bucket to the new one; on deleteOne, do the same in reverse and drop the value entirely once its count reaches zero; hasFrequency is then just a bucket lookup."
+  ],
+  "constraints": [
+    { "param": "number", "kind": "int", "value": [1, 100000] },
+    { "param": "frequency", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "sample: adding the same value twice gives it frequency two",
+      "input": [
+        ["FrequencyTracker", "add", "add", "hasFrequency"],
+        [[], [3], [3], [2]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "sample: deleting the only occurrence empties the tracker",
+      "input": [
+        ["FrequencyTracker", "add", "deleteOne", "hasFrequency"],
+        [[], [1], [1], [1]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "sample: querying before anything is added reports false",
+      "input": [
+        ["FrequencyTracker", "hasFrequency", "add", "hasFrequency"],
+        [[], [2], [3], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one value losing an occurrence must not blind the tracker to a different value still sitting at that frequency",
+      "input": [
+        ["FrequencyTracker", "add", "add", "add", "deleteOne", "hasFrequency", "hasFrequency"],
+        [[], [1], [1], [2], [1], [1], [2]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "deleteOne on a value that was never added is a silent no-op, not an error",
+      "input": [
+        ["FrequencyTracker", "deleteOne", "add", "hasFrequency"],
+        [[], [9], [9], [1]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "value and frequency at the constraint extremes",
+      "input": [
+        ["FrequencyTracker", "add", "hasFrequency", "hasFrequency"],
+        [[], [100000], [1], [100000]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "repeatedly adding and deleting the same value must keep the frequency buckets consistent across many transitions",
+      "input": [
+        ["FrequencyTracker", "add", "add", "add", "add", "add", "deleteOne", "deleteOne", "hasFrequency", "hasFrequency", "hasFrequency"],
+        [[], [7], [7], [7], [7], [7], [7], [7], [5], [3], [4]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "after a value is deleted down to zero occurrences, adding it again starts its frequency fresh at one",
+      "input": [
+        ["FrequencyTracker", "add", "deleteOne", "add", "hasFrequency", "hasFrequency"],
+        [[], [4], [4], [4], [1], [2]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long random sequence of add/deleteOne/hasFrequency over a small value alphabet so frequencies collide often",
+      "seed": 17,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    ops = ['FrequencyTracker']\n    args = [[]]\n    pool = list(range(1, 21))\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.45:\n            ops.append('add')\n            args.append([rng.choice(pool)])\n        elif r < 0.75:\n            ops.append('deleteOne')\n            args.append([rng.choice(pool)])\n        else:\n            ops.append('hasFrequency')\n            args.append([rng.randint(1, 6)])\n    return [ops, args]\n",
+      "note": "a 20-value alphabet keeps many values collapsing onto the same frequency bucket, exercising the shared-bucket bookkeeping"
+    }
+  ],
+  "oracle_python": "class FrequencyTracker:\n    def __init__(self):\n        self.nums = []\n\n    def add(self, number):\n        self.nums.append(number)\n\n    def deleteOne(self, number):\n        if number in self.nums:\n            self.nums.remove(number)\n\n    def hasFrequency(self, frequency):\n        from collections import Counter\n        counts = Counter(self.nums)\n        return frequency in counts.values()\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\n\nclass FrequencyTracker:\n    def __init__(self):\n        self.count = defaultdict(int)\n        self.freq_count = defaultdict(int)\n\n    def add(self, number):\n        c = self.count[number]\n        if c > 0:\n            self.freq_count[c] -= 1\n        self.count[number] = c + 1\n        self.freq_count[c + 1] += 1\n\n    def deleteOne(self, number):\n        c = self.count.get(number, 0)\n        if c == 0:\n            return\n        self.freq_count[c] -= 1\n        if c - 1 == 0:\n            del self.count[number]\n        else:\n            self.count[number] = c - 1\n            self.freq_count[c - 1] += 1\n\n    def hasFrequency(self, frequency):\n        return self.freq_count.get(frequency, 0) > 0\n",
+    "javascript": "class FrequencyTracker {\n    constructor() {\n        this.count = new Map();\n        this.freqCount = new Map();\n    }\n    add(number) {\n        const c = this.count.get(number) || 0;\n        if (c > 0) this.freqCount.set(c, (this.freqCount.get(c) || 0) - 1);\n        this.count.set(number, c + 1);\n        this.freqCount.set(c + 1, (this.freqCount.get(c + 1) || 0) + 1);\n    }\n    deleteOne(number) {\n        const c = this.count.get(number) || 0;\n        if (c === 0) return;\n        this.freqCount.set(c, (this.freqCount.get(c) || 0) - 1);\n        if (c - 1 === 0) {\n            this.count.delete(number);\n        } else {\n            this.count.set(number, c - 1);\n            this.freqCount.set(c - 1, (this.freqCount.get(c - 1) || 0) + 1);\n        }\n    }\n    hasFrequency(frequency) {\n        return (this.freqCount.get(frequency) || 0) > 0;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per call", "space": "O(distinct values)" }
+}

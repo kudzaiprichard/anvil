@@ -1,0 +1,39 @@
+{
+  "slug": "verifying-an-alien-dictionary",
+  "judge": "exact",
+  "pattern": "Re-rank each letter by its position in the custom alphabet, then check that every adjacent pair of words is in non-decreasing order under that ranking, treating a shorter prefix as smaller.",
+  "hints": [
+    "The only thing that changes is which letter counts as 'smaller'; build a lookup from each letter to its position in the given order.",
+    "Sorted-ness is a local property: the whole list is sorted exactly when each word is less than or equal to the one right after it.",
+    "Compare two neighbouring words character by character using the ranks; at the first differing position the smaller rank must come first, and if one word is a prefix of the other the shorter one must come first."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 100], "value": [1, 20] },
+    { "param": "order", "kind": "string", "len": [26, 26] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two words ordered correctly under a remapped alphabet", "input": [["hello", "leetcode"], "hlabcdefgijkmnopqrstuvwxyz"] },
+    { "kind": "trap", "description": "a later word should come first under the custom order", "input": [["word", "world", "row"], "worldabcefghijkmnpqstuvxyz"] },
+    { "kind": "trap", "description": "a longer word followed by its own prefix is out of order", "input": [["apple", "app"], "abcdefghijklmnopqrstuvwxyz"] },
+    { "kind": "boundary", "description": "single word is trivially sorted", "input": [["zzz"], "abcdefghijklmnopqrstuvwxyz"] },
+    { "kind": "edge", "description": "prefix before the longer word is correctly ordered", "input": [["app", "apple"], "abcdefghijklmnopqrstuvwxyz"] },
+    { "kind": "edge", "description": "identical adjacent words are non-decreasing", "input": [["abc", "abc"], "abcdefghijklmnopqrstuvwxyz"] },
+    { "kind": "trap", "description": "reversed alphabet makes a normally-sorted list unsorted", "input": [["ab", "ba"], "zyxwvutsrqponmlkjihgfedcba"] },
+    { "kind": "edge", "description": "single-letter words sorted by custom order", "input": [["c", "a", "b"], "cabdefghijklmnopqrstuvwxyz"] }
+  ],
+  "stress": [
+    {
+      "description": "random alphabets and word lists, frequently built to be already sorted so both true and false outcomes appear",
+      "seed": 53,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    import string\n    letters = list(string.ascii_lowercase)\n    rng.shuffle(letters)\n    order = ''.join(letters)\n    rank = {c: i for i, c in enumerate(order)}\n    n = rng.randint(1, max(1, min(size, 100)))\n    words = []\n    for _ in range(n):\n        wl = rng.randint(1, 6)\n        words.append(''.join(rng.choice(order) for _ in range(wl)))\n    if rng.random() < 0.6:\n        words.sort(key=lambda w: [rank[c] for c in w])\n    return [words, order]\n",
+      "note": "sorting under the custom rank yields valid 'true' cases; unsorted random lists exercise 'false'"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isAlienSorted(self, words, order):\n        rank = {c: i for i, c in enumerate(order)}\n        keyed = [[rank[c] for c in w] for w in words]\n        return all(keyed[i] <= keyed[i + 1] for i in range(len(keyed) - 1))\n",
+  "solutions": {
+    "python": "class Solution:\n    def isAlienSorted(self, words, order):\n        rank = {c: i for i, c in enumerate(order)}\n        def le(a, b):\n            for x, y in zip(a, b):\n                if rank[x] != rank[y]:\n                    return rank[x] < rank[y]\n            return len(a) <= len(b)\n        for i in range(len(words) - 1):\n            if not le(words[i], words[i + 1]):\n                return False\n        return True\n",
+    "javascript": "var isAlienSorted = function(words, order) {\n    const rank = {};\n    for (let i = 0; i < order.length; i++) rank[order[i]] = i;\n    const le = (a, b) => {\n        const n = Math.min(a.length, b.length);\n        for (let i = 0; i < n; i++) {\n            if (rank[a[i]] !== rank[b[i]]) return rank[a[i]] < rank[b[i]];\n        }\n        return a.length <= b.length;\n    };\n    for (let i = 0; i + 1 < words.length; i++) {\n        if (!le(words[i], words[i + 1])) return false;\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(total characters)", "space": "O(1)" }
+}

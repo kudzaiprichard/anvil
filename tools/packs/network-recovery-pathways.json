@@ -1,0 +1,38 @@
+{
+  "slug": "network-recovery-pathways",
+  "judge": "exact",
+  "pattern": "Maximizing the minimum edge cost under a budget is monotone in the threshold, so binary searching the bottleneck value and checking budget feasibility with a cheapest-path search on the surviving edges yields the answer.",
+  "hints": [
+    "If a path with every edge at least x and total cost within budget exists, then it also exists for any smaller threshold, so the best achievable bottleneck can be binary searched.",
+    "For a fixed threshold, drop every edge cheaper than it and every offline intermediate node, then ask whether the cheapest remaining 0-to-(n-1) path fits the budget.",
+    "Search over the sorted distinct edge costs; the largest threshold whose minimum-cost path stays within k is the answer, or -1 if no budgeted path exists at all."
+  ],
+  "constraints": [
+    { "param": "edges", "kind": "int[][]", "len": [0, 100000], "value": [0, 1000000000] },
+    { "param": "online", "kind": "bool[]", "len": [2, 50000] },
+    { "param": "k", "kind": "int", "value": [0, 50000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "cheaper route wins the bottleneck", "input": [[[0, 1, 5], [1, 3, 10], [0, 2, 3], [2, 3, 4]], [true, true, true, true], 10] },
+    { "kind": "edge", "description": "an offline node forces the other route", "input": [[[0, 1, 7], [1, 4, 5], [0, 2, 6], [2, 3, 6], [3, 4, 2], [2, 4, 6]], [true, true, true, false, true], 12] },
+    { "kind": "edge", "description": "single direct edge within budget", "input": [[[0, 1, 4]], [true, true], 10] },
+    { "kind": "trap", "description": "only path exceeds the budget", "input": [[[0, 1, 8], [1, 2, 8]], [true, true, true], 10] },
+    { "kind": "trap", "description": "destination unreachable, no edges", "input": [[], [true, true], 5] },
+    { "kind": "boundary", "description": "zero-cost edges, bottleneck is zero", "input": [[[0, 1, 0], [1, 2, 0]], [true, true, true], 0] },
+    { "kind": "trap", "description": "all intermediate routes blocked offline", "input": [[[0, 1, 3], [1, 2, 3]], [true, false, true], 100] }
+  ],
+  "stress": [
+    {
+      "description": "random small DAGs (edges go low index to high) with a generous budget, checked by path enumeration",
+      "seed": 43,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    online = [True] * n\n    for i in range(1, n - 1):\n        if rng.random() < 0.25:\n            online[i] = False\n    edges = []\n    for u in range(n):\n        for v in range(u + 1, n):\n            if rng.random() < 0.5:\n                edges.append([u, v, rng.randrange(0, 20)])\n    k = rng.randrange(0, 60)\n    return [edges, online, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMaxPathScore(self, edges, online, k):\n        from collections import defaultdict\n        n = len(online)\n        g = defaultdict(list)\n        for u, v, c in edges:\n            g[u].append((v, c))\n        best = [-1]\n        def usable(node):\n            return node == 0 or node == n - 1 or online[node]\n        def dfs(u, total, mn):\n            if total > k:\n                return\n            if u == n - 1:\n                if mn > best[0]:\n                    best[0] = mn\n                return\n            for v, c in g[u]:\n                if not usable(v):\n                    continue\n                nm = c if mn is None else min(mn, c)\n                dfs(v, total + c, nm)\n        if usable(0):\n            dfs(0, 0, None)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMaxPathScore(self, edges, online, k):\n        import heapq\n        n = len(online)\n        def usable(node):\n            return node == 0 or node == n - 1 or online[node]\n        adj = [[] for _ in range(n)]\n        costs = set()\n        for u, v, c in edges:\n            adj[u].append((v, c))\n            costs.add(c)\n        def feasible(x):\n            INF = float('inf')\n            dist = [INF] * n\n            dist[0] = 0\n            pq = [(0, 0)]\n            while pq:\n                d, u = heapq.heappop(pq)\n                if d > dist[u]:\n                    continue\n                if u == n - 1:\n                    return d <= k\n                for v, c in adj[u]:\n                    if c < x or not usable(v):\n                        continue\n                    nd = d + c\n                    if nd < dist[v]:\n                        dist[v] = nd\n                        heapq.heappush(pq, (nd, v))\n            return dist[n - 1] <= k\n        if not feasible(0):\n            return -1\n        cand = sorted(costs)\n        lo, hi = 0, len(cand) - 1\n        ans = 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if feasible(cand[mid]):\n                ans = cand[mid]\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        return ans\n",
+    "javascript": "var findMaxPathScore = function(edges, online, k) {\n    k = BigInt(k);\n    const n = online.length;\n    const usable = (node) => node === 0 || node === n - 1 || online[node];\n    const adj = Array.from({ length: n }, () => []);\n    const costSet = new Set();\n    for (const [u, v, c] of edges) { adj[u].push([v, c]); costSet.add(c); }\n    const feasible = (x) => {\n        const INF = Infinity;\n        const dist = new Array(n).fill(INF);\n        dist[0] = 0;\n        const pq = [[0n, 0]];\n        const push = (it) => { pq.push(it); let i = pq.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (pq[p][0] <= pq[i][0]) break; [pq[p], pq[i]] = [pq[i], pq[p]]; i = p; } };\n        const pop = () => { const top = pq[0], last = pq.pop(); if (pq.length) { pq[0] = last; let i = 0; const m = pq.length; while (true) { let l = 2*i+1, r = 2*i+2, s = i; if (l < m && pq[l][0] < pq[s][0]) s = l; if (r < m && pq[r][0] < pq[s][0]) s = r; if (s === i) break; [pq[s], pq[i]] = [pq[i], pq[s]]; i = s; } } return top; };\n        const dd = new Array(n).fill(null);\n        dd[0] = 0n;\n        while (pq.length) {\n            const [d, u] = pop();\n            if (dd[u] !== null && d > dd[u]) continue;\n            if (u === n - 1) return d <= k;\n            for (const [v, c] of adj[u]) {\n                if (c < x || !usable(v)) continue;\n                const nd = d + BigInt(c);\n                if (dd[v] === null || nd < dd[v]) { dd[v] = nd; push([nd, v]); }\n            }\n        }\n        return dd[n - 1] !== null && dd[n - 1] <= k;\n    };\n    if (!feasible(0)) return -1;\n    const cand = [...costSet].sort((a, b) => a - b);\n    let lo = 0, hi = cand.length - 1, ans = 0;\n    while (lo <= hi) {\n        const mid = (lo + hi) >> 1;\n        if (feasible(cand[mid])) { ans = cand[mid]; lo = mid + 1; } else { hi = mid - 1; }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O((m log m) * log m)", "space": "O(n + m)" }
+}

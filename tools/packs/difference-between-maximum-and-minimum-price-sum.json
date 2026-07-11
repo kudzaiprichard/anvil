@@ -1,0 +1,38 @@
+{
+  "slug": "difference-between-maximum-and-minimum-price-sum",
+  "judge": "exact",
+  "pattern": "Because a single node is always a valid path, the cheapest path from any chosen root is just that root's own price, so the real work is finding, for every possible root at once, the priciest path that bends away from it.",
+  "hints": [
+    "The minimum-price path starting at any root is always the root by itself — a lone node is a legal path, and nothing shorter exists, so there is no separate 'minimum' calculation to do.",
+    "For a fixed root the maximum-price path is a straight descent into the deepest-priced branch beneath it; if you also let the path bend at an interior node between two different branches, one traversal from any single starting point can evaluate every node as though it were the root.",
+    "At each node during a post-order walk, track the best downward branch that still counts its own far end and the best downward branch with its far end's price already stripped out; combining one of each kind across two different children at every node, and taking the overall best such combination, gives the answer without ever re-rooting the tree."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 99999] },
+    { "param": "price", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single isolated node with no edges at all", "input": [1, [], [100]] },
+    { "kind": "boundary", "description": "the smallest possible tree, two nodes joined by one edge", "input": [2, [[0, 1]], [5, 9]] },
+    { "kind": "edge", "description": "a star graph, so the answer must come from combining the two priciest leaves only", "input": [5, [[0, 1], [0, 2], [0, 3], [0, 4]], [10, 50, 40, 30, 2]] },
+    { "kind": "trap", "description": "one node has three children; only the best two of the three branches may be combined, not all of them", "input": [4, [[0, 1], [0, 2], [0, 3]], [1, 100, 90, 80]] },
+    { "kind": "edge", "description": "a long unbranching chain, so the best path is the full straight descent", "input": [5, [[0, 1], [1, 2], [2, 3], [3, 4]], [3, 1, 1, 1, 10]] },
+    { "kind": "boundary", "description": "one node's price sits far above every other, isolating where the maximum path must pass through", "input": [6, [[0, 1], [1, 2], [1, 3], [3, 4], [3, 5]], [1, 1, 1, 100000, 1, 1]] },
+    { "kind": "trap", "description": "every node shares the same price, so ties between candidate paths must resolve consistently", "input": [4, [[0, 1], [1, 2], [1, 3]], [6, 6, 6, 6]] }
+  ],
+  "stress": [
+    {
+      "description": "randomly shaped trees built by attaching each new node to a uniformly chosen earlier node, with varied prices",
+      "seed": 71,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    edges = []\n    for i in range(1, n):\n        parent = rng.randint(0, i - 1)\n        edges.append([parent, i])\n    rng.shuffle(edges)\n    price = [rng.randint(1, 100000) for _ in range(n)]\n    return [n, edges, price]\n"
+    }
+  ],
+  "oracle_python": "from collections import defaultdict\n\nclass Solution:\n    def maxOutput(self, n, edges, price):\n        graph = defaultdict(list)\n        for a, b in edges:\n            graph[a].append(b)\n            graph[b].append(a)\n        best = 0\n        for root in range(n):\n            visited = {root}\n            stack = [(root, price[root])]\n            max_sum = price[root]\n            while stack:\n                node, s = stack.pop()\n                if s > max_sum:\n                    max_sum = s\n                for nxt in graph[node]:\n                    if nxt not in visited:\n                        visited.add(nxt)\n                        stack.append((nxt, s + price[nxt]))\n            min_sum = price[root]\n            cost = max_sum - min_sum\n            if cost > best:\n                best = cost\n        return best\n",
+  "solutions": {
+    "python": "from collections import defaultdict\nimport sys\n\nclass Solution:\n    def maxOutput(self, n, edges, price):\n        sys.setrecursionlimit(300000)\n        graph = defaultdict(list)\n        for a, b in edges:\n            graph[a].append(b)\n            graph[b].append(a)\n        ans = 0\n\n        def dfs(node, parent):\n            nonlocal ans\n            max1 = price[node]\n            max2 = 0\n            for child in graph[node]:\n                if child == parent:\n                    continue\n                c1, c2 = dfs(child, node)\n                ans = max(ans, max1 + c2, max2 + c1)\n                max1 = max(max1, c1 + price[node])\n                max2 = max(max2, c2 + price[node])\n            return max1, max2\n\n        dfs(0, -1)\n        return ans\n",
+    "javascript": "var maxOutput = function(n, edges, price) {\n    const graph = new Map();\n    for (let i = 0; i < n; i++) graph.set(i, []);\n    for (const [a, b] of edges) {\n        graph.get(a).push(b);\n        graph.get(b).push(a);\n    }\n    let ans = 0;\n    function dfs(node, parent) {\n        let max1 = price[node];\n        let max2 = 0;\n        for (const child of graph.get(node)) {\n            if (child === parent) continue;\n            const [c1, c2] = dfs(child, node);\n            ans = Math.max(ans, max1 + c2, max2 + c1);\n            max1 = Math.max(max1, c1 + price[node]);\n            max2 = Math.max(max2, c2 + price[node]);\n        }\n        return [max1, max2];\n    }\n    dfs(0, -1);\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

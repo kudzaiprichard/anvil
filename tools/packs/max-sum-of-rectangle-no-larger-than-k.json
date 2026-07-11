@@ -1,0 +1,38 @@
+{
+  "slug": "max-sum-of-rectangle-no-larger-than-k",
+  "judge": "exact",
+  "pattern": "Fixing a pair of columns reduces the rectangle to a one-dimensional problem of finding the largest subarray sum not exceeding k, which an ordered set of running prefix sums answers in logarithmic time per element.",
+  "hints": [
+    "Every candidate rectangle spans some contiguous range of columns, so fix the left and right column bounds and collapse each row in between into a single value.",
+    "With the columns fixed you have a 1D array; you want the maximum subarray sum that stays at or below k, which is a question about pairs of prefix sums.",
+    "Maintain the running prefix sums seen so far in a sorted structure; for the current prefix S, the best subarray ending here that is at most k comes from the smallest earlier prefix that is at least S - k."
+  ],
+  "constraints": [
+    { "param": "matrix", "kind": "int[][]", "len": [1, 100], "value": [-100, 100] },
+    { "param": "k", "kind": "int", "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small matrix where the best rectangle equals k exactly", "input": [[[1, 0, 1], [0, -2, 3]], 2] },
+    { "kind": "edge", "description": "single row, whole row is the best at or below k", "input": [[[2, 2, -1]], 3] },
+    { "kind": "trap", "description": "k smaller than every single positive cell forces a negative-sum rectangle", "input": [[[5, -4, -3], [-2, 8, -1]], -1] },
+    { "kind": "boundary", "description": "single cell matrix, the only rectangle is that cell", "input": [[[-7]], 100000] },
+    { "kind": "trap", "description": "k larger than the total sum so the global maximum rectangle wins", "input": [[[2, 2], [2, 2]], 100000] },
+    { "kind": "edge", "description": "single column forces vertical rectangles only", "input": [[[3], [-1], [4], [-2]], 5] },
+    { "kind": "trap", "description": "all negative cells, best is the largest single value at or below k", "input": [[[-1, -5], [-3, -2]], 0] }
+  ],
+  "stress": [
+    {
+      "description": "small dense matrix with mixed signs and a moderate k so the quadratic oracle stays fast",
+      "seed": 31,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 8)\n    n = rng.randint(1, 8)\n    mat = [[rng.randint(-20, 20) for _ in range(n)] for _ in range(m)]\n    total = sum(sum(r) for r in mat)\n    k = rng.randint(-30, max(0, total) + 5)\n    return [mat, k]\n",
+      "note": "matrix dimensions capped at 8x8 so the O((mn)^2) brute oracle is quick and a feasible rectangle always exists"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSumSubmatrix(self, matrix, k):\n        m = len(matrix)\n        n = len(matrix[0])\n        pre = [[0] * (n + 1) for _ in range(m + 1)]\n        for i in range(m):\n            for j in range(n):\n                pre[i + 1][j + 1] = matrix[i][j] + pre[i][j + 1] + pre[i + 1][j] - pre[i][j]\n        best = None\n        for r1 in range(m):\n            for r2 in range(r1 + 1, m + 1):\n                for c1 in range(n):\n                    for c2 in range(c1 + 1, n + 1):\n                        s = pre[r2][c2] - pre[r1][c2] - pre[r2][c1] + pre[r1][c1]\n                        if s <= k and (best is None or s > best):\n                            best = s\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSumSubmatrix(self, matrix, k):\n        import bisect\n        m = len(matrix)\n        n = len(matrix[0])\n        best = float('-inf')\n        for left in range(n):\n            row_sum = [0] * m\n            for right in range(left, n):\n                for i in range(m):\n                    row_sum[i] += matrix[i][right]\n                prefixes = [0]\n                cur = 0\n                for v in row_sum:\n                    cur += v\n                    idx = bisect.bisect_left(prefixes, cur - k)\n                    if idx < len(prefixes):\n                        best = max(best, cur - prefixes[idx])\n                    bisect.insort(prefixes, cur)\n        return best\n",
+    "javascript": "var maxSumSubmatrix = function(matrix, k) {\n    const m = matrix.length, n = matrix[0].length;\n    let best = -Infinity;\n    const lowerBound = (arr, target) => {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] < target) lo = mid + 1; else hi = mid; }\n        return lo;\n    };\n    for (let left = 0; left < n; left++) {\n        const rowSum = new Array(m).fill(0);\n        for (let right = left; right < n; right++) {\n            for (let i = 0; i < m; i++) rowSum[i] += matrix[i][right];\n            const prefixes = [0];\n            let cur = 0;\n            for (const v of rowSum) {\n                cur += v;\n                const idx = lowerBound(prefixes, cur - k);\n                if (idx < prefixes.length) best = Math.max(best, cur - prefixes[idx]);\n                const ins = lowerBound(prefixes, cur);\n                prefixes.splice(ins, 0, cur);\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(min(m,n)^2 * max(m,n) log(max(m,n)))", "space": "O(max(m,n))" }
+}

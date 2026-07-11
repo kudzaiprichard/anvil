@@ -1,0 +1,37 @@
+{
+  "slug": "number-of-matching-subsequences",
+  "judge": "exact",
+  "pattern": "Rather than rescan the long string per word, advance all words together: bucket each word by its next-needed character and, sweeping the long string once, promote the waiting words whenever their awaited character arrives.",
+  "hints": [
+    "Checking each word independently rescans the long string repeatedly; instead think about all words progressing as you read the long string a single time.",
+    "Group every word by the next character it is waiting for; when you read a character, every word waiting on it advances to wait on its following character.",
+    "Keep 26 buckets of (word, position) waiters; for each char of the long string, drain its bucket and re-file each waiter under its next character, counting a word the moment its position reaches its length."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 50000] },
+    { "param": "words", "kind": "string[]" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three of four words are subsequences", "input": ["abcde", ["a", "bb", "acd", "ace"]] },
+    { "kind": "trap", "description": "words longer than s or out of order do not match", "input": ["dsahjpjauf", ["ahjpjau", "ja", "ahbwzgqnuk", "tnmlanowax"]] },
+    { "kind": "boundary", "description": "single character string and single character words", "input": ["a", ["a", "a", "b"]] },
+    { "kind": "trap", "description": "duplicate words each counted separately", "input": ["abab", ["ab", "ab", "ba", "aa"]] },
+    { "kind": "edge", "description": "single-letter and two-letter words, some ordered wrongly", "input": ["xyz", ["x", "xy", "xz", "yz", "zx"]] },
+    { "kind": "trap", "description": "word needs more copies of a letter than s provides", "input": ["aaa", ["aaaa", "aa", "aaa"]] }
+  ],
+  "stress": [
+    {
+      "description": "random long string and many random short words over a small alphabet",
+      "seed": 71,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    import string\n    alpha = string.ascii_lowercase[:6]\n    n = rng.randint(1, max(1, size))\n    s = ''.join(rng.choice(alpha) for _ in range(n))\n    w = rng.randint(1, 200)\n    words = []\n    for _ in range(w):\n        ln = rng.randint(1, 8)\n        words.append(''.join(rng.choice(alpha) for _ in range(ln)))\n    return [s, words]\n",
+      "note": "small alphabet makes many words match, stressing the bucketing"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numMatchingSubseq(self, s, words):\n        def is_sub(w):\n            it = iter(s)\n            return all(ch in it for ch in w)\n        return sum(1 for w in words if is_sub(w))\n",
+  "solutions": {
+    "python": "class Solution:\n    def numMatchingSubseq(self, s, words):\n        from collections import defaultdict\n        waiting = defaultdict(list)\n        for w in words:\n            waiting[w[0]].append((w, 0))\n        count = 0\n        for ch in s:\n            bucket = waiting[ch]\n            waiting[ch] = []\n            for w, i in bucket:\n                j = i + 1\n                if j == len(w):\n                    count += 1\n                else:\n                    waiting[w[j]].append((w, j))\n        return count\n",
+    "javascript": "var numMatchingSubseq = function(s, words) {\n    const waiting = new Map();\n    const add = (ch, item) => {\n        if (!waiting.has(ch)) waiting.set(ch, []);\n        waiting.get(ch).push(item);\n    };\n    for (const w of words) add(w[0], [w, 0]);\n    let count = 0;\n    for (const ch of s) {\n        const bucket = waiting.get(ch);\n        if (!bucket) continue;\n        waiting.set(ch, []);\n        for (const [w, i] of bucket) {\n            const j = i + 1;\n            if (j === w.length) count++;\n            else add(w[j], [w, j]);\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(|s| + total word length)", "space": "O(total word length)" }
+}

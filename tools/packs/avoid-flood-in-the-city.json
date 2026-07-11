@@ -1,0 +1,82 @@
+{
+  "slug": "avoid-flood-in-the-city",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def _solve(rains):\n    n = len(rains)\n    BIT = [0] * (n + 2)\n\n    def update(i, delta):\n        while i <= n:\n            BIT[i] += delta\n            i += i & (-i)\n\n    def prefix(i):\n        s = 0\n        while i > 0:\n            s += BIT[i]\n            i -= i & (-i)\n        return s\n\n    def find_kth(k):\n        pos = 0\n        logn = n.bit_length()\n        for pw in range(logn, -1, -1):\n            nxt = pos + (1 << pw)\n            if nxt <= n and BIT[nxt] < k:\n                pos = nxt\n                k -= BIT[nxt]\n        return pos + 1\n\n    full = {}\n    ans = [1] * n\n    for i, r in enumerate(rains):\n        if r > 0:\n            ans[i] = -1\n            if r in full:\n                last = full[r]\n                cnt_before = prefix(last + 1)\n                total_avail = prefix(n)\n                if cnt_before >= total_avail:\n                    return []\n                pos1 = find_kth(cnt_before + 1)\n                day0 = pos1 - 1\n                ans[day0] = r\n                update(pos1, -1)\n            full[r] = i\n        else:\n            update(i + 1, 1)\n    return ans\n\n\ndef validate(args, output):\n    rains = args[0]\n    n = len(rains)\n    if not isinstance(output, list):\n        return False\n    if len(output) == 0:\n        return _solve(rains) == []\n    if len(output) != n:\n        return False\n    full = set()\n    for i in range(n):\n        if rains[i] > 0:\n            if output[i] != -1:\n                return False\n            if rains[i] in full:\n                return False\n            full.add(rains[i])\n        else:\n            d = output[i]\n            if not isinstance(d, int) or isinstance(d, bool):\n                return False\n            if d in full:\n                full.discard(d)\n    return True\n",
+    "validator_javascript": "function _solve(rains) {\n    const n = rains.length;\n    const BIT = new Array(n + 2).fill(0);\n    function update(i, delta) {\n        while (i <= n) { BIT[i] += delta; i += i & (-i); }\n    }\n    function prefix(i) {\n        let s = 0;\n        while (i > 0) { s += BIT[i]; i -= i & (-i); }\n        return s;\n    }\n    function findKth(k) {\n        let pos = 0;\n        let logn = 0;\n        while ((1 << logn) <= n) logn++;\n        for (let pw = logn; pw >= 0; pw--) {\n            const nxt = pos + (1 << pw);\n            if (nxt <= n && BIT[nxt] < k) {\n                pos = nxt;\n                k -= BIT[nxt];\n            }\n        }\n        return pos + 1;\n    }\n    const full = new Map();\n    const ans = new Array(n).fill(1);\n    for (let i = 0; i < n; i++) {\n        const r = rains[i];\n        if (r > 0) {\n            ans[i] = -1;\n            if (full.has(r)) {\n                const last = full.get(r);\n                const cntBefore = prefix(last + 1);\n                const totalAvail = prefix(n);\n                if (cntBefore >= totalAvail) return [];\n                const pos1 = findKth(cntBefore + 1);\n                const day0 = pos1 - 1;\n                ans[day0] = r;\n                update(pos1, -1);\n            }\n            full.set(r, i);\n        } else {\n            update(i + 1, 1);\n        }\n    }\n    return ans;\n}\n\nfunction validate(args, output) {\n    const rains = args[0];\n    const n = rains.length;\n    if (!Array.isArray(output)) return false;\n    if (output.length === 0) {\n        return _solve(rains).length === 0;\n    }\n    if (output.length !== n) return false;\n    const full = new Set();\n    for (let i = 0; i < n; i++) {\n        if (rains[i] > 0) {\n            if (output[i] !== -1) return false;\n            if (full.has(rains[i])) return false;\n            full.add(rains[i]);\n        } else {\n            const d = output[i];\n            if (typeof d !== 'number' || !Number.isInteger(d)) return false;\n            full.delete(d);\n        }\n    }\n    return true;\n}\n"
+  },
+  "pattern": "Only dry a lake the moment it is about to flood again, always picking the earliest still-unused dry day after it last filled - a Fenwick tree turns 'find the earliest free day past this point' into a fast lookup instead of a scan.",
+  "hints": [
+    "A flood only happens when the same lake fills twice with no dry day for it in between, so track the day each lake last filled and only worry about a lake once it rains on it a second time.",
+    "When a lake is about to re-flood, you need the earliest dry day that is still unused and comes after the lake's previous fill - using it any later only removes flexibility for other lakes.",
+    "Keep the set of unused dry-day indices in a structure that supports 'smallest unused index greater than X' and removal in better than linear time (a Fenwick/binary-indexed tree over day indices works well) so the whole pass stays fast even at the maximum input size."
+  ],
+  "constraints": [
+    { "param": "rains", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "no lake ever repeats, so no drying is ever required",
+      "input": [[1, 2, 3, 4]]
+    },
+    {
+      "kind": "edge",
+      "description": "a lake refills after being dried in between, avoiding the flood",
+      "input": [[1, 2, 0, 0, 2, 1]]
+    },
+    {
+      "kind": "edge",
+      "description": "it never rains at all, so every day is a free choice",
+      "input": [[0, 0, 0]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single day with nothing to dry",
+      "input": [[0]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single day of rain with no repeats possible",
+      "input": [[9]]
+    },
+    {
+      "kind": "trap",
+      "description": "two lakes are full but only one truly needs drying before its next rain - drying the wrong one must fail validation",
+      "input": [[3, 4, 0, 3]]
+    },
+    {
+      "kind": "trap",
+      "description": "the same lake floods on back-to-back days with no chance to dry it in between - impossible",
+      "input": [[5, 5]]
+    },
+    {
+      "kind": "trap",
+      "description": "a dry day exists but only before the lake fills the first time, so it cannot prevent the later repeat - impossible",
+      "input": [[1, 2, 0, 1, 2]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-max length with a modest lake pool and plenty of dry days",
+      "seed": 70,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    rains = [rng.choice([0] * 3 + list(range(1, 200))) for _ in range(n)]\n    return [rains]\n"
+    },
+    {
+      "description": "near-max length with very few dry days, likely to be infeasible",
+      "seed": 71,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    rains = [rng.choice([0] + [1, 2, 3] * 40) for _ in range(n)]\n    return [rains]\n"
+    }
+  ],
+  "oracle_python": "import bisect\n\n\nclass Solution:\n    def avoidFlood(self, rains):\n        n = len(rains)\n        full = {}\n        available = []\n        ans = [1] * n\n        for i, r in enumerate(rains):\n            if r > 0:\n                ans[i] = -1\n                if r in full:\n                    last = full[r]\n                    idx = bisect.bisect_right(available, last)\n                    if idx == len(available):\n                        return []\n                    d = available.pop(idx)\n                    ans[d] = r\n                full[r] = i\n            else:\n                available.append(i)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def avoidFlood(self, rains):\n        n = len(rains)\n        BIT = [0] * (n + 2)\n\n        def update(i, delta):\n            while i <= n:\n                BIT[i] += delta\n                i += i & (-i)\n\n        def prefix(i):\n            s = 0\n            while i > 0:\n                s += BIT[i]\n                i -= i & (-i)\n            return s\n\n        def find_kth(k):\n            pos = 0\n            logn = n.bit_length()\n            for pw in range(logn, -1, -1):\n                nxt = pos + (1 << pw)\n                if nxt <= n and BIT[nxt] < k:\n                    pos = nxt\n                    k -= BIT[nxt]\n            return pos + 1\n\n        full = {}\n        ans = [1] * n\n        for i, r in enumerate(rains):\n            if r > 0:\n                ans[i] = -1\n                if r in full:\n                    last = full[r]\n                    cnt_before = prefix(last + 1)\n                    total_avail = prefix(n)\n                    if cnt_before >= total_avail:\n                        return []\n                    pos1 = find_kth(cnt_before + 1)\n                    day0 = pos1 - 1\n                    ans[day0] = r\n                    update(pos1, -1)\n                full[r] = i\n            else:\n                update(i + 1, 1)\n        return ans\n",
+    "javascript": "var avoidFlood = function(rains) {\n    const n = rains.length;\n    const BIT = new Array(n + 2).fill(0);\n    function update(i, delta) {\n        while (i <= n) { BIT[i] += delta; i += i & (-i); }\n    }\n    function prefix(i) {\n        let s = 0;\n        while (i > 0) { s += BIT[i]; i -= i & (-i); }\n        return s;\n    }\n    function findKth(k) {\n        let pos = 0;\n        let logn = 0;\n        while ((1 << logn) <= n) logn++;\n        for (let pw = logn; pw >= 0; pw--) {\n            const nxt = pos + (1 << pw);\n            if (nxt <= n && BIT[nxt] < k) {\n                pos = nxt;\n                k -= BIT[nxt];\n            }\n        }\n        return pos + 1;\n    }\n    const full = new Map();\n    const ans = new Array(n).fill(1);\n    for (let i = 0; i < n; i++) {\n        const r = rains[i];\n        if (r > 0) {\n            ans[i] = -1;\n            if (full.has(r)) {\n                const last = full.get(r);\n                const cntBefore = prefix(last + 1);\n                const totalAvail = prefix(n);\n                if (cntBefore >= totalAvail) return [];\n                const pos1 = findKth(cntBefore + 1);\n                const day0 = pos1 - 1;\n                ans[day0] = r;\n                update(pos1, -1);\n            }\n            full.set(r, i);\n        } else {\n            update(i + 1, 1);\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

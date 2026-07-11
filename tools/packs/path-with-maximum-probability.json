@@ -1,0 +1,228 @@
+{
+  "slug": "path-with-maximum-probability",
+  "judge": {
+    "type": "float",
+    "epsilon": 1e-05
+  },
+  "pattern": "Maximizing a product of edge probabilities along a path is a shortest-path problem in disguise: relax neighbors with the product instead of the sum, and always expand the currently most-probable frontier node first.",
+  "hints": [
+    "Treat each edge's success probability as a weight and build an undirected weighted graph.",
+    "This is Dijkstra's algorithm with 'distance' replaced by 'probability': instead of adding weights and minimizing, multiply them and maximize.",
+    "Keep a best-probability-so-far array (1.0 at the start node, 0 elsewhere) and a max-priority frontier; whenever going through the current node gives a neighbor a higher product than its recorded best, update it and re-queue that neighbor."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        2,
+        10000
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        0,
+        20000
+      ],
+      "value": [
+        0,
+        9999
+      ]
+    },
+    {
+      "param": "succProb",
+      "kind": "float[]"
+    },
+    {
+      "param": "start_node",
+      "kind": "int",
+      "value": [
+        0,
+        9999
+      ]
+    },
+    {
+      "param": "end_node",
+      "kind": "int",
+      "value": [
+        0,
+        9999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a simple two-edge chain",
+      "input": [
+        3,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        [
+          0.9,
+          0.9
+        ],
+        0,
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a direct edge beats a longer indirect path",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        [
+          0.5,
+          0.5,
+          0.3,
+          0.5
+        ],
+        0,
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum graph size with one edge",
+      "input": [
+        2,
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          0.73
+        ],
+        0,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "no edges at all between the two nodes",
+      "input": [
+        2,
+        [],
+        [],
+        0,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a zero-probability edge must never be chosen when a direct alternative exists",
+      "input": [
+        3,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        [
+          0.0,
+          0.9,
+          0.4
+        ],
+        0,
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "querying a node against itself is trivially probability one",
+      "input": [
+        3,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        [
+          0.5,
+          0.5
+        ],
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two disconnected components can never reach each other",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          0.6
+        ],
+        2,
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random spanning tree plus extra random edges up to the edge budget, near the maximum node count",
+      "seed": 8,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 10000))\n    nodes = list(range(n))\n    rng.shuffle(nodes)\n    edges = []\n    succ = []\n    seen = set()\n    for i in range(1, n):\n        j = rng.randrange(i)\n        a, b = nodes[i], nodes[j]\n        edges.append([a, b])\n        succ.append(round(rng.uniform(0.1, 1.0), 3))\n        seen.add(tuple(sorted((a, b))))\n    budget = min(20000, n * 2) - (n - 1)\n    attempts = 0\n    while budget > 0 and attempts < budget * 4:\n        a = rng.randrange(n)\n        b = rng.randrange(n)\n        attempts += 1\n        if a == b:\n            continue\n        key = tuple(sorted((a, b)))\n        if key in seen:\n            continue\n        seen.add(key)\n        edges.append([a, b])\n        succ.append(round(rng.uniform(0.1, 1.0), 3))\n        budget -= 1\n    start_node = rng.randrange(n)\n    end_node = rng.randrange(n)\n    while n > 1 and end_node == start_node:\n        end_node = rng.randrange(n)\n    return [n, edges, succ, start_node, end_node]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxProbability(self, n, edges, succProb, start_node, end_node):\n        import heapq, math\n        if start_node == end_node:\n            return 1.0\n        graph = [[] for _ in range(n)]\n        for (a, b), p in zip(edges, succProb):\n            w = -math.log(p) if p > 0 else float('inf')\n            graph[a].append((b, w))\n            graph[b].append((a, w))\n        dist = [float('inf')] * n\n        dist[start_node] = 0.0\n        heap = [(0.0, start_node)]\n        visited = [False] * n\n        while heap:\n            d, node = heapq.heappop(heap)\n            if visited[node]:\n                continue\n            visited[node] = True\n            if node == end_node:\n                return math.exp(-d)\n            for nxt, w in graph[node]:\n                nd = d + w\n                if nd < dist[nxt]:\n                    dist[nxt] = nd\n                    heapq.heappush(heap, (nd, nxt))\n        return 0.0\n",
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def maxProbability(self, n, edges, succProb, start_node, end_node):\n        graph = [[] for _ in range(n)]\n        for (a, b), p in zip(edges, succProb):\n            graph[a].append((b, p))\n            graph[b].append((a, p))\n        prob = [0.0] * n\n        prob[start_node] = 1.0\n        heap = [(-1.0, start_node)]\n        visited = [False] * n\n        while heap:\n            neg_p, node = heapq.heappop(heap)\n            p = -neg_p\n            if visited[node]:\n                continue\n            visited[node] = True\n            if node == end_node:\n                return p\n            for nxt, w in graph[node]:\n                if not visited[nxt] and p * w > prob[nxt]:\n                    prob[nxt] = p * w\n                    heapq.heappush(heap, (-prob[nxt], nxt))\n        return prob[end_node]\n",
+    "javascript": "var maxProbability = function(n, edges, succProb, start_node, end_node) {\n    const graph = Array.from({ length: n }, () => []);\n    for (let i = 0; i < edges.length; i++) {\n        const [a, b] = edges[i];\n        const p = succProb[i];\n        graph[a].push([b, p]);\n        graph[b].push([a, p]);\n    }\n    const prob = new Array(n).fill(0);\n    prob[start_node] = 1;\n    const heap = [[1, start_node]];\n    const visited = new Array(n).fill(false);\n    function siftDown(i) {\n        const len = heap.length;\n        while (true) {\n            let largest = i, l = 2 * i + 1, r = 2 * i + 2;\n            if (l < len && heap[l][0] > heap[largest][0]) largest = l;\n            if (r < len && heap[r][0] > heap[largest][0]) largest = r;\n            if (largest === i) break;\n            [heap[i], heap[largest]] = [heap[largest], heap[i]];\n            i = largest;\n        }\n    }\n    function siftUp(i) {\n        while (i > 0) {\n            const parent = (i - 1) >> 1;\n            if (heap[parent][0] >= heap[i][0]) break;\n            [heap[i], heap[parent]] = [heap[parent], heap[i]];\n            i = parent;\n        }\n    }\n    function push(item) {\n        heap.push(item);\n        siftUp(heap.length - 1);\n    }\n    function pop() {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length > 0) {\n            heap[0] = last;\n            siftDown(0);\n        }\n        return top;\n    }\n    while (heap.length) {\n        const [p, node] = pop();\n        if (visited[node]) continue;\n        visited[node] = true;\n        if (node === end_node) return p;\n        for (const [nxt, w] of graph[node]) {\n            if (!visited[nxt] && p * w > prob[nxt]) {\n                prob[nxt] = p * w;\n                push([prob[nxt], nxt]);\n            }\n        }\n    }\n    return prob[end_node];\n};\n"
+  },
+  "complexity": {
+    "time": "O((V + E) log V)",
+    "space": "O(V + E)"
+  }
+}

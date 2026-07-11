@@ -1,0 +1,37 @@
+{
+  "slug": "painting-a-grid-with-three-different-colors",
+  "judge": "exact",
+  "pattern": "Enumerating all valid single-column colorings and counting compatible column-to-column transitions gives a linear-in-width dynamic program.",
+  "hints": [
+    "A column is valid if no two vertically adjacent cells match; there are only a handful of such columns for small heights.",
+    "Two consecutive columns are compatible when no cell equals its horizontal neighbor.",
+    "Precompute valid columns and their pairwise compatibility, then sweep across the width accumulating counts modulo 1000000007."
+  ],
+  "constraints": [
+    { "param": "m", "kind": "int", "value": [1, 5] },
+    { "param": "n", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "anchor example single cell", "input": [1, 1] },
+    { "kind": "edge", "description": "anchor example one by two", "input": [1, 2] },
+    { "kind": "edge", "description": "anchor example five by five", "input": [5, 5] },
+    { "kind": "boundary", "description": "tall single column", "input": [5, 1] },
+    { "kind": "edge", "description": "two by two grid", "input": [2, 2] },
+    { "kind": "boundary", "description": "wide single row triggers modulo", "input": [1, 1000] },
+    { "kind": "trap", "description": "tall grid moderately wide", "input": [4, 7] }
+  ],
+  "stress": [
+    {
+      "description": "random small height and modest width",
+      "seed": 111,
+      "size": 0,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 5)\n    n = rng.randint(1, 60)\n    return [m, n]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def colorTheGrid(self, m, n):\n        MOD = 10**9 + 7\n        from itertools import product\n        cols = []\n        for combo in product(range(3), repeat=m):\n            ok = True\n            for i in range(m - 1):\n                if combo[i] == combo[i + 1]:\n                    ok = False\n                    break\n            if ok:\n                cols.append(combo)\n        def compat(a, b):\n            for i in range(m):\n                if a[i] == b[i]:\n                    return False\n            return True\n        dp = {c: 1 for c in cols}\n        for _ in range(n - 1):\n            ndp = {c: 0 for c in cols}\n            for a in cols:\n                if dp[a] == 0:\n                    continue\n                for b in cols:\n                    if compat(a, b):\n                        ndp[b] = (ndp[b] + dp[a]) % MOD\n            dp = ndp\n        return sum(dp.values()) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def colorTheGrid(self, m, n):\n        MOD = 10**9 + 7\n        from itertools import product\n        cols = []\n        for combo in product(range(3), repeat=m):\n            if all(combo[i] != combo[i + 1] for i in range(m - 1)):\n                cols.append(combo)\n        idx = {c: i for i, c in enumerate(cols)}\n        trans = [[] for _ in cols]\n        for i, a in enumerate(cols):\n            for j, b in enumerate(cols):\n                if all(a[k] != b[k] for k in range(m)):\n                    trans[i].append(j)\n        dp = [1] * len(cols)\n        for _ in range(n - 1):\n            ndp = [0] * len(cols)\n            for i in range(len(cols)):\n                if dp[i]:\n                    for j in trans[i]:\n                        ndp[j] = (ndp[j] + dp[i]) % MOD\n            dp = ndp\n        return sum(dp) % MOD\n",
+    "javascript": "var colorTheGrid = function(m, n) {\n    const MOD = 1000000007n;\n    const cols = [];\n    const total = Math.pow(3, m);\n    for (let mask = 0; mask < total; mask++) {\n        const col = [];\n        let x = mask;\n        for (let k = 0; k < m; k++) { col.push(x % 3); x = Math.floor(x / 3); }\n        let ok = true;\n        for (let i = 0; i < m - 1; i++) if (col[i] === col[i + 1]) { ok = false; break; }\n        if (ok) cols.push(col);\n    }\n    const trans = cols.map(() => []);\n    for (let i = 0; i < cols.length; i++) {\n        for (let j = 0; j < cols.length; j++) {\n            let ok = true;\n            for (let k = 0; k < m; k++) if (cols[i][k] === cols[j][k]) { ok = false; break; }\n            if (ok) trans[i].push(j);\n        }\n    }\n    let dp = new Array(cols.length).fill(1n);\n    for (let step = 0; step < n - 1; step++) {\n        const ndp = new Array(cols.length).fill(0n);\n        for (let i = 0; i < cols.length; i++) {\n            if (dp[i] !== 0n) {\n                for (const j of trans[i]) ndp[j] = (ndp[j] + dp[i]) % MOD;\n            }\n        }\n        dp = ndp;\n    }\n    let s = 0n;\n    for (const v of dp) s = (s + v) % MOD;\n    return Number(s);\n};\n"
+  },
+  "complexity": { "time": "O(n * S^2)", "space": "O(S^2)" }
+}

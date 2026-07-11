@@ -1,0 +1,43 @@
+{
+  "slug": "maximum-total-value-of-covered-indices",
+  "judge": "exact",
+  "pattern": "Because tokens sit at strictly increasing indices and each can shift left by at most one step, two tokens can only ever land on the very same cell if they started one apart, so a left-to-right sweep tracking just the previous token's chosen landing spot is enough to pick each token's best move.",
+  "hints": [
+    "Each token independently either stays put or shifts left by exactly one -- there is no chain reaction, so think of it as one binary decision per token.",
+    "Two different tokens can only ever end up on the same index if their starting positions were exactly one apart, since any two tokens further apart can never have overlapping landing options; track only the immediately previous token's chosen landing index.",
+    "Sweep the tokens left to right keeping two running totals -- the best total value so far if the previous token stayed, and the best if it moved -- and for each new token's own two choices, add its cell's value unless doing so would land on the same cell the previous token already claimed."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two tokens each move left and land on disjoint cells", "input": [[9, 2, 6, 1], "0101"] },
+    { "kind": "edge", "description": "a single token is best left where it is", "input": [[5, 1, 4], "001"] },
+    { "kind": "edge", "description": "adjacent tokens where moving both would collide, so only one should move", "input": [[9, 3, 5], "011"] },
+    { "kind": "boundary", "description": "a single index with a token that cannot move", "input": [[7], "1"] },
+    { "kind": "boundary", "description": "a single index with no token at all", "input": [[7], "0"] },
+    { "kind": "trap", "description": "every index has a token, so a chain of adjacent tokens must be handled without over-counting collisions", "input": [[4, 3, 2, 1], "1111"] },
+    { "kind": "trap", "description": "moving the leftmost token is impossible since index 0 has no index to its left", "input": [[10, 1], "10"] }
+  ],
+  "stress": [
+    {
+      "description": "random values and a random dense token pattern",
+      "seed": 19,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 3000))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    s = ''.join(rng.choice('01') for _ in range(n))\n    return [nums, s]\n"
+    },
+    {
+      "description": "large array near the full length bound with a sparser token pattern",
+      "seed": 20,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    s = ''.join('1' if rng.randint(0, 4) == 0 else '0' for _ in range(n))\n    return [nums, s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxTotal(self, nums, s):\n        tokens = [i for i, c in enumerate(s) if c == '1']\n        if not tokens:\n            return 0\n        NEG = float('-inf')\n        prevStates = None\n        for idx in tokens:\n            options = [(idx, nums[idx])]\n            if idx > 0:\n                options.append((idx - 1, nums[idx - 1]))\n            newStates = []\n            for pos, gain in options:\n                if prevStates is None:\n                    newStates.append((pos, gain))\n                else:\n                    best = NEG\n                    for ppos, pval in prevStates:\n                        cand = pval if pos == ppos else pval + gain\n                        if cand > best:\n                            best = cand\n                    newStates.append((pos, best))\n            prevStates = newStates\n        return max(v for _, v in prevStates)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxTotal(self, nums, s: str) -> int:\n        n = len(nums)\n        if '1' not in s:\n            return 0\n        NEG = float('-inf')\n        prevStayPos = prevMovePos = None\n        prevStayVal = prevMoveVal = NEG\n        first = True\n        for idx in range(n):\n            if s[idx] != '1':\n                continue\n            stayPos = idx\n            stayGain = nums[idx]\n            movePos = idx - 1 if idx > 0 else None\n            moveGain = nums[idx - 1] if idx > 0 else None\n            if first:\n                newStayVal = stayGain\n                newMoveVal = moveGain if movePos is not None else NEG\n            else:\n                def best_for(pos, gain):\n                    best = NEG\n                    if prevStayVal != NEG:\n                        cand = prevStayVal if pos == prevStayPos else prevStayVal + gain\n                        best = max(best, cand)\n                    if prevMoveVal != NEG:\n                        cand = prevMoveVal if pos == prevMovePos else prevMoveVal + gain\n                        best = max(best, cand)\n                    return best\n                newStayVal = best_for(stayPos, stayGain)\n                newMoveVal = best_for(movePos, moveGain) if movePos is not None else NEG\n            prevStayPos, prevStayVal = stayPos, newStayVal\n            prevMovePos, prevMoveVal = movePos, newMoveVal\n            first = False\n        return max(prevStayVal, prevMoveVal)\n",
+    "javascript": "var maxTotal = function(nums, s) {\n    const n = nums.length;\n    if (!s.includes('1')) return 0;\n    const NEG = -Infinity;\n    let prevStayPos = null, prevMovePos = null;\n    let prevStayVal = NEG, prevMoveVal = NEG;\n    let first = true;\n    for (let idx = 0; idx < n; idx++) {\n        if (s[idx] !== '1') continue;\n        const stayPos = idx;\n        const stayGain = nums[idx];\n        const movePos = idx > 0 ? idx - 1 : null;\n        const moveGain = idx > 0 ? nums[idx - 1] : null;\n        let newStayVal, newMoveVal;\n        const bestFor = (pos, gain) => {\n            let best = NEG;\n            if (prevStayVal !== NEG) {\n                const cand = (pos === prevStayPos) ? prevStayVal : prevStayVal + gain;\n                if (cand > best) best = cand;\n            }\n            if (prevMoveVal !== NEG) {\n                const cand = (pos === prevMovePos) ? prevMoveVal : prevMoveVal + gain;\n                if (cand > best) best = cand;\n            }\n            return best;\n        };\n        if (first) {\n            newStayVal = stayGain;\n            newMoveVal = movePos !== null ? moveGain : NEG;\n        } else {\n            newStayVal = bestFor(stayPos, stayGain);\n            newMoveVal = movePos !== null ? bestFor(movePos, moveGain) : NEG;\n        }\n        prevStayPos = stayPos; prevStayVal = newStayVal;\n        prevMovePos = movePos; prevMoveVal = newMoveVal;\n        first = false;\n    }\n    return Math.max(prevStayVal, prevMoveVal);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

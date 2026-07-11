@@ -1,0 +1,37 @@
+{
+  "slug": "number-of-integers-with-popcount-depth-equal-to-k-ii",
+  "judge": "exact",
+  "pattern": "Every value's popcount-depth is a tiny integer, so maintaining one Fenwick tree per depth bucket turns range-count and point-update queries into independent prefix-sum operations.",
+  "hints": [
+    "Compute each element's depth once; because a single popcount step shrinks any value drastically, only a handful of distinct depth values ever occur.",
+    "Keep one binary indexed tree per depth value, marking position j in the tree for its current depth.",
+    "A type-1 query is a range sum in the tree for depth k; a type-2 update clears the old depth's tree at idx and sets the new one."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000000000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "value": [0, 1000000000000000] }
+  ],
+  "no_anchor_ok": true,
+  "edge_inputs": [
+    { "kind": "edge", "description": "two elements, two range queries around an update", "input": [[2, 4], [[1, 0, 1, 1], [2, 1, 1], [1, 0, 1, 0]]] },
+    { "kind": "edge", "description": "three elements with an update and several depth queries", "input": [[3, 5, 6], [[1, 0, 2, 2], [2, 1, 4], [1, 1, 2, 1], [1, 0, 1, 0]]] },
+    { "kind": "edge", "description": "update changes a depth-1 to depth-2 then back", "input": [[1, 2], [[1, 0, 1, 1], [2, 0, 3], [1, 0, 0, 1], [1, 0, 0, 2]]] },
+    { "kind": "boundary", "description": "single element queried for matching and non-matching depth", "input": [[7], [[1, 0, 0, 3], [1, 0, 0, 0]]] },
+    { "kind": "trap", "description": "query k larger than any present depth returns zero", "input": [[1, 1, 1], [[1, 0, 2, 5]]] },
+    { "kind": "trap", "description": "x=1 has depth zero, distinct from powers of two", "input": [[1, 2, 4, 8], [[1, 0, 3, 1], [1, 0, 3, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random initial values plus a mix of range-count and update queries",
+      "seed": 29,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size // 4)\n    nums = [rng.randrange(1, 10**12) for _ in range(n)]\n    q = max(1, size)\n    queries = []\n    for _ in range(q):\n        if rng.random() < 0.5:\n            l = rng.randrange(0, n)\n            r = rng.randrange(l, n)\n            k = rng.randrange(0, 7)\n            queries.append([1, l, r, k])\n        else:\n            idx = rng.randrange(0, n)\n            val = rng.randrange(1, 10**12)\n            queries.append([2, idx, val])\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def popcountDepth(self, nums, queries):\n        def depth(x):\n            d = 0\n            while x != 1:\n                x = bin(x).count('1')\n                d += 1\n            return d\n        a = list(nums)\n        out = []\n        for q in queries:\n            if q[0] == 1:\n                _, l, r, k = q\n                cnt = 0\n                for j in range(l, r + 1):\n                    if depth(a[j]) == k:\n                        cnt += 1\n                out.append(cnt)\n            else:\n                _, idx, val = q\n                a[idx] = val\n        return out\n",
+  "solutions": {
+    "python": "class Solution:\n    def popcountDepth(self, nums, queries):\n        def depth(x):\n            d = 0\n            while x != 1:\n                x = bin(x).count('1')\n                d += 1\n            return d\n        n = len(nums)\n        B = 8\n        trees = [[0] * (n + 1) for _ in range(B)]\n        def upd(t, i, v):\n            i += 1\n            while i <= n:\n                t[i] += v\n                i += i & (-i)\n        def qpre(t, i):\n            i += 1\n            s = 0\n            while i > 0:\n                s += t[i]\n                i -= i & (-i)\n            return s\n        cur = [0] * n\n        for j in range(n):\n            d = depth(nums[j])\n            cur[j] = d\n            if d < B:\n                upd(trees[d], j, 1)\n        out = []\n        for q in queries:\n            if q[0] == 1:\n                _, l, r, k = q\n                if k < 0 or k >= B:\n                    out.append(0)\n                else:\n                    t = trees[k]\n                    res = qpre(t, r) - (qpre(t, l - 1) if l > 0 else 0)\n                    out.append(res)\n            else:\n                _, idx, val = q\n                old = cur[idx]\n                if old < B:\n                    upd(trees[old], idx, -1)\n                nd = depth(val)\n                cur[idx] = nd\n                if nd < B:\n                    upd(trees[nd], idx, 1)\n        return out\n",
+    "javascript": "var popcountDepth = function(nums, queries) {\n    const pc = (x) => { let c = 0n; let y = BigInt(x); while (y > 0n) { c += y & 1n; y >>= 1n; } return Number(c); };\n    const depth = (x) => { let d = 0; let v = BigInt(x); while (v !== 1n) { v = BigInt(pc(v)); d++; } return d; };\n    const n = nums.length;\n    const B = 8;\n    const trees = Array.from({ length: B }, () => new Array(n + 1).fill(0));\n    const upd = (t, i, v) => { i += 1; while (i <= n) { t[i] += v; i += i & (-i); } };\n    const qpre = (t, i) => { i += 1; let s = 0; while (i > 0) { s += t[i]; i -= i & (-i); } return s; };\n    const cur = new Array(n).fill(0);\n    for (let j = 0; j < n; j++) {\n        const d = depth(nums[j]);\n        cur[j] = d;\n        if (d < B) upd(trees[d], j, 1);\n    }\n    const out = [];\n    for (const q of queries) {\n        if (q[0] === 1) {\n            const l = q[1], r = q[2], k = q[3];\n            if (k < 0 || k >= B) { out.push(0); continue; }\n            const t = trees[k];\n            const res = qpre(t, r) - (l > 0 ? qpre(t, l - 1) : 0);\n            out.push(res);\n        } else {\n            const idx = q[1], val = q[2];\n            const old = cur[idx];\n            if (old < B) upd(trees[old], idx, -1);\n            const nd = depth(val);\n            cur[idx] = nd;\n            if (nd < B) upd(trees[nd], idx, 1);\n        }\n    }\n    return out;\n};\n"
+  },
+  "complexity": { "time": "O((n + q) log n)", "space": "O(n)" }
+}

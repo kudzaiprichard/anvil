@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
   },
   // In dev the Tauri webview loads assets from the Next dev server.
   assetPrefix: isProd ? undefined : `http://${internalHost}:3000`,
+  // Keep the dev indicator off the app shell's bottom-left rail buttons.
+  devIndicators: {
+    position: "bottom-right",
+  },
 };
 
 export default nextConfig;

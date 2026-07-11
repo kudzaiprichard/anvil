@@ -1,0 +1,36 @@
+{
+  "slug": "cut-off-trees-for-golf-event",
+  "judge": "exact",
+  "pattern": "Cutting trees shortest-first reduces to summing the grid shortest paths between consecutive tree positions, each found with a breadth-first search.",
+  "hints": [
+    "Trees must be cut in increasing height order, which fixes the sequence of cells to visit.",
+    "The total walk is the sum of shortest paths between consecutive targets starting from the origin.",
+    "Sort tree cells by height, then BFS from each target to the next; if any leg is unreachable, return -1."
+  ],
+  "constraints": [
+    { "param": "forest", "kind": "int[][]", "len": [1, 2500], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "reachable winding path", "input": [[[1, 2, 3], [0, 0, 4], [7, 6, 5]]] },
+    { "kind": "trap", "description": "blocked middle row", "input": [[[1, 2, 3], [0, 0, 0], [7, 6, 5]]] },
+    { "kind": "edge", "description": "tree at origin cut first", "input": [[[2, 3, 4], [0, 0, 5], [8, 7, 6]]] },
+    { "kind": "boundary", "description": "single tree at origin", "input": [[[5]]] },
+    { "kind": "trap", "description": "origin blocked", "input": [[[0, 3], [2, 4]]] },
+    { "kind": "edge", "description": "straight line of trees", "input": [[[1, 2, 3, 4, 5]]] },
+    { "kind": "edge", "description": "column of trees", "input": [[[2], [3], [4], [5]]] }
+  ],
+  "stress": [
+    {
+      "description": "random small grid with distinct tree heights and walkable origin",
+      "seed": 37,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    cap = max(2, min(8, int(min(64, size) ** 0.5) + 1))\n    rows = rng.randint(1, cap)\n    cols = rng.randint(1, cap)\n    grid = [[1 if rng.random() < 0.8 else 0 for _ in range(cols)] for _ in range(rows)]\n    grid[0][0] = 1\n    cells = [(r, c) for r in range(rows) for c in range(cols) if grid[r][c] == 1]\n    rng.shuffle(cells)\n    k = rng.randint(1, len(cells))\n    height = 2\n    for idx in range(k):\n        r, c = cells[idx]\n        grid[r][c] = height\n        height += 1\n    if all(grid[r][c] <= 1 for r in range(rows) for c in range(cols)):\n        grid[0][0] = 2\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def cutOffTree(self, forest):\n        rows = len(forest)\n        cols = len(forest[0])\n        trees = []\n        for r in range(rows):\n            for c in range(cols):\n                if forest[r][c] > 1:\n                    trees.append((forest[r][c], r, c))\n        trees.sort()\n        def dist(sr, sc, tr, tc):\n            if sr == tr and sc == tc:\n                return 0\n            best = {(sr, sc): 0}\n            frontier = [(sr, sc)]\n            step = 0\n            while frontier:\n                step += 1\n                nxt = []\n                for (r, c) in frontier:\n                    for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < rows and 0 <= nc < cols and forest[nr][nc] != 0 and (nr, nc) not in best:\n                            best[(nr, nc)] = step\n                            if nr == tr and nc == tc:\n                                return step\n                            nxt.append((nr, nc))\n                frontier = nxt\n            return -1\n        total = 0\n        cr, cc = 0, 0\n        if forest[0][0] == 0:\n            return -1\n        for h, tr, tc in trees:\n            d = dist(cr, cc, tr, tc)\n            if d < 0:\n                return -1\n            total += d\n            cr, cc = tr, tc\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def cutOffTree(self, forest):\n        from collections import deque\n        rows = len(forest)\n        cols = len(forest[0])\n        if forest[0][0] == 0:\n            return -1\n        trees = sorted((forest[r][c], r, c) for r in range(rows) for c in range(cols) if forest[r][c] > 1)\n        def bfs(sr, sc, tr, tc):\n            seen = [[False] * cols for _ in range(rows)]\n            q = deque([(sr, sc, 0)])\n            seen[sr][sc] = True\n            while q:\n                r, c, d = q.popleft()\n                if r == tr and c == tc:\n                    return d\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < rows and 0 <= nc < cols and not seen[nr][nc] and forest[nr][nc] != 0:\n                        seen[nr][nc] = True\n                        q.append((nr, nc, d + 1))\n            return -1\n        total = 0\n        cr, cc = 0, 0\n        for h, tr, tc in trees:\n            d = bfs(cr, cc, tr, tc)\n            if d < 0:\n                return -1\n            total += d\n            cr, cc = tr, tc\n        return total\n",
+    "javascript": "var cutOffTree = function(forest) {\n    const rows = forest.length, cols = forest[0].length;\n    if (forest[0][0] === 0) return -1;\n    const trees = [];\n    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (forest[r][c] > 1) trees.push([forest[r][c], r, c]);\n    trees.sort((a, b) => a[0] - b[0]);\n    const bfs = (sr, sc, tr, tc) => {\n        const seen = Array.from({length: rows}, () => new Array(cols).fill(false));\n        const q = [[sr, sc, 0]];\n        seen[sr][sc] = true;\n        let head = 0;\n        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n        while (head < q.length) {\n            const [r, c, d] = q[head++];\n            if (r === tr && c === tc) return d;\n            for (const [dr, dc] of dirs) {\n                const nr = r + dr, nc = c + dc;\n                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !seen[nr][nc] && forest[nr][nc] !== 0) {\n                    seen[nr][nc] = true;\n                    q.push([nr, nc, d + 1]);\n                }\n            }\n        }\n        return -1;\n    };\n    let total = 0, cr = 0, cc = 0;\n    for (const [h, tr, tc] of trees) {\n        const d = bfs(cr, cc, tr, tc);\n        if (d < 0) return -1;\n        total += d;\n        cr = tr; cc = tc;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(t * m * n)", "space": "O(m*n)" }
+}

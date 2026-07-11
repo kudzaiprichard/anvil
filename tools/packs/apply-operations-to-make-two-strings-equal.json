@@ -1,0 +1,133 @@
+{
+  "slug": "apply-operations-to-make-two-strings-equal",
+  "judge": "exact",
+  "pattern": "Reducing the two strings to the sorted positions where they differ turns the problem into pairing those positions up as cheaply as possible, where any pair can be closed at a flat price or, if the two positions are close together, at the price of the gap between them, which a small two-state scan resolves in one pass.",
+  "hints": [
+    "Only the positions where the two strings disagree matter at all; if there is an odd number of them, no sequence of operations can ever make the strings equal.",
+    "Two disagreeing positions can always be resolved together for a flat price regardless of how far apart they are, or, if they happen to be close together, for a price equal to the distance between them, whichever is cheaper.",
+    "Scan the sorted disagreeing positions left to right keeping track of whether there's a single still-unpaired position left behind; at each step either park the current position to be closed later at the flat price, close a parked one against the current position, or close the current position together with the very next one directly."
+  ],
+  "constraints": [
+    {
+      "param": "s1",
+      "kind": "string",
+      "len": [
+        1,
+        500
+      ]
+    },
+    {
+      "param": "s2",
+      "kind": "string",
+      "len": [
+        1,
+        500
+      ]
+    },
+    {
+      "param": "x",
+      "kind": "int",
+      "value": [
+        1,
+        500
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "already-equal strings need no operations",
+      "input": [
+        "0",
+        "0",
+        5
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a single disagreement can never be fixed, regardless of cost",
+      "input": [
+        "0",
+        "1",
+        5
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two adjacent disagreeing positions where the cheap adjacent operation is at least as good as the flat one",
+      "input": [
+        "01",
+        "10",
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two adjacent disagreeing positions with a flat cost that happens to match the adjacent cost",
+      "input": [
+        "00",
+        "11",
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an odd number of disagreements hidden inside a longer string, so it stays impossible however cheap the flat cost is",
+      "input": [
+        "010101",
+        "000000",
+        100
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every position disagrees, forcing the pairing to be decided across the whole string",
+      "input": [
+        "1010",
+        "0101",
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two adjacent disagreeing positions where the flat cost is at its maximum, so the adjacent operation is always preferred",
+      "input": [
+        "01",
+        "10",
+        500
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "four disagreeing positions arranged so that pairing the middle two together beats pairing every position with its immediate neighbor",
+      "input": [
+        "00110011",
+        "01100110",
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings with a random even number of disagreements and a random flat cost",
+      "seed": 901,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 500))\n    x = rng.randint(1, 500)\n    s2 = ''.join(rng.choice('01') for _ in range(n))\n    s1 = list(s2)\n    max_pairs = n // 2\n    k = rng.randint(0, max_pairs) * 2\n    positions = rng.sample(range(n), k) if k > 0 else []\n    for p in positions:\n        s1[p] = '1' if s1[p] == '0' else '0'\n    return [''.join(s1), s2, x]\n"
+    },
+    {
+      "description": "fully disagreeing strings of maximum even length with a random flat cost",
+      "seed": 902,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 500))\n    if n % 2 == 1:\n        n -= 1\n    x = rng.randint(1, 500)\n    s2 = ''.join(rng.choice('01') for _ in range(n))\n    s1 = ''.join('1' if c == '0' else '0' for c in s2)\n    return [s1, s2, x]\n"
+    }
+  ],
+  "oracle_python": "from functools import lru_cache\nclass Solution:\n    def minOperations(self, s1, s2, x):\n        n = len(s1)\n        diffs = tuple(i for i in range(n) if s1[i] != s2[i])\n        k = len(diffs)\n        if k % 2 == 1:\n            return -1\n        if k == 0:\n            return 0\n\n        @lru_cache(maxsize=None)\n        def rec(remaining):\n            if not remaining:\n                return 0\n            first = remaining[0]\n            rest = remaining[1:]\n            best = None\n            for i in range(len(rest)):\n                partner = rest[i]\n                nxt = rest[:i] + rest[i + 1:]\n                cost = min(x, abs(partner - first)) + rec(nxt)\n                if best is None or cost < best:\n                    best = cost\n            return best\n\n        result = rec(diffs)\n        rec.cache_clear()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def minOperations(self, s1, s2, x):\n        n = len(s1)\n        diffs = [i for i in range(n) if s1[i] != s2[i]]\n        k = len(diffs)\n        if k % 2 == 1:\n            return -1\n        if k == 0:\n            return 0\n        INF = float('inf')\n        dp0 = [INF] * (k + 1)\n        dp1 = [INF] * (k + 1)\n        dp0[0] = 0\n        for i in range(k):\n            if dp0[i] < INF:\n                if dp0[i] < dp1[i + 1]:\n                    dp1[i + 1] = dp0[i]\n                if i + 1 < k:\n                    cost = dp0[i] + min(x, diffs[i + 1] - diffs[i])\n                    if cost < dp0[i + 2]:\n                        dp0[i + 2] = cost\n            if dp1[i] < INF:\n                cost = dp1[i] + x\n                if cost < dp0[i + 1]:\n                    dp0[i + 1] = cost\n                if i + 1 < k:\n                    cost2 = dp1[i] + min(x, diffs[i + 1] - diffs[i])\n                    if cost2 < dp1[i + 2]:\n                        dp1[i + 2] = cost2\n        return dp0[k]\n",
+    "javascript": "var minOperations = function(s1, s2, x) {\n    const n = s1.length;\n    const diffs = [];\n    for (let i = 0; i < n; i++) if (s1[i] !== s2[i]) diffs.push(i);\n    const k = diffs.length;\n    if (k % 2 === 1) return -1;\n    if (k === 0) return 0;\n    const INF = Infinity;\n    const dp0 = new Array(k + 1).fill(INF);\n    const dp1 = new Array(k + 1).fill(INF);\n    dp0[0] = 0;\n    for (let i = 0; i < k; i++) {\n        if (dp0[i] < INF) {\n            if (dp0[i] < dp1[i + 1]) dp1[i + 1] = dp0[i];\n            if (i + 1 < k) {\n                const cost = dp0[i] + Math.min(x, diffs[i + 1] - diffs[i]);\n                if (cost < dp0[i + 2]) dp0[i + 2] = cost;\n            }\n        }\n        if (dp1[i] < INF) {\n            const cost = dp1[i] + x;\n            if (cost < dp0[i + 1]) dp0[i + 1] = cost;\n            if (i + 1 < k) {\n                const cost2 = dp1[i] + Math.min(x, diffs[i + 1] - diffs[i]);\n                if (cost2 < dp1[i + 2]) dp1[i + 2] = cost2;\n            }\n        }\n    }\n    return dp0[k];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

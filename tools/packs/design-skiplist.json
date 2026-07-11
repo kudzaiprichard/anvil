@@ -1,0 +1,42 @@
+{
+  "slug": "design-skiplist",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "An ordered multiset supports search, insert, and delete-one while tolerating duplicates, which is exactly the contract a skiplist provides.",
+  "hints": [
+    "Search, add, and erase all reduce to operations on a sorted collection that may contain repeats.",
+    "Erase must remove only one copy and report whether anything was removed, so distinguish 'not present' from 'present and removed'.",
+    "Keep the values in sorted order and locate the insertion or removal point by binary search, shifting as needed; duplicates simply sit next to each other."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "int", "value": [0, 20000] },
+    { "param": "target", "kind": "int", "value": [0, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "add, search hits and misses, then erase",
+      "input": [["Skiplist", "add", "add", "add", "search", "add", "search", "erase", "erase", "search"], [[], [1], [2], [3], [0], [4], [1], [0], [1], [1]]] },
+    { "kind": "boundary", "description": "search on an empty skiplist returns false",
+      "input": [["Skiplist", "search", "erase"], [[], [5], [5]]] },
+    { "kind": "trap", "description": "duplicates: erase removes only one copy",
+      "input": [["Skiplist", "add", "add", "search", "erase", "search", "erase", "search"], [[], [7], [7], [7], [7], [7], [7], [7]]] },
+    { "kind": "trap", "description": "erase of an absent value returns false and changes nothing",
+      "input": [["Skiplist", "add", "erase", "erase", "search"], [[], [3], [9], [3], [3]]] },
+    { "kind": "edge", "description": "boundary values at both ends of the range",
+      "input": [["Skiplist", "add", "add", "search", "search", "erase", "search"], [[], [0], [20000], [0], [20000], [0], [0]]] }
+  ],
+  "stress": [
+    {
+      "description": "randomized add, search, and erase over a small value space so duplicates and hits arise",
+      "seed": 41,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    ops = ['Skiplist']\n    args = [[]]\n    for _ in range(max(1, size)):\n        r = rng.random()\n        v = rng.randint(0, 30)\n        if r < 0.45:\n            ops.append('add'); args.append([v])\n        elif r < 0.72:\n            ops.append('search'); args.append([v])\n        else:\n            ops.append('erase'); args.append([v])\n    return [ops, args]\n",
+      "note": "small value range makes erase and search frequently hit existing values"
+    }
+  ],
+  "oracle_python": "class Skiplist:\n    def __init__(self):\n        self.data = []\n    def search(self, target):\n        return target in self.data\n    def add(self, num):\n        self.data.append(num)\n    def erase(self, num):\n        if num in self.data:\n            self.data.remove(num)\n            return True\n        return False\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass Skiplist:\n    def __init__(self):\n        self.data = []\n    def search(self, target):\n        i = bisect.bisect_left(self.data, target)\n        return i < len(self.data) and self.data[i] == target\n    def add(self, num):\n        bisect.insort(self.data, num)\n    def erase(self, num):\n        i = bisect.bisect_left(self.data, num)\n        if i < len(self.data) and self.data[i] == num:\n            self.data.pop(i)\n            return True\n        return False\n",
+    "javascript": "var Skiplist = function() {\n    this.data = [];\n};\nSkiplist.prototype._lower = function(target) {\n    let lo = 0, hi = this.data.length;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (this.data[mid] < target) lo = mid + 1; else hi = mid;\n    }\n    return lo;\n};\nSkiplist.prototype.search = function(target) {\n    const i = this._lower(target);\n    return i < this.data.length && this.data[i] === target;\n};\nSkiplist.prototype.add = function(num) {\n    const i = this._lower(num);\n    this.data.splice(i, 0, num);\n};\nSkiplist.prototype.erase = function(num) {\n    const i = this._lower(num);\n    if (i < this.data.length && this.data[i] === num) {\n        this.data.splice(i, 1);\n        return true;\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(log n) search, O(n) update", "space": "O(n)" }
+}

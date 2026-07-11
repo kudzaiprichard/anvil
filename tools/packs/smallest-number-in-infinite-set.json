@@ -1,0 +1,45 @@
+{
+  "slug": "smallest-number-in-infinite-set",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A counter for the untouched tail of an infinite sequence plus a min-heap (with a membership guard) for re-added values gives O(log n) pops without materializing infinitely many numbers.",
+  "hints": [
+    "You can never store every positive integer, but everything above some threshold is still present and contiguous, so a single boundary number describes that whole tail.",
+    "Numbers that are added back are exactly the ones below the boundary that you previously popped, so keep them separately and always prefer the smallest of them.",
+    "Track the next never-popped integer with a counter, and keep added-back values in a min-heap plus a set to avoid duplicates; popSmallest returns the smaller of the heap top and the counter."
+  ],
+  "constraints": [
+    { "param": "num", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: addBack of a present number is a no-op, then a popped number added back reappears first",
+      "input": [["SmallestInfiniteSet", "addBack", "popSmallest", "popSmallest", "popSmallest", "addBack", "popSmallest", "popSmallest", "popSmallest"], [[], [2], [], [], [], [1], [], [], []]] },
+    { "kind": "edge", "description": "pop several from the fresh set with no addBacks",
+      "input": [["SmallestInfiniteSet", "popSmallest", "popSmallest", "popSmallest", "popSmallest"], [[], [], [], [], []]] },
+    { "kind": "boundary", "description": "addBack before any pop never changes the answer since everything is already present",
+      "input": [["SmallestInfiniteSet", "addBack", "addBack", "popSmallest", "popSmallest"], [[], [5], [3], [], []]] },
+    { "kind": "trap", "description": "duplicate addBack of the same popped value must not let it be popped twice",
+      "input": [["SmallestInfiniteSet", "popSmallest", "popSmallest", "addBack", "addBack", "popSmallest", "popSmallest"], [[], [], [], [1], [1], [], []]] },
+    { "kind": "trap", "description": "a re-added small value outranks the running counter on the next pop",
+      "input": [["SmallestInfiniteSet", "popSmallest", "popSmallest", "popSmallest", "addBack", "popSmallest", "popSmallest"], [[], [], [], [], [2], [], []]] },
+    { "kind": "trap", "description": "addBack of a number that was never popped (above current usage but smaller than counter would matter) stays absent if already present",
+      "input": [["SmallestInfiniteSet", "popSmallest", "addBack", "addBack", "popSmallest", "popSmallest", "popSmallest"], [[], [], [1], [4], [], [], []]] },
+    { "kind": "boundary", "description": "exhaust into the high range then add back a low number",
+      "input": [["SmallestInfiniteSet", "popSmallest", "popSmallest", "popSmallest", "popSmallest", "popSmallest", "addBack", "popSmallest"], [[], [], [], [], [], [], [3], []]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized mix of pops and addBacks over a small value space so re-adds collide",
+      "seed": 23,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    ops = ['SmallestInfiniteSet']\n    args = [[]]\n    popped = []\n    for _ in range(max(1, size)):\n        if popped and rng.random() < 0.5:\n            v = rng.choice(popped)\n            ops.append('addBack'); args.append([v])\n        else:\n            ops.append('popSmallest'); args.append([])\n    return [ops, args]\n",
+      "note": "tracks previously-popped values to feed realistic addBack arguments"
+    }
+  ],
+  "oracle_python": "class SmallestInfiniteSet:\n    def __init__(self):\n        self.removed = set()\n    def popSmallest(self):\n        x = 1\n        while x in self.removed:\n            x += 1\n        self.removed.add(x)\n        return x\n    def addBack(self, num):\n        self.removed.discard(num)\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass SmallestInfiniteSet:\n    def __init__(self):\n        self.counter = 1\n        self.heap = []\n        self.in_heap = set()\n    def popSmallest(self):\n        if self.heap:\n            x = heapq.heappop(self.heap)\n            self.in_heap.discard(x)\n            return x\n        x = self.counter\n        self.counter += 1\n        return x\n    def addBack(self, num):\n        if num < self.counter and num not in self.in_heap:\n            heapq.heappush(self.heap, num)\n            self.in_heap.add(num)\n",
+    "javascript": "class SmallestInfiniteSet {\n    constructor() {\n        this.counter = 1;\n        this.added = new Set();\n    }\n    popSmallest() {\n        if (this.added.size > 0) {\n            let m = Infinity;\n            for (const v of this.added) if (v < m) m = v;\n            this.added.delete(m);\n            return m;\n        }\n        return this.counter++;\n    }\n    addBack(num) {\n        if (num < this.counter) this.added.add(num);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) per op", "space": "O(n)" }
+}

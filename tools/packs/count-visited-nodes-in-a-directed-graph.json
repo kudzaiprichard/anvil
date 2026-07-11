@@ -1,0 +1,132 @@
+{
+  "slug": "count-visited-nodes-in-a-directed-graph",
+  "judge": "exact",
+  "pattern": "Every node has exactly one outgoing edge, so following edges from any start eventually loops onto a cycle; walking each unexplored chain once, detecting where it closes a loop or merges into an already-solved chain, and propagating counts backward answers every node in linear time.",
+  "hints": [
+    "Since every node points to exactly one other node, starting anywhere and repeatedly following edges traces out a single chain that must eventually revisit some node.",
+    "Walk from an unvisited node keeping the ordered list of nodes on the current walk; if you land back on a node from that same walk, everything from that node onward forms the cycle, and everything before it is a tail leading into it.",
+    "Once a node's answer is known (it is part of a finished cycle or an already-resolved tail), any node whose walk merges into it gets an answer of one plus that known value, propagated backward along the walk."
+  ],
+  "constraints": [
+    {
+      "param": "edges",
+      "kind": "int[]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "the smallest possible graph, a two-node cycle",
+      "input": [
+        [
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a plain three-node cycle with no tails",
+      "input": [
+        [
+          1,
+          2,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a single tail node feeding into a two-node cycle",
+      "input": [
+        [
+          1,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two separate two-node cycles with no connection between them",
+      "input": [
+        [
+          1,
+          0,
+          3,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a chain of tail nodes feeding into a three-node cycle",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "several independent tails all merging into the same two-node cycle",
+      "input": [
+        [
+          1,
+          2,
+          1,
+          1,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a longer tail before reaching a cycle, so the walk revisits a node only after several extra hops",
+      "input": [
+        [
+          2,
+          3,
+          1,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a large random functional graph with no self-loops",
+      "seed": 601,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = []\n    for i in range(n):\n        j = rng.randint(0, n - 1)\n        while j == i:\n            j = rng.randint(0, n - 1)\n        edges.append(j)\n    return [edges]\n"
+    },
+    {
+      "description": "one giant cycle spanning every node, the worst case for cycle detection",
+      "seed": 602,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = [(i + 1) % n for i in range(n)]\n    return [edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countVisitedNodes(self, edges):\n        n = len(edges)\n        ans = []\n        for start in range(n):\n            seen_order = []\n            seen_set = set()\n            node = start\n            while node not in seen_set:\n                seen_set.add(node)\n                seen_order.append(node)\n                node = edges[node]\n            ans.append(len(seen_order))\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def countVisitedNodes(self, edges):\n        n = len(edges)\n        color = [0] * n\n        ans = [0] * n\n        for start in range(n):\n            if color[start] != 0:\n                continue\n            path = []\n            pos = {}\n            node = start\n            while color[node] == 0:\n                color[node] = 1\n                pos[node] = len(path)\n                path.append(node)\n                node = edges[node]\n            if color[node] == 1:\n                idx = pos[node]\n                cyc_len = len(path) - idx\n                for i in range(idx, len(path)):\n                    ans[path[i]] = cyc_len\n                    color[path[i]] = 2\n                for i in range(idx - 1, -1, -1):\n                    ans[path[i]] = ans[path[i + 1]] + 1\n                    color[path[i]] = 2\n            else:\n                for i in range(len(path) - 1, -1, -1):\n                    nxt = node if i == len(path) - 1 else path[i + 1]\n                    ans[path[i]] = ans[nxt] + 1\n                    color[path[i]] = 2\n        return ans\n",
+    "javascript": "var countVisitedNodes = function(edges) {\n    const n = edges.length;\n    const color = new Array(n).fill(0);\n    const ans = new Array(n).fill(0);\n    for (let start = 0; start < n; start++) {\n        if (color[start] !== 0) continue;\n        const path = [];\n        const pos = new Map();\n        let node = start;\n        while (color[node] === 0) {\n            color[node] = 1;\n            pos.set(node, path.length);\n            path.push(node);\n            node = edges[node];\n        }\n        if (color[node] === 1) {\n            const idx = pos.get(node);\n            const cycLen = path.length - idx;\n            for (let i = idx; i < path.length; i++) {\n                ans[path[i]] = cycLen;\n                color[path[i]] = 2;\n            }\n            for (let i = idx - 1; i >= 0; i--) {\n                ans[path[i]] = ans[path[i + 1]] + 1;\n                color[path[i]] = 2;\n            }\n        } else {\n            for (let i = path.length - 1; i >= 0; i--) {\n                const nxt = (i === path.length - 1) ? node : path[i + 1];\n                ans[path[i]] = ans[nxt] + 1;\n                color[path[i]] = 2;\n            }\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

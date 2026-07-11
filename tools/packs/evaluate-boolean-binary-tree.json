@@ -1,0 +1,37 @@
+{
+  "slug": "evaluate-boolean-binary-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "A full boolean expression tree evaluates by recursion: leaves report their truth value while internal nodes combine their two children with the AND or OR encoded in the node's value.",
+  "hints": [
+    "A leaf carries the literal answer, 0 for false and 1 for true, so recursion bottoms out there.",
+    "An internal node's value of 2 or 3 tells you whether to combine its children with OR or AND.",
+    "Recurse into both subtrees first, then apply the operator the current node names to their results."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 1000], "value": [0, 3] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single leaf that is false", "input": [[0]] },
+    { "kind": "edge", "description": "single leaf that is true", "input": [[1]] },
+    { "kind": "boundary", "description": "OR over a false and a true leaf", "input": [[2, 0, 1]] },
+    { "kind": "trap", "description": "AND that must short-circuit to false", "input": [[3, 0, 1]] },
+    { "kind": "trap", "description": "nested operators where an inner AND is false but outer OR rescues it", "input": [[2, 1, 3, null, null, 0, 1]] },
+    { "kind": "edge", "description": "AND of two true leaves", "input": [[3, 1, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random full binary tree built bottom-up: leaves are 0/1, internal nodes 2/3, serialized level-order",
+      "seed": 5,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    target_leaves = max(1, min(size, 300))\n    # build a list of subtree roots, each a dict node, merge pairs until enough internal structure\n    class N:\n        __slots__ = ('val', 'l', 'r')\n        def __init__(self, val, l=None, r=None):\n            self.val = val; self.l = l; self.r = r\n    nodes = [N(rng.randint(0, 1)) for _ in range(target_leaves)]\n    while len(nodes) > 1:\n        rng.shuffle(nodes)\n        a = nodes.pop()\n        b = nodes.pop()\n        nodes.append(N(rng.randint(2, 3), a, b))\n    root = nodes[0]\n    # serialize BFS level-order with null for missing children\n    out = []\n    from collections import deque\n    q = deque([root])\n    while q:\n        node = q.popleft()\n        if node is None:\n            out.append(None)\n            continue\n        out.append(node.val)\n        if node.l is not None or node.r is not None:\n            q.append(node.l)\n            q.append(node.r)\n    while out and out[-1] is None:\n        out.pop()\n    return [out]\n",
+      "note": "always a full tree: every internal node has exactly two children"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def evaluateTree(self, root):\n        def ev(node):\n            if node.left is None and node.right is None:\n                return node.val == 1\n            vals = [ev(node.left), ev(node.right)]\n            if node.val == 2:\n                return any(vals)\n            return all(vals)\n        return ev(root)\n",
+  "solutions": {
+    "python": "class Solution:\n    def evaluateTree(self, root):\n        if root.left is None and root.right is None:\n            return bool(root.val)\n        l = self.evaluateTree(root.left)\n        r = self.evaluateTree(root.right)\n        return (l or r) if root.val == 2 else (l and r)\n",
+    "javascript": "var evaluateTree = function(root) {\n    if (root.left === null && root.right === null) {\n        return root.val === 1;\n    }\n    const l = evaluateTree(root.left);\n    const r = evaluateTree(root.right);\n    return root.val === 2 ? (l || r) : (l && r);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

@@ -1,0 +1,45 @@
+{
+  "slug": "stock-price-fluctuation",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Records can arrive out of timestamp order and can be corrected later, so track the authoritative price per timestamp in a map, and answer max/min with lazily-cleaned heaps that discard any popped entry whose price no longer matches the map's current record for that timestamp.",
+  "hints": [
+    "Keep a hashmap from timestamp to its current (possibly corrected) price, plus track the single largest timestamp ever seen so 'current' is a direct lookup.",
+    "For maximum/minimum you need fast access to the best price among only the LIVE (uncorrected) records, but a plain running max/min can go stale once a correction lowers or raises a price. A max-heap and a min-heap of (price, timestamp) pairs handle new prices in O(log n), but old, now-incorrect entries can linger in the heaps.",
+    "Push every update's (price, timestamp) onto both heaps without ever removing the old entry for that timestamp (that would cost O(n)). When reading the heap's top for maximum/minimum, first check the map: if the timestamp's currently recorded price doesn't match the heap entry's price, that entry is stale — pop it and keep checking the new top until one agrees with the map."
+  ],
+  "constraints": [
+    { "param": "timestamp", "kind": "int", "value": [1, 1000000000] },
+    { "param": "price", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: two updates, a correction to an earlier timestamp, then current/maximum/minimum queries",
+      "input": [["StockPrice", "update", "update", "current", "maximum", "update", "maximum", "update", "minimum"], [[], [1, 10], [2, 5], [], [], [1, 3], [], [4, 2], []]] },
+    { "kind": "trap", "description": "correcting the timestamp that currently holds the max down to a low value must lower the reported maximum, not leave a stale heap entry winning",
+      "input": [["StockPrice", "update", "update", "maximum", "update", "maximum"], [[], [1, 100], [2, 50], [], [1, 1], []]] },
+    { "kind": "trap", "description": "correcting the timestamp that currently holds the min up to a high value must raise the reported minimum",
+      "input": [["StockPrice", "update", "update", "minimum", "update", "minimum"], [[], [1, 5], [2, 50], [], [1, 200], []]] },
+    { "kind": "trap", "description": "two different timestamps sharing the same price: correcting one of them must not affect the other's contribution to max/min",
+      "input": [["StockPrice", "update", "update", "maximum", "update", "maximum", "minimum"], [[], [1, 30], [2, 30], [], [1, 5], [], []]] },
+    { "kind": "boundary", "description": "current() reflects the price at the largest timestamp recorded, even when it was updated long before later, smaller timestamps arrive",
+      "input": [["StockPrice", "update", "update", "current", "update", "current"], [[], [10, 99], [3, 1], [], [4, 2], []]] },
+    { "kind": "boundary", "description": "a single update satisfies current/maximum/minimum all agreeing on the one price", "input": [["StockPrice", "update", "current", "maximum", "minimum"], [[], [1000000000, 1000000000], [], [], []]] },
+    { "kind": "trap", "description": "repeated corrections to the same timestamp in a row must always resolve to only the latest one",
+      "input": [["StockPrice", "update", "update", "update", "update", "current", "maximum", "minimum"], [[], [5, 10], [5, 20], [5, 30], [5, 5], [], [], []]] }
+  ],
+  "stress": [
+    {
+      "description": "many updates over a small pool of timestamps (forcing frequent corrections) interleaved with current/maximum/minimum queries",
+      "seed": 29,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    ops = ['StockPrice']\n    args = [[]]\n    ops.append('update'); args.append([1, rng.randint(1, 1000000000)])\n    ts_pool = list(range(1, 51))\n    for _ in range(max(1, size)):\n        c = rng.choice(['update', 'update', 'current', 'maximum', 'minimum'])\n        if c == 'update':\n            ts = rng.choice(ts_pool)\n            price = rng.randint(1, 1000000000)\n            ops.append('update'); args.append([ts, price])\n        else:\n            ops.append(c); args.append([])\n    return [ops, args]\n",
+      "note": "a small timestamp pool (1..50) guarantees frequent same-timestamp corrections, which is exactly what stresses lazy heap invalidation"
+    }
+  ],
+  "oracle_python": "class StockPrice:\n    def __init__(self):\n        self.prices = {}\n\n    def update(self, timestamp, price):\n        self.prices[timestamp] = price\n\n    def current(self):\n        latest_ts = max(self.prices.keys())\n        return self.prices[latest_ts]\n\n    def maximum(self):\n        return max(self.prices.values())\n\n    def minimum(self):\n        return min(self.prices.values())\n",
+  "solutions": {
+    "python": "import heapq\n\nclass StockPrice:\n    def __init__(self):\n        self.prices = {}\n        self.max_heap = []\n        self.min_heap = []\n        self.latest_ts = 0\n\n    def update(self, timestamp, price):\n        self.prices[timestamp] = price\n        if timestamp > self.latest_ts:\n            self.latest_ts = timestamp\n        heapq.heappush(self.max_heap, (-price, timestamp))\n        heapq.heappush(self.min_heap, (price, timestamp))\n\n    def current(self):\n        return self.prices[self.latest_ts]\n\n    def maximum(self):\n        while True:\n            neg_price, ts = self.max_heap[0]\n            if self.prices.get(ts) == -neg_price:\n                return -neg_price\n            heapq.heappop(self.max_heap)\n\n    def minimum(self):\n        while True:\n            price, ts = self.min_heap[0]\n            if self.prices.get(ts) == price:\n                return price\n            heapq.heappop(self.min_heap)\n",
+    "javascript": "class MinHeap {\n    constructor() { this.data = []; }\n    get size() { return this.data.length; }\n    peek() { return this.data[0]; }\n    push(item) {\n        this.data.push(item);\n        let i = this.data.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (this.data[p][0] <= this.data[i][0]) break;\n            [this.data[p], this.data[i]] = [this.data[i], this.data[p]];\n            i = p;\n        }\n    }\n    pop() {\n        const top = this.data[0];\n        const last = this.data.pop();\n        if (this.data.length > 0) {\n            this.data[0] = last;\n            let i = 0;\n            const n = this.data.length;\n            while (true) {\n                let l = i * 2 + 1, r = i * 2 + 2, smallest = i;\n                if (l < n && this.data[l][0] < this.data[smallest][0]) smallest = l;\n                if (r < n && this.data[r][0] < this.data[smallest][0]) smallest = r;\n                if (smallest === i) break;\n                [this.data[i], this.data[smallest]] = [this.data[smallest], this.data[i]];\n                i = smallest;\n            }\n        }\n        return top;\n    }\n}\n\nclass StockPrice {\n    constructor() {\n        this.prices = new Map();\n        this.minHeap = new MinHeap();\n        this.maxHeap = new MinHeap();\n        this.latestTs = 0;\n    }\n\n    update(timestamp, price) {\n        this.prices.set(timestamp, price);\n        if (timestamp > this.latestTs) this.latestTs = timestamp;\n        this.minHeap.push([price, timestamp]);\n        this.maxHeap.push([-price, timestamp]);\n    }\n\n    current() {\n        return this.prices.get(this.latestTs);\n    }\n\n    maximum() {\n        while (true) {\n            const [negPrice, ts] = this.maxHeap.peek();\n            if (this.prices.get(ts) === -negPrice) return -negPrice;\n            this.maxHeap.pop();\n        }\n    }\n\n    minimum() {\n        while (true) {\n            const [price, ts] = this.minHeap.peek();\n            if (this.prices.get(ts) === price) return price;\n            this.minHeap.pop();\n        }\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) amortized per op", "space": "O(n)" }
+}

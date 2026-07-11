@@ -1,0 +1,37 @@
+{
+  "slug": "number-of-ways-to-earn-points",
+  "judge": "exact",
+  "pattern": "This is a bounded knapsack count: process one question type at a time, and for every running point total decide how many of that type's identical questions (from zero up to its count) to fold in, folding the type's own choices in before moving to the next.",
+  "hints": [
+    "Because questions of the same type are indistinguishable, only how many of that type you solve matters, not which ones — so think in terms of a count per type rather than picking specific questions.",
+    "Track, for every possible point total from 0 up to target, how many ways exist to reach it using only the types processed so far; that count starts as 1 way to reach 0 with no types at all.",
+    "Introduce one type at a time: for a fresh total, add up the ways to reach it using 0, 1, 2, ... up to that type's count of extra questions (each extra question adding that type's fixed point value), using the counts from before this type was introduced."
+  ],
+  "constraints": [
+    { "param": "target", "kind": "int", "value": [1, 1000] },
+    { "param": "types", "kind": "int[][]", "len": [1, 50], "value": [1, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "smallest target, one type worth exactly one point", "input": [1, [[1, 1]]] },
+    { "kind": "boundary", "description": "a single type reaching the target only when every question of it is solved", "input": [1000, [[50, 20]]] },
+    { "kind": "trap", "description": "the target is unreachable with the given point values", "input": [7, [[5, 3]]] },
+    { "kind": "trap", "description": "two distinct types happen to share the same point value per question", "input": [4, [[3, 2], [3, 2]]] },
+    { "kind": "edge", "description": "one type, several equivalent ways using different counts", "input": [10, [[10, 2]]] },
+    { "kind": "edge", "description": "many small types of point value one apiece, a pure combination count", "input": [3, [[1, 1], [1, 1], [1, 1]]] },
+    { "kind": "edge", "description": "several types, each contributing minimally, well below target", "input": [2, [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random types and target near the top of the legal ranges",
+      "seed": 31,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    target = rng.randint(1, min(1000, max(1, size)))\n    n_types = rng.randint(1, 50)\n    types = [[rng.randint(1, 50), rng.randint(1, 50)] for _ in range(n_types)]\n    return [target, types]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def waysToReachTarget(self, target, types):\n        from functools import lru_cache\n        MOD = 10 ** 9 + 7\n        types_t = tuple(tuple(t) for t in types)\n        @lru_cache(None)\n        def solve(i, remaining):\n            if remaining == 0:\n                return 1\n            if i == len(types_t):\n                return 0\n            cnt, mark = types_t[i]\n            total = 0\n            for t in range(0, min(cnt, remaining // mark) + 1):\n                total += solve(i + 1, remaining - t * mark)\n            return total % MOD\n        result = solve(0, target) % MOD\n        solve.cache_clear()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def waysToReachTarget(self, target, types):\n        MOD = 10 ** 9 + 7\n        dp = [0] * (target + 1)\n        dp[0] = 1\n        for cnt, mark in types:\n            ndp = [0] * (target + 1)\n            for j in range(target + 1):\n                total = 0\n                max_t = min(cnt, j // mark)\n                for t in range(0, max_t + 1):\n                    total += dp[j - t * mark]\n                ndp[j] = total % MOD\n            dp = ndp\n        return dp[target]\n",
+    "javascript": "var waysToReachTarget = function(target, types) {\n    const MOD = 1000000007;\n    let dp = new Array(target + 1).fill(0);\n    dp[0] = 1;\n    for (const [cnt, mark] of types) {\n        const ndp = new Array(target + 1).fill(0);\n        for (let j = 0; j <= target; j++) {\n            let total = 0;\n            const maxT = Math.min(cnt, Math.floor(j / mark));\n            for (let t = 0; t <= maxT; t++) {\n                total += dp[j - t * mark];\n            }\n            ndp[j] = total % MOD;\n        }\n        dp = ndp;\n    }\n    return dp[target];\n};\n"
+  },
+  "complexity": { "time": "O(target * sum(count_i))", "space": "O(target)" }
+}

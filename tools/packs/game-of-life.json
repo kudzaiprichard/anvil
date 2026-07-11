@@ -1,0 +1,38 @@
+{
+  "slug": "game-of-life",
+  "judge": { "type": "in_place", "arg_index": 0 },
+  "no_anchor_ok": true,
+  "pattern": "Every cell's next state depends only on its current eight neighbours, so encoding old and new state in two bits of each integer lets the whole board advance simultaneously in place before a final pass strips the old bit.",
+  "hints": [
+    "All cells update from the same snapshot, so you must not let an already-updated neighbour influence a later cell.",
+    "Instead of a second board, pack the next state into an unused bit of each cell so the current state (bit 0) is still readable while you write the next state (bit 1).",
+    "First pass: count live neighbours from bit 0, apply the birth/survival rules, and OR in bit 1 when the next state is alive; second pass: shift every cell right by one bit to reveal the new board."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "int[][]", "len": [1, 25], "value": [0, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "four-by-three board with mixed life", "input": [[[0, 1, 0], [0, 0, 1], [1, 1, 1], [0, 0, 0]]] },
+    { "kind": "edge", "description": "two-by-two block, a still life", "input": [[[1, 1], [1, 0]]] },
+    { "kind": "boundary", "description": "single dead cell stays dead", "input": [[[0]]] },
+    { "kind": "boundary", "description": "single live cell dies from underpopulation", "input": [[[1]]] },
+    { "kind": "trap", "description": "a blinker oscillates between horizontal and vertical", "input": [[[0, 0, 0], [1, 1, 1], [0, 0, 0]]] },
+    { "kind": "trap", "description": "all live cells, corners survive but centers overpopulate", "input": [[[1, 1, 1], [1, 1, 1], [1, 1, 1]]] },
+    { "kind": "trap", "description": "stable two-by-two block survives unchanged", "input": [[[1, 1], [1, 1]]] },
+    { "kind": "edge", "description": "all dead board remains dead", "input": [[[0, 0], [0, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random boards up to the maximum dimensions with roughly even life density",
+      "seed": 13,
+      "size": 25,
+      "generator_python": "def gen(rng, size):\n    m = rng.randrange(1, max(1, min(size, 25)) + 1)\n    n = rng.randrange(1, max(1, min(size, 25)) + 1)\n    return [[[rng.randrange(0, 2) for _ in range(n)] for _ in range(m)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def gameOfLife(self, board):\n        # Independent: compute the whole next board into a fresh grid, then\n        # copy it back so the rule is applied from a pristine snapshot.\n        m = len(board)\n        n = len(board[0]) if m else 0\n        nxt = [[0] * n for _ in range(m)]\n        for i in range(m):\n            for j in range(n):\n                live = 0\n                for di in (-1, 0, 1):\n                    for dj in (-1, 0, 1):\n                        if di == 0 and dj == 0:\n                            continue\n                        ni, nj = i + di, j + dj\n                        if 0 <= ni < m and 0 <= nj < n and board[ni][nj] == 1:\n                            live += 1\n                if board[i][j] == 1:\n                    nxt[i][j] = 1 if live in (2, 3) else 0\n                else:\n                    nxt[i][j] = 1 if live == 3 else 0\n        for i in range(m):\n            for j in range(n):\n                board[i][j] = nxt[i][j]\n",
+  "solutions": {
+    "python": "class Solution:\n    def gameOfLife(self, board):\n        m = len(board)\n        n = len(board[0]) if m else 0\n        for i in range(m):\n            for j in range(n):\n                live = 0\n                for di in (-1, 0, 1):\n                    for dj in (-1, 0, 1):\n                        if di == 0 and dj == 0:\n                            continue\n                        ni, nj = i + di, j + dj\n                        if 0 <= ni < m and 0 <= nj < n and (board[ni][nj] & 1) == 1:\n                            live += 1\n                if (board[i][j] & 1) == 1:\n                    if live == 2 or live == 3:\n                        board[i][j] |= 2\n                else:\n                    if live == 3:\n                        board[i][j] |= 2\n        for i in range(m):\n            for j in range(n):\n                board[i][j] >>= 1\n",
+    "javascript": "var gameOfLife = function(board) {\n    const m = board.length;\n    const n = m ? board[0].length : 0;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            let live = 0;\n            for (let di = -1; di <= 1; di++) {\n                for (let dj = -1; dj <= 1; dj++) {\n                    if (di === 0 && dj === 0) continue;\n                    const ni = i + di, nj = j + dj;\n                    if (ni >= 0 && ni < m && nj >= 0 && nj < n && (board[ni][nj] & 1) === 1) live++;\n                }\n            }\n            if ((board[i][j] & 1) === 1) {\n                if (live === 2 || live === 3) board[i][j] |= 2;\n            } else {\n                if (live === 3) board[i][j] |= 2;\n            }\n        }\n    }\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            board[i][j] >>= 1;\n        }\n    }\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(1)" }
+}

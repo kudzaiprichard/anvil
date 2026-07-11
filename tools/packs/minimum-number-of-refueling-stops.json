@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-number-of-refueling-stops",
+  "judge": "exact",
+  "pattern": "Drive as far as the current fuel allows while banking every passed station's fuel in a max-heap, and whenever you stall, refuel from the largest banked station, so each stop buys the most reach possible.",
+  "hints": [
+    "You do not have to decide at a station whether to stop; you can defer the choice until you actually run out of fuel.",
+    "Keep the fuel of every station you have driven past in a max-heap; when reach falls short of the next station or target, draw from the biggest pending tank.",
+    "Sort stations by position. Track current reach starting at startFuel. For each station within reach, push its fuel; if a station or the target is beyond reach, pop the largest fuel and add it (one stop) until reachable or the heap empties; if it empties first, return -1."
+  ],
+  "constraints": [
+    { "param": "target", "kind": "int", "value": [1, 1000000000] },
+    { "param": "startFuel", "kind": "int", "value": [1, 1000000000] },
+    { "param": "stations", "kind": "int[][]", "len": [0, 500], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example: target reachable with no stations", "input": [1, 1, []] },
+    { "kind": "trap", "description": "second example: cannot even reach the only station", "input": [100, 1, [[10, 100]]] },
+    { "kind": "edge", "description": "third example: two well-chosen stops out of four", "input": [100, 10, [[10, 60], [20, 30], [30, 30], [60, 40]]] },
+    { "kind": "boundary", "description": "start fuel exactly equals target", "input": [10, 10, [[3, 100]]] },
+    { "kind": "trap", "description": "must skip a small early tank for a large later one", "input": [200, 50, [[25, 25], [50, 100], [100, 100]]] },
+    { "kind": "edge", "description": "every station is needed", "input": [60, 10, [[10, 10], [20, 10], [30, 10], [40, 10], [50, 10]]] },
+    { "kind": "trap", "description": "stations exist but total fuel still falls short", "input": [100, 5, [[10, 10], [20, 10]]] }
+  ],
+  "stress": [
+    {
+      "description": "random reachable and unreachable scenarios with sorted station positions",
+      "seed": 89,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    target = rng.randint(50, 5000)\n    start = rng.randint(1, target)\n    count = rng.randint(0, max(0, size))\n    positions = sorted(rng.sample(range(1, target), min(count, target - 1)))\n    stations = [[p, rng.randint(1, target)] for p in positions]\n    return [target, start, stations]\n",
+      "note": "distinct sorted positions strictly below target as required"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minRefuelStops(self, target, startFuel, stations):\n        n = len(stations)\n        dp = [startFuel] + [0] * n\n        for i, (pos, fuel) in enumerate(stations):\n            for t in range(i, -1, -1):\n                if dp[t] >= pos:\n                    dp[t + 1] = max(dp[t + 1], dp[t] + fuel)\n        for t in range(n + 1):\n            if dp[t] >= target:\n                return t\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minRefuelStops(self, target, startFuel, stations):\n        import heapq\n        heap = []\n        reach = startFuel\n        stops = 0\n        i = 0\n        n = len(stations)\n        while reach < target:\n            while i < n and stations[i][0] <= reach:\n                heapq.heappush(heap, -stations[i][1])\n                i += 1\n            if not heap:\n                return -1\n            reach += -heapq.heappop(heap)\n            stops += 1\n        return stops\n",
+    "javascript": "var minRefuelStops = function(target, startFuel, stations) {\n    const heap = [];\n    const up = i => { while (i > 0) { const p = (i - 1) >> 1; if (heap[p] >= heap[i]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };\n    const down = i => { const n = heap.length; while (true) { let l = 2 * i + 1, r = l + 1, m = i; if (l < n && heap[l] > heap[m]) m = l; if (r < n && heap[r] > heap[m]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } };\n    const push = v => { heap.push(v); up(heap.length - 1); };\n    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; down(0); } return top; };\n    let reach = startFuel, stops = 0, i = 0;\n    const n = stations.length;\n    while (reach < target) {\n        while (i < n && stations[i][0] <= reach) { push(stations[i][1]); i++; }\n        if (heap.length === 0) return -1;\n        reach += pop();\n        stops++;\n    }\n    return stops;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

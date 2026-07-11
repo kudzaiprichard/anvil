@@ -1,0 +1,90 @@
+{
+  "slug": "booking-concert-tickets-in-groups",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A segment tree over rows — storing per-row remaining seats and prefix sums — lets gather and scatter queries find the right row in O(log n) time.",
+  "hints": [
+    "For gather, you need the smallest-indexed row in [0, maxRow] that still has at least k contiguous seats — since seats are filled from left, 'remaining >= k' is the right condition.",
+    "For scatter, you need the total remaining capacity in [0, maxRow] to be >= k, then fill greedily row by row from the smallest row with any space.",
+    "A segment tree that stores the maximum remaining capacity in a range handles gather queries; a sum tree handles scatter's capacity check; both can be combined."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 50000] },
+    { "param": "m", "kind": "int", "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] },
+    { "param": "maxRow", "kind": "int", "value": [0, 49999] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "basic gather then scatter sequence from the problem statement",
+      "input": [
+        ["BookMyShow", "gather", "gather", "scatter", "scatter"],
+        [[2, 5], [4, 0], [2, 0], [5, 1], [5, 1]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "gather when k equals m; fills entire row",
+      "input": [
+        ["BookMyShow", "gather", "gather"],
+        [[3, 4], [4, 0], [4, 0]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "scatter across multiple rows then gather finds next available row",
+      "input": [
+        ["BookMyShow", "scatter", "gather"],
+        [[2, 3], [4, 1], [2, 1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "maxRow constraint excludes rows with space; gather returns []",
+      "input": [
+        ["BookMyShow", "scatter", "gather"],
+        [[3, 5], [10, 2], [5, 1]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single row, m=1; gather succeeds then fails; scatter also fails",
+      "input": [
+        ["BookMyShow", "gather", "gather", "scatter"],
+        [[1, 1], [1, 0], [1, 0], [1, 0]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "scatter with k larger than total remaining seats returns false",
+      "input": [
+        ["BookMyShow", "scatter", "scatter"],
+        [[2, 2], [4, 1], [1, 1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "gather after scatter leaves partial row; gather in that row uses remaining seats",
+      "input": [
+        ["BookMyShow", "scatter", "gather"],
+        [[1, 5], [3, 0], [2, 0]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random gather and scatter calls on a moderate-sized hall",
+      "seed": 99,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = 20\n    m = 10\n    ops = ['BookMyShow']\n    args = [[n, m]]\n    for _ in range(max(1, size)):\n        maxRow = rng.randint(0, n - 1)\n        k = rng.randint(1, m)\n        if rng.random() < 0.5:\n            ops.append('gather'); args.append([k, maxRow])\n        else:\n            ops.append('scatter'); args.append([k, maxRow])\n    return [ops, args]\n",
+      "note": "small hall so seats fill up quickly, exercising both success and failure paths"
+    }
+  ],
+  "oracle_python": "class BookMyShow:\n    def __init__(self, n, m):\n        self.n = n\n        self.m = m\n        self.rows = [m] * n  # remaining seats per row\n        self.filled = [0] * n  # next available seat index per row\n\n    def gather(self, k, maxRow):\n        for r in range(maxRow + 1):\n            if self.rows[r] >= k:\n                c = self.filled[r]\n                self.rows[r] -= k\n                self.filled[r] += k\n                return [r, c]\n        return []\n\n    def scatter(self, k, maxRow):\n        total = sum(self.rows[r] for r in range(maxRow + 1))\n        if total < k:\n            return False\n        remaining = k\n        for r in range(maxRow + 1):\n            take = min(remaining, self.rows[r])\n            self.rows[r] -= take\n            self.filled[r] += take\n            remaining -= take\n            if remaining == 0:\n                break\n        return True\n",
+  "solutions": {
+    "python": "class BookMyShow:\n    def __init__(self, n: int, m: int):\n        self.n = n\n        self.m = m\n        # Segment tree: size 4*n\n        # mx[i] = max remaining seats in range, sm[i] = sum remaining seats\n        self.mx = [m] * (4 * n)\n        self.sm = [0] * (4 * n)\n        # Build: each leaf holds m seats\n        def build(node, l, r):\n            if l == r:\n                self.sm[node] = m\n                self.mx[node] = m\n                return\n            mid = (l + r) // 2\n            build(2*node, l, mid)\n            build(2*node+1, mid+1, r)\n            self.sm[node] = self.sm[2*node] + self.sm[2*node+1]\n            self.mx[node] = max(self.mx[2*node], self.mx[2*node+1])\n        build(1, 0, n-1)\n\n    def _update(self, node, l, r, idx, delta):\n        if l == r:\n            self.mx[node] -= delta\n            self.sm[node] -= delta\n            return\n        mid = (l + r) // 2\n        if idx <= mid:\n            self._update(2*node, l, mid, idx, delta)\n        else:\n            self._update(2*node+1, mid+1, r, idx, delta)\n        self.sm[node] = self.sm[2*node] + self.sm[2*node+1]\n        self.mx[node] = max(self.mx[2*node], self.mx[2*node+1])\n\n    def _query_sum(self, node, l, r, ql, qr):\n        if qr < l or r < ql:\n            return 0\n        if ql <= l and r <= qr:\n            return self.sm[node]\n        mid = (l + r) // 2\n        return self._query_sum(2*node, l, mid, ql, qr) + self._query_sum(2*node+1, mid+1, r, ql, qr)\n\n    def _find_gather(self, node, l, r, ql, qr, k):\n        # Find leftmost index in [ql,qr] with remaining >= k\n        if qr < l or r < ql or self.mx[node] < k:\n            return -1\n        if l == r:\n            return l\n        mid = (l + r) // 2\n        res = self._find_gather(2*node, l, mid, ql, qr, k)\n        if res != -1:\n            return res\n        return self._find_gather(2*node+1, mid+1, r, ql, qr, k)\n\n    def gather(self, k: int, maxRow: int):\n        row = self._find_gather(1, 0, self.n-1, 0, maxRow, k)\n        if row == -1:\n            return []\n        # seat = m - current_remaining\n        remaining_before = self._query_sum(1, 0, self.n-1, row, row)\n        seat = self.m - remaining_before\n        self._update(1, 0, self.n-1, row, k)\n        return [row, seat]\n\n    def scatter(self, k: int, maxRow: int) -> bool:\n        total = self._query_sum(1, 0, self.n-1, 0, maxRow)\n        if total < k:\n            return False\n        remaining = k\n        # Fill rows greedily from left; find first non-full row\n        # Use a pointer tracked as part of scatter\n        # Simple approach: walk via segment tree finding leftmost row with space\n        r = 0\n        while remaining > 0 and r <= maxRow:\n            avail = self._query_sum(1, 0, self.n-1, r, r)\n            if avail > 0:\n                take = min(remaining, avail)\n                self._update(1, 0, self.n-1, r, take)\n                remaining -= take\n            r += 1\n        return True\n",
+    "javascript": "class BookMyShow {\n    constructor(n, m) {\n        this.n = n;\n        this.m = m;\n        this.mx = new Array(4 * n).fill(m);\n        this.sm = new Array(4 * n).fill(0);\n        this._build(1, 0, n - 1);\n    }\n    _build(node, l, r) {\n        if (l === r) { this.sm[node] = this.m; this.mx[node] = this.m; return; }\n        const mid = (l + r) >> 1;\n        this._build(2*node, l, mid);\n        this._build(2*node+1, mid+1, r);\n        this.sm[node] = this.sm[2*node] + this.sm[2*node+1];\n        this.mx[node] = Math.max(this.mx[2*node], this.mx[2*node+1]);\n    }\n    _update(node, l, r, idx, delta) {\n        if (l === r) { this.mx[node] -= delta; this.sm[node] -= delta; return; }\n        const mid = (l + r) >> 1;\n        if (idx <= mid) this._update(2*node, l, mid, idx, delta);\n        else this._update(2*node+1, mid+1, r, idx, delta);\n        this.sm[node] = this.sm[2*node] + this.sm[2*node+1];\n        this.mx[node] = Math.max(this.mx[2*node], this.mx[2*node+1]);\n    }\n    _querySum(node, l, r, ql, qr) {\n        if (qr < l || r < ql) return 0;\n        if (ql <= l && r <= qr) return this.sm[node];\n        const mid = (l + r) >> 1;\n        return this._querySum(2*node, l, mid, ql, qr) + this._querySum(2*node+1, mid+1, r, ql, qr);\n    }\n    _findGather(node, l, r, ql, qr, k) {\n        if (qr < l || r < ql || this.mx[node] < k) return -1;\n        if (l === r) return l;\n        const mid = (l + r) >> 1;\n        const res = this._findGather(2*node, l, mid, ql, qr, k);\n        if (res !== -1) return res;\n        return this._findGather(2*node+1, mid+1, r, ql, qr, k);\n    }\n    gather(k, maxRow) {\n        const row = this._findGather(1, 0, this.n-1, 0, maxRow, k);\n        if (row === -1) return [];\n        const remainingBefore = this._querySum(1, 0, this.n-1, row, row);\n        const seat = this.m - remainingBefore;\n        this._update(1, 0, this.n-1, row, k);\n        return [row, seat];\n    }\n    scatter(k, maxRow) {\n        const total = this._querySum(1, 0, this.n-1, 0, maxRow);\n        if (total < k) return false;\n        let remaining = k;\n        let r = 0;\n        while (remaining > 0 && r <= maxRow) {\n            const avail = this._querySum(1, 0, this.n-1, r, r);\n            if (avail > 0) {\n                const take = Math.min(remaining, avail);\n                this._update(1, 0, this.n-1, r, take);\n                remaining -= take;\n            }\n            r++;\n        }\n        return true;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) per gather; O(n log n) worst-case scatter (naive walk)", "space": "O(n)" }
+}

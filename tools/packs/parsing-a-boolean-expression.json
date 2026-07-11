@@ -1,0 +1,38 @@
+{
+  "slug": "parsing-a-boolean-expression",
+  "judge": "exact",
+  "pattern": "A recursive-descent or stack evaluation of a nested boolean grammar with NOT, AND, and OR operators applied to comma-separated subexpressions.",
+  "hints": [
+    "Each operator is followed by a parenthesized list of subexpressions; the work is grouping those subexpressions correctly.",
+    "A stack lets you push values and operators, and on a closing parenthesis you fold everything since the matching open paren.",
+    "Scan the string: push 't'/'f' as booleans and operators as markers; on ')' pop booleans until the operator, combine them per the operator (NOT inverts the single value, AND/OR reduce the list), and push the result."
+  ],
+  "constraints": [
+    { "param": "expression", "kind": "string", "len": [1, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "nested OR inside AND from the first example", "input": ["&(|(f))"] },
+    { "kind": "edge", "description": "OR over several literals", "input": ["|(f,f,f,t)"] },
+    { "kind": "edge", "description": "NOT of an AND", "input": ["!(&(f,t))"] },
+    { "kind": "boundary", "description": "single true literal", "input": ["t"] },
+    { "kind": "boundary", "description": "single false literal", "input": ["f"] },
+    { "kind": "trap", "description": "NOT of a single true is false", "input": ["!(t)"] },
+    { "kind": "trap", "description": "deeply nested mix of operators", "input": ["|(&(t,f,t),!(t),&(t,t))"] },
+    { "kind": "trap", "description": "AND with all true", "input": ["&(t,t,t)"] }
+  ],
+  "stress": [
+    {
+      "description": "randomly generated valid boolean expressions of bounded depth",
+      "seed": 81,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    depth = max(1, size)\n    def build(d):\n        if d <= 0 or rng.random() < 0.3:\n            return rng.choice(['t', 'f'])\n        op = rng.choice(['!', '&', '|'])\n        if op == '!':\n            return '!(' + build(d - 1) + ')'\n        k = rng.randrange(1, 4)\n        return op + '(' + ','.join(build(d - 1) for _ in range(k)) + ')'\n    return [build(depth)]\n",
+      "note": "always a grammatically valid expression"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def parseBoolExpr(self, expression):\n        def parse(i):\n            c = expression[i]\n            if c == 't':\n                return True, i + 1\n            if c == 'f':\n                return False, i + 1\n            op = c\n            i += 2\n            vals = []\n            while expression[i] != ')':\n                if expression[i] == ',':\n                    i += 1\n                    continue\n                v, i = parse(i)\n                vals.append(v)\n            i += 1\n            if op == '!':\n                return (not vals[0]), i\n            if op == '&':\n                return all(vals), i\n            return any(vals), i\n        result, _ = parse(0)\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def parseBoolExpr(self, expression):\n        stack = []\n        for ch in expression:\n            if ch == ',':\n                continue\n            if ch == ')':\n                vals = []\n                while stack[-1] != '(':\n                    vals.append(stack.pop())\n                stack.pop()\n                op = stack.pop()\n                if op == '!':\n                    stack.append(not vals[0])\n                elif op == '&':\n                    stack.append(all(vals))\n                else:\n                    stack.append(any(vals))\n            elif ch == 't':\n                stack.append(True)\n            elif ch == 'f':\n                stack.append(False)\n            else:\n                stack.append(ch)\n        return stack[0]\n",
+    "javascript": "var parseBoolExpr = function(expression) {\n    const stack = [];\n    for (const ch of expression) {\n        if (ch === ',') continue;\n        if (ch === ')') {\n            const vals = [];\n            while (stack[stack.length - 1] !== '(') vals.push(stack.pop());\n            stack.pop();\n            const op = stack.pop();\n            if (op === '!') stack.push(!vals[0]);\n            else if (op === '&') stack.push(vals.every(v => v));\n            else stack.push(vals.some(v => v));\n        } else if (ch === 't') {\n            stack.push(true);\n        } else if (ch === 'f') {\n            stack.push(false);\n        } else {\n            stack.push(ch);\n        }\n    }\n    return stack[0];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,40 @@
+{
+  "slug": "count-zero-request-servers",
+  "judge": "exact",
+  "pattern": "Sort the requests and the queries together by time and slide a fixed-width window across them, so each answer is read off the count of servers currently active rather than rescanned from scratch.",
+  "hints": [
+    "Answering each query by rescanning every log entry works but repeats a huge amount of the same counting -- process the queries in time order instead so the window only ever moves forward.",
+    "Sort the logs by time and keep two pointers marking which log entries fall inside the current query's window; as the window's right edge advances, add newly-included servers, and as the left edge advances, remove ones that fall out.",
+    "Track how many distinct servers currently have at least one request inside the window with a running per-server request count; the answer for a query is simply the total number of servers minus however many are currently active."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "logs", "kind": "int[][]", "len": [1, 100000], "note": "each entry is [server_id, time]; 1 <= server_id <= n, 1 <= time <= 1000000" },
+    { "param": "x", "kind": "int", "value": [1, 100000] },
+    { "param": "queries", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000], "note": "x < queries[i] <= 1000000" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one server, one log entry, one query well after it", "input": [1, [[1, 5]], 2, [10]] },
+    { "kind": "edge", "description": "no logs at all, every server counts as zero-request", "input": [4, [], 3, [10, 20]] },
+    { "kind": "edge", "description": "every server gets a request in the window", "input": [3, [[1, 1], [2, 1], [3, 1]], 5, [3]] },
+    { "kind": "edge", "description": "a server with multiple requests, only counted once", "input": [2, [[1, 1], [1, 2], [1, 3]], 10, [5, 20]] },
+    { "kind": "boundary", "description": "query time equals x + 1, smallest legal window start", "input": [2, [[1, 1]], 1, [2]] },
+    { "kind": "boundary", "description": "queries at the maximum time value", "input": [2, [[1, 999999], [2, 1000000]], 1, [1000000]] },
+    { "kind": "trap", "description": "log lands exactly on the window's left edge (inclusive) and must still count", "input": [2, [[1, 5]], 5, [10]] },
+    { "kind": "trap", "description": "same server id repeated across many out-of-order log entries", "input": [1, [[1, 9], [1, 2], [1, 6], [1, 1]], 3, [5, 9]] }
+  ],
+  "stress": [
+    {
+      "description": "20000 servers/logs/queries at realistic scale",
+      "seed": 7,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = size\n    logs = [[rng.randint(1, n), rng.randint(1, 1000000)] for _ in range(size)]\n    x = rng.randint(1, 100000)\n    lo = min(x + 1, 1000000)\n    queries = [rng.randint(lo, 1000000) for _ in range(min(size, 2000))]\n    return [n, logs, x, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countServers(self, n, logs, x, queries):\n        res = []\n        for q in queries:\n            lo, hi = q - x, q\n            seen = set()\n            for sid, t in logs:\n                if lo <= t <= hi:\n                    seen.add(sid)\n            res.append(n - len(seen))\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def countServers(self, n, logs, x, queries):\n        logs = sorted(logs, key=lambda l: l[1])\n        m = len(queries)\n        order = sorted(range(m), key=lambda i: queries[i])\n        ans = [0] * m\n        count = {}\n        active = 0\n        left = 0\n        right = 0\n        L = len(logs)\n        for qi in order:\n            q = queries[qi]\n            lo, hi = q - x, q\n            while right < L and logs[right][1] <= hi:\n                sid = logs[right][0]\n                if count.get(sid, 0) == 0:\n                    active += 1\n                count[sid] = count.get(sid, 0) + 1\n                right += 1\n            while left < L and logs[left][1] < lo:\n                sid = logs[left][0]\n                count[sid] -= 1\n                if count[sid] == 0:\n                    active -= 1\n                left += 1\n            ans[qi] = n - active\n        return ans\n",
+    "javascript": "var countServers = function(n, logs, x, queries) {\n    logs = logs.slice().sort((a, b) => a[1] - b[1]);\n    const m = queries.length;\n    const order = Array.from({length: m}, (_, i) => i).sort((a, b) => queries[a] - queries[b]);\n    const ans = new Array(m).fill(0);\n    const count = new Map();\n    let active = 0;\n    let left = 0, right = 0;\n    const L = logs.length;\n    for (const qi of order) {\n        const q = queries[qi];\n        const lo = q - x, hi = q;\n        while (right < L && logs[right][1] <= hi) {\n            const sid = logs[right][0];\n            const c = count.get(sid) || 0;\n            if (c === 0) active++;\n            count.set(sid, c + 1);\n            right++;\n        }\n        while (left < L && logs[left][1] < lo) {\n            const sid = logs[left][0];\n            const c = count.get(sid) - 1;\n            count.set(sid, c);\n            if (c === 0) active--;\n            left++;\n        }\n        ans[qi] = n - active;\n    }\n    return ans;\n};"
+  },
+  "complexity": { "time": "O((L + Q) log(L + Q))", "space": "O(L + Q)" }
+}

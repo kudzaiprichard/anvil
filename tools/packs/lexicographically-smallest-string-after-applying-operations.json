@@ -1,0 +1,42 @@
+{
+  "slug": "lexicographically-smallest-string-after-applying-operations",
+  "judge": "exact",
+  "pattern": "Because adding cycles back after ten repeats and rotating cycles back after at most string-length repeats, the whole set of reachable strings is small and finite, so exploring it exhaustively finds the smallest one directly.",
+  "hints": [
+    "Applying the 'add' operation ten times in a row returns you to where you started, and applying the 'rotate' operation enough times also returns you to where you started -- so you can never wander off into infinitely many different strings.",
+    "Treat every distinct string you can reach as a node and each operation as an edge to a neighboring node; the whole reachable set turns out to be small enough to visit completely.",
+    "Explore outward from the starting string, applying both operations to every newly discovered string and skipping ones you've already visited, keeping track of the smallest string seen at any point."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [2, 100], "charset": "0123456789" },
+    { "param": "a", "kind": "int", "value": [1, 9] },
+    { "param": "b", "kind": "int", "value": [1, 99] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": ["5525", 9, 2] },
+    { "kind": "edge", "description": "statement example two", "input": ["74", 5, 1] },
+    { "kind": "edge", "description": "statement example three, already optimal", "input": ["0011", 4, 2] },
+    { "kind": "boundary", "description": "shortest possible string, length two", "input": ["19", 1, 1] },
+    { "kind": "boundary", "description": "b at its maximum, length minus one", "input": ["123456", 3, 5] },
+    { "kind": "trap", "description": "every digit identical, both operations still permitted but visibly change nothing useful", "input": ["4444", 5, 2] },
+    { "kind": "trap", "description": "large add amount causing repeated wraparound through 9 back to 0", "input": ["9090", 9, 2] },
+    { "kind": "trap", "description": "odd rotation amount, so add and rotate interact across both index parities", "input": ["1357", 2, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random even-length digit strings with random a, b, kept modest so the bounded reachable-state search stays fast",
+      "seed": 5,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 60))\n    if n % 2 == 1:\n        n += 1\n    s = ''.join(str(rng.randint(0, 9)) for _ in range(n))\n    a = rng.randint(1, 9)\n    b = rng.randint(1, n - 1)\n    return [s, a, b]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findLexSmallestString(self, s, a, b):\n        n = len(s)\n\n        def apply_add(digits):\n            out = list(digits)\n            for i in range(1, n, 2):\n                out[i] = (out[i] + a) % 10\n            return tuple(out)\n\n        def apply_rotate(digits):\n            k = b % n\n            return tuple(digits[n - k:]) + tuple(digits[:n - k])\n\n        start = tuple(int(ch) for ch in s)\n        best = start\n        stack = [start]\n        seen = {start}\n        while stack:\n            cur = stack.pop()\n            if cur < best:\n                best = cur\n            for nxt in (apply_rotate(cur), apply_add(cur)):\n                if nxt not in seen:\n                    seen.add(nxt)\n                    stack.append(nxt)\n        return ''.join(str(d) for d in best)\n",
+  "solutions": {
+    "python": "class Solution:\n    def findLexSmallestString(self, s: str, a: int, b: int) -> str:\n        n = len(s)\n\n        def add(t: str) -> str:\n            chars = list(t)\n            for i in range(1, n, 2):\n                chars[i] = str((int(chars[i]) + a) % 10)\n            return ''.join(chars)\n\n        def rotate(t: str) -> str:\n            k = b % n\n            return t[n - k:] + t[:n - k]\n\n        best = s\n        visited = {s}\n        from collections import deque\n        queue = deque([s])\n        while queue:\n            cur = queue.popleft()\n            for nxt in (add(cur), rotate(cur)):\n                if nxt not in visited:\n                    visited.add(nxt)\n                    if nxt < best:\n                        best = nxt\n                    queue.append(nxt)\n        return best\n",
+    "javascript": "var findLexSmallestString = function(s, a, b) {\n    const n = s.length;\n    const add = (t) => {\n        const chars = t.split('');\n        for (let i = 1; i < n; i += 2) {\n            chars[i] = String((Number(chars[i]) + a) % 10);\n        }\n        return chars.join('');\n    };\n    const rotate = (t) => {\n        const k = b % n;\n        return t.slice(n - k) + t.slice(0, n - k);\n    };\n    let best = s;\n    const visited = new Set([s]);\n    const queue = [s];\n    let head = 0;\n    while (head < queue.length) {\n        const cur = queue[head++];\n        for (const nxt of [add(cur), rotate(cur)]) {\n            if (!visited.has(nxt)) {\n                visited.add(nxt);\n                if (nxt < best) best = nxt;\n                queue.push(nxt);\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * min(n, 10 * n)) bounded by the size of the reachable-state graph",
+    "space": "O(n * (size of reachable-state set))"
+  }
+}

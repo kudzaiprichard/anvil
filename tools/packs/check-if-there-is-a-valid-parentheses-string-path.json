@@ -1,0 +1,37 @@
+{
+  "slug": "check-if-there-is-a-valid-parentheses-string-path",
+  "judge": "exact",
+  "pattern": "Tracking the set of achievable open-paren balances at each cell as you move down and right turns the path search into a reachability test that ends valid only if zero balance is attainable at the corner.",
+  "hints": [
+    "A path's string is valid only if its running count of unmatched '(' never goes negative and finishes at exactly zero, which also forces an even-length path.",
+    "At each cell, the possible balances are the prior cell's balances each shifted by +1 for '(' or -1 for ')', dropping any that go negative.",
+    "Memoize on (row, col, balance) or carry a set of feasible balances per cell; the answer is whether balance 0 is reachable at the bottom-right."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "string[][]", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "valid path exists in a larger grid", "input": [[["(", "(", "("], [")", "(", ")"], ["(", "(", ")"], ["(", "(", ")"]]] },
+    { "kind": "trap", "description": "no valid path despite balanced counts", "input": [[[")", ")"], ["(", "("]]] },
+    { "kind": "trap", "description": "odd total length cannot balance", "input": [[["(", "(", "("]]] },
+    { "kind": "boundary", "description": "single cell with open paren is invalid", "input": [[["("]]] },
+    { "kind": "boundary", "description": "single cell with close paren is invalid", "input": [[[")"]]] },
+    { "kind": "edge", "description": "simple balanced 1x2 path", "input": [[["(", ")"]]] },
+    { "kind": "trap", "description": "starts with close paren so immediately negative", "input": [[[")", "("], ["(", ")"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random square grid of parentheses of even-sum dimensions",
+      "seed": 21,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 40)))\n    n = rng.randint(1, max(1, min(size, 40)))\n    grid = [[rng.choice('()') for _ in range(n)] for _ in range(m)]\n    grid[0][0] = '('\n    return [grid]\n",
+      "note": "forcing an opening at the start raises the chance a valid path exists"
+    }
+  ],
+  "oracle_python": "import sys\nclass Solution:\n    def hasValidPath(self, grid):\n        sys.setrecursionlimit(100000)\n        m, n = len(grid), len(grid[0])\n        if (m + n - 1) % 2 == 1:\n            return False\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dfs(r, c, bal):\n            bal += 1 if grid[r][c] == '(' else -1\n            if bal < 0:\n                return False\n            if r == m - 1 and c == n - 1:\n                return bal == 0\n            ok = False\n            if r + 1 < m:\n                ok = ok or dfs(r + 1, c, bal)\n            if c + 1 < n:\n                ok = ok or dfs(r, c + 1, bal)\n            return ok\n        return dfs(0, 0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def hasValidPath(self, grid):\n        m, n = len(grid), len(grid[0])\n        if grid[0][0] == ')' or grid[m - 1][n - 1] == '(' or (m + n) % 2 == 0:\n            return False\n        states = [[set() for _ in range(n)] for _ in range(m)]\n        states[0][0].add(1)\n        for r in range(m):\n            for c in range(n):\n                if r == 0 and c == 0:\n                    continue\n                delta = 1 if grid[r][c] == '(' else -1\n                cur = set()\n                if r > 0:\n                    cur |= states[r - 1][c]\n                if c > 0:\n                    cur |= states[r][c - 1]\n                for b in cur:\n                    nb = b + delta\n                    if nb >= 0:\n                        states[r][c].add(nb)\n        return 0 in states[m - 1][n - 1]\n",
+    "javascript": "var hasValidPath = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    if (grid[0][0] === ')' || grid[m - 1][n - 1] === '(' || (m + n) % 2 === 0) return false;\n    const states = Array.from({ length: m }, () => Array.from({ length: n }, () => new Set()));\n    states[0][0].add(1);\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            if (r === 0 && c === 0) continue;\n            const delta = grid[r][c] === '(' ? 1 : -1;\n            const cur = new Set();\n            if (r > 0) for (const b of states[r - 1][c]) cur.add(b);\n            if (c > 0) for (const b of states[r][c - 1]) cur.add(b);\n            for (const b of cur) {\n                const nb = b + delta;\n                if (nb >= 0) states[r][c].add(nb);\n            }\n        }\n    }\n    return states[m - 1][n - 1].has(0);\n};\n"
+  },
+  "complexity": { "time": "O(m*n*(m+n))", "space": "O(m*n*(m+n))" }
+}

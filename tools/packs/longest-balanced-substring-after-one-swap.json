@@ -1,0 +1,42 @@
+{
+  "slug": "longest-balanced-substring-after-one-swap",
+  "judge": "exact",
+  "pattern": "A single swap can only ever change a chosen substring's own one-vs-zero balance by exactly two (swapping one of its characters for the opposite type sitting outside it), so the answer is the best of three prefix-balance searches: already balanced, two ones too many with a spare zero available outside, or two zeros too many with a spare one available outside.",
+  "hints": [
+    "Track the running difference between ones and zeros seen so far; a substring is already balanced exactly when this running value repeats, so the classic first-occurrence-of-each-value trick finds the longest such substring with zero swaps.",
+    "Any single swap that helps a chosen substring must exchange one of its own characters for the opposite type sitting outside it, which shifts that substring's own ones-minus-zeros balance by exactly plus or minus two -- so also look for the longest substring whose running-difference values differ by exactly 2, and separately by exactly -2.",
+    "For the plus-two case you need at least one zero left over outside the substring, and since the substring's own zero count is completely determined by its length once the difference is fixed at 2, this becomes a simple cap on how long that substring is allowed to be -- so only accept a matching pair of positions whose gap does not exceed that cap (an analogous cap using the total one-count applies to the minus-two case)."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one swap plus choosing the right substring reaches length four", "input": ["100001"] },
+    { "kind": "edge", "description": "no swap or substring choice can ever balance an all-ones string", "input": ["111"] },
+    { "kind": "boundary", "description": "a single character can never be balanced", "input": ["0"] },
+    { "kind": "boundary", "description": "already perfectly balanced with no swap needed", "input": ["0101"] },
+    { "kind": "trap", "description": "the longest unconstrained plus-two-difference span would consume every zero, so a shorter span must be used instead", "input": ["0111110"] },
+    { "kind": "trap", "description": "the longest unconstrained minus-two-difference span would consume every one, so a shorter span must be used instead", "input": ["1000001"] },
+    { "kind": "trap", "description": "the whole string is already balanced, so the zero-swap case gives the true maximum", "input": ["1100100110"] }
+  ],
+  "stress": [
+    {
+      "description": "random small strings, exhaustively cross-checkable against a brute-force oracle",
+      "seed": 111,
+      "size": 11,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 11))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "large random string near the full length bound",
+      "seed": 112,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestBalanced(self, s):\n        n = len(s)\n        zerosTotal = s.count('0')\n        onesTotal = s.count('1')\n        best = 0\n        for i in range(n):\n            ones = 0\n            zeros = 0\n            for j in range(i, n):\n                if s[j] == '1':\n                    ones += 1\n                else:\n                    zeros += 1\n                diff = ones - zeros\n                length = j - i + 1\n                if diff == 0:\n                    best = max(best, length)\n                elif diff == 2:\n                    if zerosTotal - zeros >= 1:\n                        best = max(best, length)\n                elif diff == -2:\n                    if onesTotal - ones >= 1:\n                        best = max(best, length)\n        return best\n",
+  "solutions": {
+    "python": "from bisect import bisect_left, insort\nclass Solution:\n    def longestBalanced(self, s: str) -> int:\n        n = len(s)\n        zerosTotal = s.count('0')\n        onesTotal = s.count('1')\n        P = [0] * (n + 1)\n        for i in range(n):\n            P[i + 1] = P[i] + (1 if s[i] == '1' else -1)\n\n        def longest_with_diff(target, cap):\n            best = 0\n            groups = {}\n            for j in range(n + 1):\n                need = P[j] - target\n                if need in groups:\n                    lst = groups[need]\n                    lo = j - cap\n                    idx = bisect_left(lst, lo)\n                    if idx < len(lst):\n                        i = lst[idx]\n                        if j - i > best:\n                            best = j - i\n                val = P[j]\n                if val not in groups:\n                    groups[val] = []\n                insort(groups[val], j)\n            return best\n\n        d0 = longest_with_diff(0, n)\n        d_pos2 = longest_with_diff(2, 2 * zerosTotal + 1)\n        d_neg2 = longest_with_diff(-2, 2 * onesTotal + 1)\n        return max(d0, d_pos2, d_neg2)\n",
+    "javascript": "var longestBalanced = function(s) {\n    const n = s.length;\n    let zerosTotal = 0, onesTotal = 0;\n    for (const c of s) { if (c === '0') zerosTotal++; else onesTotal++; }\n    const P = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) P[i + 1] = P[i] + (s[i] === '1' ? 1 : -1);\n\n    function longestWithDiff(target, cap) {\n        let best = 0;\n        const groups = new Map();\n        for (let j = 0; j <= n; j++) {\n            const need = P[j] - target;\n            if (groups.has(need)) {\n                const lst = groups.get(need);\n                const lo = j - cap;\n                let lowIdx = 0, high = lst.length;\n                while (lowIdx < high) {\n                    const mid = (lowIdx + high) >> 1;\n                    if (lst[mid] < lo) lowIdx = mid + 1; else high = mid;\n                }\n                if (lowIdx < lst.length) {\n                    const i = lst[lowIdx];\n                    if (j - i > best) best = j - i;\n                }\n            }\n            const val = P[j];\n            if (!groups.has(val)) groups.set(val, []);\n            groups.get(val).push(j);\n        }\n        return best;\n    }\n\n    const d0 = longestWithDiff(0, n);\n    const dPos2 = longestWithDiff(2, 2 * zerosTotal + 1);\n    const dNeg2 = longestWithDiff(-2, 2 * onesTotal + 1);\n    return Math.max(d0, dPos2, dNeg2);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

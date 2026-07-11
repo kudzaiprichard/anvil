@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-cost-for-tickets",
+  "judge": "exact",
+  "pattern": "A day-indexed dynamic program chooses, at each travel day, the cheapest pass that covers it by looking back over the windows the three pass lengths span.",
+  "hints": [
+    "Think about the minimum cost to cover all travel up to and including each day.",
+    "On a travel day you either bought a 1-, 7-, or 30-day pass that ends here; each choice points back to an earlier already-solved day.",
+    "Let dp[d] be the min cost to cover every travel day up to d. On a travel day take min(dp[d-1]+costs[0], dp[d-7]+costs[1], dp[d-30]+costs[2]) clamping indices below 1 to 0; on a non-travel day dp[d]=dp[d-1]."
+  ],
+  "constraints": [
+    { "param": "days", "kind": "int[]", "len": [1, 365], "value": [1, 365] },
+    { "param": "costs", "kind": "int[]", "len": [3, 3], "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "single travel day uses the cheapest single pass", "input": [[1], [2, 7, 15]] },
+    { "kind": "edge", "description": "clustered days favor a weekly pass", "input": [[1, 4, 6, 7, 8, 20], [2, 7, 15]] },
+    { "kind": "edge", "description": "ten consecutive days plus a far day favor the monthly pass", "input": [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 30, 31], [2, 7, 15]] },
+    { "kind": "trap", "description": "when daily pass is cheapest no bundling helps", "input": [[1, 10, 20, 30], [1, 100, 1000]] },
+    { "kind": "trap", "description": "monthly pass cheapest even for few days", "input": [[1, 2, 3], [50, 60, 5]] },
+    { "kind": "boundary", "description": "last possible day of the year", "input": [[365], [3, 8, 25]] },
+    { "kind": "edge", "description": "spread-out days every seven apart", "input": [[1, 8, 15, 22, 29], [4, 10, 30]] }
+  ],
+  "stress": [
+    {
+      "description": "random strictly-increasing travel days across the year",
+      "seed": 72,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 365))\n    days = sorted(rng.sample(range(1, 366), n))\n    costs = [rng.randint(1, 1000) for _ in range(3)]\n    return [days, costs]\n",
+      "note": "rng.sample guarantees strictly increasing distinct days"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mincostTickets(self, days, costs):\n        dayset = set(days)\n        last = days[-1]\n        from functools import lru_cache\n        import sys\n        sys.setrecursionlimit(10000)\n        @lru_cache(maxsize=None)\n        def cost(d):\n            if d > last:\n                return 0\n            if d not in dayset:\n                return cost(d + 1)\n            return min(\n                costs[0] + cost(d + 1),\n                costs[1] + cost(d + 7),\n                costs[2] + cost(d + 30),\n            )\n        return cost(1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def mincostTickets(self, days, costs):\n        last = days[-1]\n        dayset = set(days)\n        dp = [0] * (last + 1)\n        for d in range(1, last + 1):\n            if d not in dayset:\n                dp[d] = dp[d - 1]\n            else:\n                dp[d] = min(\n                    dp[d - 1] + costs[0],\n                    dp[max(0, d - 7)] + costs[1],\n                    dp[max(0, d - 30)] + costs[2],\n                )\n        return dp[last]\n",
+    "javascript": "var mincostTickets = function(days, costs) {\n    const last = days[days.length - 1];\n    const dayset = new Set(days);\n    const dp = new Array(last + 1).fill(0);\n    for (let d = 1; d <= last; d++) {\n        if (!dayset.has(d)) {\n            dp[d] = dp[d - 1];\n        } else {\n            dp[d] = Math.min(\n                dp[d - 1] + costs[0],\n                dp[Math.max(0, d - 7)] + costs[1],\n                dp[Math.max(0, d - 30)] + costs[2]\n            );\n        }\n    }\n    return dp[last];\n};\n"
+  },
+  "complexity": { "time": "O(maxDay)", "space": "O(maxDay)" }
+}

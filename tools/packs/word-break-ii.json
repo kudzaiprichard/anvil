@@ -1,0 +1,38 @@
+{
+  "slug": "word-break-ii",
+  "judge": "unordered",
+  "pattern": "Backtracking from each position tries every dictionary word that matches the next slice, recording full segmentations as space-joined sentences.",
+  "hints": [
+    "Build sentences by repeatedly choosing a dictionary word that the remaining suffix starts with.",
+    "From a position, branch on every word that matches there, recurse on what remains, and prepend the chosen word to each sentence the suffix produces.",
+    "Memoize on the start index returning the list of completions for that suffix; join the chosen word and each completion with a single space, and the suffix at the end yields one empty completion."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 20] },
+    { "param": "wordDict", "kind": "string[]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two distinct segmentations", "input": ["catsanddog", ["cat", "cats", "and", "sand", "dog"]] },
+    { "kind": "edge", "description": "three segmentations with reuse", "input": ["pineapplepenapple", ["apple", "pen", "applepen", "pine", "pineapple"]] },
+    { "kind": "trap", "description": "no valid segmentation yields empty list", "input": ["catsandog", ["cats", "dog", "sand", "and", "cat"]] },
+    { "kind": "boundary", "description": "single character single word", "input": ["a", ["a"]] },
+    { "kind": "trap", "description": "single full-string word, one sentence", "input": ["abcd", ["abcd", "ab", "cd", "a"]] },
+    { "kind": "edge", "description": "highly ambiguous all-a string", "input": ["aaaa", ["a", "aa", "aaa"]] },
+    { "kind": "trap", "description": "word present but cannot complete", "input": ["abc", ["ab", "c", "a"]] }
+  ],
+  "stress": [
+    {
+      "description": "short all-a string with overlapping single and double words, many sentences",
+      "seed": 5,
+      "size": 14,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 16))\n    return ['a' * n, ['a', 'aa', 'aaa']]\n",
+      "note": "kept short because the number of segmentations grows fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def wordBreak(self, s, wordDict):\n        words = set(wordDict)\n        n = len(s)\n        results = []\n        def backtrack(i, parts):\n            if i == n:\n                results.append(' '.join(parts))\n                return\n            for j in range(i + 1, n + 1):\n                w = s[i:j]\n                if w in words:\n                    parts.append(w)\n                    backtrack(j, parts)\n                    parts.pop()\n        backtrack(0, [])\n        return results\n",
+  "solutions": {
+    "python": "class Solution:\n    def wordBreak(self, s, wordDict):\n        words = set(wordDict)\n        n = len(s)\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def solve(i):\n            if i == n:\n                return ['']\n            out = []\n            for j in range(i + 1, n + 1):\n                w = s[i:j]\n                if w in words:\n                    for rest in solve(j):\n                        out.append(w if rest == '' else w + ' ' + rest)\n            return out\n        return list(solve(0))\n",
+    "javascript": "var wordBreak = function(s, wordDict) {\n    const words = new Set(wordDict);\n    const n = s.length;\n    const memo = new Map();\n    function solve(i) {\n        if (i === n) return [''];\n        if (memo.has(i)) return memo.get(i);\n        const out = [];\n        for (let j = i + 1; j <= n; j++) {\n            const w = s.slice(i, j);\n            if (words.has(w)) {\n                for (const rest of solve(j)) {\n                    out.push(rest === '' ? w : w + ' ' + rest);\n                }\n            }\n        }\n        memo.set(i, out);\n        return out;\n    }\n    return solve(0).slice();\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * k)", "space": "O(n^2 * k)" }
+}

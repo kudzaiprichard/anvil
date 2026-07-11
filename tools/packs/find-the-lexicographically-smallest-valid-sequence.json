@@ -1,0 +1,103 @@
+{
+  "slug": "find-the-lexicographically-smallest-valid-sequence",
+  "judge": "exact",
+  "pattern": "Precompute, for every position, how many trailing characters of word2 could still be matched exactly using the rest of word1 -- that lets a single left-to-right greedy pass decide, at each index, whether taking it as an exact match (or spending the one allowed edit) keeps the rest of the match feasible.",
+  "hints": [
+    "First figure out, for every position i in word1, how many characters from the END of word2 could still be matched exactly using only word1[i:] onward -- compute this by scanning word1 from the right.",
+    "Walk word1 left to right, greedily taking the current index whenever it matches the next needed character of word2 -- that always keeps indices as small as possible.",
+    "When a character doesn't match and you haven't spent your one allowed edit yet, you may still take this index as the 'changed' one -- but only if the suffix-match table proves the remaining tail of word2 can still be matched exactly with what's left of word1."
+  ],
+  "constraints": [
+    {
+      "param": "word1",
+      "kind": "str",
+      "len": [
+        2,
+        300000
+      ]
+    },
+    {
+      "param": "word2",
+      "kind": "str",
+      "len": [
+        1,
+        299999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "no edit needed at all, word2 is an exact subsequence",
+      "input": [
+        "xaybzc",
+        "abc"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "the edit is required at the very first index",
+      "input": [
+        "zbc",
+        "abc"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an exact match exists further on, but the smallest sequence still requires spending the edit early",
+      "input": [
+        "azcazbzc",
+        "abc"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no valid sequence exists even with one edit allowed",
+      "input": [
+        "aaaaaa",
+        "aaabc"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "word2 only one character shorter than word1",
+      "input": [
+        "abc",
+        "ab"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "word2 is a single character",
+      "input": [
+        "xyzq",
+        "z"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the only chance to match the final character requires using the edit on it",
+      "input": [
+        "abz",
+        "abc"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random word1/word2 over a small alphabet so both exact and near-miss sequences are common",
+      "seed": 606,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 4000))\n    word1 = ''.join(rng.choice('ab') for _ in range(n))\n    m = rng.randint(1, n - 1)\n    word2 = ''.join(rng.choice('ab') for _ in range(m))\n    return [word1, word2]\n"
+    }
+  ],
+  "oracle_python": "from functools import lru_cache\n\nclass Solution:\n    def validSequence(self, word1, word2):\n        n, m = len(word1), len(word2)\n\n        @lru_cache(maxsize=None)\n        def can_match(i, j, used):\n            if j == m:\n                return True\n            if n - i < m - j:\n                return False\n            if can_match(i + 1, j, used):\n                return True\n            if word1[i] == word2[j]:\n                if can_match(i + 1, j + 1, used):\n                    return True\n            elif used == 0:\n                if can_match(i + 1, j + 1, 1):\n                    return True\n            return False\n\n        res = []\n        i = j = 0\n        used = 0\n        while j < m and i < n:\n            if n - i < m - j:\n                break\n            take_exact = word1[i] == word2[j]\n            if take_exact and can_match(i + 1, j + 1, used):\n                res.append(i)\n                i += 1\n                j += 1\n            elif (not take_exact) and used == 0 and can_match(i + 1, j + 1, 1):\n                res.append(i)\n                i += 1\n                j += 1\n                used = 1\n            else:\n                i += 1\n        can_match.cache_clear()\n        if j < m:\n            return []\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def validSequence(self, word1, word2):\n        n, m = len(word1), len(word2)\n        j = m\n        suf = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            if j > 0 and word1[i] == word2[j - 1]:\n                j -= 1\n            suf[i] = m - j\n        res = []\n        j = 0\n        used = False\n        for i in range(n):\n            if j == m:\n                break\n            if word1[i] == word2[j]:\n                res.append(i)\n                j += 1\n            elif not used:\n                if m - (j + 1) <= suf[i + 1]:\n                    used = True\n                    res.append(i)\n                    j += 1\n        if j < m:\n            return []\n        return res\n",
+    "javascript": "var validSequence = function(word1, word2) {\n    const n = word1.length, m = word2.length;\n    const suf = new Array(n + 1).fill(0);\n    let j = m;\n    for (let i = n - 1; i >= 0; i--) {\n        if (j > 0 && word1[i] === word2[j - 1]) j--;\n        suf[i] = m - j;\n    }\n    const res = [];\n    j = 0;\n    let used = false;\n    for (let i = 0; i < n; i++) {\n        if (j === m) break;\n        if (word1[i] === word2[j]) {\n            res.push(i);\n            j++;\n        } else if (!used) {\n            if (m - (j + 1) <= suf[i + 1]) {\n                used = true;\n                res.push(i);\n                j++;\n            }\n        }\n    }\n    if (j < m) return [];\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(word1.length)",
+    "space": "O(word1.length)"
+  }
+}

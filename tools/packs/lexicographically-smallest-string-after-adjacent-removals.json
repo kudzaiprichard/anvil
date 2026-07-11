@@ -1,0 +1,37 @@
+{
+  "slug": "lexicographically-smallest-string-after-adjacent-removals",
+  "judge": "exact",
+  "pattern": "Interval DP decides which substrings can vanish entirely, then a suffix DP keeps only the deletions that lower the surviving string.",
+  "hints": [
+    "Two letters cancel when they are neighbors in the circular alphabet, and after a cancellation new neighbors can appear, so think recursively about whole removable blocks.",
+    "Precompute, for every substring, whether it can be deleted completely: pair its first character with a matching later one whose enclosed part also deletes, leaving the remainder deletable too.",
+    "With that table, scan from each position choosing either to keep the current character or to erase a removable block starting there, and take the lexicographically smaller continuation."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 250] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "remove a consecutive pair leaving one letter", "input": ["abc"] },
+    { "kind": "edge", "description": "everything cancels to empty", "input": ["bcda"] },
+    { "kind": "trap", "description": "removing actually makes it larger, so keep it", "input": ["zdce"] },
+    { "kind": "trap", "description": "wrap-around pair a and z cancels", "input": ["az"] },
+    { "kind": "boundary", "description": "single character cannot be removed", "input": ["m"] },
+    { "kind": "trap", "description": "non-consecutive letters never cancel", "input": ["ace"] },
+    { "kind": "edge", "description": "nested removals collapse a long block", "input": ["abcd"] }
+  ],
+  "stress": [
+    {
+      "description": "short strings over a small alphabet including wrap letters so the BFS oracle stays fast",
+      "seed": 43,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, max(2, size) + 1)\n    return [''.join(rng.choice('abcyz') for _ in range(n))]\n",
+      "note": "small n keeps the exhaustive oracle tractable"
+    }
+  ],
+  "oracle_python": "from collections import deque\nclass Solution:\n    def lexicographicallySmallestString(self, s):\n        def cons(a, b):\n            d = abs(ord(a) - ord(b))\n            return d == 1 or d == 25\n        seen = {s}\n        best = s\n        dq = deque([s])\n        while dq:\n            cur = dq.popleft()\n            if cur < best:\n                best = cur\n            for i in range(len(cur) - 1):\n                if cons(cur[i], cur[i + 1]):\n                    nxt = cur[:i] + cur[i + 2:]\n                    if nxt not in seen:\n                        seen.add(nxt)\n                        dq.append(nxt)\n        return best\n",
+  "solutions": {
+    "python": "import sys\nfrom functools import lru_cache\nclass Solution:\n    def lexicographicallySmallestString(self, s):\n        sys.setrecursionlimit(10000)\n        n = len(s)\n        def cons(a, b):\n            d = abs(ord(a) - ord(b))\n            return d == 1 or d == 25\n        gone = [[False] * n for _ in range(n)]\n        for length in range(2, n + 1, 2):\n            for i in range(0, n - length + 1):\n                j = i + length - 1\n                for k in range(i + 1, j + 1, 2):\n                    inside = (k - 1 < i + 1) or gone[i + 1][k - 1]\n                    rest = (j < k + 1) or gone[k + 1][j]\n                    if cons(s[i], s[k]) and inside and rest:\n                        gone[i][j] = True\n                        break\n        @lru_cache(maxsize=None)\n        def best(i):\n            if i == n:\n                return ''\n            res = s[i] + best(i + 1)\n            for j in range(i + 1, n):\n                if (j - i + 1) % 2 == 0 and gone[i][j]:\n                    cand = best(j + 1)\n                    if cand < res:\n                        res = cand\n            return res\n        return best(0)\n",
+    "javascript": "var lexicographicallySmallestString = function(s) {\n    const n = s.length;\n    const cons = (a, b) => {\n        const d = Math.abs(a.charCodeAt(0) - b.charCodeAt(0));\n        return d === 1 || d === 25;\n    };\n    const gone = Array.from({length: n}, () => new Array(n).fill(false));\n    for (let length = 2; length <= n; length += 2) {\n        for (let i = 0; i + length - 1 < n; i++) {\n            const j = i + length - 1;\n            for (let k = i + 1; k <= j; k += 2) {\n                const inside = (k - 1 < i + 1) || gone[i + 1][k - 1];\n                const rest = (j < k + 1) || gone[k + 1][j];\n                if (cons(s[i], s[k]) && inside && rest) { gone[i][j] = true; break; }\n            }\n        }\n    }\n    const memo = new Array(n + 1).fill(null);\n    const best = (i) => {\n        if (i === n) return '';\n        if (memo[i] !== null) return memo[i];\n        let res = s[i] + best(i + 1);\n        for (let j = i + 1; j < n; j++) {\n            if ((j - i + 1) % 2 === 0 && gone[i][j]) {\n                const cand = best(j + 1);\n                if (cand < res) res = cand;\n            }\n        }\n        memo[i] = res;\n        return res;\n    };\n    return best(0);\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n^2)" }
+}

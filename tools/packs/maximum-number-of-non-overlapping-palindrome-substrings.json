@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-number-of-non-overlapping-palindrome-substrings",
+  "judge": "exact",
+  "pattern": "Because any palindrome of length at least k contains a centered palindrome of length k or k+1, a greedy left-to-right scan that closes the earliest valid palindrome and jumps past it counts the maximum non-overlapping selections.",
+  "hints": [
+    "A long palindrome always hides a shorter centered palindrome of length k or k+1, so you never need substrings longer than k+1.",
+    "Scanning positions left to right, finish a palindrome as soon as you can and then skip past its end to keep selections disjoint.",
+    "Expand around each center; whenever the palindrome length first reaches k, take it, advance the cursor to just after its right end, and increment the count."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 2000] },
+    { "param": "k", "kind": "int", "value": [1, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two disjoint palindromes selected", "input": ["abaccdbbd", 3] },
+    { "kind": "trap", "description": "no palindrome reaches the minimum length", "input": ["adbcda", 2] },
+    { "kind": "boundary", "description": "single character with k one", "input": ["a", 1] },
+    { "kind": "edge", "description": "every character is its own palindrome when k is one", "input": ["abcde", 1] },
+    { "kind": "trap", "description": "one long palindrome counts once, greedily split for more", "input": ["aaaa", 2] },
+    { "kind": "edge", "description": "even-length palindromes only", "input": ["abbacddc", 2] },
+    { "kind": "trap", "description": "overlapping candidates must be chosen disjointly", "input": ["aaabaaa", 3] }
+  ],
+  "stress": [
+    {
+      "description": "random small-alphabet strings to create many overlapping palindromes",
+      "seed": 81,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    s = ''.join(rng.choice('abc') for _ in range(n))\n    k = rng.randint(1, 4)\n    return [s, k]\n",
+      "note": "tiny alphabet maximises palindromic structure"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPalindromes(self, s, k):\n        n = len(s)\n        is_pal = [[False] * n for _ in range(n)]\n        for i in range(n):\n            is_pal[i][i] = True\n        for length in range(2, n + 1):\n            for i in range(0, n - length + 1):\n                j = i + length - 1\n                if s[i] == s[j]:\n                    if length == 2:\n                        is_pal[i][j] = True\n                    else:\n                        is_pal[i][j] = is_pal[i + 1][j - 1]\n        dp = [0] * (n + 1)\n        for i in range(1, n + 1):\n            dp[i] = dp[i - 1]\n            for start in range(0, i - k + 1):\n                if is_pal[start][i - 1] and (i - start) >= k:\n                    dp[i] = max(dp[i], dp[start] + 1)\n        return dp[n]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPalindromes(self, s, k):\n        n = len(s)\n        count = 0\n        cursor = 0\n        def grows(l, r):\n            while l >= 0 and r < n and s[l] == s[r]:\n                if r - l + 1 >= k and l >= cursor:\n                    return r\n                l -= 1\n                r += 1\n            return -1\n        for center in range(n):\n            taken = -1\n            r1 = grows(center, center)\n            r2 = grows(center, center + 1)\n            cands = [x for x in (r1, r2) if x != -1]\n            if cands:\n                taken = min(cands)\n            if taken != -1:\n                count += 1\n                cursor = taken + 1\n        return count\n",
+    "javascript": "var maxPalindromes = function(s, k) {\n    const n = s.length;\n    let count = 0;\n    let cursor = 0;\n    const grows = (l, r) => {\n        while (l >= 0 && r < n && s[l] === s[r]) {\n            if (r - l + 1 >= k && l >= cursor) return r;\n            l--; r++;\n        }\n        return -1;\n    };\n    for (let center = 0; center < n; center++) {\n        const r1 = grows(center, center);\n        const r2 = grows(center, center + 1);\n        const cands = [r1, r2].filter(x => x !== -1);\n        let taken = -1;\n        if (cands.length) taken = Math.min(...cands);\n        if (taken !== -1) {\n            count++;\n            cursor = taken + 1;\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n*k)", "space": "O(1)" }
+}

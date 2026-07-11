@@ -1,0 +1,79 @@
+{
+  "slug": "sell-diminishing-valued-colored-balls",
+  "judge": "exact",
+  "pattern": "When every unit you sell from a pile drops that pile's price by one, the most profitable strategy is to always sell from whichever pile currently sits highest, which turns into selling whole price 'tiers' across all piles tied at the top at once.",
+  "hints": [
+    "Selling one ball from the tallest pile always beats selling from a shorter one, so sort the piles from tallest to shortest and think in terms of price levels rather than individual balls.",
+    "Process the piles from the top down: while a group of the tallest piles all share the same price, you can sell a whole horizontal 'slice' across all of them before the price has to drop further -- use the arithmetic-series sum for a full slice instead of simulating one ball at a time.",
+    "Once your remaining order budget can't cover a full slice down to the next tier, only part of that slice gets sold at the top price and the rest at one price lower; work out that split with plain division and remainder, then stop -- and remember the final total can be huge, so return it modulo 1,000,000,007."
+  ],
+  "constraints": [
+    { "param": "inventory", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "orders", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two piles",
+      "input": [[2, 5], 4]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, larger order count needing two tiers",
+      "input": [[3, 5], 6]
+    },
+    {
+      "kind": "boundary",
+      "description": "single pile, single ball",
+      "input": [[1], 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "single pile, sell every ball in it",
+      "input": [[10], 10]
+    },
+    {
+      "kind": "trap",
+      "description": "many piles tied at the same height, forces a wide first tier",
+      "input": [[5, 5, 5, 5], 6]
+    },
+    {
+      "kind": "trap",
+      "description": "orders equal to the total balls available, must drain everything",
+      "input": [[4, 2, 1], 7]
+    },
+    {
+      "kind": "trap",
+      "description": "one tall pile and several short ones, tests skipping past short piles",
+      "input": [[100, 1, 1, 1], 5]
+    },
+    {
+      "kind": "boundary",
+      "description": "large single value with a modest order count",
+      "input": [[1000000000], 500000]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random pile heights with random order counts within the total supply",
+      "seed": 13,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 5000))\n    inventory = [rng.randint(1, 1000000) for _ in range(n)]\n    total = sum(inventory)\n    orders = rng.randint(1, total)\n    return [inventory, orders]\n"
+    },
+    {
+      "description": "large inventory with huge per-pile values and a large order count",
+      "seed": 404,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    inventory = [rng.randint(1, 1000000000) for _ in range(n)]\n    orders = rng.randint(1, 1000000000)\n    return [inventory, orders]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxProfit(self, inventory, orders):\n        MOD = 10 ** 9 + 7\n        lo, hi = 0, max(inventory)\n        def total_above(x):\n            return sum(v - x for v in inventory if v > x)\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if total_above(mid) <= orders:\n                hi = mid\n            else:\n                lo = mid + 1\n        threshold = lo\n        profit = 0\n        for v in inventory:\n            if v > threshold:\n                profit += (v + threshold + 1) * (v - threshold) // 2\n        remaining = orders - total_above(threshold)\n        profit += remaining * threshold\n        return profit % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxProfit(self, inventory, orders):\n        MOD = 10 ** 9 + 7\n        inventory.sort(reverse=True)\n        inventory.append(0)\n        profit = 0\n        width = 0\n        n = len(inventory)\n        for i in range(n - 1):\n            width += 1\n            cur = inventory[i]\n            nxt = inventory[i + 1]\n            if cur <= nxt:\n                continue\n            span = cur - nxt\n            count = span * width\n            if orders >= count:\n                profit += (cur + nxt + 1) * span // 2 * width\n                orders -= count\n            else:\n                q, r = divmod(orders, width)\n                profit += (cur + cur - q + 1) * q // 2 * width\n                profit += r * (cur - q)\n                orders = 0\n                break\n        return profit % MOD\n",
+    "javascript": "var maxProfit = function(inventory, orders) {\n    const MOD = 1000000007n;\n    const arr = inventory.slice().sort((a, b) => b - a).map(BigInt);\n    arr.push(0n);\n    let ordersB = BigInt(orders);\n    let profit = 0n;\n    let width = 0n;\n    const n = arr.length;\n    for (let i = 0; i < n - 1; i++) {\n        width += 1n;\n        const cur = arr[i];\n        const nxt = arr[i + 1];\n        if (cur <= nxt) continue;\n        const span = cur - nxt;\n        const count = span * width;\n        if (ordersB >= count) {\n            profit += (cur + nxt + 1n) * span / 2n * width;\n            ordersB -= count;\n        } else {\n            const q = ordersB / width;\n            const r = ordersB % width;\n            profit += (cur + cur - q + 1n) * q / 2n * width;\n            profit += r * (cur - q);\n            ordersB = 0n;\n            break;\n        }\n    }\n    return Number(profit % MOD);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(1)"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "count-different-palindromic-subsequences",
+  "judge": "exact",
+  "pattern": "Counting distinct palindromic subsequences over a tiny alphabet uses an interval DP that, on matching ends, jumps to the next inner occurrence of that character to avoid double counting.",
+  "hints": [
+    "Distinctness is the hard part; two equal subsequences must be counted once.",
+    "Define dp over substrings; when the endpoints differ, use inclusion-exclusion of the inner intervals.",
+    "When endpoints match on character c, find the next c from the left and the previous c from the right to handle the three cases (no inner c, one inner c, two or more) without overcounting; take everything modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small with nested palindrome", "input": ["bccb"] },
+    { "kind": "boundary", "description": "single character", "input": ["a"] },
+    { "kind": "edge", "description": "two same", "input": ["aa"] },
+    { "kind": "edge", "description": "two different", "input": ["ab"] },
+    { "kind": "trap", "description": "all four distinct", "input": ["abcd"] },
+    { "kind": "trap", "description": "repeats forcing dedup", "input": ["aaa"] },
+    { "kind": "trap", "description": "mixed with inner repeats", "input": ["abacad"] }
+  ],
+  "stress": [
+    {
+      "description": "random short string over the four-letter alphabet (kept small for the brute-force oracle)",
+      "seed": 29,
+      "size": 14,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(14, size)))\n    s = ''.join(rng.choice('abcd') for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPalindromicSubsequences(self, s):\n        MOD = 10 ** 9 + 7\n        n = len(s)\n        if n == 0:\n            return 0\n        from functools import lru_cache\n        import sys\n        sys.setrecursionlimit(10000)\n        @lru_cache(maxsize=None)\n        def count(i, j):\n            if i > j:\n                return 0\n            total = 0\n            for c in 'abcd':\n                lo = -1\n                hi = -1\n                for k in range(i, j + 1):\n                    if s[k] == c:\n                        if lo == -1:\n                            lo = k\n                        hi = k\n                if lo == -1:\n                    continue\n                if lo == hi:\n                    total += 1\n                else:\n                    total += 2 + count(lo + 1, hi - 1)\n            return total % MOD\n        return count(0, n - 1) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPalindromicSubsequences(self, s):\n        MOD = 10 ** 9 + 7\n        n = len(s)\n        if n == 0:\n            return 0\n        dp = [[0] * n for _ in range(n)]\n        for i in range(n):\n            dp[i][i] = 1\n        for length in range(2, n + 1):\n            for i in range(0, n - length + 1):\n                j = i + length - 1\n                if s[i] == s[j]:\n                    lo = i + 1\n                    hi = j - 1\n                    while lo <= hi and s[lo] != s[i]:\n                        lo += 1\n                    while lo <= hi and s[hi] != s[i]:\n                        hi -= 1\n                    if lo > hi:\n                        dp[i][j] = 2 * dp[i + 1][j - 1] + 2\n                    elif lo == hi:\n                        dp[i][j] = 2 * dp[i + 1][j - 1] + 1\n                    else:\n                        dp[i][j] = 2 * dp[i + 1][j - 1] - dp[lo + 1][hi - 1]\n                else:\n                    dp[i][j] = dp[i + 1][j] + dp[i][j - 1] - dp[i + 1][j - 1]\n                dp[i][j] %= MOD\n        return dp[0][n - 1] % MOD\n",
+    "javascript": "var countPalindromicSubsequences = function(s) {\n    const MOD = 1000000007n;\n    const n = s.length;\n    if (n === 0) return 0;\n    const dp = Array.from({length: n}, () => new Array(n).fill(0n));\n    for (let i = 0; i < n; i++) dp[i][i] = 1n;\n    for (let length = 2; length <= n; length++) {\n        for (let i = 0; i + length - 1 < n; i++) {\n            const j = i + length - 1;\n            if (s[i] === s[j]) {\n                let lo = i + 1, hi = j - 1;\n                while (lo <= hi && s[lo] !== s[i]) lo++;\n                while (lo <= hi && s[hi] !== s[i]) hi--;\n                if (lo > hi) dp[i][j] = 2n * dp[i + 1][j - 1] + 2n;\n                else if (lo === hi) dp[i][j] = 2n * dp[i + 1][j - 1] + 1n;\n                else dp[i][j] = 2n * dp[i + 1][j - 1] - dp[lo + 1][hi - 1];\n            } else {\n                dp[i][j] = dp[i + 1][j] + dp[i][j - 1] - dp[i + 1][j - 1];\n            }\n            dp[i][j] = ((dp[i][j] % MOD) + MOD) % MOD;\n        }\n    }\n    return Number(((dp[0][n - 1] % MOD) + MOD) % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

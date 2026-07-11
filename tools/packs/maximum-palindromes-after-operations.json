@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-palindromes-after-operations",
+  "judge": "exact",
+  "pattern": "Pool all character frequencies globally, greedily form pairs, then assign pairs to words sorted by length so shorter words get filled first (greedy by slot count).",
+  "hints": [
+    "Since swaps are unrestricted across any positions in any words, only the total frequency of each character across all words matters, not which word each character is in.",
+    "Count total pairs available across all characters: each character with frequency f contributes floor(f/2) usable pairs, plus one leftover that can serve as a middle character for odd-length words.",
+    "Sort words by length; for each word greedily consume pairs to fill its floor(len/2) pair slots, then use a leftover odd character for odd-length words if available; count how many words reach full palindrome capacity."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "rearranging globally gives all palindromes", "input": [["abbb","ba","aa"]] },
+    { "kind": "edge", "description": "two words both become palindromes", "input": [["abc","ab"]] },
+    { "kind": "edge", "description": "mismatched letters, only the single-char word is a palindrome", "input": [["cd","ef","a"]] },
+    { "kind": "edge", "description": "all single chars trivially palindromes", "input": [["a","b","c"]] },
+    { "kind": "trap", "description": "even-length word needs exact pairs", "input": [["aabb","cc"]] },
+    { "kind": "trap", "description": "odd-length word needs one free odd character", "input": [["abc","bcd","cde"]] },
+    { "kind": "boundary", "description": "single long word, many pairs", "input": [["aabbccddee"]] },
+    { "kind": "trap", "description": "only one odd character leftover, cannot fill two odd-length words centers", "input": [["aab","bba"]] }
+  ],
+  "stress": [
+    {
+      "description": "random words of varied lengths",
+      "seed": 21,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    words = []\n    for _ in range(max(1, size // 5)):\n        length = rng.randint(1, 10)\n        words.append(''.join(rng.choice('abcde') for _ in range(length)))\n    return [words]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPalindromesAfterOperations(self, words):\n        from collections import Counter\n        freq = Counter()\n        for w in words:\n            freq.update(w)\n        pairs = sum(v // 2 for v in freq.values())\n        odds = sum(v % 2 for v in freq.values())\n        count = 0\n        for w in sorted(words, key=len):\n            n = len(w)\n            need_pairs = n // 2\n            if pairs >= need_pairs:\n                pairs -= need_pairs\n                if n % 2 == 1:\n                    if odds > 0:\n                        odds -= 1\n                    else:\n                        # borrow a pair, one goes to middle\n                        if pairs > 0:\n                            pairs -= 1\n                            odds += 1\n                            odds -= 1\n                        else:\n                            count += 1\n                            continue\n                count += 1\n            # can't form palindrome for this word\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPalindromesAfterOperations(self, words):\n        from collections import Counter\n        freq = Counter(c for w in words for c in w)\n        pairs = sum(v // 2 for v in freq.values())\n        odds = sum(v % 2 for v in freq.values())\n        count = 0\n        for w in sorted(words, key=len):\n            n = len(w)\n            np = n // 2\n            if pairs < np:\n                break\n            pairs -= np\n            if n % 2 == 1:\n                if odds > 0:\n                    odds -= 1\n                else:\n                    pairs -= 1\n                    odds += 1\n                    odds -= 1\n            count += 1\n        return count\n",
+    "javascript": "var maxPalindromesAfterOperations = function(words) {\n    const freq = new Array(26).fill(0);\n    for (const w of words) for (const c of w) freq[c.charCodeAt(0)-97]++;\n    let pairs = freq.reduce((s,v)=>s+(v>>1),0);\n    let odds = freq.reduce((s,v)=>s+(v&1),0);\n    let count = 0;\n    const sorted = [...words].sort((a,b)=>a.length-b.length);\n    for (const w of sorted) {\n        const n = w.length;\n        const np = n >> 1;\n        if (pairs < np) break;\n        pairs -= np;\n        if (n & 1) {\n            if (odds > 0) { odds--; }\n            else { pairs--; odds++; odds--; }\n        }\n        count++;\n    }\n    return count;\n};"
+  },
+  "complexity": { "time": "O(L + W log W)", "space": "O(1)" }
+}

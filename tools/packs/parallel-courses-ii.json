@@ -1,0 +1,40 @@
+{
+  "slug": "parallel-courses-ii",
+  "judge": "exact",
+  "pattern": "With so few courses that the whole 'which courses are done' state fits in a bitmask, the minimum number of semesters becomes a shortest-path search over completed-course subsets, trying every legal batch of at most k newly-unlockable courses at each step.",
+  "hints": [
+    "Since n is tiny, represent the set of already-completed courses as a bitmask and think of the problem as finding the fewest steps to go from the empty set to the full set.",
+    "From any completed-set state, a course is takeable this semester only if it isn't done yet and every one of its prerequisite bits is already set in that state.",
+    "Because which specific courses you pick this semester (not just how many) changes what unlocks next, you have to try every subset of the currently takeable courses of size at most k and keep the best result for each resulting completed-set state."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 15] },
+    { "param": "relations", "kind": "int[][]", "len": [0, 105] },
+    { "param": "k", "kind": "int", "value": [1, 15] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three semesters needed", "input": [4, [[2, 1], [3, 1], [1, 4]], 2] },
+    { "kind": "edge", "description": "statement example, four semesters needed with the same cap", "input": [5, [[2, 1], [3, 1], [4, 1], [1, 5]], 2] },
+    { "kind": "boundary", "description": "single course with no prerequisites", "input": [1, [], 1] },
+    { "kind": "boundary", "description": "maximum courses, no relations, but the cap forces one at a time", "input": [15, [], 1] },
+    { "kind": "trap", "description": "no prerequisites and the cap is large enough to finish everything at once", "input": [15, [], 15] },
+    { "kind": "trap", "description": "a strict chain forces one course per semester no matter how large the cap is", "input": [5, [[1, 2], [2, 3], [3, 4], [4, 5]], 5] },
+    { "kind": "trap", "description": "a course converges on two independent branches, so it can only start once both finish", "input": [4, [[1, 2], [1, 3], [2, 4], [3, 4]], 2] },
+    { "kind": "trap", "description": "a single course gates a branching and re-converging chain further down", "input": [6, [[1, 3], [2, 3], [3, 4], [3, 5], [5, 6]], 3] }
+  ],
+  "stress": [
+    {
+      "description": "random acyclic prerequisite graph (edges only run from a lower-labeled course to a higher one, guaranteeing solvability) across the full course-count and cap range",
+      "seed": 31,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 15)\n    k = rng.randint(1, n)\n    relations = []\n    for a in range(1, n + 1):\n        for b in range(a + 1, n + 1):\n            if rng.random() < 0.25:\n                relations.append([a, b])\n    return [n, relations, k]\n",
+      "note": "edges always point from a smaller label to a larger one so the graph is guaranteed acyclic and every course stays reachable"
+    }
+  ],
+  "oracle_python": "from functools import lru_cache\n\nclass Solution:\n    def minNumberOfSemesters(self, n, relations, k):\n        prereq = [0] * n\n        for a, b in relations:\n            prereq[b - 1] |= (1 << (a - 1))\n        full = (1 << n) - 1\n\n        @lru_cache(maxsize=None)\n        def solve(mask):\n            if mask == full:\n                return 0\n            avail = 0\n            for i in range(n):\n                if not (mask & (1 << i)) and (prereq[i] & mask) == prereq[i]:\n                    avail |= (1 << i)\n            best = None\n            sub = avail\n            while sub:\n                if sub.bit_count() <= k:\n                    candidate = 1 + solve(mask | sub)\n                    if best is None or candidate < best:\n                        best = candidate\n                sub = (sub - 1) & avail\n            return best\n\n        return solve(0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minNumberOfSemesters(self, n, relations, k):\n        prereq = [0] * n\n        for a, b in relations:\n            prereq[b - 1] |= (1 << (a - 1))\n        full = (1 << n) - 1\n        dp = [float('inf')] * (1 << n)\n        dp[0] = 0\n        for mask in range(1 << n):\n            if dp[mask] == float('inf') or mask == full:\n                continue\n            avail = 0\n            for i in range(n):\n                if not (mask & (1 << i)) and (prereq[i] & mask) == prereq[i]:\n                    avail |= (1 << i)\n            sub = avail\n            while sub:\n                if sub.bit_count() <= k:\n                    new_mask = mask | sub\n                    if dp[mask] + 1 < dp[new_mask]:\n                        dp[new_mask] = dp[mask] + 1\n                sub = (sub - 1) & avail\n        return dp[full]\n",
+    "javascript": "var minNumberOfSemesters = function(n, relations, k) {\n    const prereq = new Array(n).fill(0);\n    for (const [a, b] of relations) {\n        prereq[b - 1] |= (1 << (a - 1));\n    }\n    const full = (1 << n) - 1;\n    const dp = new Array(1 << n).fill(Infinity);\n    dp[0] = 0;\n    for (let mask = 0; mask < (1 << n); mask++) {\n        if (dp[mask] === Infinity || mask === full) continue;\n        let avail = 0;\n        for (let i = 0; i < n; i++) {\n            if (!(mask & (1 << i)) && (prereq[i] & mask) === prereq[i]) {\n                avail |= (1 << i);\n            }\n        }\n        let sub = avail;\n        while (sub) {\n            if (popcount(sub) <= k) {\n                const newMask = mask | sub;\n                if (dp[mask] + 1 < dp[newMask]) {\n                    dp[newMask] = dp[mask] + 1;\n                }\n            }\n            sub = (sub - 1) & avail;\n        }\n    }\n    return dp[full];\n\n    function popcount(x) {\n        let c = 0;\n        while (x) {\n            c += x & 1;\n            x >>>= 1;\n        }\n        return c;\n    }\n};\n"
+  },
+  "complexity": { "time": "O(3^n) worst case over all mask/submask pairs", "space": "O(2^n)" }
+}

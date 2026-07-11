@@ -1,0 +1,188 @@
+{
+  "slug": "redundant-connection",
+  "judge": "exact",
+  "pattern": "Add edges one by one into a union-find structure; the first edge whose endpoints already share a root is the cycle-closing edge to remove.",
+  "hints": [
+    "The extra edge is exactly the one that joins two vertices that were already connected by earlier edges.",
+    "A disjoint-set (union-find) structure can tell you in near-constant time whether two vertices are already in the same component.",
+    "Process the edges in input order; return the first edge whose two endpoints already share a root, which is automatically the last such edge overall since only one cycle exists."
+  ],
+  "constraints": [
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        3,
+        1000
+      ],
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "triangle, last edge closes the cycle",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "cycle among first four nodes, fifth dangles",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "redundant edge appears early in the list",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimal three-edge graph",
+      "input": [
+        [
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "longer path with closing edge last",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            1,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "self-referential star where extra connects two leaves",
+      "input": [
+        [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random spanning tree on n nodes plus one extra non-tree edge appended last",
+      "seed": 111,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(3, max(3, size))\n    edges = []\n    nodes = list(range(1, n + 1))\n    rng.shuffle(nodes)\n    existing = set()\n    for i in range(1, n):\n        a = nodes[i]\n        b = nodes[rng.randint(0, i - 1)]\n        u, v = min(a, b), max(a, b)\n        edges.append([u, v])\n        existing.add((u, v))\n    while True:\n        a = rng.randint(1, n)\n        b = rng.randint(1, n)\n        if a == b:\n            continue\n        u, v = min(a, b), max(a, b)\n        if (u, v) not in existing:\n            edges.append([u, v])\n            break\n    return [edges]\n",
+      "note": "exactly one cycle, extra edge added at the end"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findRedundantConnection(self, edges):\n        n = len(edges)\n        nodes = set()\n        for a, b in edges:\n            nodes.add(a); nodes.add(b)\n        for k in range(n - 1, -1, -1):\n            adj = {}\n            for j in range(n):\n                if j == k:\n                    continue\n                a, b = edges[j]\n                adj.setdefault(a, []).append(b)\n                adj.setdefault(b, []).append(a)\n            seen = set()\n            stack = [next(iter(nodes))]\n            while stack:\n                x = stack.pop()\n                if x in seen:\n                    continue\n                seen.add(x)\n                for y in adj.get(x, []):\n                    if y not in seen:\n                        stack.append(y)\n            if len(seen) == len(nodes):\n                return edges[k]\n        return edges[-1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def findRedundantConnection(self, edges):\n        n = len(edges)\n        parent = list(range(n + 1))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        for a, b in edges:\n            ra, rb = find(a), find(b)\n            if ra == rb:\n                return [a, b]\n            parent[ra] = rb\n        return []\n",
+    "javascript": "var findRedundantConnection = function(edges) {\n    const n = edges.length;\n    const parent = Array.from({length: n + 1}, (_, i) => i);\n    const find = (x) => {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    };\n    for (const [a, b] of edges) {\n        const ra = find(a), rb = find(b);\n        if (ra === rb) return [a, b];\n        parent[ra] = rb;\n    }\n    return [];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n a(n))",
+    "space": "O(n)"
+  }
+}

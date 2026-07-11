@@ -1,0 +1,44 @@
+{
+  "slug": "minimum-number-of-coins-to-be-added",
+  "judge": "exact",
+  "pattern": "Greedy reach-extension: track the largest prefix [1, reach] you can already guarantee, and every time the next coin can't extend it, plug the smallest possible gap value yourself before moving on.",
+  "hints": [
+    "Sort the coins first, and think in terms of a running frontier: the largest value R such that every integer from 1 to R is already obtainable from coins processed so far.",
+    "If the next available coin is worth more than R + 1, no coin you own can extend the frontier past R, so the cheapest fix is to imagine adding a coin worth exactly R + 1, which doubles-plus-one your frontier in one move.",
+    "Otherwise fold the next coin into the frontier (R += coin) and advance past it; repeat until the frontier reaches or passes target, counting only the imagined coins you had to invent."
+  ],
+  "constraints": [
+    { "param": "coins", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "target", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single coin already equal to target", "input": [[1], 1] },
+    { "kind": "edge", "description": "single coin that skips over the only needed value", "input": [[2], 1] },
+    { "kind": "edge", "description": "many unit coins already covering the whole target range", "input": [[1, 1, 1, 1, 1], 5] },
+    { "kind": "trap", "description": "one coin far larger than the frontier forces several invented coins before it can be used", "input": [[5], 10] },
+    { "kind": "trap", "description": "a huge coin that is never usable because it exceeds every frontier value reached", "input": [[1, 2, 100], 5] },
+    { "kind": "boundary", "description": "target at its minimum with a coin far above it", "input": [[100], 1] },
+    { "kind": "boundary", "description": "sparse single small coin against a much larger target, forcing a chain of invented coins", "input": [[1], 1000] },
+    { "kind": "trap", "description": "duplicate coins with a gap in the middle of the achievable range", "input": [[1, 1, 4, 4], 10] }
+  ],
+  "stress": [
+    {
+      "description": "large random coin pool near maximum size and target",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    target = rng.randint(1, 100000)\n    coins = [rng.randint(1, target) for _ in range(size)]\n    return [coins, target]\n"
+    },
+    {
+      "description": "many oversized coins that never contribute, exercising the pure-scan performance path",
+      "seed": 9,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    target = 100000\n    coins = [rng.randint(target // 2, target) for _ in range(size)]\n    return [coins, target]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumAddedCoins(self, coins, target):\n        pool = list(coins)\n        added = 0\n        while True:\n            reachable = [False] * (target + 1)\n            reachable[0] = True\n            for c in pool:\n                if c > target:\n                    continue\n                for v in range(target, c - 1, -1):\n                    if reachable[v - c]:\n                        reachable[v] = True\n            gap = None\n            for m in range(1, target + 1):\n                if not reachable[m]:\n                    gap = m\n                    break\n            if gap is None:\n                return added\n            pool.append(gap)\n            added += 1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumAddedCoins(self, coins, target):\n        coins = sorted(coins)\n        reach = 0\n        i = 0\n        n = len(coins)\n        added = 0\n        while reach < target:\n            if i < n and coins[i] <= reach + 1:\n                reach += coins[i]\n                i += 1\n            else:\n                reach += reach + 1\n                added += 1\n        return added\n",
+    "javascript": "var minimumAddedCoins = function(coins, target) {\n    const sorted = [...coins].sort((a, b) => a - b);\n    let reach = 0;\n    let i = 0;\n    const n = sorted.length;\n    let added = 0;\n    while (reach < target) {\n        if (i < n && sorted[i] <= reach + 1) {\n            reach += sorted[i];\n            i += 1;\n        } else {\n            reach += reach + 1;\n            added += 1;\n        }\n    }\n    return added;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(1)" }
+}

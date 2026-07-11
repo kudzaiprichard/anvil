@@ -1,0 +1,89 @@
+{
+  "slug": "design-movie-rental-system",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Keeping one sorted structure of available copies per movie and one global sorted structure of rented copies turns search, rent, drop, and report into ordered-set inserts, removals, and prefix reads.",
+  "hints": [
+    "search needs the cheapest copies of one movie ordered by (price, shop); a per-movie sorted set of (price, shop) gives the top five directly.",
+    "report needs the cheapest rented copies overall ordered by (price, shop, movie); a single global sorted set of (price, shop, movie) gives that prefix.",
+    "rent moves an entry from its movie's available set into the global rented set, and drop moves it back; store each entry's price keyed by (shop, movie) so both moves are O(log n)."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 300000] },
+    { "param": "movie", "kind": "int", "value": [1, 10000] },
+    { "param": "shop", "kind": "int", "value": [0, 299999] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example: search ordering, two rents, a report, a drop, then search again",
+      "input": [
+        ["MovieRentingSystem", "search", "rent", "rent", "report", "drop", "search"],
+        [[3, [[0, 1, 5], [0, 2, 6], [0, 3, 7], [1, 1, 4], [1, 2, 7], [2, 1, 5]]], [1], [0, 1], [1, 2], [], [1, 2], [2]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single shop, single movie: search, rent, empty search, drop, search again",
+      "input": [
+        ["MovieRentingSystem", "search", "rent", "search", "drop", "search"],
+        [[1, [[0, 1, 9]]], [1], [0, 1], [1], [0, 1], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "search tie-break on shop number when prices match",
+      "input": [
+        ["MovieRentingSystem", "search"],
+        [[5, [[3, 1, 5], [1, 1, 5], [4, 1, 5], [2, 1, 5], [0, 1, 5]]], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "report tie-breaks by shop then movie when prices equal",
+      "input": [
+        ["MovieRentingSystem", "rent", "rent", "rent", "report"],
+        [[3, [[1, 2, 4], [1, 1, 4], [0, 5, 4]]], [1, 2], [1, 1], [0, 5], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "search returns at most five even when more copies exist",
+      "input": [
+        ["MovieRentingSystem", "search"],
+        [[7, [[0, 1, 1], [1, 1, 2], [2, 1, 3], [3, 1, 4], [4, 1, 5], [5, 1, 6], [6, 1, 7]]], [1]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "report is empty when nothing is rented",
+      "input": [
+        ["MovieRentingSystem", "report"],
+        [[2, [[0, 1, 3], [1, 1, 4]]], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "rent then drop restores the copy to search ordering",
+      "input": [
+        ["MovieRentingSystem", "rent", "search", "drop", "search"],
+        [[2, [[0, 1, 2], [1, 1, 3]]], [0, 1], [1], [0, 1], [1]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random catalog with interleaved search/rent/drop/report respecting that rent only targets available copies and drop only targets rented ones",
+      "seed": 41,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, 20)\n    num_movies = rng.randint(2, 8)\n    seen = set()\n    entries = []\n    for _ in range(rng.randint(5, 30)):\n        shop = rng.randint(0, n - 1)\n        mv = rng.randint(1, num_movies)\n        if (shop, mv) in seen:\n            continue\n        seen.add((shop, mv))\n        price = rng.randint(1, 50)\n        entries.append([shop, mv, price])\n    if not entries:\n        entries.append([0, 1, 1])\n        seen.add((0, 1))\n    ops = ['MovieRentingSystem']\n    args = [[n, [e[:] for e in entries]]]\n    available = set(seen)\n    rented = set()\n    for _ in range(size):\n        r = rng.random()\n        if r < 0.35 and available:\n            shop, mv = rng.choice(sorted(available))\n            available.discard((shop, mv))\n            rented.add((shop, mv))\n            ops.append('rent')\n            args.append([shop, mv])\n        elif r < 0.55 and rented:\n            shop, mv = rng.choice(sorted(rented))\n            rented.discard((shop, mv))\n            available.add((shop, mv))\n            ops.append('drop')\n            args.append([shop, mv])\n        elif r < 0.8:\n            ops.append('search')\n            args.append([rng.randint(1, num_movies)])\n        else:\n            ops.append('report')\n            args.append([])\n    return [ops, args]\n",
+      "note": "available/rented sets keep rent and drop calls valid per the problem guarantees"
+    }
+  ],
+  "oracle_python": "class MovieRentingSystem:\n    def __init__(self, n, entries):\n        self.price = {}\n        self.avail = set()\n        self.rented = set()\n        for shop, movie, p in entries:\n            self.price[(shop, movie)] = p\n            self.avail.add((shop, movie))\n    def search(self, movie):\n        cand = [(self.price[(s, m)], s) for (s, m) in self.avail if m == movie]\n        cand.sort()\n        return [s for _, s in cand[:5]]\n    def rent(self, shop, movie):\n        self.avail.discard((shop, movie))\n        self.rented.add((shop, movie))\n    def drop(self, shop, movie):\n        self.rented.discard((shop, movie))\n        self.avail.add((shop, movie))\n    def report(self):\n        cand = [(self.price[(s, m)], s, m) for (s, m) in self.rented]\n        cand.sort()\n        return [[s, m] for _, s, m in cand[:5]]\n",
+  "solutions": {
+    "python": "import bisect\nfrom collections import defaultdict\nclass MovieRentingSystem:\n    def __init__(self, n, entries):\n        self.price = {}\n        self.byMovie = defaultdict(list)\n        for shop, movie, p in entries:\n            self.price[(shop, movie)] = p\n            bisect.insort(self.byMovie[movie], (p, shop))\n        self.rented = []\n    def search(self, movie):\n        return [shop for _, shop in self.byMovie[movie][:5]]\n    def rent(self, shop, movie):\n        p = self.price[(shop, movie)]\n        lst = self.byMovie[movie]\n        lst.pop(bisect.bisect_left(lst, (p, shop)))\n        bisect.insort(self.rented, (p, shop, movie))\n    def drop(self, shop, movie):\n        p = self.price[(shop, movie)]\n        self.rented.pop(bisect.bisect_left(self.rented, (p, shop, movie)))\n        bisect.insort(self.byMovie[movie], (p, shop))\n    def report(self):\n        return [[shop, movie] for _, shop, movie in self.rented[:5]]\n",
+    "javascript": "function bisect(arr, x) {\n    let lo = 0, hi = arr.length;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (cmp(arr[mid], x) < 0) lo = mid + 1; else hi = mid;\n    }\n    return lo;\n}\nfunction cmp(a, b) {\n    const n = Math.min(a.length, b.length);\n    for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] - b[i];\n    return a.length - b.length;\n}\nfunction insort(arr, x) {\n    arr.splice(bisect(arr, x), 0, x);\n}\nvar MovieRentingSystem = function(n, entries) {\n    this.price = new Map();\n    this.byMovie = new Map();\n    for (const [shop, movie, p] of entries) {\n        this.price.set(shop + ',' + movie, p);\n        if (!this.byMovie.has(movie)) this.byMovie.set(movie, []);\n        insort(this.byMovie.get(movie), [p, shop]);\n    }\n    this.rented = [];\n};\nMovieRentingSystem.prototype.search = function(movie) {\n    const lst = this.byMovie.get(movie) || [];\n    return lst.slice(0, 5).map(e => e[1]);\n};\nMovieRentingSystem.prototype.rent = function(shop, movie) {\n    const p = this.price.get(shop + ',' + movie);\n    const lst = this.byMovie.get(movie);\n    lst.splice(bisect(lst, [p, shop]), 1);\n    insort(this.rented, [p, shop, movie]);\n};\nMovieRentingSystem.prototype.drop = function(shop, movie) {\n    const p = this.price.get(shop + ',' + movie);\n    this.rented.splice(bisect(this.rented, [p, shop, movie]), 1);\n    insort(this.byMovie.get(movie), [p, shop]);\n};\nMovieRentingSystem.prototype.report = function() {\n    return this.rented.slice(0, 5).map(e => [e[1], e[2]]);\n};\n"
+  },
+  "complexity": { "time": "O(log n) per rent/drop, O(1) search/report prefix", "space": "O(E)" }
+}

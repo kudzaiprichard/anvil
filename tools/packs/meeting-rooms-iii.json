@@ -1,0 +1,37 @@
+{
+  "slug": "meeting-rooms-iii",
+  "judge": "exact",
+  "pattern": "Two heaps, one of free room numbers and one of busy rooms keyed by release time, simulate the lowest-room allocation policy while tallying how many meetings each room holds.",
+  "hints": [
+    "Process meetings in start order, and at each step free up any rooms whose end time has passed.",
+    "If a room is free, the lowest-numbered one takes the meeting; otherwise wait for the earliest-finishing room and shift the meeting's window.",
+    "Keep a min-heap of available room indices and a min-heap of (release_time, room) for busy rooms; when delayed, the next room frees at its release time and the meeting's end becomes release_time plus its duration."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "meetings", "kind": "int[][]", "len": [1, 100000], "value": [0, 500000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "tie on count returns lowest room", "input": [2, [[0, 10], [1, 5], [2, 7], [3, 4]]] },
+    { "kind": "edge", "description": "middle room wins the count", "input": [3, [[1, 20], [2, 10], [3, 5], [4, 9], [6, 8]]] },
+    { "kind": "boundary", "description": "single room takes every meeting", "input": [1, [[0, 1], [1, 2], [2, 3]]] },
+    { "kind": "trap", "description": "delayed meetings reshuffle room order", "input": [2, [[0, 100], [1, 2], [3, 4], [5, 6]]] },
+    { "kind": "trap", "description": "out-of-order starts must be processed by start time", "input": [2, [[5, 6], [0, 10], [1, 2]]] },
+    { "kind": "edge", "description": "all meetings fit without delay", "input": [3, [[0, 1], [2, 3], [4, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "many meetings with unique random starts and small room count",
+      "seed": 121,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, 6)\n    count = max(1, size)\n    starts = rng.sample(range(0, 500000), min(count, 500000))\n    meetings = []\n    for s in starts:\n        dur = rng.randrange(1, 50)\n        meetings.append([s, s + dur])\n    rng.shuffle(meetings)\n    return [n, meetings]\n",
+      "note": "unique starts as required; shuffled to test sort-by-start"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mostBooked(self, n, meetings):\n        meetings = sorted(meetings)\n        free_time = [0] * n\n        count = [0] * n\n        for s, e in meetings:\n            dur = e - s\n            ready = [r for r in range(n) if free_time[r] <= s]\n            if ready:\n                r = ready[0]\n                free_time[r] = s + dur\n            else:\n                earliest = min(free_time)\n                cands = [r for r in range(n) if free_time[r] == earliest]\n                r = cands[0]\n                free_time[r] = earliest + dur\n            count[r] += 1\n        best = 0\n        for r in range(n):\n            if count[r] > count[best]:\n                best = r\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def mostBooked(self, n, meetings):\n        import heapq\n        meetings = sorted(meetings)\n        free = list(range(n))\n        heapq.heapify(free)\n        busy = []\n        count = [0] * n\n        for s, e in meetings:\n            dur = e - s\n            while busy and busy[0][0] <= s:\n                _, room = heapq.heappop(busy)\n                heapq.heappush(free, room)\n            if free:\n                room = heapq.heappop(free)\n                heapq.heappush(busy, (s + dur, room))\n            else:\n                end, room = heapq.heappop(busy)\n                heapq.heappush(busy, (end + dur, room))\n            count[room] += 1\n        best = 0\n        for r in range(n):\n            if count[r] > count[best]:\n                best = r\n        return best\n",
+    "javascript": "var mostBooked = function(n, meetings) {\n    meetings = meetings.slice().sort((a, b) => a[0] - b[0]);\n    const count = new Array(n).fill(0);\n    const freeTime = new Array(n).fill(0);\n    for (const [s, e] of meetings) {\n        const dur = e - s;\n        let chosen = -1;\n        for (let r = 0; r < n; r++) {\n            if (freeTime[r] <= s) { chosen = r; break; }\n        }\n        if (chosen !== -1) {\n            freeTime[chosen] = s + dur;\n        } else {\n            let earliest = Infinity;\n            for (let r = 0; r < n; r++) earliest = Math.min(earliest, freeTime[r]);\n            for (let r = 0; r < n; r++) {\n                if (freeTime[r] === earliest) { chosen = r; break; }\n            }\n            freeTime[chosen] = earliest + dur;\n        }\n        count[chosen]++;\n    }\n    let best = 0;\n    for (let r = 0; r < n; r++) if (count[r] > count[best]) best = r;\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(m log m + m log n)", "space": "O(n + m)" }
+}

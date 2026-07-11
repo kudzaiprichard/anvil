@@ -1,0 +1,41 @@
+{
+  "slug": "time-based-key-value-store",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Because timestamps per key arrive sorted, each key's history is an append-only list and retrieval is a binary search for the largest timestamp not exceeding the query.",
+  "hints": [
+    "Group stored values by key; within a key, the values form a timeline ordered by timestamp.",
+    "A get asks for the most recent entry at or before a target time, which is a classic predecessor search on a sorted sequence.",
+    "Keep each key's entries in timestamp order and answer a get with a binary search for the rightmost timestamp that is at most the query, returning empty string when none qualifies."
+  ],
+  "constraints": [
+    { "param": "timestamp", "kind": "int", "value": [1, 10000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "queries before, at, and after stored timestamps",
+      "input": [["TimeMap", "set", "get", "get", "set", "get", "get"], [[], ["foo", "bar", 1], ["foo", 1], ["foo", 3], ["foo", "bar2", 4], ["foo", 4], ["foo", 5]]] },
+    { "kind": "boundary", "description": "get on a never-set key returns empty string",
+      "input": [["TimeMap", "get", "set", "get"], [[], ["x", 5], ["x", "v", 2], ["x", 1]]] },
+    { "kind": "trap", "description": "query timestamp earlier than the first set yields empty string",
+      "input": [["TimeMap", "set", "get", "get"], [[], ["k", "a", 10], ["k", 9], ["k", 10]]] },
+    { "kind": "trap", "description": "multiple keys do not interfere with each other",
+      "input": [["TimeMap", "set", "set", "get", "get"], [[], ["a", "1", 1], ["b", "2", 1], ["a", 1], ["b", 1]]] },
+    { "kind": "edge", "description": "several updates to the same key over time",
+      "input": [["TimeMap", "set", "set", "set", "get", "get", "get", "get"], [[], ["p", "v1", 2], ["p", "v2", 5], ["p", "v3", 9], ["p", 4], ["p", 5], ["p", 8], ["p", 100]]] }
+  ],
+  "stress": [
+    {
+      "description": "interleaved sets with strictly increasing per-key timestamps and many gets",
+      "seed": 19,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    keys = ['a', 'b', 'c', 'd']\n    next_ts = {k: 1 for k in keys}\n    ops = ['TimeMap']\n    args = [[]]\n    for _ in range(max(1, size)):\n        k = rng.choice(keys)\n        if rng.random() < 0.5:\n            ts = next_ts[k]\n            next_ts[k] += rng.randint(1, 3)\n            ops.append('set'); args.append([k, 'v' + str(ts), ts])\n        else:\n            ops.append('get'); args.append([k, rng.randint(1, 40)])\n    return [ops, args]\n",
+      "note": "per-key timestamps increase strictly as the problem guarantees"
+    }
+  ],
+  "oracle_python": "class TimeMap:\n    def __init__(self):\n        self.store = {}\n    def set(self, key, value, timestamp):\n        self.store.setdefault(key, []).append((timestamp, value))\n    def get(self, key, timestamp):\n        best = ''\n        for ts, val in self.store.get(key, []):\n            if ts <= timestamp:\n                best = val\n            else:\n                break\n        return best\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass TimeMap:\n    def __init__(self):\n        self.times = {}\n        self.vals = {}\n    def set(self, key, value, timestamp):\n        self.times.setdefault(key, []).append(timestamp)\n        self.vals.setdefault(key, []).append(value)\n    def get(self, key, timestamp):\n        if key not in self.times:\n            return ''\n        ts = self.times[key]\n        i = bisect.bisect_right(ts, timestamp)\n        if i == 0:\n            return ''\n        return self.vals[key][i - 1]\n",
+    "javascript": "var TimeMap = function() {\n    this.times = new Map();\n    this.vals = new Map();\n};\nTimeMap.prototype.set = function(key, value, timestamp) {\n    if (!this.times.has(key)) { this.times.set(key, []); this.vals.set(key, []); }\n    this.times.get(key).push(timestamp);\n    this.vals.get(key).push(value);\n};\nTimeMap.prototype.get = function(key, timestamp) {\n    if (!this.times.has(key)) return '';\n    const ts = this.times.get(key);\n    let lo = 0, hi = ts.length;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (ts[mid] <= timestamp) lo = mid + 1; else hi = mid;\n    }\n    if (lo === 0) return '';\n    return this.vals.get(key)[lo - 1];\n};\n"
+  },
+  "complexity": { "time": "O(log n) per get", "space": "O(n)" }
+}

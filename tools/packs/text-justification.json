@@ -1,0 +1,37 @@
+{
+  "slug": "text-justification",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Greedily pack as many words per line as fit, then distribute the leftover spaces left-to-right — with the last line and single-word lines left-justified.",
+  "hints": [
+    "First decide which words share a line: keep adding words while they plus one space each still fit in maxWidth.",
+    "Once a line's words are fixed, the number of spaces to spread is maxWidth minus the total word length; spread them across the gaps between words.",
+    "Left gaps get the extra space when it doesn't divide evenly; the final line and any single-word line are left-justified with single spaces and right-padding."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 300] },
+    { "param": "maxWidth", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "fully-justified lines with uneven space distribution", "input": [["This", "is", "an", "example", "of", "text", "justification."], 16] },
+    { "kind": "trap", "description": "a single word fills a line and must be left-justified, not centered", "input": [["What", "must", "be", "acknowledgment", "shall", "be"], 16] },
+    { "kind": "trap", "description": "last line is left-justified even when earlier lines are stretched", "input": [["Science", "is", "what", "we", "understand", "well", "enough", "to", "explain", "to", "a", "computer.", "Art", "is", "everything", "else", "we", "do"], 20] },
+    { "kind": "boundary", "description": "one word exactly fills the width", "input": [["abc"], 3] },
+    { "kind": "edge", "description": "every word on its own line, right-padded", "input": [["a", "b", "c"], 3] }
+  ],
+  "stress": [
+    {
+      "description": "random words that each fit, exercising packing and space distribution",
+      "seed": 41,
+      "size": 60,
+      "generator_python": "import string\ndef gen(rng, size):\n    maxWidth = rng.randint(6, 20)\n    n = max(1, size)\n    words = []\n    for _ in range(n):\n        wlen = rng.randint(1, maxWidth)\n        words.append(''.join(rng.choice(string.ascii_lowercase) for _ in range(wlen)))\n    return [words, maxWidth]\n",
+      "note": "each word length <= maxWidth, as the constraints require"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def fullJustify(self, words, maxWidth):\n        res = []\n        i = 0\n        n = len(words)\n        while i < n:\n            j = i\n            ln = len(words[i])\n            while j + 1 < n and ln + 1 + len(words[j + 1]) <= maxWidth:\n                j += 1\n                ln += 1 + len(words[j])\n            count = j - i + 1\n            wlen = sum(len(words[k]) for k in range(i, j + 1))\n            if j == n - 1 or count == 1:\n                s = ' '.join(words[i:j + 1])\n                s += ' ' * (maxWidth - len(s))\n            else:\n                total = maxWidth - wlen\n                gaps = count - 1\n                slots = [0] * gaps\n                for t in range(total):\n                    slots[t % gaps] += 1\n                s = words[i]\n                for k in range(1, count):\n                    s += ' ' * slots[k - 1] + words[i + k]\n            res.append(s)\n            i = j + 1\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def fullJustify(self, words, maxWidth):\n        res = []\n        line = []\n        length = 0\n        for w in words:\n            if length + len(line) + len(w) > maxWidth:\n                spaces = maxWidth - length\n                if len(line) == 1:\n                    res.append(line[0] + ' ' * spaces)\n                else:\n                    gaps = len(line) - 1\n                    base, extra = divmod(spaces, gaps)\n                    s = ''\n                    for idx, word in enumerate(line):\n                        s += word\n                        if idx < gaps:\n                            s += ' ' * (base + (1 if idx < extra else 0))\n                    res.append(s)\n                line = []\n                length = 0\n            line.append(w)\n            length += len(w)\n        last = ' '.join(line)\n        last += ' ' * (maxWidth - len(last))\n        res.append(last)\n        return res\n",
+    "javascript": "var fullJustify = function(words, maxWidth) {\n    const res = [];\n    let line = [];\n    let length = 0;\n    for (const w of words) {\n        if (length + line.length + w.length > maxWidth) {\n            const spaces = maxWidth - length;\n            if (line.length === 1) {\n                res.push(line[0] + ' '.repeat(spaces));\n            } else {\n                const gaps = line.length - 1;\n                const base = Math.floor(spaces / gaps), extra = spaces % gaps;\n                let s = '';\n                for (let idx = 0; idx < line.length; idx++) {\n                    s += line[idx];\n                    if (idx < gaps) s += ' '.repeat(base + (idx < extra ? 1 : 0));\n                }\n                res.push(s);\n            }\n            line = [];\n            length = 0;\n        }\n        line.push(w);\n        length += w.length;\n    }\n    let last = line.join(' ');\n    last += ' '.repeat(maxWidth - last.length);\n    res.push(last);\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(total characters)", "space": "O(maxWidth)" }
+}

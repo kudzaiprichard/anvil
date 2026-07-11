@@ -1,0 +1,44 @@
+{
+  "slug": "minimum-time-to-remove-all-cars-containing-illegal-goods",
+  "judge": "exact",
+  "pattern": "The only shapes a removal can take are a prefix taken from the left, a suffix taken from the right, and scattered interior removals, so the whole problem collapses to picking where the untouched prefix ends and tracking the cheapest way to have cleared everything up to that point.",
+  "hints": [
+    "Any removal plan is equivalent to choosing a prefix length and a suffix length to pop one car at a time, plus paying double for every illegal car still stranded in the middle.",
+    "Build a running best-cost-so-far for 'everything up to position i is clear', where extending it by one car either pops from the left (cheap unless illegal, then cheap plus the interior penalty) or restarts by popping the whole prefix from scratch.",
+    "Once you know the cheapest way to clear every prefix, the answer is the best of: clear that prefix, then pop the rest of the cars one at a time from the right."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 200000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single legal car needs no removal", "input": ["0"] },
+    { "kind": "edge", "description": "a single illegal car costs one either-end pop", "input": ["1"] },
+    { "kind": "edge", "description": "all cars are legal", "input": ["0000"] },
+    { "kind": "trap", "description": "all cars are illegal, favoring end-pops over interior removal", "input": ["11111"] },
+    { "kind": "trap", "description": "one illegal car buried deep in the middle of legal cars", "input": ["000010000"] },
+    { "kind": "trap", "description": "illegal cars only at both ends, nothing to remove from the interior", "input": ["100001"] },
+    { "kind": "boundary", "description": "minimum possible length, a single legal car", "input": ["0"] },
+    { "kind": "boundary", "description": "minimum possible length, a single illegal car", "input": ["1"] },
+    { "kind": "trap", "description": "alternating legal and illegal cars", "input": ["101010"] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings up to the maximum length",
+      "seed": 5,
+      "size": 200000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200000))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "sparse illegal cars in a long mostly-legal string",
+      "seed": 6,
+      "size": 200000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200000))\n    chars = ['0'] * n\n    illegal_count = max(1, n // 50)\n    for _ in range(illegal_count):\n        chars[rng.randint(0, n - 1)] = '1'\n    return [''.join(chars)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTime(self, s: str) -> int:\n        n = len(s)\n        prefix = [0] * (n + 1)\n        for i, ch in enumerate(s):\n            prefix[i + 1] = prefix[i] + (1 if ch == '1' else 0)\n        best = None\n        for l in range(n + 1):\n            for r in range(n - l + 1):\n                mid_ones = prefix[n - r] - prefix[l]\n                cost = l + r + 2 * mid_ones\n                if best is None or cost < best:\n                    best = cost\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumTime(self, s: str) -> int:\n        n = len(s)\n        dp = [0] * (n + 1)\n        for i in range(n):\n            dp[i + 1] = min(dp[i] + (2 if s[i] == '1' else 0), i + 1)\n        ans = dp[n]\n        for i in range(n + 1):\n            ans = min(ans, dp[i] + (n - i))\n        return ans\n",
+    "javascript": "var minimumTime = function(s) {\n    const n = s.length;\n    const dp = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        dp[i + 1] = Math.min(dp[i] + (s[i] === '1' ? 2 : 0), i + 1);\n    }\n    let ans = dp[n];\n    for (let i = 0; i <= n; i++) {\n        ans = Math.min(ans, dp[i] + (n - i));\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

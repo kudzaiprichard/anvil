@@ -1,0 +1,117 @@
+{
+  "judge": "exact",
+  "pattern": "A candidate string can only repeat k times if the candidate formed by dropping its last character also repeats k times, so growing candidates one character at a time in increasing length order (breadth-first) and discarding any that fail lets the search prune itself instead of enumerating every possible string.",
+  "hints": [
+    "Only letters that individually appear at least k times in s can ever start a valid candidate, since even a length-1 candidate needs k copies.",
+    "Grow candidates breadth-first, one appended character at a time, starting from those qualifying single letters; check whether a candidate repeated k times is a subsequence of s using the classic two-pointer subsequence test.",
+    "Only extend a candidate that itself already passed the repeated-subsequence check (if a candidate fails, every longer string built from it fails too), and keep the longest -- lexicographically largest on ties -- candidate seen so far."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        2,
+        2000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        2,
+        2000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a single repeated letter with no other characters",
+      "input": [
+        "aaaa",
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a short pattern repeated exactly k times with nothing else",
+      "input": [
+        "abcabcabc",
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "the smallest possible input length",
+      "input": [
+        "zz",
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a larger k with just enough repetitions of a single letter",
+      "input": [
+        "aaaaa",
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a two-letter alternating pattern where the whole string is one exact repetition",
+      "input": [
+        "ababab",
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "three equally-frequent letters where the full three-letter pattern beats any single letter",
+      "input": [
+        "abcabc",
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no letter appears often enough, so no repeated subsequence exists at all",
+      "input": [
+        "abcdefgh",
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two letters each meeting the threshold, with moderate length to exercise the growth search",
+      "input": [
+        "aaaaabbbbb",
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random short strings over a small alphabet with random k respecting the length bound",
+      "seed": 81,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(2, 50)\n    max_n = min(2000, 8 * k - 1)\n    n = max(2, min(size, max_n))\n    alphabet = 'abcdefghij'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    return [s, k]\n"
+    },
+    {
+      "description": "near the maximum string length, using a large k and a tiny alphabet",
+      "seed": 82,
+      "size": 1999,
+      "generator_python": "def gen(rng, size):\n    k = 250\n    max_n = min(2000, 8 * k - 1)\n    n = max(2, min(size, max_n))\n    alphabet = 'abc'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "import itertools\nfrom collections import Counter\nclass Solution:\n    def longestSubsequenceRepeatedK(self, s, k):\n        cnt = Counter(s)\n        letters = sorted(c for c in cnt if cnt[c] >= k)\n        max_len = len(s) // k\n        def is_subseq(t, string):\n            it = iter(string)\n            return all(c in it for c in t)\n        best = ''\n        for length in range(1, max_len + 1):\n            for combo in itertools.product(letters, repeat=length):\n                cand = ''.join(combo)\n                if is_subseq(cand * k, s):\n                    if len(cand) > len(best) or (len(cand) == len(best) and cand > best):\n                        best = cand\n        return best\n",
+  "solutions": {
+    "python": "from collections import Counter, deque\nclass Solution:\n    def longestSubsequenceRepeatedK(self, s, k):\n        cnt = Counter(s)\n        letters = sorted(c for c in cnt if cnt[c] >= k)\n        def is_valid(sub):\n            target = sub * k\n            it = iter(s)\n            return all(ch in it for ch in target)\n        best = ''\n        queue = deque(letters)\n        while queue:\n            cur = queue.popleft()\n            if not is_valid(cur):\n                continue\n            if len(cur) > len(best) or (len(cur) == len(best) and cur > best):\n                best = cur\n            for c in letters:\n                queue.append(cur + c)\n        return best\n",
+    "javascript": "var longestSubsequenceRepeatedK = function(s, k) {\n    const cnt = {};\n    for (const c of s) cnt[c] = (cnt[c] || 0) + 1;\n    const letters = Object.keys(cnt).filter(c => cnt[c] >= k).sort();\n    function isValid(sub) {\n        const target = sub.repeat(k);\n        let idx = 0;\n        for (let i = 0; i < s.length && idx < target.length; i++) {\n            if (s[i] === target[idx]) idx++;\n        }\n        return idx === target.length;\n    }\n    let best = '';\n    const queue = [...letters];\n    while (queue.length) {\n        const cur = queue.shift();\n        if (!isValid(cur)) continue;\n        if (cur.length > best.length || (cur.length === best.length && cur > best)) {\n            best = cur;\n        }\n        for (const c of letters) queue.push(cur + c);\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "bounded by the small search space implied by n < 8k",
+    "space": "O(n)"
+  },
+  "slug": "longest-subsequence-repeated-k-times"
+}

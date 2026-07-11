@@ -1,0 +1,112 @@
+{
+  "slug": "check-if-an-original-string-exists-given-two-encoded-strings",
+  "judge": "exact",
+  "pattern": "Track how far one encoding's cursor has drifted ahead of the other's in units of original-string length, and resolve that drift character-by-character or number-by-number until both cursors finish exactly in sync.",
+  "hints": [
+    "Walk both strings with two cursors and a signed 'drift' counter meaning how many original characters one side has consumed that the other side hasn't matched yet.",
+    "When the drift is zero, either both current characters must be equal letters, or a digit run on either side starts a new drift (a digit run of up to three characters can itself be read at more than one length, so branch over each possible read length).",
+    "When the drift is non-zero, the side that is behind must catch up: a literal letter there always matches (it stands for part of a hidden numeric substitution and can be anything), while a digit run there reduces the drift by whatever number it forms."
+  ],
+  "constraints": [
+    {
+      "param": "s1",
+      "kind": "string",
+      "len": [
+        1,
+        40
+      ]
+    },
+    {
+      "param": "s2",
+      "kind": "string",
+      "len": [
+        1,
+        40
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single letter against a single digit representing the same length",
+      "input": [
+        "a",
+        "1"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single letter against a digit representing the wrong length",
+      "input": [
+        "a",
+        "2"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "shortest possible pair, no digits at all",
+      "input": [
+        "a",
+        "a"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a two-digit run can be read as one token or as two separate tokens summing the same total",
+      "input": [
+        "12",
+        "3"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "three consecutive one-digit tokens must be considered as an alternative to a single multi-digit token",
+      "input": [
+        "111",
+        "3"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a hidden run sits strictly between two literal anchors that don't leave room for it",
+      "input": [
+        "a1b",
+        "ab"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two different digit groupings of the same characters must agree on a common total",
+      "input": [
+        "12",
+        "21"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a full single-digit run must match literal characters of any content, not just one letter",
+      "input": [
+        "9",
+        "bbbbbbbbb"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "encode the same random original string two different random ways (and sometimes two different originals) respecting the max-3-consecutive-digit rule",
+      "seed": 91,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 9))\n\n    def rand_original(k):\n        return ''.join(rng.choice('abcde') for _ in range(k))\n\n    def encode(orig):\n        length = len(orig)\n        if length > 1:\n            k = rng.randint(0, min(length - 1, 4))\n            cuts = sorted(rng.sample(range(1, length), k))\n        else:\n            cuts = []\n        pieces = []\n        prev = 0\n        for c in cuts:\n            pieces.append(orig[prev:c])\n            prev = c\n        pieces.append(orig[prev:])\n        out = []\n        digit_run = 0\n        for p in pieces:\n            token = str(len(p))\n            if rng.random() < 0.5 and digit_run + len(token) <= 3:\n                out.append(token)\n                digit_run += len(token)\n            else:\n                out.append(p)\n                digit_run = 0\n        return ''.join(out)\n\n    orig = rand_original(n)\n    s1 = encode(orig)\n    if rng.random() < 0.5:\n        s2 = encode(orig)\n    else:\n        s2 = encode(rand_original(n))\n    return [s1, s2]\n",
+      "note": "kept small (n<=9) so digit tokens stay single-digit and the max-3-consecutive-digits rule can't be violated by adjacent replaced pieces"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def possiblyEquals(self, s1, s2):\n        n1, n2 = len(s1), len(s2)\n\n        def successors(i, j, diff):\n            res = []\n            if diff == 0:\n                if i == n1 or j == n2:\n                    return res\n                d1 = s1[i].isdigit()\n                d2 = s2[j].isdigit()\n                if d1:\n                    num = 0\n                    k = i\n                    while k < n1 and k < i + 3 and s1[k].isdigit():\n                        num = num * 10 + int(s1[k])\n                        k += 1\n                        res.append((k, j, num))\n                if d2:\n                    num = 0\n                    k = j\n                    while k < n2 and k < j + 3 and s2[k].isdigit():\n                        num = num * 10 + int(s2[k])\n                        k += 1\n                        res.append((i, k, -num))\n                if not d1 and not d2 and s1[i] == s2[j]:\n                    res.append((i + 1, j + 1, 0))\n            elif diff > 0:\n                if j == n2:\n                    return res\n                if s2[j].isdigit():\n                    num = 0\n                    k = j\n                    while k < n2 and k < j + 3 and s2[k].isdigit():\n                        num = num * 10 + int(s2[k])\n                        k += 1\n                        res.append((i, k, diff - num))\n                else:\n                    res.append((i, j + 1, diff - 1))\n            else:\n                if i == n1:\n                    return res\n                if s1[i].isdigit():\n                    num = 0\n                    k = i\n                    while k < n1 and k < i + 3 and s1[k].isdigit():\n                        num = num * 10 + int(s1[k])\n                        k += 1\n                        res.append((k, j, diff + num))\n                else:\n                    res.append((i + 1, j, diff + 1))\n            return res\n\n        start = (0, 0, 0)\n        target = (n1, n2, 0)\n        if start == target:\n            return True\n        seen = {start}\n        stack = [start]\n        while stack:\n            state = stack.pop()\n            for nxt in successors(*state):\n                if nxt == target:\n                    return True\n                if nxt not in seen:\n                    seen.add(nxt)\n                    stack.append(nxt)\n        return False\n",
+  "solutions": {
+    "python": "from functools import lru_cache\n\n\nclass Solution:\n    def possiblyEquals(self, s1, s2):\n        n1, n2 = len(s1), len(s2)\n\n        @lru_cache(maxsize=None)\n        def match(i, j, diff):\n            if i == n1 and j == n2:\n                return diff == 0\n            if diff == 0:\n                if i == n1 or j == n2:\n                    return False\n                c1, c2 = s1[i], s2[j]\n                d1, d2 = c1.isdigit(), c2.isdigit()\n                if d1:\n                    num = 0\n                    k = i\n                    while k < n1 and k < i + 3 and s1[k].isdigit():\n                        num = num * 10 + int(s1[k])\n                        k += 1\n                        if match(k, j, num):\n                            return True\n                if d2:\n                    num = 0\n                    k = j\n                    while k < n2 and k < j + 3 and s2[k].isdigit():\n                        num = num * 10 + int(s2[k])\n                        k += 1\n                        if match(i, k, -num):\n                            return True\n                if not d1 and not d2 and c1 == c2:\n                    return match(i + 1, j + 1, 0)\n                return False\n            elif diff > 0:\n                if j == n2:\n                    return False\n                if s2[j].isdigit():\n                    num = 0\n                    k = j\n                    while k < n2 and k < j + 3 and s2[k].isdigit():\n                        num = num * 10 + int(s2[k])\n                        k += 1\n                        if match(i, k, diff - num):\n                            return True\n                    return False\n                return match(i, j + 1, diff - 1)\n            else:\n                if i == n1:\n                    return False\n                if s1[i].isdigit():\n                    num = 0\n                    k = i\n                    while k < n1 and k < i + 3 and s1[k].isdigit():\n                        num = num * 10 + int(s1[k])\n                        k += 1\n                        if match(k, j, diff + num):\n                            return True\n                    return False\n                return match(i + 1, j, diff + 1)\n\n        return match(0, 0, 0)\n",
+    "javascript": "var possiblyEquals = function(s1, s2) {\n    const n1 = s1.length, n2 = s2.length;\n    const memo = new Map();\n\n    function isDigit(ch) {\n        return ch >= '0' && ch <= '9';\n    }\n\n    function match(i, j, diff) {\n        const key = i + ',' + j + ',' + diff;\n        if (memo.has(key)) return memo.get(key);\n        let result;\n        if (i === n1 && j === n2) {\n            result = diff === 0;\n        } else if (diff === 0) {\n            if (i === n1 || j === n2) {\n                result = false;\n            } else {\n                const c1 = s1[i], c2 = s2[j];\n                const d1 = isDigit(c1), d2 = isDigit(c2);\n                result = false;\n                if (d1) {\n                    let num = 0, k = i;\n                    while (k < n1 && k < i + 3 && isDigit(s1[k])) {\n                        num = num * 10 + (s1.charCodeAt(k) - 48);\n                        k++;\n                        if (match(k, j, num)) { result = true; break; }\n                    }\n                }\n                if (!result && d2) {\n                    let num = 0, k = j;\n                    while (k < n2 && k < j + 3 && isDigit(s2[k])) {\n                        num = num * 10 + (s2.charCodeAt(k) - 48);\n                        k++;\n                        if (match(i, k, -num)) { result = true; break; }\n                    }\n                }\n                if (!result && !d1 && !d2 && c1 === c2) {\n                    result = match(i + 1, j + 1, 0);\n                }\n            }\n        } else if (diff > 0) {\n            if (j === n2) {\n                result = false;\n            } else if (isDigit(s2[j])) {\n                result = false;\n                let num = 0, k = j;\n                while (k < n2 && k < j + 3 && isDigit(s2[k])) {\n                    num = num * 10 + (s2.charCodeAt(k) - 48);\n                    k++;\n                    if (match(i, k, diff - num)) { result = true; break; }\n                }\n            } else {\n                result = match(i, j + 1, diff - 1);\n            }\n        } else {\n            if (i === n1) {\n                result = false;\n            } else if (isDigit(s1[i])) {\n                result = false;\n                let num = 0, k = i;\n                while (k < n1 && k < i + 3 && isDigit(s1[k])) {\n                    num = num * 10 + (s1.charCodeAt(k) - 48);\n                    k++;\n                    if (match(k, j, diff + num)) { result = true; break; }\n                }\n            } else {\n                result = match(i + 1, j, diff + 1);\n            }\n        }\n        memo.set(key, result);\n        return result;\n    }\n\n    return match(0, 0, 0);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n1 * n2 * (n1 + n2))",
+    "space": "O(n1 * n2 * (n1 + n2))"
+  }
+}

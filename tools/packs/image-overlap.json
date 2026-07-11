@@ -1,0 +1,38 @@
+{
+  "slug": "image-overlap",
+  "judge": "exact",
+  "pattern": "Every translation that aligns a set bit of one image onto a set bit of the other is captured by the offset between their coordinates, so tallying offsets across all pairs of set bits reveals the best shift in one sweep.",
+  "hints": [
+    "A translation is fully described by how far you shift in rows and columns; for each candidate shift you only care how many set bits land on set bits.",
+    "Instead of trying every shift and re-scanning, look at each pair of a set bit in one image and a set bit in the other, and record the shift that would bring them together.",
+    "Collect the coordinates of the 1s in each image. For every such pair, the offset (r1 - r2, c1 - c2) is one vote; the most-voted offset is the answer. Count votes in a hash map and return the maximum, or 0 if there are no pairs."
+  ],
+  "constraints": [
+    { "param": "img1", "kind": "int[][]", "len": [1, 30] },
+    { "param": "img2", "kind": "int[][]", "len": [1, 30] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the canonical shift right and down by one", "input": [[[1, 1, 0], [0, 1, 0], [0, 1, 0]], [[0, 0, 0], [0, 1, 1], [0, 0, 1]]] },
+    { "kind": "boundary", "description": "single matching cell", "input": [[[1]], [[1]]] },
+    { "kind": "trap", "description": "single empty cell yields no overlap", "input": [[[0]], [[0]]] },
+    { "kind": "trap", "description": "one image is entirely zero so overlap is zero", "input": [[[0, 0], [0, 0]], [[1, 1], [1, 1]]] },
+    { "kind": "edge", "description": "identical images overlap perfectly with no shift", "input": [[[1, 0], [0, 1]], [[1, 0], [0, 1]]] },
+    { "kind": "trap", "description": "disjoint single bits need a diagonal shift", "input": [[[1, 0], [0, 0]], [[0, 0], [0, 1]]] },
+    { "kind": "edge", "description": "full ones overlap completely", "input": [[[1, 1], [1, 1]], [[1, 1], [1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "two large random binary matrices with a moderate density of set bits",
+      "seed": 31,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = min(30, max(1, size))\n    img1 = [[1 if rng.random() < 0.4 else 0 for _ in range(n)] for _ in range(n)]\n    img2 = [[1 if rng.random() < 0.4 else 0 for _ in range(n)] for _ in range(n)]\n    return [img1, img2]\n",
+      "note": "size capped at 30 per the matrix bound"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestOverlap(self, img1, img2):\n        n = len(img1)\n        best = 0\n        for dr in range(-(n - 1), n):\n            for dc in range(-(n - 1), n):\n                cnt = 0\n                for i in range(n):\n                    for j in range(n):\n                        if img1[i][j] == 1:\n                            r, c = i + dr, j + dc\n                            if 0 <= r < n and 0 <= c < n and img2[r][c] == 1:\n                                cnt += 1\n                best = max(best, cnt)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestOverlap(self, img1, img2):\n        n = len(img1)\n        ones1 = [(i, j) for i in range(n) for j in range(n) if img1[i][j]]\n        ones2 = [(i, j) for i in range(n) for j in range(n) if img2[i][j]]\n        from collections import Counter\n        votes = Counter()\n        for r1, c1 in ones1:\n            for r2, c2 in ones2:\n                votes[(r1 - r2, c1 - c2)] += 1\n        return max(votes.values()) if votes else 0\n",
+    "javascript": "var largestOverlap = function(img1, img2) {\n    const n = img1.length;\n    const ones1 = [], ones2 = [];\n    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {\n        if (img1[i][j]) ones1.push([i, j]);\n        if (img2[i][j]) ones2.push([i, j]);\n    }\n    const votes = new Map();\n    let best = 0;\n    for (const [r1, c1] of ones1) {\n        for (const [r2, c2] of ones2) {\n            const key = (r1 - r2) + ',' + (c1 - c2);\n            const v = (votes.get(key) || 0) + 1;\n            votes.set(key, v);\n            if (v > best) best = v;\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n^4)", "space": "O(n^2)" }
+}

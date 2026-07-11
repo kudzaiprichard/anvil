@@ -1,0 +1,38 @@
+{
+  "slug": "coupon-code-validator",
+  "judge": "exact",
+  "pattern": "Filter records against three independent validity rules, then sort by a fixed category priority and lexicographic tie-break to produce the final ordered list.",
+  "hints": [
+    "A coupon survives only if its code is a non-empty identifier, its category is one of the four allowed, and it is active.",
+    "Use a fixed ranking for the four categories rather than alphabetical order.",
+    "Collect the valid codes with their category rank, then sort by (rank, code) and emit just the codes."
+  ],
+  "constraints": [
+    { "param": "code", "kind": "string[]", "len": [1, 100] },
+    { "param": "businessLine", "kind": "string[]", "len": [1, 100] },
+    { "param": "isActive", "kind": "bool[]", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "empty code and special-character code are rejected", "input": [["SAVE20", "", "PHARMA5", "SAVE@20"], ["restaurant", "grocery", "pharmacy", "restaurant"], [true, true, true, true]] },
+    { "kind": "edge", "description": "inactive and unknown category rejected", "input": [["GROCERY15", "ELECTRONICS_50", "DISCOUNT10"], ["grocery", "electronics", "invalid"], [false, true, true]] },
+    { "kind": "trap", "description": "category order overrides alphabetical code order", "input": [["ZZZ", "AAA"], ["electronics", "restaurant"], [true, true]] },
+    { "kind": "trap", "description": "underscores allowed, hyphen rejected", "input": [["VALID_1", "BAD-1"], ["grocery", "grocery"], [true, true]] },
+    { "kind": "boundary", "description": "single valid coupon", "input": [["A1"], ["pharmacy"], [true]] },
+    { "kind": "edge", "description": "lexicographic tie-break within one category", "input": [["B", "A", "C"], ["grocery", "grocery", "grocery"], [true, true, true]] },
+    { "kind": "trap", "description": "all rejected yields empty list", "input": [["", "x@y"], ["bakery", "grocery"], [true, false]] }
+  ],
+  "stress": [
+    {
+      "description": "random coupons mixing valid and invalid across all categories",
+      "seed": 31,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, min(size, 100))\n    cats = ['electronics', 'grocery', 'pharmacy', 'restaurant', 'invalid', 'bakery', '']\n    alphabet = string.ascii_letters + string.digits + '_'\n    bad = '@#-! '\n    code = []\n    bl = []\n    act = []\n    for _ in range(n):\n        if rng.random() < 0.2:\n            code.append('')\n        else:\n            ln = rng.randint(1, 8)\n            pool = alphabet + (bad if rng.random() < 0.3 else '')\n            code.append(''.join(rng.choice(pool) for _ in range(ln)))\n        bl.append(rng.choice(cats))\n        act.append(rng.random() < 0.7)\n    return [code, bl, act]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def validateCoupons(self, code, businessLine, isActive):\n        order = ['electronics', 'grocery', 'pharmacy', 'restaurant']\n        allowed = set(order)\n        valid = []\n        for c, b, a in zip(code, businessLine, isActive):\n            if not a:\n                continue\n            if b not in allowed:\n                continue\n            if c == '':\n                continue\n            ok = True\n            for ch in c:\n                if not (ch.isalnum() or ch == '_'):\n                    ok = False\n                    break\n            if not ok:\n                continue\n            valid.append((b, c))\n        result = []\n        for cat in order:\n            codes = sorted(cc for bb, cc in valid if bb == cat)\n            result.extend(codes)\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def validateCoupons(self, code, businessLine, isActive):\n        rank = {'electronics': 0, 'grocery': 1, 'pharmacy': 2, 'restaurant': 3}\n        kept = []\n        for c, b, a in zip(code, businessLine, isActive):\n            if not a or b not in rank or not c:\n                continue\n            if all(ch.isalnum() or ch == '_' for ch in c):\n                kept.append((rank[b], c))\n        kept.sort()\n        return [c for _, c in kept]\n",
+    "javascript": "var validateCoupons = function(code, businessLine, isActive) {\n    const rank = { electronics: 0, grocery: 1, pharmacy: 2, restaurant: 3 };\n    const re = /^[A-Za-z0-9_]+$/;\n    const kept = [];\n    for (let i = 0; i < code.length; i++) {\n        const c = code[i], b = businessLine[i], a = isActive[i];\n        if (!a) continue;\n        if (!(b in rank)) continue;\n        if (c.length === 0 || !re.test(c)) continue;\n        kept.push([rank[b], c]);\n    }\n    kept.sort((x, y) => x[0] !== y[0] ? x[0] - y[0] : (x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : 0));\n    return kept.map(p => p[1]);\n};\n"
+  },
+  "complexity": { "time": "O(n log n * L)", "space": "O(n)" }
+}

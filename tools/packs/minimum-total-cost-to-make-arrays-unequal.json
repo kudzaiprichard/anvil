@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-total-cost-to-make-arrays-unequal",
+  "judge": "exact",
+  "pattern": "Every position where the two arrays already agree must be touched by some swap, so start by summing those indices; if one value dominates more than half of those positions, swapping only among them can never fully separate it from itself, so borrow the cheapest outside indices that don't involve that dominant value until the balance is restored (or prove it's impossible).",
+  "hints": [
+    "A position only needs to change if nums1[i] already equals nums2[i]; those are the positions you are forced to touch, and the minimum spend to touch a group of positions is simply the sum of their indices.",
+    "If one particular value shows up in more than half of the positions you must touch, you cannot rearrange just those positions to avoid a collision with itself — no matter how you shuffle them, that value will land on top of another copy of itself somewhere.",
+    "When that happens, pull in extra positions from outside the group — cheapest index first — but only ones where neither array holds the dominant value at that spot, until the dominant value's share drops to at most half, or run out of candidates and report impossible."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [1, 100000], "value": [1, 100000], "note": "value at index i is in [1, n]" },
+    { "param": "nums2", "kind": "int[]", "len": [1, 100000], "value": [1, 100000], "note": "same length n as nums1, value at index i is in [1, n]" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element, forced equal by the constraints — a lone mismatch can never be fixed since a swap needs a partner", "input": [[1], [1]] },
+    { "kind": "edge", "description": "already fully unequal everywhere — zero cost needed", "input": [[1, 2], [2, 1]] },
+    { "kind": "edge", "description": "exactly one matching position with one cheap outside index available to swap with", "input": [[2, 1, 3], [2, 3, 1]] },
+    { "kind": "edge", "description": "every value in the array is identical, so every position matches and no rearrangement can ever separate the value from itself", "input": [[1, 1, 1, 1, 1], [1, 1, 1, 1, 1]] },
+    { "kind": "edge", "description": "two distinct values each holding exactly half of the matching positions — already balanced, no outside help needed", "input": [[1, 1, 2, 2], [1, 1, 2, 2]] },
+    { "kind": "boundary", "description": "matching position uses the maximum allowed value (equal to n) alongside an already-balanced second matching pair", "input": [[4, 1, 2, 3], [4, 3, 2, 1]] },
+    { "kind": "trap", "description": "the dominant value is so overrepresented that fixing it requires pulling in every remaining index in the array", "input": [[1, 1, 1, 2, 3, 4], [1, 1, 1, 5, 6, 6]] },
+    { "kind": "trap", "description": "a naive solution that only counts matching positions without checking value dominance would wrongly think three equal-valued matches are trivially fixable among themselves", "input": [[7, 7, 7, 1, 2], [7, 7, 7, 3, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "large random arrays of size up to 100000 with values in [1, n], mixing matching and non-matching positions",
+      "seed": 17,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums1 = [rng.randint(1, n) for _ in range(n)]\n    nums2 = []\n    for i in range(n):\n        if rng.random() < 0.3:\n            nums2.append(nums1[i])\n        else:\n            nums2.append(rng.randint(1, n))\n    return [nums1, nums2]\n",
+      "note": "about 30% of positions start matching, exercising both the frequency-skew and easy-balance branches at scale"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTotalCost(self, nums1, nums2):\n        from itertools import permutations\n        n = len(nums1)\n        bad_mask = 0\n        for i in range(n):\n            if nums1[i] == nums2[i]:\n                bad_mask |= (1 << i)\n        best = None\n        for mask in range(1 << n):\n            if (mask & bad_mask) != bad_mask:\n                continue\n            idxs = [i for i in range(n) if mask & (1 << i)]\n            if len(idxs) == 1:\n                continue\n            if not idxs:\n                cost = 0\n            else:\n                values = [nums1[i] for i in idxs]\n                feasible = False\n                for perm in permutations(values):\n                    if all(perm[k] != nums2[idxs[k]] for k in range(len(idxs))):\n                        feasible = True\n                        break\n                if not feasible:\n                    continue\n                cost = sum(idxs)\n            if best is None or cost < best:\n                best = cost\n        return best if best is not None else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumTotalCost(self, nums1, nums2):\n        n = len(nums1)\n        from collections import Counter\n        cost = 0\n        count = 0\n        freq = Counter()\n        max_freq = 0\n        max_val = 0\n        for i in range(n):\n            if nums1[i] == nums2[i]:\n                cost += i\n                count += 1\n                freq[nums1[i]] += 1\n                if freq[nums1[i]] > max_freq:\n                    max_freq = freq[nums1[i]]\n                    max_val = nums1[i]\n        if count == 0:\n            return 0\n        for i in range(n):\n            if max_freq * 2 <= count:\n                break\n            if nums1[i] != nums2[i] and nums1[i] != max_val and nums2[i] != max_val:\n                cost += i\n                count += 1\n        if max_freq * 2 > count:\n            return -1\n        return cost\n",
+    "javascript": "var minimumTotalCost = function(nums1, nums2) {\n    const n = nums1.length;\n    let cost = 0;\n    let count = 0;\n    const freq = new Map();\n    let maxFreq = 0;\n    let maxVal = 0;\n    for (let i = 0; i < n; i++) {\n        if (nums1[i] === nums2[i]) {\n            cost += i;\n            count++;\n            const f = (freq.get(nums1[i]) || 0) + 1;\n            freq.set(nums1[i], f);\n            if (f > maxFreq) {\n                maxFreq = f;\n                maxVal = nums1[i];\n            }\n        }\n    }\n    if (count === 0) return 0;\n    for (let i = 0; i < n; i++) {\n        if (maxFreq * 2 <= count) break;\n        if (nums1[i] !== nums2[i] && nums1[i] !== maxVal && nums2[i] !== maxVal) {\n            cost += i;\n            count++;\n        }\n    }\n    if (maxFreq * 2 > count) return -1;\n    return cost;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

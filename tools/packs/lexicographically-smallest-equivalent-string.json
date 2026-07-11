@@ -1,0 +1,38 @@
+{
+  "slug": "lexicographically-smallest-equivalent-string",
+  "judge": "exact",
+  "pattern": "Each equivalence pair unions two letters; a union-find keyed to the smallest letter in every group rewrites the base string to its minimal representative.",
+  "hints": [
+    "The pairs build equivalence classes of letters; within a class any letter can stand for any other.",
+    "Use union-find over the 26 letters, but make the representative of a set its smallest letter so lookups give the minimal choice.",
+    "Union each s1[i] with s2[i] keeping the smaller letter as root, then map every character of baseStr to its root."
+  ],
+  "constraints": [
+    { "param": "s1", "kind": "string", "len": [1, 1000] },
+    { "param": "s2", "kind": "string", "len": [1, 1000] },
+    { "param": "baseStr", "kind": "string", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "chained groups merge across pairs", "input": ["parker", "morris", "parser"] },
+    { "kind": "edge", "description": "small groups change only one letter", "input": ["hello", "world", "hold"] },
+    { "kind": "edge", "description": "large merged group collapses to 'a'", "input": ["leetcode", "programs", "sourcecode"] },
+    { "kind": "trap", "description": "no equivalences leave base unchanged", "input": ["a", "a", "abcdef"] },
+    { "kind": "trap", "description": "transitivity links three letters", "input": ["ab", "bc", "abc"] },
+    { "kind": "boundary", "description": "single-character inputs", "input": ["z", "a", "z"] }
+  ],
+  "stress": [
+    {
+      "description": "many random pairs over the lowercase alphabet then a random base string",
+      "seed": 606,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 1000)))\n    s1 = ''.join(chr(97 + rng.randint(0, 25)) for _ in range(m))\n    s2 = ''.join(chr(97 + rng.randint(0, 25)) for _ in range(m))\n    bl = rng.randint(1, 1000)\n    base = ''.join(chr(97 + rng.randint(0, 25)) for _ in range(bl))\n    return [s1, s2, base]\n",
+      "note": "dense unions tend to collapse classes toward early letters"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def smallestEquivalentString(self, s1, s2, baseStr):\n        adj = {chr(97 + i): set([chr(97 + i)]) for i in range(26)}\n        for a, b in zip(s1, s2):\n            adj[a].add(b)\n            adj[b].add(a)\n        rep = {}\n        for c in (chr(97 + i) for i in range(26)):\n            if c in rep:\n                continue\n            stack = [c]\n            comp = []\n            seen = set()\n            while stack:\n                x = stack.pop()\n                if x in seen:\n                    continue\n                seen.add(x)\n                comp.append(x)\n                for y in adj[x]:\n                    if y not in seen:\n                        stack.append(y)\n            mn = min(comp)\n            for x in comp:\n                rep[x] = mn\n        return ''.join(rep[c] for c in baseStr)\n",
+  "solutions": {
+    "python": "class Solution:\n    def smallestEquivalentString(self, s1, s2, baseStr):\n        parent = list(range(26))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra == rb:\n                return\n            if ra < rb:\n                parent[rb] = ra\n            else:\n                parent[ra] = rb\n        for a, b in zip(s1, s2):\n            union(ord(a) - 97, ord(b) - 97)\n        return ''.join(chr(find(ord(c) - 97) + 97) for c in baseStr)\n",
+    "javascript": "var smallestEquivalentString = function(s1, s2, baseStr) {\n    const parent = Array.from({length: 26}, (_, i) => i);\n    function find(x) {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    }\n    function union(a, b) {\n        let ra = find(a), rb = find(b);\n        if (ra === rb) return;\n        if (ra < rb) parent[rb] = ra; else parent[ra] = rb;\n    }\n    for (let i = 0; i < s1.length; i++) {\n        union(s1.charCodeAt(i) - 97, s2.charCodeAt(i) - 97);\n    }\n    let res = '';\n    for (const c of baseStr) {\n        res += String.fromCharCode(find(c.charCodeAt(0) - 97) + 97);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

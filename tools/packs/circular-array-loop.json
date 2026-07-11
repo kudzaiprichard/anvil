@@ -1,0 +1,45 @@
+{
+  "slug": "circular-array-loop",
+  "judge": "exact",
+  "pattern": "Treating each index as a node with one outgoing edge, a valid loop is a cycle of length greater than one whose every step moves in the same direction; fast/slow pointers detect it while a same-direction check rejects mixed or single-element loops.",
+  "hints": [
+    "Each position points to exactly one next position, so the structure is a functional graph; you are hunting for a cycle, but not every cycle counts.",
+    "A cycle is only valid if every index along it moves the same way (all forward or all backward) and it visits more than one distinct index, so a self-loop is rejected.",
+    "From each unvisited start, advance a slow and a fast pointer; abandon the walk the moment the direction sign flips or a single-element loop appears, and mark dead-end indices so you never re-explore them."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 5000], "value": [-1000, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all-forward cycle spanning several indices", "input": [[2, -1, 1, 2, 2]] },
+    { "kind": "edge", "description": "only a single-element loop exists, which is invalid", "input": [[-1, -2, -3, -4, -5, 6]] },
+    { "kind": "edge", "description": "one mixed-direction loop is rejected but another valid one exists", "input": [[1, -1, 5, 1, 4]] },
+    { "kind": "boundary", "description": "single element can only self-loop, never valid", "input": [[3]] },
+    { "kind": "trap", "description": "two indices pointing at each other but in opposite directions form no valid loop", "input": [[1, -1]] },
+    { "kind": "trap", "description": "movement that lands back on itself is a one-element loop and disqualified", "input": [[2, 2]] },
+    { "kind": "trap", "description": "value equal to length wraps to the same index, a self-loop", "input": [[3, 1, 2]] },
+    { "kind": "edge", "description": "all-backward valid cycle", "input": [[-1, -1, -1]] }
+  ],
+  "stress": [
+    {
+      "description": "random non-zero values, small length so loops both occur and fail to occur",
+      "seed": 7,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = []\n    for _ in range(n):\n        v = 0\n        while v == 0:\n            v = rng.randint(-6, 6)\n        nums.append(v)\n    return [nums]\n",
+      "note": "small step magnitudes relative to length make cycles plausible"
+    },
+    {
+      "description": "larger array with wider step range to stress same-direction tracking",
+      "seed": 31,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = []\n    for _ in range(n):\n        v = 0\n        while v == 0:\n            v = rng.randint(-1000, 1000)\n        nums.append(v)\n    return [nums]\n",
+      "note": "full value range exercises the modular wraparound"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def circularArrayLoop(self, nums):\n        n = len(nums)\n        def nxt(i):\n            return (i + nums[i]) % n\n        for start in range(n):\n            forward = nums[start] > 0\n            i = start\n            path = []\n            seen = {}\n            ok = True\n            while True:\n                if (nums[i] > 0) != forward:\n                    ok = False\n                    break\n                if i in seen:\n                    cycle_len = len(path) - seen[i]\n                    if cycle_len > 1:\n                        return True\n                    ok = False\n                    break\n                seen[i] = len(path)\n                path.append(i)\n                j = nxt(i)\n                if j == i:\n                    ok = False\n                    break\n                i = j\n            if ok:\n                return True\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def circularArrayLoop(self, nums):\n        n = len(nums)\n        def nxt(i):\n            return (i + nums[i]) % n\n        for start in range(n):\n            if nums[start] == 0:\n                continue\n            slow, fast = start, start\n            forward = nums[start] > 0\n            def ok(i):\n                return (nums[i] > 0) == forward and nxt(i) != i\n            while True:\n                if not ok(fast):\n                    break\n                fast2 = nxt(fast)\n                if not ok(fast2):\n                    break\n                fast = nxt(fast2)\n                slow = nxt(slow)\n                if slow == fast:\n                    return True\n        return False\n",
+    "javascript": "var circularArrayLoop = function(nums) {\n    const n = nums.length;\n    const nxt = (i) => (((i + nums[i]) % n) + n) % n;\n    for (let start = 0; start < n; start++) {\n        if (nums[start] === 0) continue;\n        let slow = start, fast = start;\n        const forward = nums[start] > 0;\n        const ok = (i) => (nums[i] > 0) === forward && nxt(i) !== i;\n        while (true) {\n            if (!ok(fast)) break;\n            const fast2 = nxt(fast);\n            if (!ok(fast2)) break;\n            fast = nxt(fast2);\n            slow = nxt(slow);\n            if (slow === fast) return true;\n        }\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

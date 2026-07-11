@@ -1,0 +1,37 @@
+{
+  "slug": "vertical-order-traversal-of-a-binary-tree",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "Tagging every node with its (column, row) coordinate and sorting by column, then row, then value produces the fully deterministic top-to-bottom, left-to-right vertical grouping.",
+  "hints": [
+    "Give the root column zero; a left child shifts column down by one and a right child up by one, while every child's row is one deeper.",
+    "Collect a triple (column, row, value) for each node, because ties within a column are broken first by row and then by value.",
+    "Traverse recording (col, row, val) for each node, sort all triples by that tuple, then group consecutive equal columns into the output lists of values."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 1000], "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two nodes sharing a column ordered top to bottom", "input": [[3, 9, 20, null, null, 15, 7]] },
+    { "kind": "edge", "description": "perfect tree with three nodes in the center column", "input": [[1, 2, 3, 4, 5, 6, 7]] },
+    { "kind": "trap", "description": "same coordinate nodes broken by value", "input": [[1, 2, 3, 4, 6, 5, 7]] },
+    { "kind": "boundary", "description": "single node is one column", "input": [[5]] },
+    { "kind": "trap", "description": "left-skewed chain spreads columns leftward", "input": [[1, 2, null, 3, null, 4]] },
+    { "kind": "edge", "description": "two nodes at same position differ in value order", "input": [[0, 1, 2, 3, null, null, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "random level-order tree with holes and possible value collisions",
+      "seed": 82,
+      "size": 120,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    arr = [rng.randint(0, 20)]\n    for _ in range(n - 1):\n        arr.append(rng.randint(0, 20) if rng.random() < 0.75 else None)\n    return [arr]\n",
+      "note": "small value range forces frequent same-coordinate value tie-breaks"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def verticalTraversal(self, root):\n        nodes = []\n        def dfs(node, r, c):\n            if not node:\n                return\n            nodes.append((c, r, node.val))\n            dfs(node.left, r + 1, c - 1)\n            dfs(node.right, r + 1, c + 1)\n        dfs(root, 0, 0)\n        nodes.sort()\n        res = []\n        cur_col = None\n        for c, r, v in nodes:\n            if c != cur_col:\n                res.append([])\n                cur_col = c\n            res[-1].append(v)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def verticalTraversal(self, root):\n        from collections import defaultdict\n        cols = defaultdict(list)\n        stack = [(root, 0, 0)]\n        while stack:\n            node, r, c = stack.pop()\n            if node is None:\n                continue\n            cols[c].append((r, node.val))\n            stack.append((node.left, r + 1, c - 1))\n            stack.append((node.right, r + 1, c + 1))\n        res = []\n        for c in sorted(cols):\n            entries = sorted(cols[c])\n            res.append([v for _, v in entries])\n        return res\n",
+    "javascript": "var verticalTraversal = function(root) {\n    const cols = new Map();\n    const stack = [[root, 0, 0]];\n    while (stack.length) {\n        const [node, r, c] = stack.pop();\n        if (node === null) continue;\n        if (!cols.has(c)) cols.set(c, []);\n        cols.get(c).push([r, node.val]);\n        stack.push([node.left, r + 1, c - 1]);\n        stack.push([node.right, r + 1, c + 1]);\n    }\n    const keys = [...cols.keys()].sort((a, b) => a - b);\n    const res = [];\n    for (const c of keys) {\n        const entries = cols.get(c).slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);\n        res.push(entries.map(e => e[1]));\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

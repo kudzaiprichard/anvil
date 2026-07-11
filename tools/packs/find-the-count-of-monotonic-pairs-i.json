@@ -1,0 +1,156 @@
+{
+  "slug": "find-the-count-of-monotonic-pairs-i",
+  "judge": "exact",
+  "pattern": "A prefix-sum DP over achievable arr1 values at each index counts monotonic splits without enumerating them.",
+  "hints": [
+    "arr2[i] is determined by arr1[i] (arr2[i] = nums[i]-arr1[i]), so you only need to choose the non-decreasing sequence arr1; the non-increasing requirement on arr2 becomes a constraint linking consecutive arr1 choices.",
+    "Let dp[i][v] be the number of valid prefixes where arr1[i] = v. Work out which values of arr1[i-1] are compatible with a given arr1[i] = v (arr1[i-1] <= v, and nums[i-1]-arr1[i-1] >= nums[i]-v), then that compatible range is contiguous.",
+    "Because the compatible arr1[i-1] range for a fixed arr1[i] = v is always a prefix [0, U], keep a running prefix sum of dp[i-1][*] so each dp[i][v] is an O(1) lookup; sum dp[n-1][*] mod 1e9+7 for the answer."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        2000
+      ],
+      "value": [
+        1,
+        50
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single element",
+      "input": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two equal elements",
+      "input": [
+        [
+          7,
+          7
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "max value repeated three times",
+      "input": [
+        [
+          50,
+          50,
+          50
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "sharp valley shape",
+      "input": [
+        [
+          1,
+          50,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "all values at the minimum, moderate length",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "alternating min/max values",
+      "input": [
+        [
+          1,
+          50,
+          1,
+          50,
+          1,
+          50
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly increasing sequence",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly decreasing sequence",
+      "input": [
+        [
+          10,
+          9,
+          8,
+          7,
+          6,
+          5,
+          4,
+          3,
+          2,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random values, near-maximum length",
+      "seed": 3,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 50) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "random walk shape (small steps) to exercise many transitions",
+      "seed": 11,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(20, 30)]\n    for _ in range(n - 1):\n        nxt = nums[-1] + rng.randint(-3, 3)\n        nxt = max(1, min(50, nxt))\n        nums.append(nxt)\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countOfPairs(self, nums):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        m = max(nums)\n        dp = [0] * (m + 1)\n        for j in range(nums[0] + 1):\n            dp[j] = 1\n        for i in range(1, n):\n            ndp = [0] * (m + 1)\n            for j in range(nums[i] + 1):\n                total = 0\n                for kk in range(0, nums[i - 1] + 1):\n                    if kk <= j and (nums[i - 1] - kk) >= (nums[i] - j):\n                        total += dp[kk]\n                ndp[j] = total % MOD\n            dp = ndp\n        return sum(dp) % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countOfPairs(self, nums):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        m = max(nums)\n        dp = [0] * (m + 1)\n        for j in range(nums[0] + 1):\n            dp[j] = 1\n        for i in range(1, n):\n            prefix = [0] * (m + 2)\n            for j in range(m + 1):\n                prefix[j + 1] = (prefix[j] + dp[j]) % MOD\n            diff = nums[i - 1] - nums[i]\n            shift = min(0, diff)\n            ndp = [0] * (m + 1)\n            for j in range(nums[i] + 1):\n                U = j + shift\n                if U < 0:\n                    continue\n                if U > m:\n                    U = m\n                ndp[j] = prefix[U + 1]\n            dp = ndp\n        return sum(dp) % MOD\n",
+    "javascript": "var countOfPairs = function(nums) {\n    const MOD = 1000000007;\n    const n = nums.length;\n    let m = 0;\n    for (const v of nums) if (v > m) m = v;\n    let dp = new Array(m + 1).fill(0);\n    for (let j = 0; j <= nums[0]; j++) dp[j] = 1;\n    for (let i = 1; i < n; i++) {\n        const prefix = new Array(m + 2).fill(0);\n        for (let j = 0; j <= m; j++) prefix[j + 1] = (prefix[j] + dp[j]) % MOD;\n        const diff = nums[i - 1] - nums[i];\n        const shift = Math.min(0, diff);\n        const ndp = new Array(m + 1).fill(0);\n        for (let j = 0; j <= nums[i]; j++) {\n            let U = j + shift;\n            if (U < 0) continue;\n            if (U > m) U = m;\n            ndp[j] = prefix[U + 1];\n        }\n        dp = ndp;\n    }\n    let total = 0;\n    for (const v of dp) total = (total + v) % MOD;\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * maxVal)",
+    "space": "O(maxVal)"
+  }
+}

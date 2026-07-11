@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-students-taking-exam",
+  "judge": "exact",
+  "pattern": "Each row's seating is a bitmask, and because cheating only reaches the row directly above, a row-by-row dynamic program over compatible masks finds the maximum seated students.",
+  "hints": [
+    "Cheating only looks sideways and diagonally up, never straight ahead or behind, so a row's validity depends only on itself and the row immediately above it.",
+    "Represent who sits in a row as a bitmask. A mask is self-valid if no two chosen seats are adjacent and every chosen seat is on a good seat.",
+    "Carry, per row, the best total achievable for each valid mask. A row mask is compatible with the previous row's mask when no seat is diagonally adjacent (the left/right shifts must not overlap). Sum popcounts across rows, maximising over compatible transitions."
+  ],
+  "constraints": [
+    { "param": "seats", "kind": "string[][]", "len": [1, 8] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "scattered broken seats forcing diagonal awareness", "input": [[["#", ".", "#", "#", ".", "#"], [".", "#", "#", "#", "#", "."], ["#", ".", "#", "#", ".", "#"]]] },
+    { "kind": "edge", "description": "narrow two-column room", "input": [[[".", "#"], ["#", "#"], ["#", "."], ["#", "#"], [".", "#"]]] },
+    { "kind": "trap", "description": "checkerboard of broken seats allows packing alternate columns", "input": [[["#", ".", ".", ".", "#"], [".", "#", ".", "#", "."], [".", ".", "#", ".", "."], [".", "#", ".", "#", "."], ["#", ".", ".", ".", "#"]]] },
+    { "kind": "boundary", "description": "single seat in good condition", "input": [[["."]]] },
+    { "kind": "trap", "description": "single fully broken row seats nobody", "input": [[["#", "#", "#"]]] },
+    { "kind": "trap", "description": "one open row of three forces a gap between students", "input": [[[".", ".", "."]]] },
+    { "kind": "edge", "description": "two adjacent open rows where diagonal conflicts dominate", "input": [[[".", ".", "."], [".", ".", "."]]] }
+  ],
+  "stress": [
+    {
+      "description": "random 8x8 boards with a mix of broken and good seats",
+      "seed": 168,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 8)\n    n = rng.randint(1, 8)\n    return [[['#' if rng.random() < 0.35 else '.' for _ in range(n)] for _ in range(m)]]\n",
+      "note": "small dimensions keep the 2^n mask DP fast even at the cap"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxStudents(self, seats):\n        m = len(seats)\n        n = len(seats[0])\n        good = []\n        for row in seats:\n            g = 0\n            for j, ch in enumerate(row):\n                if ch == '.':\n                    g |= 1 << j\n            good.append(g)\n        full = 1 << n\n        # brute: enumerate every row mask combination via recursion over rows.\n        from functools import lru_cache\n\n        def valid_self(mask, g):\n            if mask & ~g:\n                return False\n            if mask & (mask << 1):\n                return False\n            return True\n\n        def popcount(x):\n            c = 0\n            while x:\n                c += x & 1\n                x >>= 1\n            return c\n\n        best = [0]\n\n        def rec(r, prev):\n            if r == m:\n                return 0\n            res = 0\n            for mask in range(full):\n                if not valid_self(mask, good[r]):\n                    continue\n                if (mask & (prev << 1)) or (mask & (prev >> 1)):\n                    continue\n                res = max(res, popcount(mask) + rec(r + 1, mask))\n            return res\n\n        return rec(0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxStudents(self, seats):\n        m = len(seats)\n        n = len(seats[0])\n        good = []\n        for row in seats:\n            g = 0\n            for j, ch in enumerate(row):\n                if ch == '.':\n                    g |= 1 << j\n            good.append(g)\n        full = 1 << n\n        valid_masks = []\n        for r in range(m):\n            masks = []\n            for mask in range(full):\n                if mask & ~good[r]:\n                    continue\n                if mask & (mask << 1):\n                    continue\n                masks.append(mask)\n            valid_masks.append(masks)\n        NEG = float('-inf')\n        prev_dp = {0: 0}\n        for r in range(m):\n            cur = {}\n            for mask in valid_masks[r]:\n                pc = bin(mask).count('1')\n                best = NEG\n                for pmask, pval in prev_dp.items():\n                    if mask & (pmask << 1):\n                        continue\n                    if mask & (pmask >> 1):\n                        continue\n                    if pval + pc > best:\n                        best = pval + pc\n                if best > NEG:\n                    cur[mask] = best\n            prev_dp = cur\n        return max(prev_dp.values()) if prev_dp else 0\n",
+    "javascript": "var maxStudents = function(seats) {\n    const m = seats.length, n = seats[0].length;\n    const good = [];\n    for (const row of seats) {\n        let g = 0;\n        for (let j = 0; j < n; j++) if (row[j] === '.') g |= 1 << j;\n        good.push(g);\n    }\n    const full = 1 << n;\n    const popcount = (x) => { let c = 0; while (x) { c += x & 1; x >>>= 1; } return c; };\n    const validMasks = [];\n    for (let r = 0; r < m; r++) {\n        const masks = [];\n        for (let mask = 0; mask < full; mask++) {\n            if (mask & ~good[r] & (full - 1)) continue;\n            if (mask & (mask << 1)) continue;\n            masks.push(mask);\n        }\n        validMasks.push(masks);\n    }\n    let prev = new Map([[0, 0]]);\n    for (let r = 0; r < m; r++) {\n        const cur = new Map();\n        for (const mask of validMasks[r]) {\n            const pc = popcount(mask);\n            let best = -Infinity;\n            for (const [pmask, pval] of prev) {\n                if (mask & (pmask << 1)) continue;\n                if (mask & (pmask >> 1)) continue;\n                if (pval + pc > best) best = pval + pc;\n            }\n            if (best > -Infinity) cur.set(mask, best);\n        }\n        prev = cur;\n    }\n    let ans = 0;\n    for (const v of prev.values()) if (v > ans) ans = v;\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(m * 4^n)", "space": "O(2^n)" }
+}

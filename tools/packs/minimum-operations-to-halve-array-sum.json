@@ -1,0 +1,36 @@
+{
+  "slug": "minimum-operations-to-halve-array-sum",
+  "judge": "exact",
+  "pattern": "Halving a bigger number always removes more from the total than halving a smaller one, so greedily always halving the current largest value (via a max-heap) reaches the target reduction in the fewest steps.",
+  "hints": [
+    "Halving the same absolute amount matters less than halving the biggest available number, since halving a large value removes the largest possible chunk right now.",
+    "After you halve a number, it can be halved again later - so the set of candidates to pick from keeps changing, which is exactly what a max-heap is for.",
+    "Push every value onto a max-heap; repeatedly pop the current largest, add half of it to your running reduction, push the halved value back, and count the operation, stopping as soon as the total reduction reaches at least half the original sum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 10000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "typical mixed values needing several rounds", "input": [[5, 19, 8, 1]] },
+    { "kind": "edge", "description": "one large value dominates the sum", "input": [[3, 8, 20]] },
+    { "kind": "boundary", "description": "single element, one halving always reduces it by at least half of itself", "input": [[100]] },
+    { "kind": "trap", "description": "all equal values, ties in the heap must still pick correctly each round", "input": [[4, 4, 4, 4]] },
+    { "kind": "trap", "description": "odd values whose halves are fractional and must accumulate as floats, not truncate", "input": [[1, 1, 1]] },
+    { "kind": "boundary", "description": "large uniform values near the constraint ceiling", "input": [[10000000, 10000000, 10000000]] }
+  ],
+  "stress": [
+    {
+      "description": "10000 random values across the full magnitude range, exercising the max-heap under load",
+      "seed": 8,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randrange(1, 10000001) for _ in range(n)]\n    return [nums]\n",
+      "note": "no special structure required; correctness of the greedy holds for any positive values"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def halveArray(self, nums):\n        values = list(map(float, nums))\n        target = sum(values) / 2.0\n        reduced = 0.0\n        ops = 0\n        while reduced < target - 1e-9:\n            idx = max(range(len(values)), key=lambda i: values[i])\n            half = values[idx] / 2.0\n            reduced += half\n            values[idx] = half\n            ops += 1\n        return ops\n",
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def halveArray(self, nums):\n        heap = [-float(x) for x in nums]\n        heapq.heapify(heap)\n        total = -sum(heap)\n        target = total / 2.0\n        reduced = 0.0\n        ops = 0\n        while reduced < target - 1e-9:\n            largest = -heapq.heappop(heap)\n            half = largest / 2.0\n            reduced += half\n            heapq.heappush(heap, -half)\n            ops += 1\n        return ops\n",
+    "javascript": "class MaxHeap {\n    constructor() { this.data = []; }\n    push(v) {\n        this.data.push(v);\n        let i = this.data.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (this.data[p] >= this.data[i]) break;\n            [this.data[p], this.data[i]] = [this.data[i], this.data[p]];\n            i = p;\n        }\n    }\n    pop() {\n        const top = this.data[0];\n        const last = this.data.pop();\n        if (this.data.length) {\n            this.data[0] = last;\n            let i = 0;\n            while (true) {\n                let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                if (l < this.data.length && this.data[l] > this.data[s]) s = l;\n                if (r < this.data.length && this.data[r] > this.data[s]) s = r;\n                if (s === i) break;\n                [this.data[s], this.data[i]] = [this.data[i], this.data[s]];\n                i = s;\n            }\n        }\n        return top;\n    }\n}\n\nvar halveArray = function(nums) {\n    const heap = new MaxHeap();\n    let total = 0;\n    for (const x of nums) {\n        heap.push(x);\n        total += x;\n    }\n    const target = total / 2;\n    let reduced = 0;\n    let ops = 0;\n    while (reduced < target - 1e-9) {\n        const largest = heap.pop();\n        const half = largest / 2;\n        reduced += half;\n        heap.push(half);\n        ops++;\n    }\n    return ops;\n};\n"
+  },
+  "complexity": { "time": "O(n log n + ops log n)", "space": "O(n)" }
+}

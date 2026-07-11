@@ -1,0 +1,41 @@
+{
+  "slug": "word-squares-ii",
+  "judge": "exact",
+  "pattern": "Only four specific corner letters ever have to line up, so every candidate square can be assembled by picking words whose first and last letters slot into those four fixed positions, then checking the handful of remaining corner equalities directly.",
+  "hints": [
+    "A word can only ever serve as the top-left corner pairing if some other distinct word shares its first letter (a candidate left column) and some other distinct word starts with its own last letter (a candidate right column).",
+    "Once a top and a left word are chosen and a right word is chosen so that its first letter matches the top word's last letter, the bottom word is pinned down by two more letter checks: its first letter must match the left word's last letter, and its last letter must match the right word's last letter.",
+    "Grouping the words by their first letter lets you jump straight to the handful of candidates for the left and right columns instead of scanning every word every time; collect every distinct four-word assignment that satisfies all four corner equalities, then sort the results ascending by the (top, left, right, bottom) tuple."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [4, 15], "note": "each words[i] has length exactly 4, lowercase English letters only, and all words are distinct" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the reference example with exactly two valid word squares", "input": [["able", "area", "echo", "also"]] },
+    { "kind": "edge", "description": "the reference example where no combination of four words satisfies every corner", "input": [["code", "cafe", "eden", "edge"]] },
+    { "kind": "boundary", "description": "the minimum word count of four, with a constructed valid square", "input": [["abcd", "aefg", "dhij", "gkij"]] },
+    { "kind": "boundary", "description": "the minimum word count of four, sharing no first letters at all so no square is possible", "input": [["abcd", "efgh", "ijkl", "mnop"]] },
+    { "kind": "trap", "description": "a decoy word shares a first letter with real candidates but cannot complete any corner chain", "input": [["abcd", "aefg", "dhij", "gkij", "axyz"]] },
+    { "kind": "trap", "description": "two overlapping candidate squares share three of their four words", "input": [["abcd", "aefg", "dhij", "gkij", "abpq", "qhij"]] }
+  ],
+  "stress": [
+    {
+      "description": "fully random distinct four-letter words, where valid squares are rare but must still be found correctly",
+      "seed": 91,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(size, 15))\n    alphabet = 'abcdefghijklmnopqrstuvwxyz'\n    words = set()\n    while len(words) < n:\n        w = ''.join(rng.choice(alphabet) for _ in range(4))\n        words.add(w)\n    return [list(words)]\n"
+    },
+    {
+      "description": "a pool built from several deliberately-constructed corner-matching squares mixed with filler words, so multiple valid squares must be found among distractors",
+      "seed": 92,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    letters = 'abcdefghij'\n    pool = set()\n    attempts = 0\n    while len(pool) < 11 and attempts < 300:\n        attempts += 1\n        c1 = rng.choice(letters)\n        c2 = rng.choice(letters)\n        left3 = rng.choice(letters)\n        right3 = rng.choice(letters)\n        top = c1 + rng.choice(letters) + rng.choice(letters) + c2\n        left = c1 + rng.choice(letters) + rng.choice(letters) + left3\n        right = c2 + rng.choice(letters) + rng.choice(letters) + right3\n        bottom = left3 + rng.choice(letters) + rng.choice(letters) + right3\n        cand = {top, left, right, bottom}\n        if len(cand) == 4 and len(pool | cand) <= 15:\n            pool |= cand\n    alphabet = 'abcdefghijklmnopqrstuvwxyz'\n    while len(pool) < 15:\n        w = ''.join(rng.choice(alphabet) for _ in range(4))\n        pool.add(w)\n    words = list(pool)\n    rng.shuffle(words)\n    return [words]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def wordSquares(self, words):\n        n = len(words)\n        result = []\n        for i in range(n):\n            top = words[i]\n            for j in range(n):\n                if j == i:\n                    continue\n                left = words[j]\n                if left[0] != top[0]:\n                    continue\n                for k in range(n):\n                    if k == i or k == j:\n                        continue\n                    right = words[k]\n                    if right[0] != top[3]:\n                        continue\n                    for l in range(n):\n                        if l == i or l == j or l == k:\n                            continue\n                        bottom = words[l]\n                        if bottom[0] == left[3] and bottom[3] == right[3]:\n                            result.append([top, left, right, bottom])\n        result.sort()\n        return result\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\nclass Solution:\n    def wordSquares(self, words):\n        by_first = defaultdict(list)\n        for w in words:\n            by_first[w[0]].append(w)\n        result = []\n        for top in words:\n            for left in by_first.get(top[0], []):\n                if left == top:\n                    continue\n                for right in by_first.get(top[3], []):\n                    if right == top or right == left:\n                        continue\n                    for bottom in by_first.get(left[3], []):\n                        if bottom == top or bottom == left or bottom == right:\n                            continue\n                        if bottom[3] == right[3]:\n                            result.append([top, left, right, bottom])\n        result.sort()\n        return result\n",
+    "javascript": "var wordSquares = function(words) {\n    const byFirst = new Map();\n    for (const w of words) {\n        const key = w[0];\n        if (!byFirst.has(key)) byFirst.set(key, []);\n        byFirst.get(key).push(w);\n    }\n    const result = [];\n    for (const top of words) {\n        for (const left of byFirst.get(top[0]) || []) {\n            if (left === top) continue;\n            for (const right of byFirst.get(top[3]) || []) {\n                if (right === top || right === left) continue;\n                for (const bottom of byFirst.get(left[3]) || []) {\n                    if (bottom === top || bottom === left || bottom === right) continue;\n                    if (bottom[3] === right[3]) {\n                        result.push([top, left, right, bottom]);\n                    }\n                }\n            }\n        }\n    }\n    result.sort((a, b) => {\n        for (let i = 0; i < 4; i++) {\n            if (a[i] < b[i]) return -1;\n            if (a[i] > b[i]) return 1;\n        }\n        return 0;\n    });\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n^4)", "space": "O(n)" }
+}

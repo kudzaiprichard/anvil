@@ -1,0 +1,127 @@
+{
+  "slug": "minimum-time-to-break-locks-i",
+  "judge": "exact",
+  "pattern": "With at most 8 locks, the order you break them in is the only real decision, so search over subsets and let the sword's factor be a pure function of how many locks are already gone.",
+  "hints": [
+    "The sword's growth factor only depends on how many locks have already been broken, not which specific ones -- so track progress as a small bitmask.",
+    "For a fixed set of already-broken locks, the time to break one more specific lock is just enough minutes for the sword to reach that lock's strength at the current factor.",
+    "Build a table over all 2^n subsets, extending each subset by one unbroken lock at a time, and read off the entry for the full set."
+  ],
+  "constraints": [
+    {
+      "param": "strength",
+      "kind": "int[]",
+      "len": [
+        1,
+        8
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        10
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single lock",
+      "input": [
+        [
+          5
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two locks with equal strength",
+      "input": [
+        [
+          10,
+          10
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum eight locks, all at maximum strength",
+      "input": [
+        [
+          1000000,
+          1000000,
+          1000000,
+          1000000,
+          1000000,
+          1000000,
+          1000000,
+          1000000
+        ],
+        10
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k at its minimum value of one",
+      "input": [
+        [
+          3,
+          6,
+          9
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one very strong lock alongside several weak ones -- order matters",
+      "input": [
+        [
+          1000000,
+          1,
+          1,
+          1
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "strengths already sorted ascending, tempting but not always optimal to break in that order",
+      "input": [
+        [
+          2,
+          3,
+          5,
+          7
+        ],
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "the maximum eight locks with random strengths and a random k",
+      "seed": 501,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = 8\n    strength = [rng.randint(1, 1000000) for _ in range(n)]\n    k = rng.randint(1, 10)\n    return [strength, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMinimumTime(self, strength, k):\n        # independent re-derivation: try every explicit ordering of the locks\n        import itertools\n        best = None\n        for perm in itertools.permutations(range(len(strength))):\n            x = 1\n            total = 0\n            for idx in perm:\n                total += -(-strength[idx] // x)\n                x += k\n            if best is None or total < best:\n                best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMinimumTime(self, strength, k):\n        n = len(strength)\n        full = 1 << n\n        INF = float('inf')\n        dp = [INF] * full\n        dp[0] = 0\n        for mask in range(full):\n            if dp[mask] == INF:\n                continue\n            cnt = bin(mask).count('1')\n            x = 1 + cnt * k\n            for i in range(n):\n                if not (mask >> i) & 1:\n                    t = -(-strength[i] // x)\n                    nmask = mask | (1 << i)\n                    if dp[mask] + t < dp[nmask]:\n                        dp[nmask] = dp[mask] + t\n        return dp[full - 1]\n",
+    "javascript": "var findMinimumTime = function(strength, k) {\n    const n = strength.length;\n    const full = 1 << n;\n    const dp = new Array(full).fill(Infinity);\n    dp[0] = 0;\n    for (let mask = 0; mask < full; mask++) {\n        if (dp[mask] === Infinity) continue;\n        let cnt = 0;\n        for (let i = 0; i < n; i++) if (mask & (1 << i)) cnt++;\n        const x = 1 + cnt * k;\n        for (let i = 0; i < n; i++) {\n            if (!(mask & (1 << i))) {\n                const t = Math.ceil(strength[i] / x);\n                const nmask = mask | (1 << i);\n                if (dp[mask] + t < dp[nmask]) dp[nmask] = dp[mask] + t;\n            }\n        }\n    }\n    return dp[full - 1];\n};\n"
+  },
+  "complexity": {
+    "time": "O(2^n * n)",
+    "space": "O(2^n)"
+  }
+}

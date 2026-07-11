@@ -1,0 +1,49 @@
+{
+  "slug": "encrypt-and-decrypt-strings",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Decrypting word2 into every possible original string just to check dictionary membership is wasted work, because encryption is a deterministic function: precompute the encryption of every dictionary word once up front, and decrypt(word2) becomes a single hashmap lookup of how many dictionary words happen to encrypt to exactly word2.",
+  "hints": [
+    "encrypt is a simple per-character substitution using a map built from keys/values, and it fails (returns empty) the moment any character of the input isn't in that map.",
+    "decrypt could enumerate every possible decoding of word2 (since a 2-character code may map back to more than one key) and check each candidate against the dictionary, but that's exponential in the worst case and unnecessary.",
+    "Notice: a candidate original string x is 'a possible decryption of word2 that appears in dictionary' exactly when x is in dictionary AND encrypting x (the same one-way process used by encrypt) produces word2 — encryption is deterministic even though decryption isn't. So in the constructor, encrypt every dictionary word once and count occurrences of each resulting string in a hashmap; decrypt(word2) is then just that hashmap's count for word2 (0 if absent)."
+  ],
+  "constraints": [
+    { "param": "keys", "kind": "char[]", "len": [1, 26] },
+    { "param": "values", "kind": "string[]", "len": [1, 26] },
+    { "param": "dictionary", "kind": "string[]", "len": [1, 100] },
+    { "param": "word1", "kind": "string", "len": [1, 2000] },
+    { "param": "word2", "kind": "string", "len": [2, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: encrypt a word, then decrypt an encrypted string that has two dictionary-valid decodings",
+      "input": [["Encrypter", "encrypt", "decrypt"], [[["a", "b", "c", "d"], ["ei", "zf", "ei", "am"], ["abcd", "acbd", "adbc", "badc", "dacb", "cadb", "cbda", "abad"]], ["abcd"], ["eizfeiam"]]] },
+    { "kind": "trap", "description": "encrypting a character not present in keys returns an empty string",
+      "input": [["Encrypter", "encrypt", "encrypt"], [[["a", "b"], ["xy", "yz"], ["ab", "ba"]], ["ab"], ["abc"]]] },
+    { "kind": "trap", "description": "a word2 whose second two-character chunk has no matching value at all decrypts to zero, never crashing",
+      "input": [["Encrypter", "decrypt", "decrypt"], [[["a", "b"], ["xy", "yz"], ["ab", "ba"]], ["xyzz"], ["xyyz"]]] },
+    { "kind": "trap", "description": "an encryptable word2 whose only possible decryption is not in dictionary decrypts to zero",
+      "input": [["Encrypter", "decrypt"], [[["a", "b", "c"], ["xy", "yz", "zw"], ["ab", "ba"]], ["xyzw"]]] },
+    { "kind": "boundary", "description": "single-character keys/values/dictionary, minimum sizes all around",
+      "input": [["Encrypter", "encrypt", "decrypt"], [[["a"], ["zz"], ["a"]], ["a"], ["zz"]]] },
+    { "kind": "trap", "description": "duplicate values for different keys create multiple valid decryptions of the same code, and every one present in dictionary must be counted",
+      "input": [["Encrypter", "decrypt"], [[["a", "b", "c"], ["qq", "qq", "qq"], ["a", "b", "c", "ab"]], ["qq"]]] },
+    { "kind": "edge", "description": "many calls to encrypt and decrypt on the same instance reuse the precomputed dictionary-encryption map correctly each time",
+      "input": [["Encrypter", "encrypt", "decrypt", "encrypt", "decrypt"], [[["a", "b", "c"], ["ei", "zf", "am"], ["abc", "cab", "bac"]], ["abc"], ["eizfam"], ["cab"], ["ameizf"]]] }
+  ],
+  "stress": [
+    {
+      "description": "a small random key alphabet with some duplicate values, a modest dictionary built only from those keys, and many encrypt/decrypt calls",
+      "seed": 47,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    import string\n    alphabet = list(string.ascii_lowercase[:8])\n    rng.shuffle(alphabet)\n    keys = alphabet[:6]\n    consonants = 'bcdfghjklmnpqrstvwxyz'\n    vowels = 'aeiou'\n    values = [rng.choice(consonants) + rng.choice(vowels) for _ in keys]\n    dictionary = set()\n    while len(dictionary) < 12:\n        length = rng.randint(1, 6)\n        word = ''.join(rng.choice(keys) for _ in range(length))\n        dictionary.add(word)\n    dictionary = list(dictionary)\n    ops = ['Encrypter']\n    args = [[keys, values, dictionary]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.5:\n            length = rng.randint(1, 6)\n            word1 = ''.join(rng.choice(keys) for _ in range(length))\n            ops.append('encrypt'); args.append([word1])\n        else:\n            n_chunks = rng.randint(1, 4)\n            word2 = ''.join(rng.choice(values) for _ in range(n_chunks))\n            ops.append('decrypt'); args.append([word2])\n    return [ops, args]\n",
+      "note": "a 6-key alphabet with some duplicate 2-letter codes keeps the oracle's per-chunk branching small (bounded decode tree) while still exercising multi-way decryption"
+    }
+  ],
+  "oracle_python": "from itertools import product\n\nclass Encrypter:\n    def __init__(self, keys, values, dictionary):\n        self.keys = keys\n        self.values = values\n        self.dictionary = set(dictionary)\n\n    def encrypt(self, word1):\n        result = []\n        for c in word1:\n            if c not in self.keys:\n                return ''\n            i = self.keys.index(c)\n            result.append(self.values[i])\n        return ''.join(result)\n\n    def decrypt(self, word2):\n        chunks = [word2[i:i + 2] for i in range(0, len(word2), 2)]\n        options = []\n        for ch in chunks:\n            matches = [self.keys[i] for i in range(len(self.values)) if self.values[i] == ch]\n            if not matches:\n                return 0\n            options.append(matches)\n        count = 0\n        for combo in product(*options):\n            if ''.join(combo) in self.dictionary:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Encrypter:\n    def __init__(self, keys, values, dictionary):\n        self.enc_map = {k: v for k, v in zip(keys, values)}\n        self.count = {}\n        for word in dictionary:\n            enc = self._encrypt_or_none(word)\n            if enc is not None:\n                self.count[enc] = self.count.get(enc, 0) + 1\n\n    def _encrypt_or_none(self, word):\n        parts = []\n        for c in word:\n            if c not in self.enc_map:\n                return None\n            parts.append(self.enc_map[c])\n        return ''.join(parts)\n\n    def encrypt(self, word1):\n        result = self._encrypt_or_none(word1)\n        return result if result is not None else ''\n\n    def decrypt(self, word2):\n        return self.count.get(word2, 0)\n",
+    "javascript": "class Encrypter {\n    constructor(keys, values, dictionary) {\n        this.encMap = new Map();\n        for (let i = 0; i < keys.length; i++) this.encMap.set(keys[i], values[i]);\n        this.count = new Map();\n        for (const word of dictionary) {\n            const enc = this._encryptOrNull(word);\n            if (enc !== null) this.count.set(enc, (this.count.get(enc) || 0) + 1);\n        }\n    }\n\n    _encryptOrNull(word) {\n        let out = '';\n        for (const c of word) {\n            if (!this.encMap.has(c)) return null;\n            out += this.encMap.get(c);\n        }\n        return out;\n    }\n\n    encrypt(word1) {\n        const r = this._encryptOrNull(word1);\n        return r === null ? '' : r;\n    }\n\n    decrypt(word2) {\n        return this.count.get(word2) || 0;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) build, O(word length) per call", "space": "O(n)" }
+}

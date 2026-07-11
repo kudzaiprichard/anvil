@@ -1,0 +1,45 @@
+{
+  "slug": "make-string-a-subsequence-using-cyclic-increments",
+  "judge": "exact",
+  "pattern": "Since the single allowed operation can bump any subset of characters, a greedy left-to-right match that accepts either the original or the bumped character is always at least as good as any smarter strategy.",
+  "hints": [
+    "You never have to decide up front which characters to bump; deciding as you scan str1 left to right and matching str2 greedily works just as well.",
+    "At each character of str1, ask whether it (unchanged) or its cyclic successor equals the character str2 is currently waiting for, and advance str2's pointer the moment either one matches.",
+    "'z' cycles back to 'a', not to '{'; once str2's pointer reaches the end of str2 you are done, whether or not str1 has more characters left."
+  ],
+  "constraints": [
+    { "param": "str1", "kind": "string", "len": [1, 100000] },
+    { "param": "str2", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one bump at the end is enough", "input": ["abc", "ad"] },
+    { "kind": "edge", "description": "every character of str1 needs to be bumped", "input": ["zc", "ad"] },
+    { "kind": "edge", "description": "no bump can reach the target letter", "input": ["ab", "d"] },
+    { "kind": "trap", "description": "'z' must wrap to 'a', not fail or overflow", "input": ["zzz", "aaa"] },
+    { "kind": "trap", "description": "str2 already matches without needing any bump at all", "input": ["abcde", "ace"] },
+    { "kind": "boundary", "description": "single character str1 and str2, exact match with no bump needed", "input": ["m", "m"] },
+    { "kind": "boundary", "description": "single character str1 and str2, match only via one bump", "input": ["y", "z"] },
+    { "kind": "trap", "description": "str2 is longer than what str1 can ever satisfy as a subsequence", "input": ["ab", "abc"] },
+    { "kind": "edge", "description": "greedy must not bump a character it does not need to, saving the option for later", "input": ["ba", "ab"] }
+  ],
+  "stress": [
+    {
+      "description": "100k-length str1 and str2 of matching case-shifted letters, exercising the full greedy scan",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    str1 = ''.join(chr(ord('a') + rng.randrange(0, 26)) for _ in range(n))\n    m = max(1, n // 2)\n    str2_chars = []\n    for _ in range(m):\n        c = chr(ord('a') + rng.randrange(0, 26))\n        if rng.random() < 0.5:\n            c = chr(ord('a') + (ord(c) - ord('a') + 1) % 26)\n        str2_chars.append(c)\n    return [str1, ''.join(str2_chars)]\n"
+    },
+    {
+      "description": "100k identical 'a' characters in str1 against a str2 that alternates needing a bump or not",
+      "seed": 13,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    str1 = 'a' * n\n    m = max(1, n // 3)\n    str2 = ''.join('a' if i % 2 == 0 else 'b' for i in range(m))\n    return [str1, str2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canMakeSubsequence(self, str1, str2):\n        def bumped(c):\n            return chr((ord(c) - ord('a') + 1) % 26 + ord('a'))\n        n, m = len(str1), len(str2)\n        dp = [[False] * (m + 1) for _ in range(n + 1)]\n        for i in range(n + 1):\n            dp[i][0] = True\n        for i in range(1, n + 1):\n            for j in range(1, m + 1):\n                dp[i][j] = dp[i - 1][j]\n                if not dp[i][j]:\n                    c = str1[i - 1]\n                    if c == str2[j - 1] or bumped(c) == str2[j - 1]:\n                        dp[i][j] = dp[i - 1][j - 1]\n        return dp[n][m]\n",
+  "solutions": {
+    "python": "class Solution:\n    def canMakeSubsequence(self, str1, str2):\n        m = len(str2)\n        j = 0\n        for c in str1:\n            if j == m:\n                break\n            bumped = chr((ord(c) - ord('a') + 1) % 26 + ord('a'))\n            if c == str2[j] or bumped == str2[j]:\n                j += 1\n        return j == m\n",
+    "javascript": "var canMakeSubsequence = function(str1, str2) {\n    const m = str2.length;\n    let j = 0;\n    for (let i = 0; i < str1.length && j < m; i++) {\n        const code = str1.charCodeAt(i) - 97;\n        const bumped = String.fromCharCode(((code + 1) % 26) + 97);\n        if (str1[i] === str2[j] || bumped === str2[j]) {\n            j++;\n        }\n    }\n    return j === m;\n};\n"
+  },
+  "complexity": { "time": "O(n + m)", "space": "O(1)" }
+}

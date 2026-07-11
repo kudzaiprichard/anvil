@@ -1,0 +1,38 @@
+{
+  "slug": "range-product-queries-of-powers",
+  "judge": "exact",
+  "pattern": "The minimal powers of two summing to n are exactly n's set bits; a prefix sum of their exponents turns each product query into modular exponentiation.",
+  "hints": [
+    "The unique minimal set of powers of two summing to n is just the binary representation of n, taken from the lowest bit up.",
+    "Multiplying a contiguous run of these powers means adding their exponents, so track a prefix sum of exponents.",
+    "For a query [l, r], the answer is 2 raised to (prefix[r+1] - prefix[l]) taken modulo 1e9+7 via fast exponentiation."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000000000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "value": [0, 30] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "several powers with overlapping ranges", "input": [15, [[0, 1], [2, 2], [0, 3]]] },
+    { "kind": "boundary", "description": "single power, single query", "input": [2, [[0, 0]]] },
+    { "kind": "trap", "description": "n is one so the only power is two-to-the-zero", "input": [1, [[0, 0]]] },
+    { "kind": "edge", "description": "power of two n has a single element", "input": [16, [[0, 0]]] },
+    { "kind": "trap", "description": "full range product of all bits", "input": [255, [[0, 7], [3, 5], [0, 0]]] },
+    { "kind": "boundary", "description": "large n with many set bits", "input": [1000000000, [[0, 0], [5, 10]]] },
+    { "kind": "edge", "description": "repeated identical queries", "input": [13, [[0, 2], [0, 2], [1, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random n and many valid in-range queries against its bit count",
+      "seed": 19,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 10**9)\n    bits = bin(n).count('1')\n    q = rng.randint(1, max(1, size))\n    queries = []\n    for _ in range(q):\n        l = rng.randint(0, bits - 1)\n        r = rng.randint(l, bits - 1)\n        queries.append([l, r])\n    return [n, queries]\n",
+      "note": "indices clamped to the number of set bits so every query is valid"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def productQueries(self, n, queries):\n        MOD = 10**9 + 7\n        powers = []\n        b = 0\n        while n > 0:\n            if n & 1:\n                powers.append(1 << b)\n            n >>= 1\n            b += 1\n        ans = []\n        for l, r in queries:\n            p = 1\n            for j in range(l, r + 1):\n                p = (p * powers[j]) % MOD\n            ans.append(p)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def productQueries(self, n, queries):\n        MOD = 10**9 + 7\n        exps = []\n        b = 0\n        while n > 0:\n            if n & 1:\n                exps.append(b)\n            n >>= 1\n            b += 1\n        prefix = [0] * (len(exps) + 1)\n        for i, e in enumerate(exps):\n            prefix[i + 1] = prefix[i] + e\n        ans = []\n        for l, r in queries:\n            total_exp = prefix[r + 1] - prefix[l]\n            ans.append(pow(2, total_exp, MOD))\n        return ans\n",
+    "javascript": "var productQueries = function(n, queries) {\n    const MOD = 1000000007n;\n    const exps = [];\n    let b = 0;\n    let m = n;\n    while (m > 0) {\n        if (m & 1) exps.push(b);\n        m >>= 1;\n        b++;\n    }\n    const prefix = new Array(exps.length + 1).fill(0);\n    for (let i = 0; i < exps.length; i++) prefix[i + 1] = prefix[i] + exps[i];\n    const modpow = (base, exp) => {\n        let result = 1n;\n        base %= MOD;\n        while (exp > 0n) {\n            if (exp & 1n) result = (result * base) % MOD;\n            base = (base * base) % MOD;\n            exp >>= 1n;\n        }\n        return result;\n    };\n    const ans = [];\n    for (const [l, r] of queries) {\n        const totalExp = BigInt(prefix[r + 1] - prefix[l]);\n        ans.push(Number(modpow(2n, totalExp)));\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(b + q*log)", "space": "O(b)" }
+}

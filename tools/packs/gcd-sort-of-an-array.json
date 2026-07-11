@@ -1,0 +1,38 @@
+{
+  "slug": "gcd-sort-of-an-array",
+  "judge": "exact",
+  "pattern": "Swapping two values whose gcd exceeds one is really an edge between them in a graph, and any two values connected through a chain of such edges can end up in either order; so group every value with its prime factors under one union-find structure and check that each position's original value shares a group with the value that must end up there.",
+  "hints": [
+    "Two numbers can be swapped directly only when they share a common factor greater than one, but repeated swaps let values move through anyone else reachable via a chain of shared factors.",
+    "Instead of connecting values pairwise (too slow for large arrays), connect each value to every prime factor it has, using a union-find whose universe spans both the numbers present and the small primes up to the largest value.",
+    "Sort a copy of the array; the original can be rearranged into that sorted order exactly when, at every position, the original value and the sorted value it must become belong to the same union-find group."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 30000], "value": [2, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all three values share pairwise factors", "input": [[7, 21, 3]] },
+    { "kind": "edge", "description": "a value repeats but the group still cannot fully sort", "input": [[5, 2, 6, 2]] },
+    { "kind": "edge", "description": "several values chained through shared factors", "input": [[10, 5, 9, 3, 15]] },
+    { "kind": "boundary", "description": "single value is trivially already sorted", "input": [[5]] },
+    { "kind": "boundary", "description": "already sorted and pairwise coprime", "input": [[2, 3, 5]] },
+    { "kind": "trap", "description": "two coprime values out of order can never swap", "input": [[5, 3]] },
+    { "kind": "trap", "description": "two values sharing a factor swap into place", "input": [[6, 4]] },
+    { "kind": "boundary", "description": "two equal values at the extreme upper bound", "input": [[100000, 100000]] },
+    { "kind": "trap", "description": "two separate connected groups that individually sort but not against each other", "input": [[2, 9, 3, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "large random arrays across the full value range",
+      "seed": 19,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 30000))\n    return [[rng.randint(2, 100000) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def gcdSort(self, nums):\n        import math\n        n = len(nums)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for i in range(n):\n            for j in range(i + 1, n):\n                if math.gcd(nums[i], nums[j]) > 1:\n                    union(i, j)\n        order = sorted(range(n), key=lambda i: nums[i])\n        for pos, orig in enumerate(order):\n            if find(pos) != find(orig):\n                return False\n        return True\n",
+  "solutions": {
+    "python": "class Solution:\n    def gcdSort(self, nums):\n        max_val = max(nums)\n        spf = list(range(max_val + 1))\n        i = 2\n        while i * i <= max_val:\n            if spf[i] == i:\n                for j in range(i * i, max_val + 1, i):\n                    if spf[j] == j:\n                        spf[j] = i\n            i += 1\n        parent = list(range(max_val + 1))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for v in set(nums):\n            x = v\n            while x > 1:\n                p = spf[x]\n                union(v, p)\n                while x % p == 0:\n                    x //= p\n        sorted_nums = sorted(nums)\n        for a, b in zip(nums, sorted_nums):\n            if find(a) != find(b):\n                return False\n        return True\n",
+    "javascript": "var gcdSort = function(nums) {\n    const maxVal = Math.max(...nums);\n    const spf = new Int32Array(maxVal + 1);\n    for (let i = 0; i <= maxVal; i++) spf[i] = i;\n    for (let i = 2; i * i <= maxVal; i++) {\n        if (spf[i] === i) {\n            for (let j = i * i; j <= maxVal; j += i) {\n                if (spf[j] === j) spf[j] = i;\n            }\n        }\n    }\n    const parent = new Int32Array(maxVal + 1);\n    for (let i = 0; i <= maxVal; i++) parent[i] = i;\n    const find = (x) => {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    };\n    const union = (a, b) => {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent[ra] = rb;\n    };\n    const seen = new Set(nums);\n    for (const v of seen) {\n        let x = v;\n        while (x > 1) {\n            const p = spf[x];\n            union(v, p);\n            while (x % p === 0) x = Math.floor(x / p);\n        }\n    }\n    const sortedNums = nums.slice().sort((a, b) => a - b);\n    for (let i = 0; i < nums.length; i++) {\n        if (find(nums[i]) !== find(sortedNums[i])) return false;\n    }\n    return true;\n};\n"
+  },
+  "complexity": { "time": "O(n log(maxVal))", "space": "O(maxVal)" }
+}

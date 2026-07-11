@@ -1,0 +1,214 @@
+{
+  "slug": "maximum-profit-in-job-scheduling",
+  "judge": "exact",
+  "pattern": "Sort jobs by end time and use DP with binary search: for each job, the best profit is either skipping it or taking it and adding the best profit from non-overlapping jobs before its start.",
+  "hints": [
+    "Sort jobs by end time. For each job you face a choice: take it (earning profit plus the best you can do before its start time) or skip it.",
+    "You need the maximum profit achievable up to a certain end time; binary search on the sorted end-time array finds the latest non-conflicting job in O(log n).",
+    "Build a DP array where dp[i] holds the best profit using the first i end-time-sorted jobs; dp[i] = max(dp[i-1], profit[i] + dp[j]) where j is the largest index with end[j] <= start[i]."
+  ],
+  "constraints": [
+    {
+      "param": "startTime",
+      "kind": "int[]",
+      "len": [
+        1,
+        50000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "endTime",
+      "kind": "int[]",
+      "len": [
+        1,
+        50000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "profit",
+      "kind": "int[]",
+      "len": [
+        1,
+        50000
+      ],
+      "value": [
+        1,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two jobs that share an end/start boundary — can take both",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          3
+        ],
+        [
+          3,
+          4,
+          5,
+          6
+        ],
+        [
+          50,
+          10,
+          40,
+          70
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all jobs overlap; pick the single most profitable",
+      "input": [
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          5,
+          6,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "chain of non-overlapping high-value jobs",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        [
+          3,
+          5,
+          10,
+          6,
+          9
+        ],
+        [
+          20,
+          20,
+          100,
+          70,
+          60
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single job",
+      "input": [
+        [
+          5
+        ],
+        [
+          10
+        ],
+        [
+          42
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "greedy by profit alone fails; longer cheap chain beats one expensive job",
+      "input": [
+        [
+          1,
+          4
+        ],
+        [
+          4,
+          7
+        ],
+        [
+          5,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "high-profit late job that requires skipping several mid-range ones",
+      "input": [
+        [
+          1,
+          3,
+          5,
+          7
+        ],
+        [
+          3,
+          5,
+          7,
+          9
+        ],
+        [
+          10,
+          10,
+          10,
+          100
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two jobs with same start and end — pick the better one",
+      "input": [
+        [
+          2,
+          2
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          10,
+          20
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "dense random jobs over a compressed time range",
+      "seed": 23,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    jobs = []\n    for _ in range(n):\n        s = rng.randint(1, 10000)\n        e = rng.randint(s + 1, s + 500)\n        p = rng.randint(1, 10000)\n        jobs.append((s, e, p))\n    starts = [j[0] for j in jobs]\n    ends = [j[1] for j in jobs]\n    profits = [j[2] for j in jobs]\n    return [starts, ends, profits]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def jobScheduling(self, startTime, endTime, profit):\n        jobs = sorted(zip(endTime, startTime, profit))\n        n = len(jobs)\n        dp = [0] * (n + 1)\n        for i in range(n):\n            e, s, p = jobs[i]\n            best = p\n            for j in range(i):\n                if jobs[j][0] <= s:\n                    best = max(best, dp[j + 1] + p)\n            dp[i + 1] = max(dp[i], best)\n        return dp[n]\n",
+  "solutions": {
+    "python": "class Solution:\n    def jobScheduling(self, startTime, endTime, profit):\n        import bisect\n        jobs = sorted(zip(endTime, startTime, profit))\n        n = len(jobs)\n        ends = [j[0] for j in jobs]\n        dp = [0] * (n + 1)\n        for i, (e, s, p) in enumerate(jobs):\n            j = bisect.bisect_right(ends, s) - 1\n            take = dp[j + 1] + p\n            dp[i + 1] = max(dp[i], take)\n        return dp[n]\n",
+    "javascript": "var jobScheduling = function(startTime, endTime, profit) {\n    const n = startTime.length;\n    const jobs = [];\n    for (let i = 0; i < n; i++) jobs.push([endTime[i], startTime[i], profit[i]]);\n    jobs.sort((a, b) => a[0] - b[0]);\n    const ends = jobs.map(j => j[0]);\n    const dp = new Array(n + 1).fill(0);\n    const bs = (t) => {\n        let lo = 0, hi = ends.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (ends[mid] <= t) lo = mid + 1; else hi = mid;\n        }\n        return lo - 1;\n    };\n    for (let i = 0; i < n; i++) {\n        const [e, s, p] = jobs[i];\n        const j = bs(s);\n        dp[i + 1] = Math.max(dp[i], dp[j + 1] + p);\n    }\n    return dp[n];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

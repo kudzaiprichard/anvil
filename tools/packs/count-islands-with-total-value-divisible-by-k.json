@@ -1,0 +1,38 @@
+{
+  "slug": "count-islands-with-total-value-divisible-by-k",
+  "judge": "exact",
+  "pattern": "Flood-fill each 4-connected component of positive cells, accumulate its summed value, and count the components whose total is divisible by k.",
+  "hints": [
+    "Land is any positive cell; zeros are water. Two land cells belong to the same island when connected horizontally or vertically.",
+    "Walk the grid; when you find an unvisited land cell, explore its whole connected component while summing the values you visit.",
+    "After computing each island's total value, increment the answer when that total modulo k is zero."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "value": [0, 1000000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed islands, two divisible by 5", "input": [[[0, 2, 1, 0, 0], [0, 5, 0, 0, 5], [0, 0, 1, 0, 0], [0, 1, 4, 7, 0], [0, 2, 0, 0, 8]], 5] },
+    { "kind": "edge", "description": "six single-cell islands all divisible by 3", "input": [[[3, 0, 3, 0], [0, 3, 0, 3], [3, 0, 3, 0]], 3] },
+    { "kind": "edge", "description": "all water, no islands", "input": [[[0, 0], [0, 0]], 1] },
+    { "kind": "boundary", "description": "single land cell divisible by k", "input": [[[6]], 3] },
+    { "kind": "boundary", "description": "single land cell not divisible by k", "input": [[[7]], 3] },
+    { "kind": "trap", "description": "one large island whose total is divisible but individual cells are not", "input": [[[1, 2], [3, 4]], 10] },
+    { "kind": "trap", "description": "diagonal-only contact does not connect cells", "input": [[[3, 0], [0, 3]], 3] }
+  ],
+  "stress": [
+    {
+      "description": "random grid of small values and zeros so many islands form with varied totals",
+      "seed": 31,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(30, size)))\n    n = rng.randint(1, max(1, min(30, size)))\n    grid = [[(rng.randint(1, 9) if rng.random() < 0.55 else 0) for _ in range(n)] for _ in range(m)]\n    k = rng.randint(1, 10)\n    return [grid, k]\n",
+      "note": "iterative flood fill avoids recursion limits"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countIslands(self, grid, k):\n        m = len(grid)\n        n = len(grid[0])\n        # union-find over land cells\n        parent = list(range(m * n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        for r in range(m):\n            for c in range(n):\n                if grid[r][c] > 0:\n                    if r + 1 < m and grid[r + 1][c] > 0:\n                        union(r * n + c, (r + 1) * n + c)\n                    if c + 1 < n and grid[r][c + 1] > 0:\n                        union(r * n + c, r * n + c + 1)\n        totals = {}\n        for r in range(m):\n            for c in range(n):\n                if grid[r][c] > 0:\n                    root = find(r * n + c)\n                    totals[root] = totals.get(root, 0) + grid[r][c]\n        return sum(1 for v in totals.values() if v % k == 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def countIslands(self, grid, k):\n        m = len(grid)\n        n = len(grid[0])\n        seen = [[False] * n for _ in range(m)]\n        ans = 0\n        for r in range(m):\n            for c in range(n):\n                if grid[r][c] > 0 and not seen[r][c]:\n                    stack = [(r, c)]\n                    seen[r][c] = True\n                    total = 0\n                    while stack:\n                        x, y = stack.pop()\n                        total += grid[x][y]\n                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                            nx, ny = x + dx, y + dy\n                            if 0 <= nx < m and 0 <= ny < n and grid[nx][ny] > 0 and not seen[nx][ny]:\n                                seen[nx][ny] = True\n                                stack.append((nx, ny))\n                    if total % k == 0:\n                        ans += 1\n        return ans\n",
+    "javascript": "var countIslands = function(grid, k) {\n    const m = grid.length, n = grid[0].length;\n    const seen = Array.from({length: m}, () => new Array(n).fill(false));\n    let ans = 0;\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            if (grid[r][c] > 0 && !seen[r][c]) {\n                const stack = [[r, c]];\n                seen[r][c] = true;\n                let total = 0;\n                while (stack.length) {\n                    const [x, y] = stack.pop();\n                    total += grid[x][y];\n                    for (const [dx, dy] of dirs) {\n                        const nx = x + dx, ny = y + dy;\n                        if (nx >= 0 && nx < m && ny >= 0 && ny < n && grid[nx][ny] > 0 && !seen[nx][ny]) {\n                            seen[nx][ny] = true;\n                            stack.push([nx, ny]);\n                        }\n                    }\n                }\n                if (total % k === 0) ans++;\n            }\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

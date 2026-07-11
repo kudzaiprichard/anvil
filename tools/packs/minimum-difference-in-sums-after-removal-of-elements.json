@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-difference-in-sums-after-removal-of-elements",
+  "judge": "exact",
+  "pattern": "Fixing the boundary between the kept first part and the kept second part turns the problem into two independent 'best n out of a prefix/suffix' subproblems, each of which a fixed-size heap tracks in a single sweep.",
+  "hints": [
+    "Whatever elements you remove, the kept first part and kept second part always meet at some split point, so try every possible split point and, for each one, work out the best possible sum on each side of it independently.",
+    "For a split after position i, the smallest possible sum of the first part is the sum of the n smallest values among the first i elements -- track that with a fixed-size max-heap that only ever holds the n smallest values seen so far, evicting the current largest whenever the heap grows past size n.",
+    "Do the mirror computation from the right: for a split at position i, the largest possible sum of the second part is the sum of the n largest values among the elements from i to the end, tracked by a fixed-size min-heap that evicts its current smallest whenever it grows past size n; then the answer is the minimum, over every valid split point, of prefix-best-sum minus suffix-best-sum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [3, 300000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, n = 1", "input": [[3, 1, 2]] },
+    { "kind": "edge", "description": "statement example, n = 2", "input": [[7, 9, 5, 8, 1, 3]] },
+    { "kind": "boundary", "description": "smallest possible size, n = 1, three elements", "input": [[5, 1, 9]] },
+    { "kind": "trap", "description": "all elements identical, difference must come out to zero", "input": [[4, 4, 4, 4, 4, 4]] },
+    { "kind": "trap", "description": "already sorted ascending, tempting a naive fixed split at the midpoint", "input": [[1, 2, 3, 4, 5, 6]] },
+    { "kind": "trap", "description": "already sorted descending", "input": [[9, 8, 7, 3, 2, 1]] },
+    { "kind": "edge", "description": "n = 3 with a mix of small and large values", "input": [[1, 100000, 2, 99999, 3, 99998, 4, 99997, 1]] },
+    { "kind": "boundary", "description": "every value at the maximum constraint bound", "input": [[100000, 100000, 100000, 100000, 100000, 100000]] }
+  ],
+  "stress": [
+    {
+      "description": "n at 100000 (300000 elements total) with random values across the full range, exercising both heaps at real scale",
+      "seed": 8,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 100000) for _ in range(3 * n)]\n    return [nums]\n",
+      "note": "n is derived from size so total length stays an exact multiple of three"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\nclass Solution:\n    def minimumDifference(self, nums):\n        total = len(nums)\n        n = total // 3\n        idxs = list(range(total))\n        best = None\n        for remove in combinations(idxs, n):\n            rs = set(remove)\n            keep = [nums[i] for i in idxs if i not in rs]\n            first = sum(keep[:n])\n            second = sum(keep[n:])\n            diff = first - second\n            if best is None or diff < best:\n                best = diff\n        return best\n",
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def minimumDifference(self, nums):\n        total = len(nums)\n        n = total // 3\n        prefix = [0] * (2 * n + 1)\n        heap = []\n        s = 0\n        for i in range(2 * n):\n            val = nums[i]\n            heapq.heappush(heap, -val)\n            s += val\n            if len(heap) > n:\n                s += heapq.heappop(heap)\n            if i + 1 >= n:\n                prefix[i + 1] = s\n        suffix = [0] * (2 * n + 1)\n        heap2 = []\n        s2 = 0\n        for i in range(total - 1, n - 1, -1):\n            val = nums[i]\n            heapq.heappush(heap2, val)\n            s2 += val\n            if len(heap2) > n:\n                s2 -= heapq.heappop(heap2)\n            if i <= 2 * n:\n                suffix[i] = s2\n        best = None\n        for i in range(n, 2 * n + 1):\n            diff = prefix[i] - suffix[i]\n            if best is None or diff < best:\n                best = diff\n        return best\n",
+    "javascript": "function MinHeap() {\n    this.a = [];\n}\nMinHeap.prototype.push = function(v) {\n    const a = this.a;\n    a.push(v);\n    let i = a.length - 1;\n    while (i > 0) {\n        const p = (i - 1) >> 1;\n        if (a[p] <= a[i]) break;\n        const tmp = a[p]; a[p] = a[i]; a[i] = tmp;\n        i = p;\n    }\n};\nMinHeap.prototype.pop = function() {\n    const a = this.a;\n    const top = a[0];\n    const last = a.pop();\n    if (a.length > 0) {\n        a[0] = last;\n        let i = 0;\n        const n = a.length;\n        while (true) {\n            let l = 2 * i + 1, r = 2 * i + 2, smallest = i;\n            if (l < n && a[l] < a[smallest]) smallest = l;\n            if (r < n && a[r] < a[smallest]) smallest = r;\n            if (smallest === i) break;\n            const tmp = a[i]; a[i] = a[smallest]; a[smallest] = tmp;\n            i = smallest;\n        }\n    }\n    return top;\n};\nMinHeap.prototype.size = function() { return this.a.length; };\n\nvar minimumDifference = function(nums) {\n    const total = nums.length;\n    const n = Math.floor(total / 3);\n    const prefix = new Array(2 * n + 1).fill(0);\n    const maxHeap = new MinHeap();\n    let s = 0;\n    for (let i = 0; i < 2 * n; i++) {\n        const val = nums[i];\n        maxHeap.push(-val);\n        s += val;\n        if (maxHeap.size() > n) {\n            s += maxHeap.pop();\n        }\n        if (i + 1 >= n) prefix[i + 1] = s;\n    }\n    const suffix = new Array(2 * n + 1).fill(0);\n    const minHeap = new MinHeap();\n    let s2 = 0;\n    for (let i = total - 1; i >= n; i--) {\n        const val = nums[i];\n        minHeap.push(val);\n        s2 += val;\n        if (minHeap.size() > n) {\n            s2 -= minHeap.pop();\n        }\n        if (i <= 2 * n) suffix[i] = s2;\n    }\n    let best = Infinity;\n    for (let i = n; i <= 2 * n; i++) {\n        best = Math.min(best, prefix[i] - suffix[i]);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

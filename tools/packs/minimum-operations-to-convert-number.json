@@ -1,0 +1,141 @@
+{
+  "slug": "minimum-operations-to-convert-number",
+  "judge": "exact",
+  "pattern": "Every value in [0, 1000] reachable from start is one BFS layer, and the moment any layer's frontier can jump straight to goal (even by leaving that range) gives the shortest operation count.",
+  "hints": [
+    "Treat every integer from 0 to 1000 as a graph node with edges x -> x+v, x-v, x^v for each v in nums, and search outward from start layer by layer.",
+    "A move landing exactly on goal always ends the search immediately, even if goal itself is outside 0..1000 -- that branch is simply not allowed to continue afterward.",
+    "Bound the frontier to values that stay within 0..1000 (besides the goal-hitting moves), since only those states can spawn further operations; the first BFS layer that reaches goal is the answer."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        -1000000000,
+        1000000000
+      ]
+    },
+    {
+      "param": "start",
+      "kind": "int",
+      "value": [
+        0,
+        1000
+      ]
+    },
+    {
+      "param": "goal",
+      "kind": "int",
+      "value": [
+        -1000000000,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "goal reached in a single addition",
+      "input": [
+        [
+          5
+        ],
+        3,
+        8
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "goal reached by jumping out of range in exactly one operation",
+      "input": [
+        [
+          999999999
+        ],
+        1,
+        1000000000
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "parity is preserved by every available operation, goal is unreachable",
+      "input": [
+        [
+          2
+        ],
+        0,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "must cross the entire 0..1000 range one step at a time",
+      "input": [
+        [
+          1
+        ],
+        0,
+        1000
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "negative goal reached only by repeatedly subtracting past zero",
+      "input": [
+        [
+          3,
+          5,
+          7
+        ],
+        1,
+        -6
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several candidate operations at each step, xor included",
+      "input": [
+        [
+          2,
+          4,
+          12
+        ],
+        2,
+        12
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "start already close to goal but the only operations overshoot",
+      "input": [
+        [
+          100
+        ],
+        0,
+        50
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random distinct operands with a start/goal pair unlikely to be trivially reachable",
+      "seed": 81,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 200))\n    nums = set()\n    while len(nums) < m:\n        nums.add(rng.randint(-1000000000, 1000000000))\n    nums = list(nums)\n    start = rng.randint(0, 1000)\n    goal = rng.randint(-1000000000, 1000000000)\n    while goal == start:\n        goal = rng.randint(-1000000000, 1000000000)\n    return [nums, start, goal]\n",
+      "note": "operand count capped so the O(1001 * m) BFS stays fast for both the primary solution and the full-completion oracle"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumOperations(self, nums, start, goal):\n        dist = {start: 0}\n        frontier = [start]\n        while frontier:\n            nxt_frontier = []\n            for x in frontier:\n                for v in nums:\n                    for y in (x + v, x - v, x ^ v):\n                        if 0 <= y <= 1000 and y not in dist:\n                            dist[y] = dist[x] + 1\n                            nxt_frontier.append(y)\n            frontier = nxt_frontier\n        best = None\n        for x, d in dist.items():\n            for v in nums:\n                for y in (x + v, x - v, x ^ v):\n                    if y == goal:\n                        if best is None or d + 1 < best:\n                            best = d + 1\n        return best if best is not None else -1\n",
+  "solutions": {
+    "python": "from collections import deque\n\n\nclass Solution:\n    def minimumOperations(self, nums, start, goal):\n        if start == goal:\n            return 0\n        visited = [False] * 1001\n        visited[start] = True\n        q = deque([start])\n        steps = 0\n        while q:\n            steps += 1\n            for _ in range(len(q)):\n                x = q.popleft()\n                for v in nums:\n                    for nxt in (x + v, x - v, x ^ v):\n                        if nxt == goal:\n                            return steps\n                        if 0 <= nxt <= 1000 and not visited[nxt]:\n                            visited[nxt] = True\n                            q.append(nxt)\n        return -1\n",
+    "javascript": "var minimumOperations = function(nums, start, goal) {\n    if (start === goal) return 0;\n    const visited = new Array(1001).fill(false);\n    visited[start] = true;\n    let queue = [start];\n    let steps = 0;\n    while (queue.length) {\n        steps++;\n        const next = [];\n        for (const x of queue) {\n            for (const v of nums) {\n                for (const nxt of [x + v, x - v, x ^ v]) {\n                    if (nxt === goal) return steps;\n                    if (nxt >= 0 && nxt <= 1000 && !visited[nxt]) {\n                        visited[nxt] = true;\n                        next.push(nxt);\n                    }\n                }\n            }\n        }\n        queue = next;\n    }\n    return -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(1001 * m)",
+    "space": "O(1001)"
+  }
+}

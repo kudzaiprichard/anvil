@@ -1,0 +1,44 @@
+{
+  "slug": "beautiful-towers-ii",
+  "judge": "exact",
+  "pattern": "Splitting the mountain at every candidate peak and using a monotonic stack to fold in prefix sums turns the naive quadratic scan into an O(n log n) sweep in each direction.",
+  "hints": [
+    "For a fixed peak index, the best left side is built by clamping each height to the minimum of its own cap and the height immediately to its right; the best right side mirrors this from the other end. Brute force tries every peak and rebuilds both sides in O(n), which is too slow once n is large.",
+    "Instead of rebuilding a side from scratch for each candidate peak, precompute for every index the maximum achievable sum of a non-decreasing run ending there (bounded by the caps), and separately the maximum sum of a non-increasing run starting there.",
+    "A monotonic stack computes those running sums in amortized O(n): when the current cap is smaller than the cap at the top of the stack, everything above it collapses to the same height as the current cap, so pop while popping and reuse the previously stored sum of the surviving prefix, then add cap * (distance to that surviving index). Combine left[i] + right[i] - cap[i] (the peak itself is shared by both sides) and take the maximum over every i."
+  ],
+  "constraints": [
+    { "param": "maxHeights", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single tower, trivially its own peak", "input": [[7]] },
+    { "kind": "edge", "description": "two equal caps form a flat plateau", "input": [[4, 4]] },
+    { "kind": "edge", "description": "already non-decreasing, peak sits at the last index", "input": [[1, 2, 3, 4, 5]] },
+    { "kind": "edge", "description": "already non-increasing, peak sits at the first index", "input": [[9, 7, 5, 3, 1]] },
+    { "kind": "edge", "description": "all caps equal, whole row can stand at full height", "input": [[6, 6, 6, 6, 6]] },
+    { "kind": "boundary", "description": "minimum cap value at every index", "input": [[1, 1, 1, 1, 1]] },
+    { "kind": "boundary", "description": "single index at the maximum allowed cap", "input": [[1000000000]] },
+    { "kind": "trap", "description": "a narrow deep dip between two very tall caps forces a shallow mountain through the middle", "input": [[1000000000, 1, 1000000000]] },
+    { "kind": "trap", "description": "zig-zag caps punish greedily picking the tallest cap as the peak", "input": [[4, 1, 4, 1, 4, 1, 4]] }
+  ],
+  "stress": [
+    {
+      "description": "uniformly random caps across a wide value range",
+      "seed": 501,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    arr = [rng.randint(1, 1000000000) for _ in range(n)]\n    return [arr]\n"
+    },
+    {
+      "description": "heavy plateaus from a tiny value alphabet, stresses the monotonic stack's tie handling",
+      "seed": 502,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 4000))\n    arr = [rng.randint(1, 5) for _ in range(n)]\n    return [arr]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumSumOfHeights(self, maxHeights):\n        n = len(maxHeights)\n        best = 0\n        for p in range(n):\n            heights = [0] * n\n            heights[p] = maxHeights[p]\n            for i in range(p - 1, -1, -1):\n                heights[i] = min(maxHeights[i], heights[i + 1])\n            for i in range(p + 1, n):\n                heights[i] = min(maxHeights[i], heights[i - 1])\n            best = max(best, sum(heights))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumSumOfHeights(self, maxHeights):\n        n = len(maxHeights)\n        left = [0] * n\n        stack = []\n        for i in range(n):\n            h = maxHeights[i]\n            while stack and maxHeights[stack[-1]] >= h:\n                stack.pop()\n            if stack:\n                j = stack[-1]\n                left[i] = left[j] + h * (i - j)\n            else:\n                left[i] = h * (i + 1)\n            stack.append(i)\n\n        right = [0] * n\n        stack = []\n        for i in range(n - 1, -1, -1):\n            h = maxHeights[i]\n            while stack and maxHeights[stack[-1]] >= h:\n                stack.pop()\n            if stack:\n                j = stack[-1]\n                right[i] = right[j] + h * (j - i)\n            else:\n                right[i] = h * (n - i)\n            stack.append(i)\n\n        return max(left[i] + right[i] - maxHeights[i] for i in range(n))\n",
+    "javascript": "var maximumSumOfHeights = function(maxHeights) {\n    const n = maxHeights.length;\n    const left = new Array(n).fill(0);\n    let stack = [];\n    for (let i = 0; i < n; i++) {\n        const h = maxHeights[i];\n        while (stack.length && maxHeights[stack[stack.length - 1]] >= h) stack.pop();\n        if (stack.length) {\n            const j = stack[stack.length - 1];\n            left[i] = left[j] + h * (i - j);\n        } else {\n            left[i] = h * (i + 1);\n        }\n        stack.push(i);\n    }\n    const right = new Array(n).fill(0);\n    stack = [];\n    for (let i = n - 1; i >= 0; i--) {\n        const h = maxHeights[i];\n        while (stack.length && maxHeights[stack[stack.length - 1]] >= h) stack.pop();\n        if (stack.length) {\n            const j = stack[stack.length - 1];\n            right[i] = right[j] + h * (j - i);\n        } else {\n            right[i] = h * (n - i);\n        }\n        stack.push(i);\n    }\n    let best = 0;\n    for (let i = 0; i < n; i++) best = Math.max(best, left[i] + right[i] - maxHeights[i]);\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

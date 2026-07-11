@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-operations-to-make-array-elements-zero",
+  "judge": "exact",
+  "pattern": "Every value only cares how many times it must be floor-divided by four before it hits zero, so a whole range collapses into a handful of buckets by that divide-count, and pairing the two neediest values every round is optimal, matching the classic max(largest requirement, half the total requirements) scheduling bound.",
+  "hints": [
+    "For a single number x, ask: how many times must you repeatedly floor-divide x by 4 before it becomes 0? That divide-count is all that matters about x -- two numbers with the same divide-count are interchangeable for this problem.",
+    "Within a range [l, r], group numbers by their divide-count: numbers from 4^(k-1) to 4^k - 1 all need exactly k divisions. You can compute, for each k, how many numbers in [l, r] fall in that bucket without listing them.",
+    "If the divide-counts of all numbers in the range sum to S and the largest single divide-count is M, the minimum number of pairing operations needed is max(M, ceil(S / 2)) -- work this out by imagining you always pair the two numbers that still need the most divisions."
+  ],
+  "constraints": [
+    { "param": "queries", "kind": "int[][]", "len": [1, 100000], "note": "each inner pair [l, r], 1<=l<r<=1000000000" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two queries with small overlapping ranges", "input": [[[1, 2], [2, 4]]] },
+    { "kind": "edge", "description": "statement example, one slightly larger range", "input": [[[2, 6]]] },
+    { "kind": "edge", "description": "a three-element range where every value shares the same divide-count", "input": [[[1, 3]]] },
+    { "kind": "boundary", "description": "the smallest legal range, exactly two consecutive values", "input": [[[1, 2]]] },
+    { "kind": "trap", "description": "a range that exactly spans one whole divide-count bucket (4 to 15, all needing 2 divisions)", "input": [[[4, 15]]] },
+    { "kind": "trap", "description": "a range straddling a bucket boundary, mixing divide-counts 1 and 2", "input": [[[3, 4]]] },
+    { "kind": "trap", "description": "a range straddling the boundary between divide-counts 2 and 3", "input": [[[15, 16]]] },
+    { "kind": "edge", "description": "several queries of different shapes summed together in one call", "input": [[[1, 2], [4, 15], [3, 4], [1, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random ranges spanning the full 1..1e9 domain, exercising every divide-count bucket",
+      "seed": 42,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    count = max(1, min(100000, size))\n    queries = []\n    for _ in range(count):\n        l = rng.randint(1, 999999999)\n        r = rng.randint(l + 1, 1000000000)\n        queries.append([l, r])\n    return [queries]\n"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def minOperations(self, queries):\n        total = 0\n        for l, r in queries:\n            counts = []\n            for x in range(l, r + 1):\n                c, v = 0, x\n                while v > 0:\n                    v //= 4\n                    c += 1\n                counts.append(c)\n            heap = [-c for c in counts if c > 0]\n            heapq.heapify(heap)\n            ops = 0\n            while len(heap) >= 2:\n                a = -heapq.heappop(heap)\n                b = -heapq.heappop(heap)\n                ops += 1\n                a -= 1\n                b -= 1\n                if a > 0:\n                    heapq.heappush(heap, -a)\n                if b > 0:\n                    heapq.heappush(heap, -b)\n            if len(heap) == 1:\n                ops += -heap[0]\n            total += ops\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def minOperations(self, queries):\n        total = 0\n        for l, r in queries:\n            sum_c, max_c = 0, 0\n            k, lo = 1, 1\n            while lo <= r:\n                hi = lo * 4 - 1\n                a = max(l, lo)\n                b = min(r, hi)\n                if a <= b:\n                    cnt = b - a + 1\n                    sum_c += k * cnt\n                    if k > max_c:\n                        max_c = k\n                lo *= 4\n                k += 1\n            total += max(max_c, (sum_c + 1) // 2)\n        return total\n",
+    "javascript": "var minOperations = function(queries) {\n    let total = 0;\n    for (const [l, r] of queries) {\n        let sumC = 0, maxC = 0, k = 1, lo = 1;\n        while (lo <= r) {\n            const hi = lo * 4 - 1;\n            const a = Math.max(l, lo);\n            const b = Math.min(r, hi);\n            if (a <= b) {\n                const cnt = b - a + 1;\n                sumC += k * cnt;\n                if (k > maxC) maxC = k;\n            }\n            lo *= 4;\n            k += 1;\n        }\n        total += Math.max(maxC, Math.ceil(sumC / 2));\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(q log(max r))", "space": "O(1)" }
+}

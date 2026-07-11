@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-number-of-operations-to-sort-a-binary-tree-by-level",
+  "judge": "exact",
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "Each level is sorted independently, and the minimum number of value swaps to sort a permutation equals its size minus the number of cycles in the mapping from current to sorted positions.",
+  "hints": [
+    "Swaps on one level never help another, so collect each level's values and solve them separately.",
+    "Sorting a sequence by swaps costs (number of elements) minus (number of cycles) in the permutation that takes current positions to their sorted positions.",
+    "For each level, map every value to the index it should occupy when sorted, then count cycles in that mapping; sum (length - cycles) over all levels."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed unsorted levels", "input": [[1, 4, 3, 7, 6, 8, 5, null, null, null, null, 9, null, 10]] },
+    { "kind": "edge", "description": "every level needs a few swaps", "input": [[1, 3, 2, 7, 6, 5, 4]] },
+    { "kind": "trap", "description": "already sorted everywhere, zero operations", "input": [[1, 2, 3, 4, 5, 6]] },
+    { "kind": "boundary", "description": "single node", "input": [[1]] },
+    { "kind": "edge", "description": "one fully reversed level", "input": [[1, 5, 4, 3, 2]] },
+    { "kind": "trap", "description": "a single long cycle on one level", "input": [[1, 3, 4, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random complete tree with a permutation of distinct values",
+      "seed": 83,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    vals = list(range(1, n + 1))\n    rng.shuffle(vals)\n    return [vals]\n",
+      "note": "dense array form is a valid level-order complete tree; values are distinct"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumOperations(self, root):\n        from collections import deque\n        total = 0\n        q = deque([root]) if root else deque()\n        while q:\n            level = []\n            for _ in range(len(q)):\n                node = q.popleft()\n                level.append(node.val)\n                if node.left:\n                    q.append(node.left)\n                if node.right:\n                    q.append(node.right)\n            # naive selection-sort swap count\n            arr = level[:]\n            ops = 0\n            for i in range(len(arr)):\n                mi = i\n                for j in range(i + 1, len(arr)):\n                    if arr[j] < arr[mi]:\n                        mi = j\n                if mi != i:\n                    arr[i], arr[mi] = arr[mi], arr[i]\n                    ops += 1\n            total += ops\n        return total\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def minimumOperations(self, root):\n        total = 0\n        q = deque([root]) if root else deque()\n        while q:\n            level = []\n            for _ in range(len(q)):\n                node = q.popleft()\n                level.append(node.val)\n                if node.left:\n                    q.append(node.left)\n                if node.right:\n                    q.append(node.right)\n            order = sorted(range(len(level)), key=lambda i: level[i])\n            target = [0] * len(level)\n            for sorted_pos, orig_idx in enumerate(order):\n                target[orig_idx] = sorted_pos\n            visited = [False] * len(level)\n            for i in range(len(level)):\n                if visited[i] or target[i] == i:\n                    visited[i] = True\n                    continue\n                cyc = 0\n                j = i\n                while not visited[j]:\n                    visited[j] = True\n                    j = target[j]\n                    cyc += 1\n                total += cyc - 1\n        return total\n",
+    "javascript": "var minimumOperations = function(root) {\n    let total = 0;\n    let q = root ? [root] : [];\n    while (q.length) {\n        const level = [];\n        const next = [];\n        for (const node of q) {\n            level.push(node.val);\n            if (node.left) next.push(node.left);\n            if (node.right) next.push(node.right);\n        }\n        const order = level.map((_, i) => i).sort((a, b) => level[a] - level[b]);\n        const target = new Array(level.length);\n        for (let sp = 0; sp < order.length; sp++) target[order[sp]] = sp;\n        const visited = new Array(level.length).fill(false);\n        for (let i = 0; i < level.length; i++) {\n            if (visited[i] || target[i] === i) { visited[i] = true; continue; }\n            let cyc = 0, j = i;\n            while (!visited[j]) { visited[j] = true; j = target[j]; cyc++; }\n            total += cyc - 1;\n        }\n        q = next;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

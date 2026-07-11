@@ -1,0 +1,184 @@
+{
+  "slug": "zero-array-transformation-ii",
+  "judge": "exact",
+  "pattern": "Using more of the queries in order only ever adds decrement capacity, never removes it, so feasibility is monotone in how many queries you've applied -- which turns 'find the smallest working prefix' into a binary search over a coverage check.",
+  "hints": [
+    "If using the first k queries can zero the array, using the first k+1 can too, since you gain strictly more decrementing power -- so feasibility as a function of k only ever switches on once.",
+    "For a fixed k, the maximum possible decrement at an index is the sum of the val of every one of the first k queries whose range covers it -- a weighted difference array gives you that sum in one pass.",
+    "Binary search on k: the answer is the smallest k whose weighted coverage is at least nums[i] everywhere, or -1 if even every query together cannot reach that."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        500000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        500000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two of three queries suffice",
+      "input": [
+        [
+          2,
+          0,
+          2
+        ],
+        [
+          [
+            0,
+            2,
+            1
+          ],
+          [
+            0,
+            2,
+            1
+          ],
+          [
+            1,
+            1,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, impossible even with all queries",
+      "input": [
+        [
+          4,
+          3,
+          2,
+          1
+        ],
+        [
+          [
+            1,
+            3,
+            2
+          ],
+          [
+            0,
+            2,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "already all zero, zero queries needed",
+      "input": [
+        [
+          0,
+          0
+        ],
+        [
+          [
+            0,
+            1,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element, single query, exact val",
+      "input": [
+        [
+          3
+        ],
+        [
+          [
+            0,
+            0,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "first query alone insufficient, need both",
+      "input": [
+        [
+          3,
+          3
+        ],
+        [
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "later queries would help but earlier prefix already suffices",
+      "input": [
+        [
+          1,
+          1
+        ],
+        [
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            5
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small values with random weighted ranges",
+      "seed": 2,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1500))\n    nums = [rng.randint(0, 8) for _ in range(n)]\n    m = rng.randint(1, 150)\n    queries = []\n    for _ in range(m):\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        val = rng.randint(1, 5)\n        queries.append([l, r, val])\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minZeroArray(self, nums, queries):\n        n = len(nums)\n        for k in range(len(queries) + 1):\n            cov = [0] * n\n            for l, r, val in queries[:k]:\n                for i in range(l, r + 1):\n                    cov[i] += val\n            if all(cov[i] >= nums[i] for i in range(n)):\n                return k\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minZeroArray(self, nums, queries):\n        n = len(nums)\n        m = len(queries)\n\n        def feasible(k):\n            diff = [0] * (n + 1)\n            for i in range(k):\n                l, r, val = queries[i]\n                diff[l] += val\n                diff[r + 1] -= val\n            cov = 0\n            for i in range(n):\n                cov += diff[i]\n                if cov < nums[i]:\n                    return False\n            return True\n\n        if not feasible(m):\n            return -1\n        lo, hi = 0, m\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var minZeroArray = function(nums, queries) {\n    const n = nums.length, m = queries.length;\n    const feasible = (k) => {\n        const diff = new Array(n + 1).fill(0);\n        for (let i = 0; i < k; i++) {\n            const [l, r, val] = queries[i];\n            diff[l] += val;\n            diff[r + 1] -= val;\n        }\n        let cov = 0;\n        for (let i = 0; i < n; i++) {\n            cov += diff[i];\n            if (cov < nums[i]) return false;\n        }\n        return true;\n    };\n    if (!feasible(m)) return -1;\n    let lo = 0, hi = m;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (feasible(mid)) hi = mid; else lo = mid + 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + m) log m)",
+    "space": "O(n)"
+  }
+}

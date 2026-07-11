@@ -1,0 +1,74 @@
+{
+  "slug": "greatest-sum-divisible-by-three",
+  "judge": "exact",
+  "pattern": "DP with three remainder buckets — track the maximum achievable sum whose remainder mod 3 is 0, 1, or 2 respectively, updating all three states for every element.",
+  "hints": [
+    "Think about what information you need to carry forward: at each step you only care about the best total reachable for each possible remainder (0, 1, 2), not the full history of choices.",
+    "When you process a new number, its contribution shifts the remainder of every existing sum by (existing_remainder + num) % 3 — so each of the three buckets fans out into a candidate for a potentially different bucket.",
+    "After scanning all numbers the answer sits in remainder-0 bucket; initialise the other two buckets to negative infinity (or -1) so that a partially-filled state never contaminates the final answer."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 40000], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "all elements already divisible by three",
+      "input": [[3, 6, 9, 12]]
+    },
+    {
+      "kind": "edge",
+      "description": "single element divisible by three",
+      "input": [[6]]
+    },
+    {
+      "kind": "edge",
+      "description": "single element not divisible by three — answer is zero",
+      "input": [[4]]
+    },
+    {
+      "kind": "trap",
+      "description": "must skip the smallest remainder-1 element to make sum divisible",
+      "input": [[3, 6, 5, 1, 8]]
+    },
+    {
+      "kind": "trap",
+      "description": "two remainder-2 elements must both be excluded when no remainder-1 candidate is cheaper",
+      "input": [[2, 2, 3, 9]]
+    },
+    {
+      "kind": "boundary",
+      "description": "all elements have remainder 1 — take multiples-of-3 count worth",
+      "input": [[1, 1, 1, 1, 1, 1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "all elements have remainder 2 — take pairs",
+      "input": [[2, 2, 2, 2, 2]]
+    },
+    {
+      "kind": "edge",
+      "description": "mixed with several zeros among values — zeros are always safe to include",
+      "input": [[3, 3, 3, 1, 2]]
+    },
+    {
+      "kind": "trap",
+      "description": "greedy total-sum approach fails: removing one elem vs two changes answer",
+      "input": [[1, 2, 3, 4, 4]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large random array — exercises all three remainder buckets under maximum load",
+      "seed": 42,
+      "size": 40000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 40000))\n    nums = [rng.randint(1, 10000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxSumDivThree(self, nums):\n        # Brute-force subset enumeration via recursion (only feasible for small n).\n        # For stress correctness checking the generator keeps n small.\n        from functools import lru_cache\n        n = len(nums)\n        @lru_cache(maxsize=None)\n        def best(i, rem):\n            if i == n:\n                return 0 if rem == 0 else float('-inf')\n            take = nums[i] + best(i + 1, (rem + nums[i]) % 3)\n            skip = best(i + 1, rem)\n            return max(take, skip)\n        result = best(0, 0)\n        return result if result != float('-inf') else 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxSumDivThree(self, nums):\n        # dp[r] = max sum reachable with remainder r; -1 means unreachable\n        dp = [-1, -1, -1]\n        dp[0] = 0\n        for num in nums:\n            new_dp = dp[:]\n            r = num % 3\n            for prev_r in range(3):\n                if dp[prev_r] == -1:\n                    continue\n                new_r = (prev_r + r) % 3\n                candidate = dp[prev_r] + num\n                if new_dp[new_r] < candidate:\n                    new_dp[new_r] = candidate\n            dp = new_dp\n        return dp[0]\n",
+    "javascript": "var maxSumDivThree = function(nums) {\n    // dp[r] = max sum with remainder r; -1 means unreachable\n    const dp = [-1, -1, -1];\n    dp[0] = 0;\n    for (const num of nums) {\n        const newDp = dp.slice();\n        const r = num % 3;\n        for (let prevR = 0; prevR < 3; prevR++) {\n            if (dp[prevR] === -1) continue;\n            const newR = (prevR + r) % 3;\n            const candidate = dp[prevR] + num;\n            if (newDp[newR] < candidate) newDp[newR] = candidate;\n        }\n        dp[0] = newDp[0]; dp[1] = newDp[1]; dp[2] = newDp[2];\n    }\n    return dp[0] === -1 ? 0 : dp[0];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

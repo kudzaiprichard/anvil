@@ -1,0 +1,177 @@
+{
+  "slug": "minimum-number-of-flips-to-make-binary-grid-palindromic-ii",
+  "judge": "exact",
+  "pattern": "Row-and-column palindrome symmetry forces every cell into a group of (up to) four mirrored positions that must all end up equal, so the grid decomposes into independent equalization problems plus a tiny leftover mod-4 parity adjustment for any middle row, middle column, and centre cell.",
+  "hints": [
+    "For a grid to be palindromic in BOTH directions at once, cell (i, j) must end up equal to its horizontal mirror, its vertical mirror, and the mirror of both - four cells (fewer at the exact middle) that must all become the same value.",
+    "For each group of four mirrored cells, flipping the minority to match the majority is always the cheapest way to make them equal; a leftover middle row or middle column pairs up cells across its own mirror and needs the same treatment two at a time.",
+    "After equalizing everything, count how many total 1s you'd have; if it isn't a multiple of 4, use whichever free or cheap adjustment is available - flipping a middle-row/column pair to the other matching value (free, since it was already going to cost one flip either way), toggling the lone centre cell, or sacrificing an already-matched pair - to reach the nearest achievable multiple of 4 at minimum extra cost."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "rows": [
+        1,
+        200000
+      ],
+      "cols": [
+        1,
+        200000
+      ],
+      "value": [
+        0,
+        1
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a 3x3 grid needing quadruple equalization plus a centre-cell parity fix",
+      "input": [
+        [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a mismatched middle-row pair with no centre cell available",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a two-row single-column grid, only a middle-column style pairing applies",
+      "input": [
+        [
+          [
+            1
+          ],
+          [
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single cell already satisfies everything",
+      "input": [
+        [
+          [
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single cell needs one flip to satisfy the divisible-by-four rule",
+      "input": [
+        [
+          [
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "already palindromic in both directions with a ones count divisible by four, needing no flips",
+      "input": [
+        [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an already-valid all-ones 2x2 grid must not be over-flipped",
+      "input": [
+        [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a single wide row exercising row-only symmetry with a centre cell",
+      "input": [
+        [
+          [
+            1,
+            0,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small random grids (at most 16 cells) that exercise the independent exhaustive-search oracle",
+      "seed": 51,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    total = max(1, min(size, 16))\n    m = rng.randint(1, total)\n    n = max(1, total // m)\n    grid = [[rng.randint(0, 1) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    },
+    {
+      "description": "large random rectangular grids near the maximum cell budget",
+      "seed": 52,
+      "size": 200000,
+      "generator_python": "def gen(rng, size):\n    total = max(1, min(size, 200000))\n    m = rng.randint(1, min(500, total))\n    n = max(1, total // m)\n    grid = [[rng.randint(0, 1) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minFlips(self, grid):\n        m, n = len(grid), len(grid[0])\n        if m * n <= 16:\n            cells = [(i, j) for i in range(m) for j in range(n)]\n            total_cells = len(cells)\n            best = None\n            for mask in range(1 << total_cells):\n                if best is not None and bin(mask).count('1') >= best:\n                    continue\n                g = [row[:] for row in grid]\n                flips = 0\n                for idx, (i, j) in enumerate(cells):\n                    if (mask >> idx) & 1:\n                        g[i][j] ^= 1\n                        flips += 1\n                ok = True\n                for i in range(m):\n                    for j in range(n // 2):\n                        if g[i][j] != g[i][n - 1 - j]:\n                            ok = False\n                            break\n                    if not ok:\n                        break\n                if ok:\n                    for j in range(n):\n                        for i in range(m // 2):\n                            if g[i][j] != g[m - 1 - i][j]:\n                                ok = False\n                                break\n                        if not ok:\n                            break\n                if ok:\n                    total_ones = sum(sum(row) for row in g)\n                    if total_ones % 4 == 0:\n                        if best is None or flips < best:\n                            best = flips\n            return best\n        cost = 0\n        for i in range(m // 2):\n            for j in range(n // 2):\n                ones = (grid[i][j] + grid[i][n - 1 - j] + grid[m - 1 - i][j] + grid[m - 1 - i][n - 1 - j])\n                cost += min(ones, 4 - ones)\n        forced_ones = 0\n        flex_two = 0\n        matched_pair_exists = False\n        if m % 2 == 1:\n            mid = m // 2\n            for j in range(n // 2):\n                a, b = grid[mid][j], grid[mid][n - 1 - j]\n                if a == b:\n                    forced_ones += 2 * a\n                    matched_pair_exists = True\n                else:\n                    cost += 1\n                    flex_two += 1\n        if n % 2 == 1:\n            mid = n // 2\n            for i in range(m // 2):\n                a, b = grid[i][mid], grid[m - 1 - i][mid]\n                if a == b:\n                    forced_ones += 2 * a\n                    matched_pair_exists = True\n                else:\n                    cost += 1\n                    flex_two += 1\n        center_exists = (m % 2 == 1) and (n % 2 == 1)\n        center_val = grid[m // 2][n // 2] if center_exists else 0\n        forced_ones += center_val\n        base = forced_ones % 4\n        options = [(0, 0)]\n        if flex_two >= 1:\n            options = options + [(c, s + 2) for c, s in options]\n        if center_exists:\n            c_shift = 1 - 2 * center_val\n            options = options + [(c + 1, s + c_shift) for c, s in options]\n        if matched_pair_exists:\n            options = options + [(c + 2, s + 2) for c, s in options]\n        best_extra = min(c for c, s in options if (base + s) % 4 == 0)\n        return cost + best_extra\n",
+  "solutions": {
+    "python": "class Solution:\n    def minFlips(self, grid):\n        m, n = len(grid), len(grid[0])\n        cost = 0\n        for i in range(m // 2):\n            for j in range(n // 2):\n                ones = (grid[i][j] + grid[i][n - 1 - j] + grid[m - 1 - i][j] + grid[m - 1 - i][n - 1 - j])\n                cost += min(ones, 4 - ones)\n        forced_ones = 0\n        flex_two = 0\n        matched_pair_exists = False\n        if m % 2 == 1:\n            mid = m // 2\n            for j in range(n // 2):\n                a, b = grid[mid][j], grid[mid][n - 1 - j]\n                if a == b:\n                    forced_ones += 2 * a\n                    matched_pair_exists = True\n                else:\n                    cost += 1\n                    flex_two += 1\n        if n % 2 == 1:\n            mid = n // 2\n            for i in range(m // 2):\n                a, b = grid[i][mid], grid[m - 1 - i][mid]\n                if a == b:\n                    forced_ones += 2 * a\n                    matched_pair_exists = True\n                else:\n                    cost += 1\n                    flex_two += 1\n        center_exists = (m % 2 == 1) and (n % 2 == 1)\n        center_val = grid[m // 2][n // 2] if center_exists else 0\n        forced_ones += center_val\n        base = forced_ones % 4\n        options = [(0, 0)]\n        if flex_two >= 1:\n            options = options + [(c, s + 2) for c, s in options]\n        if center_exists:\n            c_shift = 1 - 2 * center_val\n            options = options + [(c + 1, s + c_shift) for c, s in options]\n        if matched_pair_exists:\n            options = options + [(c + 2, s + 2) for c, s in options]\n        best_extra = min(c for c, s in options if (base + s) % 4 == 0)\n        return cost + best_extra\n",
+    "javascript": "var minFlips = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    let cost = 0;\n    for (let i = 0; i < Math.floor(m / 2); i++) {\n        for (let j = 0; j < Math.floor(n / 2); j++) {\n            const ones = grid[i][j] + grid[i][n - 1 - j] + grid[m - 1 - i][j] + grid[m - 1 - i][n - 1 - j];\n            cost += Math.min(ones, 4 - ones);\n        }\n    }\n    let forcedOnes = 0;\n    let flexTwo = 0;\n    let matchedPairExists = false;\n    if (m % 2 === 1) {\n        const mid = Math.floor(m / 2);\n        for (let j = 0; j < Math.floor(n / 2); j++) {\n            const a = grid[mid][j], b = grid[mid][n - 1 - j];\n            if (a === b) {\n                forcedOnes += 2 * a;\n                matchedPairExists = true;\n            } else {\n                cost += 1;\n                flexTwo += 1;\n            }\n        }\n    }\n    if (n % 2 === 1) {\n        const mid = Math.floor(n / 2);\n        for (let i = 0; i < Math.floor(m / 2); i++) {\n            const a = grid[i][mid], b = grid[m - 1 - i][mid];\n            if (a === b) {\n                forcedOnes += 2 * a;\n                matchedPairExists = true;\n            } else {\n                cost += 1;\n                flexTwo += 1;\n            }\n        }\n    }\n    const centerExists = (m % 2 === 1) && (n % 2 === 1);\n    const centerVal = centerExists ? grid[Math.floor(m / 2)][Math.floor(n / 2)] : 0;\n    forcedOnes += centerVal;\n    const base = forcedOnes % 4;\n    let options = [[0, 0]];\n    if (flexTwo >= 1) {\n        options = options.concat(options.map(([c, s]) => [c, s + 2]));\n    }\n    if (centerExists) {\n        const cShift = 1 - 2 * centerVal;\n        options = options.concat(options.map(([c, s]) => [c + 1, s + cShift]));\n    }\n    if (matchedPairExists) {\n        options = options.concat(options.map(([c, s]) => [c + 2, s + 2]));\n    }\n    let bestExtra = Infinity;\n    for (const [c, s] of options) {\n        if (((base + s) % 4 + 4) % 4 === 0) {\n            bestExtra = Math.min(bestExtra, c);\n        }\n    }\n    return cost + bestExtra;\n};\n"
+  },
+  "complexity": {
+    "time": "O(m * n)",
+    "space": "O(1)"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "slug": "kth-largest-element-in-a-stream",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A size-k min-heap holds exactly the k largest values seen so far, so its smallest element is always the kth largest and each insertion costs only logarithmic time.",
+  "hints": [
+    "You never need to sort the whole stream; only the top k values matter for the answer.",
+    "If you keep just the k biggest values, the smallest among them is the kth largest overall.",
+    "Maintain a min-heap capped at size k: push each new value, and if the heap exceeds k pop the smallest; the heap root is the answer."
+  ],
+  "constraints": [
+    { "param": "k", "kind": "int", "value": [1, 10001] },
+    { "param": "nums", "kind": "int[]", "len": [0, 10000], "value": [-10000, 10000] },
+    { "param": "val", "kind": "int", "value": [-10000, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "stream where later adds raise the running kth largest",
+      "input": [["KthLargest", "add", "add", "add", "add", "add"], [[3, [4, 5, 8, 2]], [3], [5], [10], [9], [4]]] },
+    { "kind": "trap", "description": "duplicate scores count as separate elements when ranking",
+      "input": [["KthLargest", "add", "add", "add", "add"], [[4, [7, 7, 7, 7, 8, 3]], [2], [10], [9], [9]]] },
+    { "kind": "boundary", "description": "k equals one means the answer is always the maximum seen so far",
+      "input": [["KthLargest", "add", "add", "add"], [[1, [5]], [2], [9], [3]]] },
+    { "kind": "edge", "description": "empty initial list with k one builds up from the first add",
+      "input": [["KthLargest", "add", "add", "add"], [[1, []], [-3], [-1], [-2]]] },
+    { "kind": "trap", "description": "negative values and a k larger than the initial list size",
+      "input": [["KthLargest", "add", "add", "add"], [[2, [-1]], [-2], [-4], [0]]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate initial pool then a long sequence of adds with repeats and negatives",
+      "seed": 83,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    init_len = rng.randint(0, 50)\n    nums = [rng.randint(-10000, 10000) for _ in range(init_len)]\n    k = rng.randint(1, init_len + 1)\n    ops = ['KthLargest']\n    args = [[k, nums]]\n    for _ in range(max(1, size)):\n        ops.append('add'); args.append([rng.randint(-10000, 10000)])\n    return [ops, args]\n",
+      "note": "k chosen within the valid 1..len+1 range; long add stream exercises heap maintenance"
+    }
+  ],
+  "oracle_python": "class KthLargest:\n    def __init__(self, k, nums):\n        self.k = k\n        self.data = list(nums)\n    def add(self, val):\n        self.data.append(val)\n        self.data.sort(reverse=True)\n        return self.data[self.k - 1]\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass KthLargest:\n    def __init__(self, k, nums):\n        self.k = k\n        self.heap = []\n        for x in nums:\n            self._push(x)\n    def _push(self, val):\n        heapq.heappush(self.heap, val)\n        if len(self.heap) > self.k:\n            heapq.heappop(self.heap)\n    def add(self, val):\n        self._push(val)\n        return self.heap[0]\n",
+    "javascript": "class MinHeap {\n    constructor() { this.a = []; }\n    size() { return this.a.length; }\n    peek() { return this.a[0]; }\n    push(v) {\n        this.a.push(v);\n        let i = this.a.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (this.a[p] <= this.a[i]) break;\n            [this.a[p], this.a[i]] = [this.a[i], this.a[p]];\n            i = p;\n        }\n    }\n    pop() {\n        const top = this.a[0];\n        const last = this.a.pop();\n        if (this.a.length > 0) {\n            this.a[0] = last;\n            let i = 0;\n            const n = this.a.length;\n            while (true) {\n                let s = i;\n                const l = 2 * i + 1, r = 2 * i + 2;\n                if (l < n && this.a[l] < this.a[s]) s = l;\n                if (r < n && this.a[r] < this.a[s]) s = r;\n                if (s === i) break;\n                [this.a[s], this.a[i]] = [this.a[i], this.a[s]];\n                i = s;\n            }\n        }\n        return top;\n    }\n}\n\nclass KthLargest {\n    constructor(k, nums) {\n        this.k = k;\n        this.heap = new MinHeap();\n        for (const x of nums) this._push(x);\n    }\n    _push(val) {\n        this.heap.push(val);\n        if (this.heap.size() > this.k) this.heap.pop();\n    }\n    add(val) {\n        this._push(val);\n        return this.heap.peek();\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log k) per add", "space": "O(k)" }
+}

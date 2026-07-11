@@ -1,0 +1,42 @@
+{
+  "slug": "generate-schedule",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    n = args[0]\n    if not isinstance(output, list):\n        return False\n    total = n * (n - 1)\n    if n <= 4:\n        return output == []\n    if len(output) != total:\n        return False\n    seen = set()\n    for m in output:\n        if not isinstance(m, list) or len(m) != 2:\n            return False\n        a, b = m[0], m[1]\n        if not (0 <= a < n and 0 <= b < n) or a == b:\n            return False\n        if (a, b) in seen:\n            return False\n        seen.add((a, b))\n    if len(seen) != total:\n        return False\n    for i in range(1, len(output)):\n        if set(output[i]) & set(output[i - 1]):\n            return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const n = args[0];\n    if (!Array.isArray(output)) return false;\n    const total = n * (n - 1);\n    if (n <= 4) return output.length === 0;\n    if (output.length !== total) return false;\n    const seen = new Set();\n    for (const m of output) {\n        if (!Array.isArray(m) || m.length !== 2) return false;\n        const a = m[0], b = m[1];\n        if (!(a >= 0 && a < n && b >= 0 && b < n) || a === b) return false;\n        const key = a * n + b;\n        if (seen.has(key)) return false;\n        seen.add(key);\n    }\n    if (seen.size !== total) return false;\n    for (let i = 1; i < output.length; i++) {\n        const prev = new Set(output[i - 1]);\n        if (prev.has(output[i][0]) || prev.has(output[i][1])) return false;\n    }\n    return true;\n}\n"
+  },
+  "pattern": "A most-constrained-first greedy threads every ordered pairing into a sequence where no team appears on back-to-back days.",
+  "hints": [
+    "Each team must meet every other team home and away, giving n times n minus one matches with one per day.",
+    "The only blocked choice each day is reusing either team that played the day before, so prefer matches between the teams that still have the most games left.",
+    "Repeatedly pick the remaining pairing whose two teams have the largest combined number of outstanding matches and that avoids yesterday's two teams; very small team counts simply have no valid arrangement."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 50] }
+  ],
+  "no_anchor_ok": true,
+  "edge_inputs": [
+    { "kind": "boundary", "description": "two teams cannot avoid consecutive play", "input": [2] },
+    { "kind": "trap", "description": "three teams is impossible", "input": [3] },
+    { "kind": "trap", "description": "four teams is the largest impossible case", "input": [4] },
+    { "kind": "edge", "description": "five teams is the smallest feasible case", "input": [5] },
+    { "kind": "edge", "description": "six teams", "input": [6] },
+    { "kind": "edge", "description": "odd team count", "input": [7] },
+    { "kind": "boundary", "description": "maximum team count", "input": [50] }
+  ],
+  "stress": [
+    {
+      "description": "sweep a range of team counts including infeasible and large feasible ones",
+      "seed": 53,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    return [rng.randrange(2, 51)]\n",
+      "note": "single integer argument; validator checks any valid schedule"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def generateSchedule(self, n):\n        if n <= 4:\n            return []\n        rem = [[a != b for b in range(n)] for a in range(n)]\n        total = n * (n - 1)\n        deg = [2 * (n - 1) for _ in range(n)]\n        seq = []\n        forbidden = set()\n        for _ in range(total):\n            best = None\n            best_key = None\n            for a in range(n):\n                if a in forbidden or deg[a] == 0:\n                    continue\n                for b in range(n):\n                    if a == b or b in forbidden or not rem[a][b]:\n                        continue\n                    key = (deg[a] + deg[b], deg[a] * deg[b])\n                    if best_key is None or key > best_key:\n                        best_key = key\n                        best = (a, b)\n            if best is None:\n                return []\n            a, b = best\n            rem[a][b] = False\n            deg[a] -= 1\n            deg[b] -= 1\n            seq.append([a, b])\n            forbidden = {a, b}\n        return seq\n",
+  "solutions": {
+    "python": "class Solution:\n    def generateSchedule(self, n):\n        if n <= 4:\n            return []\n        rem = [[a != b for b in range(n)] for a in range(n)]\n        total = n * (n - 1)\n        deg = [2 * (n - 1) for _ in range(n)]\n        seq = []\n        forbidden = set()\n        for _ in range(total):\n            best = None\n            best_key = None\n            for a in range(n):\n                if a in forbidden or deg[a] == 0:\n                    continue\n                for b in range(n):\n                    if a == b or b in forbidden or not rem[a][b]:\n                        continue\n                    key = (deg[a] + deg[b], deg[a] * deg[b])\n                    if best_key is None or key > best_key:\n                        best_key = key\n                        best = (a, b)\n            if best is None:\n                return []\n            a, b = best\n            rem[a][b] = False\n            deg[a] -= 1\n            deg[b] -= 1\n            seq.append([a, b])\n            forbidden = {a, b}\n        return seq\n",
+    "javascript": "var generateSchedule = function(n) {\n    if (n <= 4) return [];\n    const rem = Array.from({length: n}, (_, a) => Array.from({length: n}, (_, b) => a !== b));\n    const total = n * (n - 1);\n    const deg = new Array(n).fill(2 * (n - 1));\n    const seq = [];\n    let forbidden = new Set();\n    for (let step = 0; step < total; step++) {\n        let bestA = -1, bestB = -1, bestSum = -1, bestProd = -1;\n        for (let a = 0; a < n; a++) {\n            if (forbidden.has(a) || deg[a] === 0) continue;\n            for (let b = 0; b < n; b++) {\n                if (a === b || forbidden.has(b) || !rem[a][b]) continue;\n                const sum = deg[a] + deg[b], prod = deg[a] * deg[b];\n                if (sum > bestSum || (sum === bestSum && prod > bestProd)) {\n                    bestSum = sum; bestProd = prod; bestA = a; bestB = b;\n                }\n            }\n        }\n        if (bestA === -1) return [];\n        rem[bestA][bestB] = false; deg[bestA]--; deg[bestB]--;\n        seq.push([bestA, bestB]); forbidden = new Set([bestA, bestB]);\n    }\n    return seq;\n};\n"
+  },
+  "complexity": { "time": "O(n^3)", "space": "O(n^2)" }
+}

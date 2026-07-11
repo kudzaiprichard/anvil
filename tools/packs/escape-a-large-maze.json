@@ -1,0 +1,38 @@
+{
+  "slug": "escape-a-large-maze",
+  "judge": "exact",
+  "pattern": "Because only a bounded number of cells are blocked, they can enclose at most a fixed-size pocket, so a flood fill that gives up once it visits more than that many cells decides reachability without touching the full grid.",
+  "hints": [
+    "The grid is astronomically large, but the blockers are few; how big an area can a handful of walls actually fence off?",
+    "With b blockers the largest sealed region they can form is bounded by about b*(b-1)/2 cells, so a BFS that escapes that many cells must be free.",
+    "Flood fill from the source and from the target separately; each search succeeds if it reaches the other endpoint or visits more than the enclosable-area bound before running out of frontier."
+  ],
+  "constraints": [
+    { "param": "blocked", "kind": "int[][]", "len": [0, 200], "value": [0, 999999] },
+    { "param": "source", "kind": "int[]", "len": [2, 2], "value": [0, 999999] },
+    { "param": "target", "kind": "int[]", "len": [2, 2], "value": [0, 999999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "source boxed into a corner by two walls", "input": [[[0, 1], [1, 0]], [0, 0], [0, 2]] },
+    { "kind": "edge", "description": "no walls, target far away is reachable", "input": [[], [0, 0], [999999, 999999]] },
+    { "kind": "trap", "description": "source enclosed by a small diagonal wall, target outside", "input": [[[1, 0], [0, 1], [1, 2], [2, 1]], [1, 1], [500, 500]] },
+    { "kind": "trap", "description": "walls present but never enclose anything", "input": [[[10, 10], [20, 20], [30, 30]], [0, 0], [40, 40]] },
+    { "kind": "boundary", "description": "source against the grid edge, escapes along it", "input": [[[0, 2], [2, 0]], [0, 0], [5, 5]] },
+    { "kind": "trap", "description": "target itself sealed in a tiny pocket", "input": [[[998, 999], [999, 998]], [0, 0], [999, 999]] }
+  ],
+  "stress": [
+    {
+      "description": "random sparse walls over a small window so enclosures sometimes form",
+      "seed": 151,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    b = rng.randint(0, max(0, min(size, 60)))\n    used = set()\n    blocked = []\n    while len(blocked) < b:\n        c = (rng.randint(0, 30), rng.randint(0, 30))\n        if c not in used:\n            used.add(c)\n            blocked.append([c[0], c[1]])\n    def free():\n        while True:\n            c = (rng.randint(0, 40), rng.randint(0, 40))\n            if c not in used:\n                return c\n    s = free()\n    used.add(s)\n    t = free()\n    return [blocked, [s[0], s[1]], [t[0], t[1]]]\n",
+      "note": "small window keeps both the optimal bound-BFS and the compression oracle cheap and correct"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isEscapePossible(self, blocked, source, target):\n        # Coordinate-compression flood fill: an independent exact method.\n        xs = sorted(set([0, 999999, source[0], target[0]] + [b[0] for b in blocked] + [c for b in blocked for c in (b[0]-1, b[0]+1)] + [source[0]-1, source[0]+1, target[0]-1, target[0]+1]))\n        ys = sorted(set([0, 999999, source[1], target[1]] + [b[1] for b in blocked] + [c for b in blocked for c in (b[1]-1, b[1]+1)] + [source[1]-1, source[1]+1, target[1]-1, target[1]+1]))\n        xs = [x for x in xs if 0 <= x <= 999999]\n        ys = [y for y in ys if 0 <= y <= 999999]\n        xi = {x: i for i, x in enumerate(xs)}\n        yi = {y: i for i, y in enumerate(ys)}\n        W, H = len(xs), len(ys)\n        blockset = set((xi[b[0]], yi[b[1]]) for b in blocked)\n        sx, sy = xi[source[0]], yi[source[1]]\n        tx, ty = xi[target[0]], yi[target[1]]\n        from collections import deque\n        seen = {(sx, sy)}\n        dq = deque([(sx, sy)])\n        while dq:\n            x, y = dq.popleft()\n            if (x, y) == (tx, ty):\n                return True\n            for nx, ny in ((x+1,y),(x-1,y),(x,y+1),(x,y-1)):\n                if 0 <= nx < W and 0 <= ny < H and (nx, ny) not in blockset and (nx, ny) not in seen:\n                    seen.add((nx, ny))\n                    dq.append((nx, ny))\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def isEscapePossible(self, blocked, source, target):\n        LIMIT = 1000000\n        block = set(map(tuple, blocked))\n        bound = len(blocked) * (len(blocked) - 1) // 2 + 5\n        from collections import deque\n        def bfs(start, goal):\n            seen = {tuple(start)}\n            dq = deque([tuple(start)])\n            goal = tuple(goal)\n            while dq:\n                if len(seen) > bound:\n                    return True\n                x, y = dq.popleft()\n                if (x, y) == goal:\n                    return True\n                for nx, ny in ((x+1,y),(x-1,y),(x,y+1),(x,y-1)):\n                    if 0 <= nx < LIMIT and 0 <= ny < LIMIT and (nx, ny) not in block and (nx, ny) not in seen:\n                        seen.add((nx, ny))\n                        dq.append((nx, ny))\n            return False\n        return bfs(source, target) and bfs(target, source)\n",
+    "javascript": "var isEscapePossible = function(blocked, source, target) {\n    const LIMIT = 1000000;\n    const block = new Set(blocked.map(b => b[0] * LIMIT + b[1]));\n    const bound = Math.floor(blocked.length * (blocked.length - 1) / 2) + 5;\n    const bfs = (start, goal) => {\n        const seen = new Set([start[0] * LIMIT + start[1]]);\n        let queue = [start];\n        const gk = goal[0] * LIMIT + goal[1];\n        while (queue.length) {\n            if (seen.size > bound) return true;\n            const next = [];\n            for (const [x, y] of queue) {\n                if (x * LIMIT + y === gk) return true;\n                for (const [nx, ny] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]) {\n                    if (nx < 0 || ny < 0 || nx >= LIMIT || ny >= LIMIT) continue;\n                    const k = nx * LIMIT + ny;\n                    if (block.has(k) || seen.has(k)) continue;\n                    seen.add(k);\n                    next.push([nx, ny]);\n                }\n            }\n            queue = next;\n        }\n        return false;\n    };\n    return bfs(source, target) && bfs(target, source);\n};\n"
+  },
+  "complexity": { "time": "O(b^2)", "space": "O(b^2)" }
+}

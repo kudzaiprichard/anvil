@@ -1,0 +1,38 @@
+{
+  "slug": "stone-game-vii",
+  "judge": "exact",
+  "pattern": "Once you fix which stone gets removed at each turn, the remaining sub-row is a smaller version of the same game, so the optimal score gap over any interval only depends on the two choices of which end to drop next.",
+  "hints": [
+    "At any point only a contiguous sub-row of stones remains, so think of the problem as a function of that sub-row's two endpoints rather than the whole array.",
+    "For the sub-row from index i to j, whoever moves first can drop the left stone (scoring the sum of i+1..j, then facing the opponent's optimal gap on that smaller sub-row) or drop the right stone (scoring the sum of i..j-1, then facing the opponent's optimal gap on that sub-row) -- they pick whichever leaves them further ahead.",
+    "Precompute prefix sums so any sub-row sum is O(1), fill the dp over sub-row length from smallest to largest, and the final answer is the gap for the entire array from index 0 to n-1."
+  ],
+  "constraints": [
+    { "param": "stones", "kind": "int[]", "len": [2, 1000], "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, five stones", "input": [[5, 3, 1, 4, 2]] },
+    { "kind": "edge", "description": "statement example, eight stones", "input": [[7, 90, 5, 1, 100, 10, 10, 2]] },
+    { "kind": "boundary", "description": "minimum length, two stones", "input": [[1, 1000]] },
+    { "kind": "edge", "description": "two stones of equal value", "input": [[8, 8]] },
+    { "kind": "edge", "description": "all stones share the same value", "input": [[4, 4, 4, 4, 4]] },
+    { "kind": "trap", "description": "one dominant stone in the middle tempts an early removal that is not optimal", "input": [[1, 1, 100, 1, 1]] },
+    { "kind": "trap", "description": "strictly increasing values reward removing from the low end first", "input": [[1, 2, 3, 4, 5, 6]] },
+    { "kind": "boundary", "description": "every stone at the maximum value", "input": [[1000, 1000, 1000, 1000]] }
+  ],
+  "stress": [
+    {
+      "description": "random stone values near the length bound",
+      "seed": 11,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 500))\n    stones = [rng.randint(1, 1000) for _ in range(n)]\n    return [stones]\n",
+      "note": "kept well under the 1000-length constraint so the O(n^2) oracle finishes quickly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def stoneGameVII(self, stones):\n        n = len(stones)\n        prefix = [0] * (n + 1)\n        for i, v in enumerate(stones):\n            prefix[i + 1] = prefix[i] + v\n        memo = {}\n        def best(i, j):\n            if i >= j:\n                return 0\n            key = (i, j)\n            if key in memo:\n                return memo[key]\n            take_left = (prefix[j + 1] - prefix[i + 1]) - best(i + 1, j)\n            take_right = (prefix[j] - prefix[i]) - best(i, j - 1)\n            result = max(take_left, take_right)\n            memo[key] = result\n            return result\n        return best(0, n - 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def stoneGameVII(self, stones: List[int]) -> int:\n        n = len(stones)\n        prefix = [0] * (n + 1)\n        for i, v in enumerate(stones):\n            prefix[i + 1] = prefix[i] + v\n        dp = [[0] * n for _ in range(n)]\n        for length in range(2, n + 1):\n            for i in range(0, n - length + 1):\n                j = i + length - 1\n                take_left = (prefix[j + 1] - prefix[i + 1]) - dp[i + 1][j]\n                take_right = (prefix[j] - prefix[i]) - dp[i][j - 1]\n                dp[i][j] = max(take_left, take_right)\n        return dp[0][n - 1]\n",
+    "javascript": "var stoneGameVII = function(stones) {\n    const n = stones.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + stones[i];\n    const dp = Array.from({ length: n }, () => new Array(n).fill(0));\n    for (let length = 2; length <= n; length++) {\n        for (let i = 0; i + length - 1 < n; i++) {\n            const j = i + length - 1;\n            const takeLeft = (prefix[j + 1] - prefix[i + 1]) - dp[i + 1][j];\n            const takeRight = (prefix[j] - prefix[i]) - dp[i][j - 1];\n            dp[i][j] = Math.max(takeLeft, takeRight);\n        }\n    }\n    return dp[0][n - 1];\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

@@ -1,0 +1,42 @@
+{
+  "slug": "check-if-grid-can-be-cut-into-sections",
+  "judge": "exact",
+  "pattern": "A valid pair of cuts exists exactly when merging every rectangle's interval along one axis collapses into three or more separate blocks with a gap between them.",
+  "hints": [
+    "Think about only one axis at a time: if you can make the two cuts horizontally, only the y-ranges of the rectangles matter, and the x-ranges are irrelevant to that choice.",
+    "Sort rectangles by where their interval starts along that axis and merge any that overlap into one continuous block; a rectangle whose interval starts at or after the current block's end can never be split from it by a single cut, so it starts a brand new block instead.",
+    "Once you know how many separate blocks the merged intervals form along an axis, you can always slide a cut into every gap between two blocks -- so that axis works whenever merging produces at least three blocks; check both axes independently and answer true if either one qualifies."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [3, 1000000000] },
+    { "param": "rectangles", "kind": "int[][]", "len": [3, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two horizontal cuts", "input": [5, [[1,0,5,2],[0,2,2,4],[3,2,5,3],[0,4,4,5]]] },
+    { "kind": "edge", "description": "statement example, two vertical cuts", "input": [4, [[0,0,1,1],[2,0,3,4],[0,2,2,3],[3,0,4,3]]] },
+    { "kind": "edge", "description": "statement example, no valid pair of cuts", "input": [4, [[0,2,2,4],[1,0,3,2],[2,2,3,4],[3,0,4,2],[3,2,4,4]]] },
+    { "kind": "boundary", "description": "minimal n with three full-width horizontal stripes", "input": [3, [[0,0,3,1],[0,1,3,2],[0,2,3,3]]] },
+    { "kind": "boundary", "description": "three rectangles arranged so no straight cut can isolate them", "input": [3, [[0,0,1,3],[1,0,3,1],[1,1,3,3]]] },
+    { "kind": "trap", "description": "rectangles exactly touching at the candidate cut lines", "input": [6, [[0,0,6,2],[0,2,6,4],[0,4,6,6]]] },
+    { "kind": "trap", "description": "one large rectangle blocks any horizontal split while two small ones would allow a vertical one", "input": [4, [[0,0,2,4],[2,0,3,4],[3,0,4,4]]] },
+    { "kind": "boundary", "description": "huge grid dimension with only three rectangles", "input": [1000000000, [[0,0,1000000000,300000000],[0,300000000,1000000000,700000000],[0,700000000,1000000000,1000000000]]] }
+  ],
+  "stress": [
+    {
+      "description": "randomized guillotine partition of an n x n grid into many non-overlapping rectangles",
+      "seed": 11,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(3, 1000)\n    rects = [[0, 0, n, n]]\n    target = min(3 + (size % 5000), 20000)\n    attempts = 0\n    while len(rects) < target and attempts < target * 5:\n        attempts += 1\n        idx = rng.randrange(len(rects))\n        x1, y1, x2, y2 = rects[idx]\n        vertical = rng.random() < 0.5\n        if vertical and x2 - x1 >= 2:\n            cut = rng.randint(x1 + 1, x2 - 1)\n            rects[idx] = [x1, y1, cut, y2]\n            rects.append([cut, y1, x2, y2])\n        elif not vertical and y2 - y1 >= 2:\n            cut = rng.randint(y1 + 1, y2 - 1)\n            rects[idx] = [x1, y1, x2, cut]\n            rects.append([x1, cut, x2, y2])\n    return [n, rects]\n",
+      "note": "each split is a straight guillotine cut of an existing rectangle, so the pieces never overlap by construction"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def checkValidCuts(self, n, rectangles):\n        def check(lo_of, hi_of):\n            coords = {0, n}\n            for r in rectangles:\n                coords.add(lo_of(r))\n                coords.add(hi_of(r))\n            candidates = sorted(coords)\n            m = len(candidates)\n            for i in range(m):\n                for j in range(i + 1, m):\n                    c1, c2 = candidates[i], candidates[j]\n                    if c1 <= 0 or c2 >= n or c1 >= c2:\n                        continue\n                    sec1 = sec2 = sec3 = 0\n                    ok = True\n                    for r in rectangles:\n                        lo, hi = lo_of(r), hi_of(r)\n                        if lo < c1 < hi or lo < c2 < hi:\n                            ok = False\n                            break\n                        if hi <= c1:\n                            sec1 += 1\n                        elif hi <= c2:\n                            sec2 += 1\n                        else:\n                            sec3 += 1\n                    if ok and sec1 > 0 and sec2 > 0 and sec3 > 0:\n                        return True\n            return False\n\n        y_ok = check(lambda r: r[1], lambda r: r[3])\n        x_ok = check(lambda r: r[0], lambda r: r[2])\n        return y_ok or x_ok\n",
+  "solutions": {
+    "python": "class Solution:\n    def checkValidCuts(self, n, rectangles):\n        def enough_groups(intervals):\n            intervals = sorted(intervals)\n            groups = 0\n            cur_end = -1\n            for s, e in intervals:\n                if s >= cur_end:\n                    groups += 1\n                    cur_end = e\n                else:\n                    cur_end = max(cur_end, e)\n            return groups >= 3\n\n        ys = [(r[1], r[3]) for r in rectangles]\n        xs = [(r[0], r[2]) for r in rectangles]\n        return enough_groups(ys) or enough_groups(xs)\n",
+    "javascript": "var checkValidCuts = function(n, rectangles) {\n    function enoughGroups(intervals) {\n        intervals.sort((a, b) => a[0] - b[0] || a[1] - b[1]);\n        let groups = 0;\n        let curEnd = -1;\n        for (const [s, e] of intervals) {\n            if (s >= curEnd) {\n                groups += 1;\n                curEnd = e;\n            } else {\n                curEnd = Math.max(curEnd, e);\n            }\n        }\n        return groups >= 3;\n    }\n    const ys = rectangles.map(r => [r[1], r[3]]);\n    const xs = rectangles.map(r => [r[0], r[2]]);\n    return enoughGroups(ys) || enoughGroups(xs);\n};\n"
+  },
+  "complexity": {
+    "time": "O(r log r)",
+    "space": "O(r)"
+  }
+}

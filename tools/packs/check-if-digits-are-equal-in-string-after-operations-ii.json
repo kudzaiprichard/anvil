@@ -1,0 +1,88 @@
+{
+  "slug": "check-if-digits-are-equal-in-string-after-operations-ii",
+  "judge": "exact",
+  "pattern": "The same digit-folding process is really Pascal's triangle mod 10, so express each final digit as a sum of the original digits weighted by binomial coefficients, computed mod 2 and mod 5 and recombined.",
+  "hints": [
+    "Each of the two final digits is a fixed linear combination of the original digits with binomial-coefficient weights -- the string is far too long to simulate the folding one pass at a time.",
+    "A binomial coefficient mod a small prime can be computed digit-by-digit in that prime's own base (Lucas' theorem), which stays fast even when the top row of the triangle is enormous.",
+    "Get each weight mod 2 and mod 5 separately, then recombine the two results into a single value mod 10 (there are only 10 candidates to check) before summing."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        3,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "minimum length, three digits, folds once",
+      "input": [
+        "905"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all identical digits stay identical through every fold",
+      "input": [
+        "7777"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all zeros",
+      "input": [
+        "000"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a long string (800 digits) well beyond what direct simulation would be practical for at full scale",
+      "input": [
+        "33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "carries wrap through 0 at several steps",
+      "input": [
+        "959595"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "four digits where the two results differ only after the final fold",
+      "input": [
+        "1234"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a long alternating-digit string (800 digits)",
+      "input": [
+        "13131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "many random digit strings near the maximum length",
+      "seed": 1401,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(100000, size if size >= 3 else 3))\n    s = ''.join(str(rng.randint(0, 9)) for _ in range(n))\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def hasSameDigits(self, s):\n        # independent re-derivation: direct simulation of the folding process.\n        # correct but only intended for short strings -- the real solution must\n        # avoid this for the full length range.\n        digits = [int(c) for c in s]\n        while len(digits) > 2:\n            digits = [(a + b) % 10 for a, b in zip(digits, digits[1:])]\n        return digits[0] == digits[1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def hasSameDigits(self, s):\n        FACT5 = [1, 1, 2, 1, 4]\n        def small_comb5(n, k):\n            if k < 0 or k > n:\n                return 0\n            return FACT5[n] * pow(FACT5[k], 3, 5) % 5 * pow(FACT5[n - k], 3, 5) % 5\n        def comb_mod5(n, k):\n            if k < 0 or k > n:\n                return 0\n            res = 1\n            while n > 0 or k > 0:\n                ni, ki = n % 5, k % 5\n                if ki > ni:\n                    return 0\n                res = res * small_comb5(ni, ki) % 5\n                n //= 5\n                k //= 5\n            return res\n        def comb_mod2(n, k):\n            if k < 0 or k > n:\n                return 0\n            return 1 if (n & k) == k else 0\n        def comb_mod10(n, k):\n            a = comb_mod2(n, k)\n            b = comb_mod5(n, k)\n            for x in range(10):\n                if x % 2 == a and x % 5 == b:\n                    return x\n            raise ValueError('no crt solution')\n        n = len(s)\n        m = n - 2\n        digits = [int(c) for c in s]\n        coeffs = [comb_mod10(m, j) for j in range(m + 1)]\n        d0 = sum(coeffs[j] * digits[j] for j in range(m + 1)) % 10\n        d1 = sum(coeffs[j] * digits[j + 1] for j in range(m + 1)) % 10\n        return d0 == d1\n",
+    "javascript": "var hasSameDigits = function(s) {\n    const FACT5 = [1, 1, 2, 1, 4];\n    function powmod(a, e, mod) {\n        a = a % mod;\n        let r = 1;\n        while (e > 0) {\n            if (e & 1) r = (r * a) % mod;\n            a = (a * a) % mod;\n            e = Math.floor(e / 2);\n        }\n        return r;\n    }\n    function smallComb5(n, k) {\n        if (k < 0 || k > n) return 0;\n        return (FACT5[n] * powmod(FACT5[k], 3, 5) % 5 * powmod(FACT5[n - k], 3, 5)) % 5;\n    }\n    function comb5(n, k) {\n        if (k < 0 || k > n) return 0;\n        let res = 1;\n        while (n > 0 || k > 0) {\n            const ni = n % 5, ki = k % 5;\n            if (ki > ni) return 0;\n            res = (res * smallComb5(ni, ki)) % 5;\n            n = Math.floor(n / 5);\n            k = Math.floor(k / 5);\n        }\n        return res;\n    }\n    function comb2(n, k) {\n        if (k < 0 || k > n) return 0;\n        return (n & k) === k ? 1 : 0;\n    }\n    function comb10(n, k) {\n        const a = comb2(n, k), b = comb5(n, k);\n        for (let x = 0; x < 10; x++) {\n            if (x % 2 === a && x % 5 === b) return x;\n        }\n        throw new Error('no crt solution');\n    }\n    const n = s.length;\n    const m = n - 2;\n    const digits = s.split('').map(Number);\n    const C = new Array(m + 1);\n    for (let j = 0; j <= m; j++) C[j] = comb10(m, j);\n    let d0 = 0, d1 = 0;\n    for (let j = 0; j <= m; j++) {\n        d0 = (d0 + C[j] * digits[j]) % 10;\n        d1 = (d1 + C[j] * digits[j + 1]) % 10;\n    }\n    return d0 === d1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

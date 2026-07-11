@@ -1,0 +1,41 @@
+{
+  "slug": "map-sum-pairs",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Storing the latest value per key in a map lets a prefix-sum query add up exactly the keys that begin with the prefix, while re-insertion of a key simply overwrites its old value.",
+  "hints": [
+    "Inserting an existing key replaces its value, so each key contributes at most one value to any sum.",
+    "A simple dictionary from key to its current value is enough; the only question is how to answer prefix sums.",
+    "Keep a key-to-value map. For sum(prefix), iterate the stored keys and add the value of every key that starts with the prefix."
+  ],
+  "constraints": [
+    { "param": "key", "kind": "string", "len": [1, 50] },
+    { "param": "prefix", "kind": "string", "len": [1, 50] },
+    { "param": "val", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "overlapping keys, prefix sum grows as a matching key is added",
+      "input": [["MapSum", "insert", "sum", "insert", "sum"], [[], ["apple", 3], ["ap"], ["app", 2], ["ap"]]] },
+    { "kind": "trap", "description": "re-inserting a key overwrites the old value rather than adding to it",
+      "input": [["MapSum", "insert", "insert", "sum"], [[], ["a", 5], ["a", 8], ["a"]]] },
+    { "kind": "trap", "description": "a prefix that matches no key sums to zero",
+      "input": [["MapSum", "insert", "sum", "sum"], [[], ["dog", 4], ["do"], ["cat"]]] },
+    { "kind": "edge", "description": "the full key equals its own prefix and an empty-result query returns zero",
+      "input": [["MapSum", "insert", "insert", "sum", "sum"], [[], ["abc", 2], ["abd", 3], ["abc"], ["abe"]]] }
+  ],
+  "stress": [
+    {
+      "description": "many inserts (with re-inserts) over a small alphabet then varied prefix queries",
+      "seed": 71,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    letters = 'abc'\n    n = min(max(1, size), 25)\n    ops = ['MapSum']\n    args = [[]]\n    keys = []\n    for _ in range(n):\n        L = rng.randint(1, 4)\n        k = ''.join(rng.choice(letters) for _ in range(L))\n        keys.append(k)\n        ops.append('insert'); args.append([k, rng.randint(1, 1000)])\n    for _ in range(n):\n        if keys and rng.random() < 0.5:\n            base = rng.choice(keys)\n            p = base[:rng.randint(1, len(base))]\n        else:\n            L = rng.randint(1, 4)\n            p = ''.join(rng.choice('abcd') for _ in range(L))\n        ops.append('sum'); args.append([p])\n    return [ops, args]\n",
+      "note": "small alphabet causes shared prefixes and re-inserts; bounded to the 50-call limit"
+    }
+  ],
+  "oracle_python": "class MapSum:\n    def __init__(self):\n        self.m = {}\n    def insert(self, key, val):\n        self.m[key] = val\n    def sum(self, prefix):\n        total = 0\n        for k, v in self.m.items():\n            if k.startswith(prefix):\n                total += v\n        return total\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\n\nclass MapSum:\n    def __init__(self):\n        self.vals = {}\n        self.prefix_sums = defaultdict(int)\n    def insert(self, key, val):\n        delta = val - self.vals.get(key, 0)\n        self.vals[key] = val\n        for i in range(1, len(key) + 1):\n            self.prefix_sums[key[:i]] += delta\n    def sum(self, prefix):\n        return self.prefix_sums.get(prefix, 0)\n",
+    "javascript": "class MapSum {\n    constructor() {\n        this.vals = new Map();\n        this.prefixSums = new Map();\n    }\n    insert(key, val) {\n        const delta = val - (this.vals.get(key) || 0);\n        this.vals.set(key, val);\n        for (let i = 1; i <= key.length; i++) {\n            const p = key.slice(0, i);\n            this.prefixSums.set(p, (this.prefixSums.get(p) || 0) + delta);\n        }\n    }\n    sum(prefix) {\n        return this.prefixSums.get(prefix) || 0;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(L) per op", "space": "O(total characters)" }
+}

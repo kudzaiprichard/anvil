@@ -1,0 +1,48 @@
+{
+  "slug": "minimum-cost-to-make-two-binary-strings-equal",
+  "judge": "exact",
+  "pattern": "Positions that already agree never need to be touched, so only the mismatched positions matter, and every mismatch is one of exactly two flavors depending on which string currently holds the 1.",
+  "hints": [
+    "Ignore every index where the two strings already agree; among the remaining mismatched indices, split them into two flavors: those where the first string has 0 and the second has 1, and those where it is the other way around.",
+    "A mismatch of one flavor can be paired with a mismatch of the opposite flavor and resolved together with a single same-string swap, which is often cheaper than flipping both of them individually.",
+    "Once the opposite-flavor mismatches are paired off, only mismatches of one leftover flavor remain; two of those can still be resolved together using one cross-string swap plus one same-string swap when that combination beats flipping each one on its own, and any final unpaired mismatch is resolved with a single flip."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000], "note": "binary string, characters are '0' or '1' only; n == s.length == t.length" },
+    { "param": "t", "kind": "string", "len": [1, 100000], "note": "binary string, characters are '0' or '1' only" },
+    { "param": "flipCost", "kind": "int", "value": [1, 1000000000] },
+    { "param": "swapCost", "kind": "int", "value": [1, 1000000000] },
+    { "param": "crossCost", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the reference example needing a mix of same-string swaps, a cross swap and a flip", "input": ["01000", "10111", 10, 2, 2] },
+    { "kind": "edge", "description": "the reference example where flipping every mismatch directly is cheapest", "input": ["001", "110", 2, 100, 100] },
+    { "kind": "edge", "description": "already equal strings need zero cost", "input": ["1010", "1010", 5, 5, 5] },
+    { "kind": "boundary", "description": "single mismatched character, smallest possible length", "input": ["0", "1", 3, 3, 3] },
+    { "kind": "boundary", "description": "single matching character, smallest possible length", "input": ["1", "1", 3, 3, 3] },
+    { "kind": "trap", "description": "opposite-flavor mismatches everywhere, and a same-string swap is far cheaper than two flips", "input": ["01", "10", 1000, 1, 1000] },
+    { "kind": "trap", "description": "only one flavor of mismatch, and pairing via a cross swap plus a same-string swap beats two flips", "input": ["00", "11", 100, 100, 1] },
+    { "kind": "trap", "description": "only one flavor of mismatch with an odd count, leaving one unpaired flip after pairing what can be paired", "input": ["000", "111", 5, 1, 1] },
+    { "kind": "boundary", "description": "all costs at the maximum allowed value with a single leftover mismatch", "input": ["0", "1", 1000000000, 1000000000, 1000000000] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings and random costs at a moderate length",
+      "seed": 41,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    s = ''.join(rng.choice('01') for _ in range(n))\n    t = ''.join(rng.choice('01') for _ in range(n))\n    flip_cost = rng.randint(1, 1000)\n    swap_cost = rng.randint(1, 1000)\n    cross_cost = rng.randint(1, 1000)\n    return [s, t, flip_cost, swap_cost, cross_cost]\n"
+    },
+    {
+      "description": "long strings biased toward one mismatch flavor to exercise the leftover-pairing branch",
+      "seed": 42,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    s_chars = []\n    t_chars = []\n    for _ in range(n):\n        if rng.random() < 0.7:\n            s_chars.append('0')\n            t_chars.append('1')\n        else:\n            ch = rng.choice('01')\n            s_chars.append(ch)\n            t_chars.append(ch)\n    flip_cost = rng.randint(1, 1000000)\n    swap_cost = rng.randint(1, 1000000)\n    cross_cost = rng.randint(1, 1000000)\n    return [''.join(s_chars), ''.join(t_chars), flip_cost, swap_cost, cross_cost]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumCost(self, s, t, flipCost, swapCost, crossCost):\n        a = 0\n        b = 0\n        for cs, ct in zip(s, t):\n            if cs == '0' and ct == '1':\n                a += 1\n            elif cs == '1' and ct == '0':\n                b += 1\n        opposite_pair_cost = min(swapCost, 2 * flipCost)\n        total = min(a, b) * opposite_pair_cost\n        leftover = abs(a - b)\n        same_pair_cost = min(2 * flipCost, swapCost + crossCost)\n        total += (leftover // 2) * same_pair_cost\n        total += (leftover % 2) * flipCost\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumCost(self, s: str, t: str, flipCost: int, swapCost: int, crossCost: int) -> int:\n        a = 0\n        b = 0\n        for i in range(len(s)):\n            if s[i] == '0' and t[i] == '1':\n                a += 1\n            elif s[i] == '1' and t[i] == '0':\n                b += 1\n        opposite_pair_cost = min(swapCost, 2 * flipCost)\n        total = min(a, b) * opposite_pair_cost\n        leftover = abs(a - b)\n        same_pair_cost = min(2 * flipCost, swapCost + crossCost)\n        total += (leftover // 2) * same_pair_cost\n        total += (leftover % 2) * flipCost\n        return total\n",
+    "javascript": "var minimumCost = function(s, t, flipCost, swapCost, crossCost) {\n    let a = 0;\n    let b = 0;\n    for (let i = 0; i < s.length; i++) {\n        if (s[i] === '0' && t[i] === '1') a++;\n        else if (s[i] === '1' && t[i] === '0') b++;\n    }\n    const oppositePairCost = Math.min(swapCost, 2 * flipCost);\n    let total = Math.min(a, b) * oppositePairCost;\n    const leftover = Math.abs(a - b);\n    const samePairCost = Math.min(2 * flipCost, swapCost + crossCost);\n    total += Math.floor(leftover / 2) * samePairCost;\n    total += (leftover % 2) * flipCost;\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

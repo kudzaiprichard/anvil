@@ -1,0 +1,37 @@
+{
+  "slug": "keys-and-rooms",
+  "judge": "exact",
+  "pattern": "Treat rooms as nodes and the keys found in a room as outgoing edges, then a single traversal from room zero answers whether every node is reachable.",
+  "hints": [
+    "Each room hands you keys to other rooms, which is exactly a directed-edge relationship between rooms.",
+    "Start at room zero and explore: every time you enter a new room, queue up the rooms its keys unlock.",
+    "Run a depth-first or breadth-first search from room zero, marking rooms visited; afterward check whether the visited count equals the number of rooms."
+  ],
+  "constraints": [
+    { "param": "rooms", "kind": "int[][]", "len": [2, 1000], "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a simple chain unlocks every room", "input": [[[1], [2], [3], []]] },
+    { "kind": "trap", "description": "a room's only key is locked inside itself", "input": [[[1, 3], [3, 0, 1], [2], [0]]] },
+    { "kind": "boundary", "description": "two rooms where the first opens the second", "input": [[[1], []]] },
+    { "kind": "trap", "description": "two rooms but no key to the second", "input": [[[], [0]]] },
+    { "kind": "edge", "description": "self-referencing keys still leave a room unreachable", "input": [[[1, 2], [0], [], [0]]] },
+    { "kind": "edge", "description": "duplicate keys across rooms, all reachable", "input": [[[1, 2], [2], [3], []]] },
+    { "kind": "trap", "description": "a cycle that never reaches the last room", "input": [[[1], [0], []]] }
+  ],
+  "stress": [
+    {
+      "description": "random key sets; a spanning chain is always seeded so reachability varies but stays solvable to compute quickly",
+      "seed": 23,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, size))\n    rooms = [[] for _ in range(n)]\n    # sometimes guarantee full reachability via a chain, sometimes don't\n    if rng.random() < 0.5:\n        for i in range(n - 1):\n            rooms[i].append(i + 1)\n    for i in range(n):\n        extra = rng.randint(0, 3)\n        for _ in range(extra):\n            k = rng.randrange(n)\n            if k not in rooms[i]:\n                rooms[i].append(k)\n    return [rooms]\n",
+      "note": "mix of fully-reachable and partially-reachable layouts"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canVisitAllRooms(self, rooms):\n        n = len(rooms)\n        # iterative fixpoint: repeatedly absorb keys until nothing new opens\n        have = {0}\n        changed = True\n        while changed:\n            changed = False\n            for r in list(have):\n                for k in rooms[r]:\n                    if k not in have:\n                        have.add(k)\n                        changed = True\n        return len(have) == n\n",
+  "solutions": {
+    "python": "class Solution:\n    def canVisitAllRooms(self, rooms):\n        n = len(rooms)\n        seen = [False] * n\n        seen[0] = True\n        stack = [0]\n        count = 1\n        while stack:\n            r = stack.pop()\n            for k in rooms[r]:\n                if not seen[k]:\n                    seen[k] = True\n                    count += 1\n                    stack.append(k)\n        return count == n\n",
+    "javascript": "var canVisitAllRooms = function(rooms) {\n    const n = rooms.length;\n    const seen = new Array(n).fill(false);\n    seen[0] = true;\n    const stack = [0];\n    let count = 1;\n    while (stack.length) {\n        const r = stack.pop();\n        for (const k of rooms[r]) {\n            if (!seen[k]) {\n                seen[k] = true;\n                count++;\n                stack.push(k);\n            }\n        }\n    }\n    return count === n;\n};\n"
+  },
+  "complexity": { "time": "O(n + e)", "space": "O(n)" }
+}

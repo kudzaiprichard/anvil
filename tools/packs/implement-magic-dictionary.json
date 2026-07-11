@@ -1,0 +1,40 @@
+{
+  "slug": "implement-magic-dictionary",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A search succeeds only when a stored word has the same length and differs in exactly one position, so grouping words by length and counting mismatches answers each query directly.",
+  "hints": [
+    "The replaced word must keep the same length, so only stored words of equal length can ever match.",
+    "Exactly one character must change — zero differences (the same word) does not count, and two or more differences is too many.",
+    "Bucket the dictionary by word length. For a query, scan only the words of its length and return true the moment one differs in exactly one position."
+  ],
+  "constraints": [
+    { "param": "dictionary", "kind": "string[]", "len": [1, 100] },
+    { "param": "searchWord", "kind": "string", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the only true case changes exactly one character to reach a stored word",
+      "input": [["MagicDictionary", "buildDict", "search", "search", "search", "search"], [[], [["hello", "leetcode"]], ["hello"], ["hhllo"], ["hell"], ["leetcoded"]]] },
+    { "kind": "trap", "description": "an identical word is false because zero characters change",
+      "input": [["MagicDictionary", "buildDict", "search", "search"], [[], [["abc", "abd"]], ["abc"], ["abx"]]] },
+    { "kind": "trap", "description": "two differing positions is false; a different length never matches",
+      "input": [["MagicDictionary", "buildDict", "search", "search"], [[], [["abcd"]], ["abxy"], ["abc"]]] },
+    { "kind": "edge", "description": "single-character words: any other single character matches",
+      "input": [["MagicDictionary", "buildDict", "search", "search", "search"], [[], [["a"]], ["a"], ["b"], ["aa"]]] }
+  ],
+  "stress": [
+    {
+      "description": "many words over a small alphabet then queries that are near-misses, exact, or unrelated",
+      "seed": 67,
+      "size": 90,
+      "generator_python": "def gen(rng, size):\n    letters = 'abc'\n    n = min(max(1, size), 90)\n    words = set()\n    while len(words) < n:\n        L = rng.randint(1, 5)\n        words.add(''.join(rng.choice(letters) for _ in range(L)))\n    words = list(words)\n    ops = ['MagicDictionary', 'buildDict']\n    args = [[], [words]]\n    for _ in range(min(90, n)):\n        base = rng.choice(words)\n        r = rng.random()\n        if r < 0.4 and len(base) > 0:\n            i = rng.randrange(len(base))\n            repl = rng.choice(letters)\n            q = base[:i] + repl + base[i+1:]\n        elif r < 0.7:\n            q = base\n        else:\n            L = rng.randint(1, 6)\n            q = ''.join(rng.choice('abcd') for _ in range(L))\n        ops.append('search'); args.append([q])\n    return [ops, args]\n",
+      "note": "small alphabet and short words force many one-off matches and exact-word traps"
+    }
+  ],
+  "oracle_python": "class MagicDictionary:\n    def __init__(self):\n        self.words = []\n    def buildDict(self, dictionary):\n        self.words = list(dictionary)\n    def search(self, searchWord):\n        for w in self.words:\n            if len(w) != len(searchWord):\n                continue\n            diff = sum(1 for a, b in zip(w, searchWord) if a != b)\n            if diff == 1:\n                return True\n        return False\n",
+  "solutions": {
+    "python": "class MagicDictionary:\n    def __init__(self):\n        self.by_len = {}\n    def buildDict(self, dictionary):\n        self.by_len = {}\n        for w in dictionary:\n            self.by_len.setdefault(len(w), []).append(w)\n    def search(self, searchWord):\n        for w in self.by_len.get(len(searchWord), []):\n            diff = 0\n            for a, b in zip(w, searchWord):\n                if a != b:\n                    diff += 1\n                    if diff > 1:\n                        break\n            if diff == 1:\n                return True\n        return False\n",
+    "javascript": "class MagicDictionary {\n    constructor() {\n        this.byLen = new Map();\n    }\n    buildDict(dictionary) {\n        this.byLen = new Map();\n        for (const w of dictionary) {\n            if (!this.byLen.has(w.length)) this.byLen.set(w.length, []);\n            this.byLen.get(w.length).push(w);\n        }\n    }\n    search(searchWord) {\n        const bucket = this.byLen.get(searchWord.length) || [];\n        for (const w of bucket) {\n            let diff = 0;\n            for (let i = 0; i < w.length; i++) {\n                if (w[i] !== searchWord[i]) {\n                    diff += 1;\n                    if (diff > 1) break;\n                }\n            }\n            if (diff === 1) return true;\n        }\n        return false;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n*L) per search", "space": "O(total characters)" }
+}

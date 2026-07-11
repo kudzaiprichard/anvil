@@ -1,0 +1,96 @@
+{
+  "slug": "number-of-valid-words-in-a-sentence",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Validating a token needs only three running counters -- a digit check, a hyphen-position check, and a trailing-punctuation check -- evaluated in a single left-to-right scan.",
+  "hints": [
+    "Split on single spaces first, but remember that consecutive spaces create empty tokens you must skip entirely.",
+    "For each token, reject immediately the moment you see any digit; otherwise track how many hyphens and how many punctuation marks you've seen so far.",
+    "A hyphen is only legal as a single interior character with a lowercase letter on each side, and a punctuation mark is only legal as the very last character with at most one total -- fail the token the instant either rule is broken."
+  ],
+  "constraints": [
+    {
+      "param": "sentence",
+      "kind": "string",
+      "len": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "tokens that are only punctuation",
+      "input": [
+        "! . ,"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "hyphen at the very start of a token",
+      "input": [
+        "-abc valid"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "multiple consecutive spaces between two tokens",
+      "input": [
+        "a    b"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a token near the maximum sentence length made only of letters",
+      "input": [
+        "a b cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two punctuation marks in one token",
+      "input": [
+        "a!!"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "punctuation appears in the middle instead of at the end",
+      "input": [
+        "a!b"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a digit hidden inside an otherwise word-like token",
+      "input": [
+        "hello wor1d"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two hyphens in a single token",
+      "input": [
+        "a-b-c valid"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "randomly generated tokens (words, hyphenated words, punctuation, and invalid digit tokens) joined into a sentence near the length limit",
+      "seed": 9,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    limit = 1000\n    letters = 'abcdefghijklmnopqrstuvwxyz'\n    pieces = []\n    cur_len = 0\n    first = True\n    while True:\n        r = rng.random()\n        if r < 0.55:\n            wlen = rng.randint(1, 8)\n            tok = ''.join(rng.choice(letters) for _ in range(wlen))\n            if rng.random() < 0.3 and len(tok) > 1:\n                pos = rng.randint(1, len(tok) - 1)\n                tok = tok[:pos] + '-' + tok[pos:]\n            if rng.random() < 0.3:\n                tok += rng.choice('!.,')\n        elif r < 0.8:\n            wlen = rng.randint(1, 6)\n            tok = ''.join(rng.choice(letters + '0123456789') for _ in range(wlen))\n        else:\n            tok = rng.choice('!.,')\n        sep = '' if first else (' ' * rng.randint(1, 2))\n        add = sep + tok\n        if cur_len + len(add) > limit - 1:\n            break\n        pieces.append(add)\n        cur_len += len(add)\n        first = False\n        if len(pieces) >= 100:\n            break\n    s = ''.join(pieces) if pieces else 'a'\n    return [s]\n"
+    }
+  ],
+  "oracle_python": "import re\n\nclass Solution:\n    def countValidWords(self, sentence: str) -> int:\n        pattern = re.compile(r'^([a-z]+(-[a-z]+)?)?[!.,]?$')\n        count = 0\n        for tok in sentence.split(' '):\n            if tok == '':\n                continue\n            if pattern.match(tok):\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countValidWords(self, sentence: str) -> int:\n        def is_valid(word):\n            hyphen = 0\n            punct = 0\n            n = len(word)\n            for i, ch in enumerate(word):\n                if ch.isdigit():\n                    return False\n                elif ch == '-':\n                    hyphen += 1\n                    if hyphen > 1:\n                        return False\n                    if i == 0 or i == n - 1:\n                        return False\n                    if not word[i-1].islower() or not word[i+1].islower():\n                        return False\n                elif ch in '!.,':\n                    punct += 1\n                    if punct > 1:\n                        return False\n                    if i != n - 1:\n                        return False\n                elif ch.islower():\n                    continue\n                else:\n                    return False\n            return True\n        return sum(1 for tok in sentence.split(' ') if tok and is_valid(tok))\n",
+    "javascript": "var countValidWords = function(sentence) {\n    function isValid(word) {\n        let hyphen = 0, punct = 0;\n        const n = word.length;\n        for (let i = 0; i < n; i++) {\n            const ch = word[i];\n            if (ch >= '0' && ch <= '9') {\n                return false;\n            } else if (ch === '-') {\n                hyphen++;\n                if (hyphen > 1) return false;\n                if (i === 0 || i === n - 1) return false;\n                const prev = word[i-1], next = word[i+1];\n                if (!(prev >= 'a' && prev <= 'z') || !(next >= 'a' && next <= 'z')) return false;\n            } else if (ch === '!' || ch === '.' || ch === ',') {\n                punct++;\n                if (punct > 1) return false;\n                if (i !== n - 1) return false;\n            } else if (ch >= 'a' && ch <= 'z') {\n                continue;\n            } else {\n                return false;\n            }\n        }\n        return true;\n    }\n    return sentence.split(' ').filter(tok => tok.length > 0 && isValid(tok)).length;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(1)"
+  }
+}

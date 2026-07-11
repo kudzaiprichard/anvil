@@ -1,0 +1,44 @@
+{
+  "slug": "count-beautiful-substrings-ii",
+  "judge": "exact",
+  "pattern": "Balance-run counting: turn a two-count equality condition into a running prefix balance, then bucket occurrences of each balance value by a secondary residue so a hashmap lookup answers 'how many earlier prefixes match' in one pass.",
+  "hints": [
+    "If a substring has equal vowels and consonants, think of vowels as +1 and consonants as -1: the substring's running balance must return to the same value at both ends, just like the classic equal-count subarray trick.",
+    "Once vowels == consonants == m for a substring, the divisibility condition only depends on m, not on which letters they are — find the smallest positive integer x such that x*x is itself divisible by k, and notice any m satisfying the condition must be a multiple of that x.",
+    "Walk the string once keeping a running balance and a running vowel count; group prior prefix positions by the pair (balance value, vowel-count mod x) in a hashmap, and every time you revisit a pair you've add that many new beautiful substrings ending here — this reaches O(n) instead of the O(n^2) needed for the smaller version of this problem."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 50000] },
+    { "param": "k", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single vowel only, k=1", "input": ["a", 1] },
+    { "kind": "edge", "description": "single consonant only, k=1", "input": ["b", 1] },
+    { "kind": "edge", "description": "no vowels at all, longer run", "input": ["bcdfghj", 1] },
+    { "kind": "edge", "description": "all vowels, no consonants", "input": ["aeiou", 1] },
+    { "kind": "boundary", "description": "k at its maximum value 1000 with a short string", "input": ["aabb", 1000] },
+    { "kind": "trap", "description": "vowels==consonants but product not divisible by k so must be excluded", "input": ["ab", 4] },
+    { "kind": "trap", "description": "repeated alternating pattern that creates many equal-balance revisits", "input": ["abababab", 2] },
+    { "kind": "trap", "description": "k with several small prime factors requiring x > 1", "input": ["aeiobcdfgh", 6] }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase string near max length with a mid-range k",
+      "seed": 7,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    letters = 'abcdefghijklmnopqrstuvwxyz'\n    s = ''.join(rng.choice(letters) for _ in range(size))\n    k = rng.randint(1, 1000)\n    return [s, k]\n"
+    },
+    {
+      "description": "long alternating vowel/consonant run stressing the hashmap bucket sizes",
+      "seed": 11,
+      "size": 40000,
+      "generator_python": "def gen(rng, size):\n    vowels = 'aeiou'\n    consonants = 'bcdfg'\n    s = ''.join((rng.choice(vowels) if i % 2 == 0 else rng.choice(consonants)) for i in range(size))\n    k = rng.choice([1, 2, 4, 9, 25])\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def beautifulSubstrings(self, s, k):\n        n = len(s)\n        vowel_set = set('aeiou')\n        is_vowel = [1 if c in vowel_set else 0 for c in s]\n        prefix_v = [0] * (n + 1)\n        for i in range(n):\n            prefix_v[i + 1] = prefix_v[i] + is_vowel[i]\n        count = 0\n        for i in range(n):\n            for j in range(i + 1, n + 1):\n                length = j - i\n                v = prefix_v[j] - prefix_v[i]\n                c = length - v\n                if v == c and (v * c) % k == 0:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def beautifulSubstrings(self, s, k):\n        vowel_set = set('aeiou')\n        x = 1\n        while (x * x) % k != 0:\n            x += 1\n        from collections import defaultdict\n        bucket = defaultdict(int)\n        bucket[(0, 0)] = 1\n        balance = 0\n        vowel_count = 0\n        ans = 0\n        for ch in s:\n            if ch in vowel_set:\n                balance += 1\n                vowel_count += 1\n            else:\n                balance -= 1\n            key = (balance, vowel_count % x)\n            ans += bucket[key]\n            bucket[key] += 1\n        return ans\n",
+    "javascript": "var beautifulSubstrings = function(s, k) {\n    const vowels = new Set(['a', 'e', 'i', 'o', 'u']);\n    let x = 1;\n    while ((x * x) % k !== 0) x += 1;\n    const bucket = new Map();\n    const keyOf = (bal, vr) => bal + ':' + vr;\n    bucket.set(keyOf(0, 0), 1);\n    let balance = 0;\n    let vowelCount = 0;\n    let ans = 0;\n    for (let i = 0; i < s.length; i++) {\n        if (vowels.has(s[i])) {\n            balance += 1;\n            vowelCount += 1;\n        } else {\n            balance -= 1;\n        }\n        const key = keyOf(balance, vowelCount % x);\n        const cur = bucket.get(key) || 0;\n        ans += cur;\n        bucket.set(key, cur + 1);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

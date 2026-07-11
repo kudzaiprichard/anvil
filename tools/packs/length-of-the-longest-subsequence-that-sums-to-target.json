@@ -1,0 +1,38 @@
+{
+  "slug": "length-of-the-longest-subsequence-that-sums-to-target",
+  "judge": "exact",
+  "pattern": "Bounded 0/1 knapsack: instead of just tracking which sums are reachable, track the longest subsequence length that reaches each sum.",
+  "hints": [
+    "This looks like a subset-sum reachability question, but it's asking for something stronger than yes/no — think about what extra information you'd need to track per achievable sum.",
+    "Treat it as a 0/1 knapsack over sums 0..target: for each element, decide once whether to include it, and keep the best (longest) subsequence length that lands on each sum.",
+    "Maintain dp[s] = the longest subsequence length summing to s (or -infinity if unreachable), and update it by scanning sums from high to low for each number so no element is reused."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 1000], "value": [1, 1000] },
+    { "param": "target", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element matches target exactly", "input": [[5], 5] },
+    { "kind": "edge", "description": "single element cannot match target", "input": [[3], 10] },
+    { "kind": "edge", "description": "target exceeds total possible sum", "input": [[1, 2, 3], 100] },
+    { "kind": "edge", "description": "duplicates give multiple equally short ways to reach the sum", "input": [[1, 1, 1, 1], 2] },
+    { "kind": "trap", "description": "one big element hits the target directly, but many small ones give a strictly longer subsequence", "input": [[1, 1, 1, 1, 1, 5], 5] },
+    { "kind": "trap", "description": "target equals the sum of the whole array, so every element must be used", "input": [[2, 3, 4], 9] },
+    { "kind": "boundary", "description": "minimum-size array and minimum target", "input": [[1], 1] },
+    { "kind": "boundary", "description": "single element at the maximum allowed value, matching the maximum target", "input": [[1000], 1000] }
+  ],
+  "stress": [
+    {
+      "description": "large arrays with target values biased toward reachable sums via a constructed subset, mixed with fully random targets",
+      "seed": 1,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    target = rng.randint(1, 1000)\n    nums = []\n    if rng.random() < 0.6:\n        remaining = target\n        while remaining > 0 and len(nums) < n - 1:\n            piece = rng.randint(1, remaining)\n            nums.append(piece)\n            remaining -= piece\n        if remaining > 0:\n            nums.append(remaining)\n    while len(nums) < n:\n        nums.append(rng.randint(1, 1000))\n    rng.shuffle(nums)\n    return [nums, target]\n"
+    }
+  ],
+  "oracle_python": "import sys\nclass Solution:\n    def lengthOfLongestSubsequence(self, nums, target):\n        sys.setrecursionlimit(10000)\n        n = len(nums)\n        NEG = float('-inf')\n        memo = {}\n        def solve(i, remaining):\n            if remaining == 0:\n                return 0\n            if i == n or remaining < 0:\n                return NEG\n            key = (i, remaining)\n            if key in memo:\n                return memo[key]\n            skip = solve(i + 1, remaining)\n            take = NEG\n            if nums[i] <= remaining:\n                sub = solve(i + 1, remaining - nums[i])\n                if sub != NEG:\n                    take = sub + 1\n            result = skip if skip > take else take\n            memo[key] = result\n            return result\n        result = solve(0, target)\n        return result if result != NEG else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def lengthOfLongestSubsequence(self, nums, target):\n        NEG = float('-inf')\n        dp = [NEG] * (target + 1)\n        dp[0] = 0\n        for num in nums:\n            if num > target:\n                continue\n            for s in range(target, num - 1, -1):\n                if dp[s - num] != NEG and dp[s - num] + 1 > dp[s]:\n                    dp[s] = dp[s - num] + 1\n        return dp[target] if dp[target] != NEG else -1\n",
+    "javascript": "var lengthOfLongestSubsequence = function(nums, target) {\n    const NEG = -Infinity;\n    const dp = new Array(target + 1).fill(NEG);\n    dp[0] = 0;\n    for (const num of nums) {\n        if (num > target) continue;\n        for (let s = target; s >= num; s--) {\n            if (dp[s - num] !== NEG && dp[s - num] + 1 > dp[s]) {\n                dp[s] = dp[s - num] + 1;\n            }\n        }\n    }\n    return dp[target] !== NEG ? dp[target] : -1;\n};\n"
+  },
+  "complexity": { "time": "O(n * target)", "space": "O(target)" }
+}

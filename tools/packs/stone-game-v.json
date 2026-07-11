@@ -1,0 +1,112 @@
+{
+  "slug": "stone-game-v",
+  "judge": "exact",
+  "pattern": "Whichever half of the row would be thrown away is decided purely by comparing the two halves' sums, so the best score is found by trying every possible split point and, for a tie, remembering that you get to keep whichever surviving half leaves you better off later.",
+  "hints": [
+    "For any contiguous stretch of the row, imagine every place you could cut it into a left piece and a right piece; only the piece with the smaller sum survives into the next round, so your score from that stretch depends entirely on which cut you pick.",
+    "Compute the best achievable score for every contiguous stretch of stones, smallest stretches first, by trying each cut point and adding the sum of whichever side survives to the best score already known for that surviving side.",
+    "When a cut produces two exactly equal sums, the rule says you get to choose which one survives, so for that cut take whichever of the two surviving-side outcomes -- left continuing or right continuing -- gives the larger total, rather than assuming either one by default."
+  ],
+  "constraints": [
+    {
+      "param": "stoneValue",
+      "kind": "int[]",
+      "len": [
+        1,
+        500
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "single stone, game already over",
+      "input": [
+        [
+          1000000
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two equal stones, a tie on the very first cut",
+      "input": [
+        [
+          3,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "two unequal stones, only one legal cut",
+      "input": [
+        [
+          1,
+          9
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "four equal stones, ties available at every level",
+      "input": [
+        [
+          2,
+          2,
+          2,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one huge outlier at the end forcing a specific early cut",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          100
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one huge outlier at the front instead of the end",
+      "input": [
+        [
+          100,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random stone values at a large row length",
+      "seed": 5,
+      "size": 220,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 500))\n    return [[rng.randint(1, 1000000) for _ in range(n)]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def stoneGameV(self, stoneValue):\n        n = len(stoneValue)\n\n        def solve(i, j):\n            if i == j:\n                return 0\n            total = sum(stoneValue[i:j + 1])\n            best = 0\n            left = 0\n            for k in range(i, j):\n                left += stoneValue[k]\n                right = total - left\n                if left < right:\n                    cand = left + solve(i, k)\n                elif left > right:\n                    cand = right + solve(k + 1, j)\n                else:\n                    cand = left + max(solve(i, k), solve(k + 1, j))\n                if cand > best:\n                    best = cand\n            return best\n\n        return solve(0, n - 1)\n",
+  "solutions": {
+    "python": "import sys\nfrom functools import lru_cache\n\nclass Solution:\n    def stoneGameV(self, stoneValue):\n        sys.setrecursionlimit(10000)\n        n = len(stoneValue)\n        prefix = [0] * (n + 1)\n        for idx, v in enumerate(stoneValue):\n            prefix[idx + 1] = prefix[idx] + v\n\n        @lru_cache(maxsize=None)\n        def best(i, j):\n            if i == j:\n                return 0\n            total = prefix[j + 1] - prefix[i]\n            left = 0\n            top = 0\n            for k in range(i, j):\n                left += stoneValue[k]\n                right = total - left\n                if left < right:\n                    cand = left + best(i, k)\n                elif left > right:\n                    cand = right + best(k + 1, j)\n                else:\n                    cand = left + max(best(i, k), best(k + 1, j))\n                if cand > top:\n                    top = cand\n            return top\n\n        result = best(0, n - 1)\n        best.cache_clear()\n        return result\n",
+    "javascript": "var stoneGameV = function(stoneValue) {\n    const n = stoneValue.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + stoneValue[i];\n    const dp = Array.from({ length: n }, () => new Array(n).fill(-1));\n    const best = (i, j) => {\n        if (i === j) return 0;\n        if (dp[i][j] !== -1) return dp[i][j];\n        const total = prefix[j + 1] - prefix[i];\n        let left = 0;\n        let top = 0;\n        for (let k = i; k < j; k++) {\n            left += stoneValue[k];\n            const right = total - left;\n            let cand;\n            if (left < right) cand = left + best(i, k);\n            else if (left > right) cand = right + best(k + 1, j);\n            else cand = left + Math.max(best(i, k), best(k + 1, j));\n            if (cand > top) top = cand;\n        }\n        dp[i][j] = top;\n        return top;\n    };\n    return best(0, n - 1);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^3) worst case interval DP",
+    "space": "O(n^2)"
+  }
+}

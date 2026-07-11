@@ -1,0 +1,39 @@
+{
+  "slug": "lexicographically-smallest-generated-string",
+  "judge": "exact",
+  "pattern": "The forced-equality marks pin down a sparse set of positions outright, so the rest defaults to the smallest letter and only the forbidden-equality marks need small, rightmost-biased corrections.",
+  "hints": [
+    "Every forced-equality mark nails down an entire length-m window to the second string exactly - lay those down first and fail immediately if two marks disagree on the same cell.",
+    "Anywhere left undetermined wants the smallest possible letter by default; a forbidden-equality mark only becomes a problem if the window it covers ends up matching anyway.",
+    "Fill unforced cells with the smallest letter. For each forbidden mark, if its window equals the second string, bump the RIGHTMOST cell in that window that isn't forced (smallest letter above what's there); recheck all forbidden marks until none match, or report impossible if a mark has no unforced cell left to bump or a bump would run past 'z'."
+  ],
+  "constraints": [
+    { "param": "str1", "kind": "string", "len": [1, 10000] },
+    { "param": "str2", "kind": "string", "len": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single forced cell, nothing else to check", "input": ["T", "a"] },
+    { "kind": "trap", "description": "two overlapping forced marks disagree on the same cell", "input": ["TT", "ab"] },
+    { "kind": "trap", "description": "every cell defaults to the smallest letter, and a forbidden mark must cascade-bump the tail to escape a match", "input": ["FF", "aa"] },
+    { "kind": "edge", "description": "no forced marks at all, a single forbidden mark on the default fill", "input": ["F", "a"] },
+    { "kind": "trap", "description": "a forbidden mark's window has one forced cell and one free cell; only the free cell may move", "input": ["TF", "aa"] },
+    { "kind": "trap", "description": "forced marks fully pin down a forbidden mark's whole window, making it impossible to escape", "input": ["TFTF", "aa"] },
+    { "kind": "boundary", "description": "the second string is much longer than the first", "input": ["TF", "abcdef"] },
+    { "kind": "trap", "description": "several disjoint single-cell forbidden windows must each bump independently", "input": ["FTFTFT", "a"] }
+  ],
+  "stress": [
+    {
+      "description": "near-maximum first-string length with a moderate second string, biased toward runs of the same marker to create long forced/forbidden stretches",
+      "seed": 17,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 10000))\n    m = rng.randint(1, 60)\n    str1 = ''.join(rng.choice('TF') if rng.random() < 0.3 else rng.choice('TTFF') for _ in range(n))\n    str2 = ''.join(rng.choice('ab') for _ in range(m))\n    return [str1, str2]\n",
+      "note": "restricting str2 to 'a'/'b' keeps default-fill collisions frequent without risking exhausting the alphabet"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def generateString(self, str1, str2):\n        n, m = len(str1), len(str2)\n        L = n + m - 1\n        forced = [None] * L\n        for i in range(n):\n            if str1[i] == 'T':\n                for j in range(m):\n                    pos = i + j\n                    c = str2[j]\n                    if forced[pos] is not None and forced[pos] != c:\n                        return \"\"\n                    forced[pos] = c\n        used = sorted(set(str2)) or ['a']\n        extra = chr(ord(max(used)) + 1)\n        candidates = sorted(set(used) | {'a', extra})\n        word = [None] * L\n        target = str2\n\n        def windows_ok(pos):\n            lo = max(0, pos - m + 1)\n            hi = min(pos, n - 1)\n            for i in range(lo, hi + 1):\n                if str1[i] != 'F':\n                    continue\n                end = i + m - 1\n                if end != pos:\n                    continue\n                if all(word[i + j] == target[j] for j in range(m)):\n                    return False\n            return True\n\n        def backtrack(pos):\n            if pos == L:\n                return True\n            if forced[pos] is not None:\n                word[pos] = forced[pos]\n                if windows_ok(pos) and backtrack(pos + 1):\n                    return True\n                word[pos] = None\n                return False\n            for c in candidates:\n                word[pos] = c\n                if windows_ok(pos) and backtrack(pos + 1):\n                    return True\n            word[pos] = None\n            return False\n\n        return ''.join(word) if backtrack(0) else \"\"\n",
+  "solutions": {
+    "python": "class Solution:\n    def generateString(self, str1, str2):\n        n, m = len(str1), len(str2)\n        L = n + m - 1\n        word = ['a'] * L\n        fixed = [False] * L\n        for i in range(n):\n            if str1[i] == 'T':\n                for j in range(m):\n                    pos = i + j\n                    c = str2[j]\n                    if fixed[pos] and word[pos] != c:\n                        return \"\"\n                    word[pos] = c\n                    fixed[pos] = True\n        target = list(str2)\n        changed = True\n        while changed:\n            changed = False\n            for i in range(n):\n                if str1[i] != 'F':\n                    continue\n                if word[i:i + m] == target:\n                    fix_pos = -1\n                    for pos in range(i + m - 1, i - 1, -1):\n                        if not fixed[pos]:\n                            fix_pos = pos\n                            break\n                    if fix_pos == -1:\n                        return \"\"\n                    nxt = chr(ord(word[fix_pos]) + 1)\n                    if nxt > 'z':\n                        return \"\"\n                    word[fix_pos] = nxt\n                    changed = True\n        return ''.join(word)\n",
+    "javascript": "var generateString = function(str1, str2) {\n    const n = str1.length, m = str2.length;\n    const L = n + m - 1;\n    const word = new Array(L).fill('a');\n    const fixed = new Array(L).fill(false);\n    for (let i = 0; i < n; i++) {\n        if (str1[i] === 'T') {\n            for (let j = 0; j < m; j++) {\n                const pos = i + j;\n                const c = str2[j];\n                if (fixed[pos] && word[pos] !== c) return \"\";\n                word[pos] = c;\n                fixed[pos] = true;\n            }\n        }\n    }\n    let changed = true;\n    while (changed) {\n        changed = false;\n        for (let i = 0; i < n; i++) {\n            if (str1[i] !== 'F') continue;\n            let matches = true;\n            for (let j = 0; j < m; j++) {\n                if (word[i + j] !== str2[j]) { matches = false; break; }\n            }\n            if (!matches) continue;\n            let fixPos = -1;\n            for (let pos = i + m - 1; pos >= i; pos--) {\n                if (!fixed[pos]) { fixPos = pos; break; }\n            }\n            if (fixPos === -1) return \"\";\n            const nxt = String.fromCharCode(word[fixPos].charCodeAt(0) + 1);\n            if (nxt > 'z') return \"\";\n            word[fixPos] = nxt;\n            changed = true;\n        }\n    }\n    return word.join('');\n};\n"
+  },
+  "complexity": { "time": "O(n*m) amortised", "space": "O(n+m)" }
+}

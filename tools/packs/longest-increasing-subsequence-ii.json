@@ -1,0 +1,37 @@
+{
+  "slug": "longest-increasing-subsequence-ii",
+  "judge": "exact",
+  "pattern": "A segment tree over the value domain answers the windowed maximum query for each element, turning the bounded-gap longest-increasing-subsequence into an O(n log V) sweep.",
+  "hints": [
+    "Define dp[v] as the best subsequence length ending exactly at value v; for the current value you may extend any prior value in a bounded range below it.",
+    "The valid predecessors for value x lie in the window [x-k, x-1], so you need the maximum dp over a value range.",
+    "Index dp by value and use a max segment tree: for each x query the max on [x-k, x-1], set dp[x] = that + 1, and track the global maximum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "bounded gaps trim a longer run", "input": [[4, 2, 1, 4, 3, 4, 5, 8, 15], 3] },
+    { "kind": "edge", "description": "moderate gap allows a length-four chain", "input": [[7, 4, 5, 1, 8, 12, 4, 7], 5] },
+    { "kind": "trap", "description": "two values with gap larger than k stay length one", "input": [[1, 5], 1] },
+    { "kind": "boundary", "description": "single element", "input": [[3], 100] },
+    { "kind": "trap", "description": "strictly increasing means equal values cannot chain", "input": [[2, 2, 2, 2], 5] },
+    { "kind": "edge", "description": "consecutive values with k one form a long chain", "input": [[1, 2, 3, 4, 5], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random values and gap over a moderate domain",
+      "seed": 131,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randrange(1, 2000) for _ in range(n)]\n    k = rng.randrange(1, 200)\n    return [nums, k]\n",
+      "note": "domain kept moderate so the brute-force oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def lengthOfLIS(self, nums, k):\n        n = len(nums)\n        dp = [1] * n\n        best = 1\n        for i in range(n):\n            for j in range(i):\n                if nums[j] < nums[i] and nums[i] - nums[j] <= k:\n                    if dp[j] + 1 > dp[i]:\n                        dp[i] = dp[j] + 1\n            if dp[i] > best:\n                best = dp[i]\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def lengthOfLIS(self, nums, k):\n        m = max(nums)\n        size = m + 1\n        tree = [0] * (2 * size)\n        def update(pos, val):\n            i = pos + size\n            if tree[i] >= val:\n                return\n            tree[i] = val\n            i //= 2\n            while i >= 1:\n                nv = max(tree[2 * i], tree[2 * i + 1])\n                if tree[i] == nv:\n                    break\n                tree[i] = nv\n                i //= 2\n        def query(lo, hi):\n            if lo > hi:\n                return 0\n            res = 0\n            lo += size\n            hi += size + 1\n            while lo < hi:\n                if lo & 1:\n                    res = max(res, tree[lo]); lo += 1\n                if hi & 1:\n                    hi -= 1; res = max(res, tree[hi])\n                lo //= 2; hi //= 2\n            return res\n        best = 0\n        for x in nums:\n            lo = max(1, x - k)\n            best_prev = query(lo, x - 1)\n            cur = best_prev + 1\n            update(x, cur)\n            if cur > best:\n                best = cur\n        return best\n",
+    "javascript": "var lengthOfLIS = function(nums, k) {\n    const m = Math.max(...nums);\n    const size = m + 1;\n    const tree = new Array(2 * size).fill(0);\n    const update = (pos, val) => {\n        let i = pos + size;\n        if (tree[i] >= val) return;\n        tree[i] = val;\n        i = Math.floor(i / 2);\n        while (i >= 1) {\n            const nv = Math.max(tree[2 * i], tree[2 * i + 1]);\n            if (tree[i] === nv) break;\n            tree[i] = nv;\n            i = Math.floor(i / 2);\n        }\n    };\n    const query = (lo, hi) => {\n        if (lo > hi) return 0;\n        let res = 0;\n        lo += size;\n        hi += size + 1;\n        while (lo < hi) {\n            if (lo & 1) { res = Math.max(res, tree[lo]); lo++; }\n            if (hi & 1) { hi--; res = Math.max(res, tree[hi]); }\n            lo = Math.floor(lo / 2); hi = Math.floor(hi / 2);\n        }\n        return res;\n    };\n    let best = 0;\n    for (const x of nums) {\n        const lo = Math.max(1, x - k);\n        const cur = query(lo, x - 1) + 1;\n        update(x, cur);\n        if (cur > best) best = cur;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log V)", "space": "O(V)" }
+}

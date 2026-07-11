@@ -1,0 +1,38 @@
+{
+  "slug": "find-minimum-cost-to-remove-array-elements",
+  "judge": "exact",
+  "pattern": "At every step only the first three survivors matter, and after each move at most one of them lingers into the next round -- so the whole process reduces to a DP over (how far the array has been consumed, which single leftover value is still waiting to be paired).",
+  "hints": [
+    "However you interleave the removals, at any moment the untouched part of the array is always a plain suffix, plus at most one earlier element that got spared in the previous round.",
+    "That means the whole state you need to remember is just two things: where the untouched suffix begins, and which earlier value (if any) is still waiting to be paired off.",
+    "From a state with no waiting value, look at the next three entries and try discarding each of the three possible pairs (paying the larger of the two), carrying the third forward as the new waiting value; from a state with a waiting value, do the same among {waiting value, next two entries}. Once fewer than three items remain overall, the whole remainder is removed in one move at a cost of its own maximum."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 1000], "value": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, four elements", "input": [[6, 2, 8, 4]] },
+    { "kind": "edge", "description": "statement example, a tie among the top two", "input": [[2, 1, 3, 3]] },
+    { "kind": "boundary", "description": "single element, removed alone", "input": [[5]] },
+    { "kind": "boundary", "description": "two elements, removed together in one move", "input": [[3, 9]] },
+    { "kind": "edge", "description": "exactly three elements: one pair-removal plus a final single removal", "input": [[1, 9, 5]] },
+    { "kind": "trap", "description": "already increasing, a greedy that always keeps the smallest survivor can be led astray", "input": [[1, 2, 3, 4, 5, 6]] },
+    { "kind": "trap", "description": "already decreasing", "input": [[9, 8, 7, 6, 5, 4]] },
+    { "kind": "trap", "description": "every value identical, so cost is forced regardless of which pairs are chosen", "input": [[5, 5, 5, 5, 5]] },
+    { "kind": "trap", "description": "duplicated extremes, tests that tie-breaking never lowers the cost incorrectly", "input": [[10, 1, 10, 1]] }
+  ],
+  "stress": [
+    {
+      "description": "random array across the full length and value range",
+      "seed": 23,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    nums = [rng.randint(1, 1000000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCost(self, nums):\n        def rec(arr):\n            if len(arr) < 3:\n                return max(arr) if arr else 0\n            a, b, c = arr[0], arr[1], arr[2]\n            rest = arr[3:]\n            return min(\n                max(a, b) + rec([c] + rest),\n                max(a, c) + rec([b] + rest),\n                max(b, c) + rec([a] + rest),\n            )\n        return rec(list(nums))\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCost(self, nums):\n        import sys\n        sys.setrecursionlimit(10000)\n        from functools import lru_cache\n        n = len(nums)\n\n        @lru_cache(maxsize=None)\n        def solve(i, j):\n            held = None if j < 0 else nums[j]\n            total = (0 if held is None else 1) + (n - i)\n            if total < 3:\n                vals = ([] if held is None else [held]) + nums[i:]\n                return max(vals) if vals else 0\n            if held is None:\n                a, b, c = nums[i], nums[i + 1], nums[i + 2]\n                return min(\n                    max(a, b) + solve(i + 3, i + 2),\n                    max(a, c) + solve(i + 3, i + 1),\n                    max(b, c) + solve(i + 3, i),\n                )\n            a, b = nums[i], nums[i + 1]\n            return min(\n                max(held, a) + solve(i + 2, i + 1),\n                max(held, b) + solve(i + 2, i),\n                max(a, b) + solve(i + 2, j),\n            )\n\n        result = solve(0, -1)\n        solve.cache_clear()\n        return result\n",
+    "javascript": "var minCost = function(nums) {\n    const n = nums.length;\n    const memo = new Map();\n    function solve(i, j) {\n        const key = i * (n + 1) + (j + 1);\n        if (memo.has(key)) return memo.get(key);\n        const held = j < 0 ? null : nums[j];\n        const total = (held === null ? 0 : 1) + (n - i);\n        let result;\n        if (total < 3) {\n            const vals = held === null ? nums.slice(i) : [held, ...nums.slice(i)];\n            result = vals.length ? Math.max(...vals) : 0;\n        } else if (held === null) {\n            const a = nums[i], b = nums[i + 1], c = nums[i + 2];\n            result = Math.min(\n                Math.max(a, b) + solve(i + 3, i + 2),\n                Math.max(a, c) + solve(i + 3, i + 1),\n                Math.max(b, c) + solve(i + 3, i)\n            );\n        } else {\n            const a = nums[i], b = nums[i + 1];\n            result = Math.min(\n                Math.max(held, a) + solve(i + 2, i + 1),\n                Math.max(held, b) + solve(i + 2, i),\n                Math.max(a, b) + solve(i + 2, j)\n            );\n        }\n        memo.set(key, result);\n        return result;\n    }\n    return solve(0, -1);\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

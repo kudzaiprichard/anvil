@@ -1,0 +1,38 @@
+{
+  "slug": "filter-restaurants-by-vegan-friendly-price-and-distance",
+  "judge": "exact",
+  "pattern": "Filter by the three constraints then sort by (rating descending, id descending) — the problem specifies a deterministic total order so the result is unique.",
+  "hints": [
+    "Apply the three filters independently: if veganFriendly is 1 skip any restaurant with veganFriendlyi == 0; always skip any with price > maxPrice or distance > maxDistance.",
+    "After filtering, sort the survivors by rating descending; break ties by id descending.",
+    "Extract only the id field from each surviving entry to build the output list."
+  ],
+  "constraints": [
+    { "param": "restaurants", "kind": "int[][]", "len": [1, 10000] },
+    { "param": "veganFriendly", "kind": "int", "value": [0, 1] },
+    { "param": "maxPrice", "kind": "int", "value": [1, 100000] },
+    { "param": "maxDistance", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "vegan filter removes all but one", "input": [[[1, 4, 1, 40, 10], [2, 8, 0, 50, 5], [3, 8, 1, 30, 4], [4, 10, 0, 10, 3], [5, 1, 1, 15, 1]], 1, 50, 10] },
+    { "kind": "edge", "description": "no vegan filter, all pass price and distance", "input": [[[1, 4, 1, 40, 10], [2, 8, 0, 50, 5], [3, 8, 1, 30, 4], [4, 10, 0, 10, 3], [5, 1, 1, 15, 1]], 0, 50, 10] },
+    { "kind": "trap", "description": "tight price and distance filter leaves only two", "input": [[[1, 4, 1, 40, 10], [2, 8, 0, 50, 5], [3, 8, 1, 30, 4], [4, 10, 0, 10, 3], [5, 1, 1, 15, 1]], 0, 30, 3] },
+    { "kind": "trap", "description": "all restaurants filtered out — empty result", "input": [[[1, 5, 0, 100, 100]], 1, 50, 50] },
+    { "kind": "boundary", "description": "single restaurant passes all filters", "input": [[[42, 9, 1, 10, 5]], 0, 100, 100] },
+    { "kind": "trap", "description": "tie in rating resolved by higher id first", "input": [[[10, 5, 1, 20, 10], [20, 5, 1, 20, 10], [30, 5, 1, 20, 10]], 0, 100, 100] }
+  ],
+  "stress": [
+    {
+      "description": "large random restaurant list with random filter values",
+      "seed": 19,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    ids = rng.sample(range(1, 100001), min(n, 100000))\n    restaurants = [[ids[i], rng.randint(1, 100000), rng.randint(0, 1), rng.randint(1, 100000), rng.randint(1, 100000)] for i in range(len(ids))]\n    vegan = rng.randint(0, 1)\n    maxPrice = rng.randint(1, 100000)\n    maxDist = rng.randint(1, 100000)\n    return [restaurants, vegan, maxPrice, maxDist]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def filterRestaurants(self, restaurants, veganFriendly, maxPrice, maxDistance):\n        filtered = []\n        for r in restaurants:\n            rid, rating, vegan, price, dist = r\n            if veganFriendly == 1 and vegan == 0:\n                continue\n            if price > maxPrice or dist > maxDistance:\n                continue\n            filtered.append((rating, rid))\n        filtered.sort(key=lambda x: (x[0], x[1]), reverse=True)\n        return [rid for _, rid in filtered]\n",
+  "solutions": {
+    "python": "class Solution:\n    def filterRestaurants(self, restaurants, veganFriendly, maxPrice, maxDistance):\n        filtered = [r for r in restaurants\n                    if (not veganFriendly or r[2] == 1) and r[3] <= maxPrice and r[4] <= maxDistance]\n        filtered.sort(key=lambda r: (-r[1], -r[0]))\n        return [r[0] for r in filtered]\n",
+    "javascript": "var filterRestaurants = function(restaurants, veganFriendly, maxPrice, maxDistance) {\n    return restaurants\n        .filter(r => (!veganFriendly || r[2] === 1) && r[3] <= maxPrice && r[4] <= maxDistance)\n        .sort((a, b) => b[1] - a[1] || b[0] - a[0])\n        .map(r => r[0]);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

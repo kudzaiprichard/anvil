@@ -1,0 +1,38 @@
+{
+  "slug": "partition-array-to-minimize-xor",
+  "judge": "exact",
+  "pattern": "A two-dimensional dynamic program over prefix length and number of pieces, using prefix XOR for any segment's value, minimizes the worst segment cost.",
+  "hints": [
+    "The XOR of any contiguous block is the XOR of two prefix values, so block costs are O(1) to query.",
+    "Think of placing cuts: the best way to split the first i elements into j pieces depends on where the last piece begins.",
+    "Let dp[i][j] be the minimum possible maximum-XOR for the first i elements in j subarrays; transition over the start of the final subarray, combining its XOR with the recorded best for the prefix."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 250], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 250] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two pieces, second cancels partway", "input": [[1, 2, 3], 2] },
+    { "kind": "edge", "description": "three pieces with a zero-xor middle", "input": [[2, 3, 3, 2], 3] },
+    { "kind": "edge", "description": "two pieces both reach zero", "input": [[1, 1, 2, 3, 1], 2] },
+    { "kind": "boundary", "description": "k equals length, every element alone", "input": [[5, 6, 7], 3] },
+    { "kind": "boundary", "description": "single piece is the whole-array xor", "input": [[4, 1, 7], 1] },
+    { "kind": "trap", "description": "single element, single piece", "input": [[9], 1] },
+    { "kind": "trap", "description": "must isolate a large element into its own block", "input": [[1, 1000000000, 1], 2] }
+  ],
+  "stress": [
+    {
+      "description": "moderate arrays with a random valid k - keeps the brute oracle tractable",
+      "seed": 53,
+      "size": 16,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 16)\n    nums = [rng.randint(1, 64) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n",
+      "note": "n kept small because the oracle enumerates cut placements"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minXor(self, nums, k):\n        n = len(nums)\n        best = [float('inf')]\n        def rec(start, pieces, cur_max):\n            if cur_max >= best[0]:\n                return\n            if pieces == 1:\n                x = 0\n                for v in nums[start:]:\n                    x ^= v\n                best[0] = min(best[0], max(cur_max, x))\n                return\n            x = 0\n            for end in range(start, n - pieces + 1):\n                x ^= nums[end]\n                rec(end + 1, pieces - 1, max(cur_max, x))\n        rec(0, k, 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minXor(self, nums, k):\n        n = len(nums)\n        pre = [0] * (n + 1)\n        for i in range(n):\n            pre[i + 1] = pre[i] ^ nums[i]\n        INF = float('inf')\n        dp = [[INF] * (k + 1) for _ in range(n + 1)]\n        dp[0][0] = 0\n        for i in range(1, n + 1):\n            top = min(i, k)\n            for j in range(1, top + 1):\n                best = INF\n                for p in range(j - 1, i):\n                    if dp[p][j - 1] == INF:\n                        continue\n                    seg = pre[i] ^ pre[p]\n                    cand = dp[p][j - 1] if dp[p][j - 1] > seg else seg\n                    if cand < best:\n                        best = cand\n                dp[i][j] = best\n        return dp[n][k]\n",
+    "javascript": "var minXor = function(nums, k) {\n    const n = nums.length;\n    const pre = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) pre[i + 1] = pre[i] ^ nums[i];\n    const INF = Infinity;\n    const dp = Array.from({ length: n + 1 }, () => new Array(k + 1).fill(INF));\n    dp[0][0] = 0;\n    for (let i = 1; i <= n; i++) {\n        const top = Math.min(i, k);\n        for (let j = 1; j <= top; j++) {\n            let best = INF;\n            for (let p = j - 1; p < i; p++) {\n                if (dp[p][j - 1] === INF) continue;\n                const seg = pre[i] ^ pre[p];\n                const cand = dp[p][j - 1] > seg ? dp[p][j - 1] : seg;\n                if (cand < best) best = cand;\n            }\n            dp[i][j] = best;\n        }\n    }\n    return dp[n][k];\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * k)", "space": "O(n * k)" }
+}

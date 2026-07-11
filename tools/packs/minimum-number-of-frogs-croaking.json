@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-number-of-frogs-croaking",
+  "judge": "exact",
+  "pattern": "Track how many frogs are at each stage of 'croak'; each character advances one stage, and the peak simultaneous in-progress frog count is the answer.",
+  "hints": [
+    "Map each letter of 'croak' to a stage index 0-4; a frog transitions from stage i to stage i+1 on seeing the i+1-th letter.",
+    "Maintain a counter for how many frogs are currently at each stage; when seeing letter at stage i, a frog must move from stage i-1 (except for 'c' which starts a new frog or reuses a finished one).",
+    "If at any point we need to advance to stage i but no frog is at stage i-1, the string is invalid (-1). The answer is the peak number of simultaneously active frogs."
+  ],
+  "constraints": [
+    { "param": "croakOfFrogs", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single complete croak", "input": ["croak"] },
+    { "kind": "edge", "description": "two sequential croaks (one frog)", "input": ["croakcroak"] },
+    { "kind": "edge", "description": "two overlapping croaks (two frogs)", "input": ["crcoakroak"] },
+    { "kind": "trap", "description": "invalid: wrong letter order", "input": ["croakcrook"] },
+    { "kind": "trap", "description": "incomplete croak at end — invalid", "input": ["croa"] },
+    { "kind": "trap", "description": "extra k at end without prior start — invalid", "input": ["croakk"] },
+    { "kind": "boundary", "description": "many interleaved frogs all croaking simultaneously", "input": ["cccrrroooaaakkkk"] },
+    { "kind": "trap", "description": "starts with a non-c character", "input": ["roak"] }
+  ],
+  "stress": [
+    {
+      "description": "generate valid multi-frog croak strings",
+      "seed": 17,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    # Build a valid croak string by scheduling n_frogs frogs\n    n_frogs = rng.randint(1, min(10, size // 5 + 1))\n    repeats = rng.randint(1, max(1, size // (5 * n_frogs)))\n    # Each frog completes croak `repeats` times\n    sequences = [list('croak' * repeats) for _ in range(n_frogs)]\n    # Interleave by picking a random frog's next character each step\n    result = []\n    import heapq\n    # Track position in each sequence\n    pos = [0] * n_frogs\n    total = sum(len(seq) for seq in sequences)\n    while sum(pos) < total:\n        available = [i for i in range(n_frogs) if pos[i] < len(sequences[i])]\n        if not available:\n            break\n        idx = rng.choice(available)\n        result.append(sequences[idx][pos[idx]])\n        pos[idx] += 1\n    return [''.join(result)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minNumberOfFrogs(self, croakOfFrogs: str) -> int:\n        order = 'croak'\n        pos = {c: i for i, c in enumerate(order)}\n        count = [0] * 5\n        ans = 0\n        for ch in croakOfFrogs:\n            if ch not in pos:\n                return -1\n            i = pos[ch]\n            if i == 0:\n                count[0] += 1\n            else:\n                if count[i-1] == 0:\n                    return -1\n                count[i-1] -= 1\n                count[i] += 1\n            if i == 4:\n                # frog finished\n                count[4] -= 1\n            ans = max(ans, sum(count[:4]))  # active (not yet finished)\n        if any(count[:4]):\n            return -1\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def minNumberOfFrogs(self, croakOfFrogs: str) -> int:\n        order = 'croak'\n        idx = {c: i for i, c in enumerate(order)}\n        stage = [0] * 5\n        ans = 0\n        for ch in croakOfFrogs:\n            i = idx[ch]\n            if i == 0:\n                stage[0] += 1\n            else:\n                if stage[i-1] == 0:\n                    return -1\n                stage[i-1] -= 1\n                stage[i] += 1\n            if i == 4:\n                stage[4] -= 1\n            ans = max(ans, stage[0] + stage[1] + stage[2] + stage[3])\n        return -1 if any(stage[:4]) else ans\n",
+    "javascript": "var minNumberOfFrogs = function(croakOfFrogs) {\n    const order = 'croak';\n    const idx = {};\n    for (let i = 0; i < order.length; i++) idx[order[i]] = i;\n    const stage = [0, 0, 0, 0, 0];\n    let ans = 0;\n    for (const ch of croakOfFrogs) {\n        const i = idx[ch];\n        if (i === 0) {\n            stage[0]++;\n        } else {\n            if (stage[i-1] === 0) return -1;\n            stage[i-1]--;\n            stage[i]++;\n        }\n        if (i === 4) stage[4]--;\n        ans = Math.max(ans, stage[0] + stage[1] + stage[2] + stage[3]);\n    }\n    return (stage[0] + stage[1] + stage[2] + stage[3]) > 0 ? -1 : ans;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

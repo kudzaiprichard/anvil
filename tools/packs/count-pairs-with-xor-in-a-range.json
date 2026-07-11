@@ -1,0 +1,47 @@
+{
+  "slug": "count-pairs-with-xor-in-a-range",
+  "judge": "exact",
+  "pattern": "Counting pairs whose XOR lands in a range reduces to a prefix function f(x) = number of pairs with XOR strictly less than x, evaluated with a binary trie that, at each bit, can tally an entire subtree of partners in one step.",
+  "hints": [
+    "Rewrite the range count as f(high+1) minus f(low), where f(x) counts pairs with XOR strictly below x; this removes the two-sided bound and leaves one monotone threshold.",
+    "Insert numbers into a binary trie keyed by their bits from most significant to least, storing how many numbers pass through each node.",
+    "To count partners giving XOR below x for a query number, walk the bits of x: when a bit of x is one you can add the whole subtree of partners that keep the XOR-prefix at zero there, then descend the branch that keeps the XOR equal to x's prefix."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 20000], "value": [1, 20000] },
+    { "param": "low", "kind": "int", "value": [1, 20000] },
+    { "param": "high", "kind": "int", "value": [1, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first statement example", "input": [[1, 4, 2, 7], 2, 6] },
+    { "kind": "edge", "description": "second statement example", "input": [[9, 8, 4, 2, 1], 5, 14] },
+    { "kind": "boundary", "description": "single element yields no pairs", "input": [[5], 1, 20000] },
+    { "kind": "edge", "description": "two equal elements XOR to zero which is below any low of at least one", "input": [[3, 3], 1, 20000] },
+    { "kind": "edge", "description": "two distinct elements with a tight range hitting their exact XOR", "input": [[1, 2], 3, 3] },
+    { "kind": "trap", "description": "range excludes every pair so the answer is zero", "input": [[1, 2, 4, 8], 100, 200] },
+    { "kind": "trap", "description": "low equals high so only an exact XOR value counts", "input": [[5, 6, 7, 8, 9], 3, 3] },
+    { "kind": "boundary", "description": "duplicates with the widest range count every pair", "input": [[7, 7, 7, 7], 1, 20000] }
+  ],
+  "stress": [
+    {
+      "description": "small n so the quadratic oracle stays fast, random values and range",
+      "seed": 19,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 500))\n    nums = [rng.randint(1, 20000) for _ in range(n)]\n    a = rng.randint(1, 20000)\n    b = rng.randint(1, 20000)\n    low, high = min(a, b), max(a, b)\n    return [nums, low, high]\n",
+      "note": "broad value and range coverage"
+    },
+    {
+      "description": "small value alphabet to force many ties and repeated XORs",
+      "seed": 37,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 500))\n    nums = [rng.randint(1, 16) for _ in range(n)]\n    a = rng.randint(1, 31)\n    b = rng.randint(1, 31)\n    low, high = min(a, b), max(a, b)\n    return [nums, low, high]\n",
+      "note": "dense collisions stress the trie counting"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPairs(self, nums, low, high):\n        count = 0\n        n = len(nums)\n        for i in range(n):\n            for j in range(i + 1, n):\n                x = nums[i] ^ nums[j]\n                if low <= x <= high:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPairs(self, nums, low, high):\n        BITS = 15\n        # trie as dict-of-dicts with counts\n        root = {}\n        def insert(num):\n            node = root\n            for b in range(BITS, -1, -1):\n                bit = (num >> b) & 1\n                if bit not in node:\n                    node[bit] = {'cnt': 0}\n                node = node[bit]\n                node['cnt'] += 1\n        def count_less(num, limit):\n            # number of inserted partners p with (num ^ p) < limit\n            node = root\n            total = 0\n            for b in range(BITS, -1, -1):\n                if node is None:\n                    break\n                nb = (num >> b) & 1\n                lb = (limit >> b) & 1\n                if lb == 1:\n                    # partners whose xor bit here is 0 keep prefix below limit\n                    same = node.get(nb)\n                    if same is not None:\n                        total += same['cnt']\n                    node = node.get(1 - nb)\n                else:\n                    node = node.get(nb)\n            return total\n        ans = 0\n        for num in nums:\n            ans += count_less(num, high + 1) - count_less(num, low)\n            insert(num)\n        return ans\n",
+    "javascript": "var countPairs = function(nums, low, high) {\n    const BITS = 15;\n    const root = { cnt: 0, ch: [null, null] };\n    const insert = (num) => {\n        let node = root;\n        for (let b = BITS; b >= 0; b--) {\n            const bit = (num >> b) & 1;\n            if (!node.ch[bit]) node.ch[bit] = { cnt: 0, ch: [null, null] };\n            node = node.ch[bit];\n            node.cnt++;\n        }\n    };\n    const countLess = (num, limit) => {\n        let node = root;\n        let total = 0;\n        for (let b = BITS; b >= 0; b--) {\n            if (!node) break;\n            const nb = (num >> b) & 1;\n            const lb = (limit >> b) & 1;\n            if (lb === 1) {\n                const same = node.ch[nb];\n                if (same) total += same.cnt;\n                node = node.ch[1 - nb];\n            } else {\n                node = node.ch[nb];\n            }\n        }\n        return total;\n    };\n    let ans = 0;\n    for (const num of nums) {\n        ans += countLess(num, high + 1) - countLess(num, low);\n        insert(num);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log(maxVal))", "space": "O(n log(maxVal))" }
+}

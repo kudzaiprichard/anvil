@@ -1,0 +1,44 @@
+{
+  "slug": "minimum-pair-removal-to-sort-array-ii",
+  "judge": "exact",
+  "pattern": "Only the merged element's two new neighboring pairs ever change after a merge, so tracking the array as a doubly linked list with a lazily-validated min-heap of adjacent-pair sums and a running count of out-of-order neighbors turns the same fully deterministic leftmost-minimum-sum process into a near-linear simulation instead of a quadratic one.",
+  "hints": [
+    "The same deterministic rule as the small version applies -- always merge the leftmost adjacent pair with the smallest sum -- but rescanning the whole array after every merge is too slow at this size; only the merged node's new neighbors ever change.",
+    "Model the array as a doubly linked list so a merge is an O(1) splice, and keep a min-heap of (pair sum, left index, right index) for every adjacent pair, re-validating a popped entry against the current linked-list state and discarding it if it's stale (its neighbors changed since it was pushed).",
+    "Maintain a running count of adjacent positions that are currently out of order; update it by only re-examining the (at most two) neighboring pairs touched by each merge, and stop as soon as that count reaches zero."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [-1000000000, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two merges needed", "input": [[5, 2, 3, 1]] },
+    { "kind": "edge", "description": "statement example, already sorted", "input": [[1, 2, 2]] },
+    { "kind": "boundary", "description": "a single element is trivially sorted", "input": [[7]] },
+    { "kind": "boundary", "description": "two elements already in order", "input": [[1, 2]] },
+    { "kind": "trap", "description": "several adjacent pairs tie for the minimum sum, so the leftmost one must be chosen first", "input": [[4, 1, 1, 4, 1, 1, 4]] },
+    { "kind": "trap", "description": "strictly decreasing values, forcing repeated merges from the right before the array can settle", "input": [[9, 7, 5, 3, 1]] },
+    { "kind": "trap", "description": "negative numbers whose pair sums are more negative than any positive pairing, so merging starts from the negative cluster", "input": [[3, -5, -4, 2, 6]] },
+    { "kind": "edge", "description": "a longer mixed sequence needing several rounds of merging", "input": [[8, 1, 6, 2, 9, 3, 7, 0, 5, 4]] },
+    { "kind": "boundary", "description": "extreme magnitude values at both ends of the allowed range", "input": [[1000000000, -1000000000, 1000000000, -1000000000]] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays near the maximum length across the full value range",
+      "seed": 13,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(100000, size))\n    nums = [rng.randint(-1000000000, 1000000000) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "a strictly decreasing sequence, a known worst-case pattern forcing a long merge chain",
+      "seed": 14,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(100000, size))\n    return [list(range(n, 0, -1))]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumPairRemoval(self, nums):\n        a = list(nums)\n        ops = 0\n        while True:\n            n = len(a)\n            sorted_ok = True\n            for i in range(n - 1):\n                if a[i] > a[i + 1]:\n                    sorted_ok = False\n                    break\n            if sorted_ok:\n                return ops\n            best_i, best_sum = 0, a[0] + a[1]\n            for i in range(1, n - 1):\n                s = a[i] + a[i + 1]\n                if s < best_sum:\n                    best_sum = s\n                    best_i = i\n            a = a[:best_i] + [a[best_i] + a[best_i + 1]] + a[best_i + 2:]\n            ops += 1\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def minimumPairRemoval(self, nums):\n        n = len(nums)\n        if n <= 1:\n            return 0\n        val = list(nums)\n        prev = [i - 1 for i in range(n)]\n        nxt = [i + 1 for i in range(n)]\n        alive = [True] * n\n        bad = 0\n        for i in range(n - 1):\n            if val[i] > val[i + 1]:\n                bad += 1\n        heap = []\n        for i in range(n - 1):\n            heapq.heappush(heap, (val[i] + val[i + 1], i, i + 1))\n        ops = 0\n        while bad > 0:\n            while True:\n                s, i, j = heapq.heappop(heap)\n                if alive[i] and alive[j] and nxt[i] == j and val[i] + val[j] == s:\n                    break\n            p = prev[i]\n            q = nxt[j]\n            vi_old, vj_old = val[i], val[j]\n            if vi_old > vj_old:\n                bad -= 1\n            if p != -1 and val[p] > vi_old:\n                bad -= 1\n            if q < n and vj_old > val[q]:\n                bad -= 1\n            newv = vi_old + vj_old\n            val[i] = newv\n            alive[j] = False\n            nxt[i] = q\n            if q < n:\n                prev[q] = i\n            if p != -1:\n                if val[p] > newv:\n                    bad += 1\n                heapq.heappush(heap, (val[p] + newv, p, i))\n            if q < n:\n                if newv > val[q]:\n                    bad += 1\n                heapq.heappush(heap, (newv + val[q], i, q))\n            ops += 1\n        return ops\n",
+    "javascript": "class PairHeap {\n    constructor() { this.a = []; }\n    size() { return this.a.length; }\n    static less(x, y) {\n        if (x[0] !== y[0]) return x[0] < y[0];\n        if (x[1] !== y[1]) return x[1] < y[1];\n        return x[2] < y[2];\n    }\n    push(item) {\n        const a = this.a;\n        a.push(item);\n        let idx = a.length - 1;\n        while (idx > 0) {\n            const p = (idx - 1) >> 1;\n            if (!PairHeap.less(a[idx], a[p])) break;\n            const tmp = a[p]; a[p] = a[idx]; a[idx] = tmp;\n            idx = p;\n        }\n    }\n    pop() {\n        const a = this.a;\n        const top = a[0];\n        const last = a.pop();\n        if (a.length > 0) {\n            a[0] = last;\n            let idx = 0;\n            const len = a.length;\n            while (true) {\n                const l = 2 * idx + 1, r = 2 * idx + 2;\n                let smallest = idx;\n                if (l < len && PairHeap.less(a[l], a[smallest])) smallest = l;\n                if (r < len && PairHeap.less(a[r], a[smallest])) smallest = r;\n                if (smallest === idx) break;\n                const tmp = a[idx]; a[idx] = a[smallest]; a[smallest] = tmp;\n                idx = smallest;\n            }\n        }\n        return top;\n    }\n}\n\nvar minimumPairRemoval = function(nums) {\n    const n = nums.length;\n    if (n <= 1) return 0;\n    const val = nums.slice();\n    const prev = new Array(n), nxt = new Array(n);\n    for (let i = 0; i < n; i++) { prev[i] = i - 1; nxt[i] = i + 1; }\n    const alive = new Array(n).fill(true);\n    let bad = 0;\n    for (let i = 0; i < n - 1; i++) if (val[i] > val[i + 1]) bad++;\n    const heap = new PairHeap();\n    for (let i = 0; i < n - 1; i++) heap.push([val[i] + val[i + 1], i, i + 1]);\n    let ops = 0;\n    while (bad > 0) {\n        let s, i, j;\n        while (true) {\n            [s, i, j] = heap.pop();\n            if (alive[i] && alive[j] && nxt[i] === j && val[i] + val[j] === s) break;\n        }\n        const p = prev[i];\n        const q = nxt[j];\n        const viOld = val[i], vjOld = val[j];\n        if (viOld > vjOld) bad--;\n        if (p !== -1 && val[p] > viOld) bad--;\n        if (q < n && vjOld > val[q]) bad--;\n        const newv = viOld + vjOld;\n        val[i] = newv;\n        alive[j] = false;\n        nxt[i] = q;\n        if (q < n) prev[q] = i;\n        if (p !== -1) {\n            if (val[p] > newv) bad++;\n            heap.push([val[p] + newv, p, i]);\n        }\n        if (q < n) {\n            if (newv > val[q]) bad++;\n            heap.push([newv + val[q], i, q]);\n        }\n        ops++;\n    }\n    return ops;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

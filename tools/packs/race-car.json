@@ -1,0 +1,37 @@
+{
+  "slug": "race-car",
+  "judge": "exact",
+  "pattern": "A dynamic program over target distances chooses between overshooting with a full run of accelerations then reversing, or stopping short and reversing twice, to find the fewest instructions.",
+  "hints": [
+    "After k accelerations from a standstill the car has moved 2^k - 1 and reached speed 2^k, so think in terms of how many full doublings to use before reversing.",
+    "Either accelerate exactly enough to land on or past the target then reverse to cover the remainder, or accelerate to just short of it, reverse, back up a little, and reverse again.",
+    "Let dp[t] be the shortest length to reach t. For each t pick the smallest k with 2^k - 1 >= t: if it equals t use k; otherwise combine an overshoot plus a turn, and combine stopping short, a turn, and an inner back-up, taking the minimum."
+  ],
+  "constraints": [
+    { "param": "target", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first example, reachable with a clean run of accelerations", "input": [3] },
+    { "kind": "trap", "description": "second example, requires an overshoot then reverse", "input": [6] },
+    { "kind": "boundary", "description": "smallest target, a single accelerate", "input": [1] },
+    { "kind": "edge", "description": "another exact power-minus-one target", "input": [7] },
+    { "kind": "trap", "description": "just past a clean run, needs back-up moves", "input": [4] },
+    { "kind": "edge", "description": "value one below a power of two boundary", "input": [5] },
+    { "kind": "boundary", "description": "the maximum target", "input": [10000] }
+  ],
+  "stress": [
+    {
+      "description": "assorted targets across the whole range",
+      "seed": 5,
+      "size": 9000,
+      "generator_python": "def gen(rng, size):\n    hi = max(1, min(size, 10000))\n    return [rng.randint(1, hi)]\n",
+      "note": "the dp is linear in target so even the maximum is fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def racecar(self, target):\n        from collections import deque\n        start = (0, 1)\n        q = deque([(0, 0, 1)])\n        seen = {start}\n        limit = 2 * target + 2\n        while q:\n            steps, pos, speed = q.popleft()\n            if pos == target:\n                return steps\n            np, ns = pos + speed, speed * 2\n            if abs(np) <= limit and (np, ns) not in seen:\n                seen.add((np, ns))\n                q.append((steps + 1, np, ns))\n            rs = -1 if speed > 0 else 1\n            if (pos, rs) not in seen:\n                seen.add((pos, rs))\n                q.append((steps + 1, pos, rs))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def racecar(self, target):\n        dp = [0] * (target + 1)\n        for t in range(1, target + 1):\n            k = t.bit_length()\n            if (1 << k) - 1 == t:\n                dp[t] = k\n                continue\n            best = k + 1 + dp[(1 << k) - 1 - t]\n            for j in range(k - 1):\n                rem = t - ((1 << (k - 1)) - (1 << j))\n                best = min(best, (k - 1) + j + 2 + dp[rem])\n            dp[t] = best\n        return dp[target]\n",
+    "javascript": "var racecar = function(target) {\n    const dp = new Array(target + 1).fill(0);\n    for (let t = 1; t <= target; t++) {\n        let k = 0;\n        while ((1 << (k + 1)) - 1 < t) k++;\n        k++;\n        if ((1 << k) - 1 === t) {\n            dp[t] = k;\n            continue;\n        }\n        let best = k + 1 + dp[(1 << k) - 1 - t];\n        for (let j = 0; j < k - 1; j++) {\n            const rem = t - ((1 << (k - 1)) - (1 << j));\n            best = Math.min(best, (k - 1) + j + 2 + dp[rem]);\n        }\n        dp[t] = best;\n    }\n    return dp[target];\n};\n"
+  },
+  "complexity": { "time": "O(target log target)", "space": "O(target)" }
+}

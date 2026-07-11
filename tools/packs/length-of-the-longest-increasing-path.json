@@ -1,0 +1,83 @@
+{
+  "slug": "length-of-the-longest-increasing-path",
+  "judge": "exact",
+  "pattern": "The longest chain through a fixed point splits cleanly into the longest chain endable strictly before it and the longest chain startable strictly after it, and each half is a classic two-dimensional longest-increasing-subsequence.",
+  "hints": [
+    "Split the points into those strictly below-and-left of the target point and those strictly above-and-right of it -- only those two groups can ever sit before or after the target in a valid chain.",
+    "Within either group, finding the longest chain is exactly the '2D longest increasing subsequence' problem: sort by x ascending (breaking ties by y descending so equal-x points can't chain together), then run the standard patience-sorting LIS on the y-values.",
+    "The answer is 1 (the target itself) plus the longest chain found in the before-group plus the longest chain found in the after-group."
+  ],
+  "constraints": [
+    {
+      "param": "coordinates",
+      "kind": "int[][]",
+      "rows": [1, 100000],
+      "cols": [2, 2],
+      "value": [0, 1000000000]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [0, 99999]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, chain through the middle point",
+      "input": [[[3,1],[2,2],[4,1],[0,0],[5,3]], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, short chain",
+      "input": [[[2,1],[7,0],[5,6]], 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single point, trivially a chain of length 1",
+      "input": [[[0, 0]], 0]
+    },
+    {
+      "kind": "edge",
+      "description": "all points form one strictly increasing chain",
+      "input": [[[1,1],[2,2],[3,3]], 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "k is the first index, nothing can precede it",
+      "input": [[[0,0],[1,1],[2,2]], 0]
+    },
+    {
+      "kind": "boundary",
+      "description": "k is the last index, nothing can follow it",
+      "input": [[[0,0],[1,1],[2,2]], 2]
+    },
+    {
+      "kind": "trap",
+      "description": "points sharing the target's x or y coordinate must be excluded from both groups",
+      "input": [[[0,0],[0,5],[5,0],[1,1]], 3]
+    },
+    {
+      "kind": "trap",
+      "description": "before-group has ties in x that must not chain together",
+      "input": [[[0,5],[0,1],[1,10],[5,20]], 2]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random distinct points with a fixed target index",
+      "seed": 17,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(500, size))\n    seen = set()\n    coords = []\n    while len(coords) < n:\n        p = (rng.randint(0, 2 * n), rng.randint(0, 2 * n))\n        if p not in seen:\n            seen.add(p)\n            coords.append(list(p))\n    k = rng.randint(0, n - 1)\n    return [coords, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPathLength(self, coordinates, k):\n        n = len(coordinates)\n        order = sorted(range(n), key=lambda i: (coordinates[i][0], coordinates[i][1]))\n        end = [1] * n\n        for idx, i in enumerate(order):\n            xi, yi = coordinates[i]\n            for j in order[:idx]:\n                xj, yj = coordinates[j]\n                if xj < xi and yj < yi:\n                    if end[j] + 1 > end[i]:\n                        end[i] = end[j] + 1\n        rev = list(reversed(order))\n        start = [1] * n\n        for idx, i in enumerate(rev):\n            xi, yi = coordinates[i]\n            for j in rev[:idx]:\n                xj, yj = coordinates[j]\n                if xj > xi and yj > yi:\n                    if start[j] + 1 > start[i]:\n                        start[i] = start[j] + 1\n        return end[k] + start[k] - 1\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def maxPathLength(self, coordinates, k):\n        xk, yk = coordinates[k]\n\n        def longest_chain(pts):\n            if not pts:\n                return 0\n            pts = sorted(pts, key=lambda p: (p[0], -p[1]))\n            tails = []\n            for _, y in pts:\n                idx = bisect.bisect_left(tails, y)\n                if idx == len(tails):\n                    tails.append(y)\n                else:\n                    tails[idx] = y\n            return len(tails)\n\n        before = [(x, y) for x, y in coordinates if x < xk and y < yk]\n        after = [(x, y) for x, y in coordinates if x > xk and y > yk]\n        return longest_chain(before) + longest_chain(after) + 1\n",
+    "javascript": "var maxPathLength = function(coordinates, k) {\n    const xk = coordinates[k][0], yk = coordinates[k][1];\n\n    function longestChain(pts) {\n        if (pts.length === 0) return 0;\n        pts.sort((a, b) => a[0] - b[0] || b[1] - a[1]);\n        const tails = [];\n        for (const [, y] of pts) {\n            let lo = 0, hi = tails.length;\n            while (lo < hi) {\n                const mid = (lo + hi) >> 1;\n                if (tails[mid] < y) lo = mid + 1; else hi = mid;\n            }\n            if (lo === tails.length) tails.push(y); else tails[lo] = y;\n        }\n        return tails.length;\n    }\n\n    const before = [];\n    const after = [];\n    for (const [x, y] of coordinates) {\n        if (x < xk && y < yk) before.push([x, y]);\n        else if (x > xk && y > yk) after.push([x, y]);\n    }\n    return longestChain(before) + longestChain(after) + 1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

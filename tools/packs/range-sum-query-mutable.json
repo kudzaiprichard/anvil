@@ -1,0 +1,45 @@
+{
+  "slug": "range-sum-query-mutable",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A Fenwick (binary indexed) tree supports both point updates and prefix-sum queries in logarithmic time, so range sums stay fast even as values change.",
+  "hints": [
+    "A plain prefix-sum array answers queries fast but every update forces rebuilding a whole suffix, so neither operation can be slow on its own.",
+    "You want a structure where updating one position and summing a prefix both cost the same modest amount of work.",
+    "A binary indexed tree stores partial sums at positions keyed by their lowest set bit; an update walks upward adding the delta, a prefix query walks downward accumulating, and a range sum is the difference of two prefix queries."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 30000], "value": [-100, 100] },
+    { "param": "index", "kind": "int", "value": [0, 29999] },
+    { "param": "val", "kind": "int", "value": [-100, 100] },
+    { "param": "left", "kind": "int", "value": [0, 29999] },
+    { "param": "right", "kind": "int", "value": [0, 29999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the statement's own sequence: query, update, query again",
+      "input": [["NumArray", "sumRange", "update", "sumRange"], [[[1, 3, 5]], [0, 2], [1, 2], [0, 2]]] },
+    { "kind": "boundary", "description": "single-element array, update then read it back",
+      "input": [["NumArray", "sumRange", "update", "sumRange"], [[[7]], [0, 0], [0, -3], [0, 0]]] },
+    { "kind": "trap", "description": "updates must not double-count: setting the same index twice replaces, not adds",
+      "input": [["NumArray", "update", "update", "sumRange"], [[[0, 0, 0]], [1, 5], [1, 8], [0, 2]]] },
+    { "kind": "trap", "description": "partial range that excludes an updated index stays unchanged",
+      "input": [["NumArray", "update", "sumRange", "sumRange"], [[[2, 4, 6, 8]], [3, 100], [0, 2], [2, 3]]] },
+    { "kind": "edge", "description": "negatives and a full-range sum after several updates",
+      "input": [["NumArray", "update", "update", "sumRange", "update", "sumRange"], [[[-1, -2, -3, -4]], [0, 10], [2, 0], [0, 3], [3, -10], [0, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random array with interleaved updates and valid range queries",
+      "seed": 41,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 200)\n    nums = [rng.randint(-100, 100) for _ in range(n)]\n    ops = ['NumArray']\n    args = [[nums]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.5:\n            ops.append('update'); args.append([rng.randint(0, n - 1), rng.randint(-100, 100)])\n        else:\n            a = rng.randint(0, n - 1)\n            b = rng.randint(a, n - 1)\n            ops.append('sumRange'); args.append([a, b])\n    return [ops, args]\n",
+      "note": "left<=right enforced by construction; updates set absolute values like the real API"
+    }
+  ],
+  "oracle_python": "class NumArray:\n    def __init__(self, nums):\n        self.a = list(nums)\n    def update(self, index, val):\n        self.a[index] = val\n    def sumRange(self, left, right):\n        return sum(self.a[left:right + 1])\n",
+  "solutions": {
+    "python": "class NumArray:\n    def __init__(self, nums):\n        self.n = len(nums)\n        self.a = [0] * self.n\n        self.tree = [0] * (self.n + 1)\n        for i, v in enumerate(nums):\n            self.update(i, v)\n    def update(self, index, val):\n        delta = val - self.a[index]\n        self.a[index] = val\n        i = index + 1\n        while i <= self.n:\n            self.tree[i] += delta\n            i += i & (-i)\n    def _prefix(self, i):\n        s = 0\n        while i > 0:\n            s += self.tree[i]\n            i -= i & (-i)\n        return s\n    def sumRange(self, left, right):\n        return self._prefix(right + 1) - self._prefix(left)\n",
+    "javascript": "class NumArray {\n    constructor(nums) {\n        this.n = nums.length;\n        this.a = new Array(this.n).fill(0);\n        this.tree = new Array(this.n + 1).fill(0);\n        for (let i = 0; i < this.n; i++) this.update(i, nums[i]);\n    }\n    update(index, val) {\n        const delta = val - this.a[index];\n        this.a[index] = val;\n        let i = index + 1;\n        while (i <= this.n) {\n            this.tree[i] += delta;\n            i += i & (-i);\n        }\n    }\n    _prefix(i) {\n        let s = 0;\n        while (i > 0) {\n            s += this.tree[i];\n            i -= i & (-i);\n        }\n        return s;\n    }\n    sumRange(left, right) {\n        return this._prefix(right + 1) - this._prefix(left);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) per update and query", "space": "O(n)" }
+}

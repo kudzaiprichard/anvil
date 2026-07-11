@@ -1,0 +1,38 @@
+{
+  "slug": "concatenated-divisibility",
+  "judge": "exact",
+  "pattern": "A bitmask-over-remainder feasibility table tells you which partial arrangements can still reach a divisible whole, letting a greedy pass commit the smallest next number that keeps a solution alive.",
+  "hints": [
+    "Concatenating a number shifts the running value by its digit count, so the only state that matters is which numbers are used and the current remainder modulo k.",
+    "Precompute, for every (used-set, remainder) pair, whether the leftover numbers can be ordered to finish at remainder zero.",
+    "Once feasibility is known, build the answer greedily: at each slot try the unused numbers from smallest value upward and take the first one whose resulting (set, remainder) state can still be completed; if even the empty set at remainder zero is infeasible, return an empty list."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 13], "value": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "identity permutation already works", "input": [[3, 12, 45], 5] },
+    { "kind": "edge", "description": "swap needed for divisibility by ten", "input": [[10, 5], 10] },
+    { "kind": "trap", "description": "no permutation is divisible", "input": [[1, 2, 3], 5] },
+    { "kind": "boundary", "description": "single element divisible", "input": [[100], 4] },
+    { "kind": "trap", "description": "single element not divisible", "input": [[7], 5] },
+    { "kind": "edge", "description": "duplicates among the numbers", "input": [[7, 7, 14], 7] },
+    { "kind": "edge", "description": "k of one accepts any order, lex smallest wins", "input": [[5, 3, 9], 1] }
+  ],
+  "stress": [
+    {
+      "description": "several multi-digit numbers with a modest k so a solution usually exists",
+      "seed": 24,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(1, 9)\n    nums = [rng.randrange(1, 1000) for _ in range(n)]\n    k = rng.randrange(1, 30)\n    return [nums, k]\n",
+      "note": "small n keeps the 2^n by k table fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def concatenatedDivisibility(self, nums, k):\n        from itertools import permutations\n        best = None\n        for perm in permutations(range(len(nums))):\n            cat = ''.join(str(nums[i]) for i in perm)\n            if int(cat) % k == 0:\n                lst = [nums[i] for i in perm]\n                if best is None or lst < best:\n                    best = lst\n        return best if best is not None else []\n",
+  "solutions": {
+    "python": "class Solution:\n    def concatenatedDivisibility(self, nums, k):\n        from functools import lru_cache\n        n = len(nums)\n        pw = [pow(10, len(str(x)), k) for x in nums]\n        mod = [x % k for x in nums]\n        full = (1 << n) - 1\n        @lru_cache(maxsize=None)\n        def can_finish(mask, rem):\n            if mask == full:\n                return rem == 0\n            for i in range(n):\n                if not (mask >> i) & 1:\n                    nr = (rem * pw[i] + mod[i]) % k\n                    if can_finish(mask | (1 << i), nr):\n                        return True\n            return False\n        if not can_finish(0, 0):\n            return []\n        mask = 0\n        rem = 0\n        res = []\n        for _ in range(n):\n            cands = sorted((i for i in range(n) if not (mask >> i) & 1), key=lambda i: (nums[i], i))\n            for i in cands:\n                nr = (rem * pw[i] + mod[i]) % k\n                if can_finish(mask | (1 << i), nr):\n                    res.append(nums[i])\n                    mask |= (1 << i)\n                    rem = nr\n                    break\n        return res\n",
+    "javascript": "var concatenatedDivisibility = function(nums, k) {\n    const n = nums.length;\n    const pw = nums.map(x => {\n        let p = 1;\n        const d = String(x).length;\n        for (let i = 0; i < d; i++) p = (p * 10) % k;\n        return p;\n    });\n    const mod = nums.map(x => x % k);\n    const full = (1 << n) - 1;\n    const memo = new Map();\n    function canFinish(mask, rem) {\n        if (mask === full) return rem === 0;\n        const key = mask * k + rem;\n        if (memo.has(key)) return memo.get(key);\n        let res = false;\n        for (let i = 0; i < n; i++) {\n            if (!((mask >> i) & 1)) {\n                const nr = (rem * pw[i] + mod[i]) % k;\n                if (canFinish(mask | (1 << i), nr)) { res = true; break; }\n            }\n        }\n        memo.set(key, res);\n        return res;\n    }\n    if (!canFinish(0, 0)) return [];\n    let mask = 0, rem = 0;\n    const out = [];\n    for (let step = 0; step < n; step++) {\n        const cands = [];\n        for (let i = 0; i < n; i++) if (!((mask >> i) & 1)) cands.push(i);\n        cands.sort((a, b) => nums[a] !== nums[b] ? nums[a] - nums[b] : a - b);\n        for (const i of cands) {\n            const nr = (rem * pw[i] + mod[i]) % k;\n            if (canFinish(mask | (1 << i), nr)) {\n                out.push(nums[i]); mask |= (1 << i); rem = nr; break;\n            }\n        }\n    }\n    return out;\n};\n"
+  },
+  "complexity": { "time": "O(2^n * n * k)", "space": "O(2^n * k)" }
+}

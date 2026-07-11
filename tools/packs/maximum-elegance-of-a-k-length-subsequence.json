@@ -1,0 +1,39 @@
+{
+  "slug": "maximum-elegance-of-a-k-length-subsequence",
+  "judge": "exact",
+  "pattern": "Start from the k highest-profit picks, then greedily trade a duplicate-category pick for a fresh category whenever that is available, since a new distinct category is worth more than a stale duplicate.",
+  "hints": [
+    "Begin with the k items of highest profit; anything better must still keep exactly k items selected.",
+    "Among your first k picks, a repeated category is only ever worth its profit, while a category you don't have yet could also grow the distinct-category count. Track which of your k picks are 'extra' copies of a category you already hold.",
+    "Walk the remaining items in profit order; whenever one introduces a brand-new category, swap it in for your cheapest already-picked duplicate (if any), and remember the best total-plus-distinct-squared you see across every swap, not just the last one."
+  ],
+  "constraints": [
+    { "param": "items", "kind": "int[][]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small mixed-category pick, one profitable swap available", "input": [[[3, 2], [5, 1], [10, 1]], 2] },
+    { "kind": "edge", "description": "four items, a duplicate category and a fresh one to swap in", "input": [[[3, 1], [3, 1], [2, 2], [5, 3]], 3] },
+    { "kind": "edge", "description": "k equals n so every item is forced in, single category throughout", "input": [[[1, 1], [2, 1], [3, 1]], 3] },
+    { "kind": "boundary", "description": "k = 1, must pick the single highest elegance item", "input": [[[5, 1], [100, 2], [1, 3]], 1] },
+    { "kind": "boundary", "description": "k = n with all-distinct categories, nothing left to swap", "input": [[[1, 1], [2, 2], [3, 3]], 3] },
+    { "kind": "trap", "description": "two stacked duplicates of one category behind a fresh-category item worth swapping for", "input": [[[10, 1], [9, 1], [8, 1], [7, 2]], 2] },
+    { "kind": "trap", "description": "no duplicate categories exist among the top picks, so no swap is ever possible", "input": [[[5, 1], [4, 2], [3, 3]], 2] },
+    { "kind": "boundary", "description": "single item, k = 1", "input": [[[7, 3]], 1] },
+    { "kind": "trap", "description": "a swap is available but makes the running total worse, so the best answer comes from before the swap", "input": [[[10, 1], [9, 1], [1, 2], [1, 3]], 2] }
+  ],
+  "stress": [
+    {
+      "description": "2000 items across a wide range of categories with heavy duplication, k around half of n",
+      "seed": 5,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    items = []\n    for _ in range(n):\n        profit = rng.randrange(1, 1000000000)\n        category = rng.randrange(1, max(2, n // 20))\n        items.append([profit, category])\n    k = rng.randrange(1, n + 1)\n    return [items, k]\n"
+    }
+  ],
+  "oracle_python": "import itertools\nclass Solution:\n    def findMaximumElegance(self, items, k):\n        n = len(items)\n        best = None\n        for combo in itertools.combinations(range(n), k):\n            total = 0\n            cats = set()\n            for idx in combo:\n                total += items[idx][0]\n                cats.add(items[idx][1])\n            val = total + len(cats) ** 2\n            if best is None or val > best:\n                best = val\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMaximumElegance(self, items, k):\n        items = sorted(items, key=lambda it: -it[0])\n        n = len(items)\n        seen = set()\n        stack = []\n        total = 0\n        for i in range(k):\n            profit, cat = items[i]\n            total += profit\n            if cat in seen:\n                stack.append(profit)\n            else:\n                seen.add(cat)\n        distinct = len(seen)\n        ans = total + distinct * distinct\n        for i in range(k, n):\n            profit, cat = items[i]\n            if cat not in seen and stack:\n                d = stack.pop()\n                total += profit - d\n                seen.add(cat)\n                distinct += 1\n                ans = max(ans, total + distinct * distinct)\n        return ans\n",
+    "javascript": "var findMaximumElegance = function(items, k) {\n    const sorted = [...items].sort((a, b) => b[0] - a[0]);\n    const n = sorted.length;\n    const seen = new Set();\n    const stack = [];\n    let total = 0;\n    for (let i = 0; i < k; i++) {\n        const [profit, cat] = sorted[i];\n        total += profit;\n        if (seen.has(cat)) {\n            stack.push(profit);\n        } else {\n            seen.add(cat);\n        }\n    }\n    let distinct = seen.size;\n    let ans = total + distinct * distinct;\n    for (let i = k; i < n; i++) {\n        const [profit, cat] = sorted[i];\n        if (!seen.has(cat) && stack.length > 0) {\n            const d = stack.pop();\n            total += profit - d;\n            seen.add(cat);\n            distinct += 1;\n            ans = Math.max(ans, total + distinct * distinct);\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

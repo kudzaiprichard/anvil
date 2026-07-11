@@ -1,0 +1,191 @@
+{
+  "slug": "zero-array-transformation-iii",
+  "judge": "exact",
+  "pattern": "Zeroing the array only ever needs a MINIMAL set of kept queries, and at every position the best query to keep in reserve is always the one that reaches furthest -- a sweep with a max-heap of candidates finds that minimal set directly.",
+  "hints": [
+    "Reframe the goal: instead of maximizing how many queries you remove, find the smallest possible set of queries you must keep so every index is still covered enough times.",
+    "Sweep left to right, and whenever the current index isn't yet covered enough by already-kept queries, you must keep one more -- and among the available candidates that start at or before this index, keeping the one whose range reaches furthest is never worse than keeping any other.",
+    "If you ever need one more kept query but none of the candidates that start early enough still reach the current index, zeroing the array is impossible no matter which queries you pick."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, one redundant query",
+      "input": [
+        [
+          2,
+          0,
+          2
+        ],
+        [
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, two removable queries",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          [
+            1,
+            3
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, impossible even keeping everything",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          [
+            0,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element exactly coverable by its only query",
+      "input": [
+        [
+          1
+        ],
+        [
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all queries identical and fully redundant",
+      "input": [
+        [
+          1,
+          1
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one query barely reaches an index needing 2 units",
+      "input": [
+        [
+          2,
+          0
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small demands with random covering ranges",
+      "seed": 6,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1500))\n    nums = [rng.randint(0, 4) for _ in range(n)]\n    m = rng.randint(1, 120)\n    queries = []\n    for _ in range(m):\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        queries.append([l, r])\n    return [nums, queries]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\nclass Solution:\n    def maxRemoval(self, nums, queries):\n        m = len(queries)\n        n = len(nums)\n\n        def feasible(subset):\n            diff = [0] * (n + 1)\n            for idx in subset:\n                l, r = queries[idx]\n                diff[l] += 1\n                diff[r + 1] -= 1\n            cov = 0\n            for i in range(n):\n                cov += diff[i]\n                if cov < nums[i]:\n                    return False\n            return True\n\n        best_keep = None\n        for size in range(m + 1):\n            found = False\n            for combo in combinations(range(m), size):\n                if feasible(combo):\n                    found = True\n                    break\n            if found:\n                best_keep = size\n                break\n        if best_keep is None:\n            return -1\n        return m - best_keep\n",
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def maxRemoval(self, nums, queries):\n        n = len(nums)\n        by_start = [[] for _ in range(n)]\n        for l, r in queries:\n            by_start[l].append(r)\n        avail = []\n        chosen_count = 0\n        expiry = [0] * (n + 1)\n        kept = 0\n        for i in range(n):\n            chosen_count -= expiry[i]\n            for r in by_start[i]:\n                heapq.heappush(avail, -r)\n            while chosen_count < nums[i]:\n                while avail and -avail[0] < i:\n                    heapq.heappop(avail)\n                if not avail:\n                    return -1\n                r = -heapq.heappop(avail)\n                chosen_count += 1\n                kept += 1\n                expiry[r + 1] += 1\n        return len(queries) - kept\n",
+    "javascript": "class MinHeap {\n    constructor() { this.a = []; }\n    push(x) {\n        const a = this.a; a.push(x);\n        let i = a.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (a[p] <= a[i]) break;\n            [a[p], a[i]] = [a[i], a[p]]; i = p;\n        }\n    }\n    pop() {\n        const a = this.a; const top = a[0]; const last = a.pop();\n        if (a.length) {\n            a[0] = last;\n            let i = 0;\n            while (true) {\n                let l = 2 * i + 1, r = 2 * i + 2, s = i;\n                if (l < a.length && a[l] < a[s]) s = l;\n                if (r < a.length && a[r] < a[s]) s = r;\n                if (s === i) break;\n                [a[s], a[i]] = [a[i], a[s]]; i = s;\n            }\n        }\n        return top;\n    }\n    get size() { return this.a.length; }\n    peek() { return this.a[0]; }\n}\n\nvar maxRemoval = function(nums, queries) {\n    const n = nums.length;\n    const byStart = Array.from({ length: n }, () => []);\n    for (const [l, r] of queries) byStart[l].push(r);\n    const avail = new MinHeap();\n    let chosenCount = 0;\n    const expiry = new Array(n + 1).fill(0);\n    let kept = 0;\n    for (let i = 0; i < n; i++) {\n        chosenCount -= expiry[i];\n        for (const r of byStart[i]) avail.push(-r);\n        while (chosenCount < nums[i]) {\n            while (avail.size && -avail.peek() < i) avail.pop();\n            if (!avail.size) return -1;\n            const r = -avail.pop();\n            chosenCount += 1;\n            kept += 1;\n            expiry[r + 1] += 1;\n        }\n    }\n    return queries.length - kept;\n};\n"
+  },
+  "complexity": {
+    "time": "O((n + m) log m)",
+    "space": "O(n + m)"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "slug": "frog-position-after-t-seconds",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "BFS/DFS on a tree tracking probability; once at a leaf or forced to stay, the probability freezes.",
+  "hints": [
+    "Build an adjacency list and BFS from node 1, carrying the current probability through each step.",
+    "When you reach the target node, note how many unvisited neighbours it has: if zero (leaf) or t is exhausted, return the accumulated probability; otherwise the frog will keep jumping away.",
+    "Use DFS with remaining-time and parent tracking; the probability multiplies by 1/(number of unvisited children) at each hop."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "edges", "kind": "int[][]", "len": [0, 99] },
+    { "param": "t", "kind": "int", "value": [1, 50] },
+    { "param": "target", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single node, target is node 1, t=1", "input": [1, [], 1, 1] },
+    { "kind": "edge", "description": "frog reaches target exactly at t but target has no children (stays)", "input": [7, [[1,2],[1,3],[1,7],[2,4],[2,6],[3,5]], 2, 4] },
+    { "kind": "edge", "description": "frog reaches target at t=1 out of 3 neighbors", "input": [7, [[1,2],[1,3],[1,7],[2,4],[2,6],[3,5]], 1, 7] },
+    { "kind": "edge", "description": "target unreachable in t steps, expect 0", "input": [5, [[1,2],[2,3],[3,4],[4,5]], 1, 5] },
+    { "kind": "boundary", "description": "n=2 line, target=2, t=1", "input": [2, [[1,2]], 1, 2] },
+    { "kind": "boundary", "description": "n=2 line, target=2, t exceeds depth (frog stays at leaf)", "input": [2, [[1,2]], 5, 2] },
+    { "kind": "trap", "description": "target has children remaining so frog cannot stay at t reached", "input": [4, [[1,2],[2,3],[2,4]], 1, 2] },
+    { "kind": "trap", "description": "deep path, frog cannot reach target even with enough t", "input": [6, [[1,2],[2,3],[3,4],[4,5],[5,6]], 3, 6] }
+  ],
+  "stress": [
+    {
+      "description": "random balanced tree of 50 nodes, t=10",
+      "seed": 7,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    edges = []\n    for i in range(2, n + 1):\n        parent = rng.randint(1, i - 1)\n        edges.append([parent, i])\n    t = 10\n    target = rng.randint(1, n)\n    return [n, edges, t, target]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def frogPosition(self, n, edges, t, target):\n        from collections import defaultdict\n        graph = defaultdict(list)\n        for u, v in edges:\n            graph[u].append(v)\n            graph[v].append(u)\n        # BFS-based brute force: track (node, prob, time, parent)\n        # Use DFS with explicit stack\n        stack = [(1, 1.0, 0, -1)]\n        while stack:\n            node, prob, time, parent = stack.pop()\n            children = [nb for nb in graph[node] if nb != parent]\n            if node == target:\n                if time == t or not children:\n                    return prob\n                return 0.0\n            if time < t and children:\n                for ch in children:\n                    stack.append((ch, prob / len(children), time + 1, node))\n        return 0.0\n",
+  "solutions": {
+    "python": "class Solution:\n    def frogPosition(self, n, edges, t, target):\n        from collections import defaultdict, deque\n        if n == 1:\n            return 1.0\n        graph = defaultdict(list)\n        for u, v in edges:\n            graph[u].append(v)\n            graph[v].append(u)\n        visited = [False] * (n + 1)\n        visited[1] = True\n        queue = deque([(1, 1.0)])\n        for step in range(t):\n            for _ in range(len(queue)):\n                node, prob = queue.popleft()\n                children = [nb for nb in graph[node] if not visited[nb]]\n                if node == target:\n                    if not children:\n                        return prob\n                    return 0.0\n                for ch in children:\n                    visited[ch] = True\n                    queue.append((ch, prob / len(children)))\n        for node, prob in queue:\n            if node == target:\n                return prob\n        return 0.0\n",
+    "javascript": "var frogPosition = function(n, edges, t, target) {\n    if (n === 1) return 1.0;\n    const graph = Array.from({length: n + 1}, () => []);\n    for (const [u, v] of edges) {\n        graph[u].push(v);\n        graph[v].push(u);\n    }\n    const visited = new Array(n + 1).fill(false);\n    visited[1] = true;\n    let queue = [[1, 1.0]];\n    for (let step = 0; step < t; step++) {\n        const next = [];\n        for (const [node, prob] of queue) {\n            const children = graph[node].filter(nb => !visited[nb]);\n            if (node === target) {\n                if (children.length === 0) return prob;\n                return 0.0;\n            }\n            for (const ch of children) {\n                visited[ch] = true;\n                next.push([ch, prob / children.length]);\n            }\n        }\n        queue = next;\n    }\n    for (const [node, prob] of queue) {\n        if (node === target) return prob;\n    }\n    return 0.0;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "find-the-maximum-length-of-a-good-subsequence-ii",
+  "judge": "exact",
+  "pattern": "Same DP as Good Subsequence I but optimised to O(n*k): maintain per-value best and a global top-2 to handle different-value extensions in O(1) per (i,j).",
+  "hints": [
+    "Define dp[i][j] = max good subsequence length ending at i with j transitions; the recurrence is the same as the smaller-n version.",
+    "For the 'same value' extension, track best_same[j][v] = max dp among previous indices with value v.",
+    "For the 'different value' extension, maintain the global top-2 dp values (with their associated nums values) so you can find the best predecessor with a different value in O(1)."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 5000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [0, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "k=2 allows two transitions", "input": [[1,2,1,1,3],2] },
+    { "kind": "edge", "description": "k=0 only same values", "input": [[1,2,3,4,5,1],0] },
+    { "kind": "boundary", "description": "single element", "input": [[100],0] },
+    { "kind": "boundary", "description": "two elements same value k=0", "input": [[5,5],0] },
+    { "kind": "trap", "description": "all distinct, k=0 gives 1", "input": [[1,2,3,4],0] },
+    { "kind": "trap", "description": "all same, k large, answer is n", "input": [[3,3,3,3,3],10] },
+    { "kind": "trap", "description": "k=1 allows exactly one value change", "input": [[1,2,1,2,1],1] }
+  ],
+  "stress": [
+    {
+      "description": "moderate array with few distinct values and moderate k",
+      "seed": 44,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = min(size, 500)\n    vals = [rng.randint(1, 8) for _ in range(n)]\n    k = rng.randint(0, min(10, n))\n    return [vals, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumLength(self, nums, k):\n        n = len(nums)\n        dp = [[1] * (k + 1) for _ in range(n)]\n        for i in range(n):\n            for p in range(i):\n                for j in range(k + 1):\n                    if nums[p] == nums[i]:\n                        if dp[p][j] + 1 > dp[i][j]:\n                            dp[i][j] = dp[p][j] + 1\n                    elif j > 0:\n                        if dp[p][j-1] + 1 > dp[i][j]:\n                            dp[i][j] = dp[p][j-1] + 1\n        return max(dp[i][j] for i in range(n) for j in range(k + 1))\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumLength(self, nums, k):\n        from collections import defaultdict\n        n = len(nums)\n        # best_same[j][v] = max dp[p][j] where nums[p] == v\n        best_same = [defaultdict(int) for _ in range(k + 1)]\n        # top2_diff[j] = list of (dp_val, num_val) top-2 by dp_val for all prev positions\n        top2 = [[] for _ in range(k + 1)]  # each entry: (val, nums_val)\n        ans = 1\n\n        def update_top2(lst, val, num):\n            if not lst:\n                lst.append((val, num))\n            elif len(lst) == 1:\n                if val >= lst[0][0]:\n                    lst.insert(0, (val, num))\n                else:\n                    lst.append((val, num))\n            else:\n                if val >= lst[0][0]:\n                    lst[1] = lst[0]\n                    lst[0] = (val, num)\n                elif val > lst[1][0]:\n                    lst[1] = (val, num)\n\n        def best_diff(lst, num):\n            for val, nv in lst:\n                if nv != num:\n                    return val\n            return 0\n\n        for i in range(n):\n            v = nums[i]\n            new_dp = [1] * (k + 1)\n            for j in range(k + 1):\n                # same value extension\n                same_ext = best_same[j][v] + 1\n                if same_ext > new_dp[j]:\n                    new_dp[j] = same_ext\n                # different value extension\n                if j > 0:\n                    diff_ext = best_diff(top2[j-1], v) + 1\n                    if diff_ext > new_dp[j]:\n                        new_dp[j] = diff_ext\n            for j in range(k + 1):\n                if new_dp[j] > ans:\n                    ans = new_dp[j]\n                if new_dp[j] > best_same[j][v]:\n                    best_same[j][v] = new_dp[j]\n                update_top2(top2[j], new_dp[j], v)\n        return ans\n",
+    "javascript": "var maximumLength = function(nums, k) {\n    const n = nums.length;\n    const bestSame = Array.from({length: k+1}, () => new Map());\n    // top2[j] = [{val, num}, ...] at most 2\n    const top2 = Array.from({length: k+1}, () => []);\n\n    function updateTop2(lst, val, num) {\n        if (lst.length === 0) { lst.push({val, num}); return; }\n        if (lst.length === 1) {\n            if (val >= lst[0].val) lst.unshift({val, num});\n            else lst.push({val, num});\n            return;\n        }\n        if (val >= lst[0].val) { lst[1] = lst[0]; lst[0] = {val, num}; }\n        else if (val > lst[1].val) lst[1] = {val, num};\n    }\n    function bestDiff(lst, num) {\n        for (const e of lst) if (e.num !== num) return e.val;\n        return 0;\n    }\n\n    let ans = 1;\n    for (let i = 0; i < n; i++) {\n        const v = nums[i];\n        const newDp = new Array(k+1).fill(1);\n        for (let j = 0; j <= k; j++) {\n            const sameExt = (bestSame[j].get(v) || 0) + 1;\n            if (sameExt > newDp[j]) newDp[j] = sameExt;\n            if (j > 0) {\n                const diffExt = bestDiff(top2[j-1], v) + 1;\n                if (diffExt > newDp[j]) newDp[j] = diffExt;\n            }\n        }\n        for (let j = 0; j <= k; j++) {\n            if (newDp[j] > ans) ans = newDp[j];\n            if (newDp[j] > (bestSame[j].get(v) || 0)) bestSame[j].set(v, newDp[j]);\n            updateTop2(top2[j], newDp[j], v);\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n*k)", "space": "O(n*k)" }
+}

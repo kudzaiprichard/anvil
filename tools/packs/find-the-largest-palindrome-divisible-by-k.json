@@ -1,0 +1,117 @@
+{
+  "slug": "find-the-largest-palindrome-divisible-by-k",
+  "judge": "exact",
+  "pattern": "Digit DP over reachable remainders lets a greedy left-to-right digit choice build the largest palindrome divisible by k without ever trying a candidate number directly.",
+  "hints": [
+    "Only the first half of the palindrome's digits are free choices (the second half mirrors them, plus one shared middle digit when n is odd), and each half-position contributes a fixed weight (a power of 10, or a sum of two powers of 10) to the total value mod k.",
+    "Precompute, for every suffix of half-positions, the set of remainders mod k that suffix could possibly contribute (there are at most k of them); this tells you whether a given digit choice at the current position can still be completed into a divisible number.",
+    "Greedily pick each half-digit from 9 down to 0 (1 down to 0 excluded for the leading digit), accepting the first digit whose required remaining remainder is in the precomputed achievable set for the rest of the half; mirror the finished half to form the answer."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        9
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single digit, k=1 accepts everything",
+      "input": [
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two-digit palindrome, odd k",
+      "input": [
+        2,
+        7
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "four-digit palindrome forcing the leading digit below 9",
+      "input": [
+        4,
+        7
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "six-digit palindrome, small k",
+      "input": [
+        6,
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single digit, k=9 forces the digit down from 9",
+      "input": [
+        1,
+        9
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "n=8, k=1 (always all nines)",
+      "input": [
+        8,
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "three-digit palindrome divisible by 4, needs even last-digit parity reasoning",
+      "input": [
+        3,
+        4
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "five-digit palindrome, k=2",
+      "input": [
+        5,
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "n at its maximum with a representative k",
+      "seed": 8,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    k = rng.randint(1, 9)\n    return [n, k]\n"
+    },
+    {
+      "description": "moderately large n across all k values",
+      "seed": 21,
+      "size": 30000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    k = ((size + rng.randint(0, 8)) % 9) + 1\n    return [n, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def largestPalindrome(self, n, k):\n        h = (n + 1) // 2\n        best = None\n        lo = 10 ** (h - 1) if h > 1 else 1\n        hi = 10 ** h - 1 if h > 1 else 9\n        for half_num in range(hi, lo - 1, -1):\n            half = str(half_num)\n            if n % 2 == 1:\n                full = half + half[-2::-1]\n            else:\n                full = half + half[::-1]\n            if int(full) % k == 0:\n                best = full\n                break\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def largestPalindrome(self, n, k):\n        h = (n + 1) // 2\n        mid_is_self = (n % 2 == 1)\n        weight = [0] * h\n        for j in range(h):\n            if mid_is_self and j == h - 1:\n                weight[j] = pow(10, j, k)\n            else:\n                weight[j] = (pow(10, n - 1 - j, k) + pow(10, j, k)) % k\n        achievable = [None] * (h + 1)\n        achievable[h] = {0}\n        for i in range(h - 1, -1, -1):\n            reach = set()\n            lo = 1 if i == 0 else 0\n            nxt = achievable[i + 1]\n            for d in range(lo, 10):\n                contrib = (d * weight[i]) % k\n                for r in nxt:\n                    reach.add((contrib + r) % k)\n            achievable[i] = reach\n        digits = [0] * h\n        need = 0\n        for i in range(h):\n            lo = 1 if i == 0 else 0\n            for d in range(9, lo - 1, -1):\n                contrib = (d * weight[i]) % k\n                rem_after = (need - contrib) % k\n                if rem_after in achievable[i + 1]:\n                    digits[i] = d\n                    need = rem_after\n                    break\n        if mid_is_self:\n            full = digits + digits[-2::-1]\n        else:\n            full = digits + digits[::-1]\n        return ''.join(str(x) for x in full)\n",
+    "javascript": "var largestPalindrome = function(n, k) {\n    function modpow(base, exp, mod) {\n        if (mod === 1) return 0;\n        let result = 1 % mod;\n        base = base % mod;\n        while (exp > 0) {\n            if (exp & 1) result = (result * base) % mod;\n            exp = Math.floor(exp / 2);\n            base = (base * base) % mod;\n        }\n        return result;\n    }\n    const h = Math.floor((n + 1) / 2);\n    const midIsSelf = (n % 2 === 1);\n    const weight = new Array(h).fill(0);\n    for (let j = 0; j < h; j++) {\n        if (midIsSelf && j === h - 1) {\n            weight[j] = modpow(10, j, k);\n        } else {\n            weight[j] = (modpow(10, n - 1 - j, k) + modpow(10, j, k)) % k;\n        }\n    }\n    const achievable = new Array(h + 1);\n    achievable[h] = new Set([0]);\n    for (let i = h - 1; i >= 0; i--) {\n        const reach = new Set();\n        const lo = (i === 0) ? 1 : 0;\n        const nxt = achievable[i + 1];\n        for (let d = lo; d <= 9; d++) {\n            const contrib = (d * weight[i]) % k;\n            for (const r of nxt) {\n                reach.add((contrib + r) % k);\n            }\n        }\n        achievable[i] = reach;\n    }\n    const digits = new Array(h).fill(0);\n    let need = 0;\n    for (let i = 0; i < h; i++) {\n        const lo = (i === 0) ? 1 : 0;\n        for (let d = 9; d >= lo; d--) {\n            const contrib = (d * weight[i]) % k;\n            const remAfter = ((need - contrib) % k + k) % k;\n            if (achievable[i + 1].has(remAfter)) {\n                digits[i] = d;\n                need = remAfter;\n                break;\n            }\n        }\n    }\n    let fullDigits;\n    if (midIsSelf) {\n        fullDigits = digits.concat(digits.slice(0, h - 1).reverse());\n    } else {\n        fullDigits = digits.concat(digits.slice().reverse());\n    }\n    return fullDigits.join('');\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * k)",
+    "space": "O(n)"
+  }
+}

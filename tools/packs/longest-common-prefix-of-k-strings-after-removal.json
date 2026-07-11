@@ -1,0 +1,133 @@
+{
+  "slug": "longest-common-prefix-of-k-strings-after-removal",
+  "judge": "exact",
+  "pattern": "Building a shared prefix trie and noting that a prefix depth only becomes unusable for a removed word when that word is the sole reason exactly k words reach it lets every word's answer fall back from the global best only when it was truly indispensable.",
+  "hints": [
+    "Insert every word into a trie and, at each node, count how many words pass through it; any depth where more than k words share a prefix survives the removal of any single word, so it is always a safe answer for everyone.",
+    "A depth is only ever at risk for a specific word when exactly k words pass through that exact trie node and the word in question is one of them -- removing a word that never touches such a node never lowers its answer below the safe floor.",
+    "Process the risky nodes from deepest to shallowest: every word not among that node's exact k members can immediately claim this depth as its (best possible) answer, while the node's own members must keep looking further up the trie."
+  ],
+  "constraints": [
+    {
+      "param": "words",
+      "kind": "string[]",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two repeated words dominate",
+      "input": [
+        [
+          "jump",
+          "run",
+          "run",
+          "jump",
+          "run"
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, no two words share any prefix",
+      "input": [
+        [
+          "dog",
+          "racer",
+          "car"
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equals the total number of words, so any removal drops below k",
+      "input": [
+        [
+          "ab",
+          "ac"
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single word, single k",
+      "input": [
+        [
+          "a"
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "exactly k words share the deepest prefix, so those specific words must fall back",
+      "input": [
+        [
+          "aaa",
+          "aaa",
+          "aab",
+          "zzz"
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "more than k words share a prefix, making that depth safe for everyone",
+      "input": [
+        [
+          "aaa",
+          "aaa",
+          "aaa",
+          "zzz"
+        ],
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two different exact-k groups at the same depth so no single word blocks it for the other group",
+      "input": [
+        [
+          "aab",
+          "aab",
+          "acb",
+          "acb"
+        ],
+        2
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random short lowercase words over a tiny alphabet so many share prefixes",
+      "seed": 31,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 1500))\n    words = []\n    for _ in range(n):\n        length = rng.randint(1, 6)\n        words.append(''.join(rng.choice('ab') for _ in range(length)))\n    k = rng.randint(1, n)\n    return [words, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def longestCommonPrefix(self, words, k):\n        n = len(words)\n        ans = []\n        for i in range(n):\n            remaining = words[:i] + words[i + 1:]\n            if len(remaining) < k:\n                ans.append(0)\n                continue\n            from itertools import combinations\n            best = 0\n            for combo in combinations(remaining, k):\n                l = min(len(x) for x in combo)\n                p = 0\n                while p < l and all(x[p] == combo[0][p] for x in combo):\n                    p += 1\n                if p > best:\n                    best = p\n            ans.append(best)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def longestCommonPrefix(self, words, k):\n        n = len(words)\n        if n <= k:\n            return [0] * n\n        children = [dict()]\n        cnt = [0]\n        depth = [0]\n        for w in words:\n            node = 0\n            for ch in w:\n                if ch not in children[node]:\n                    children.append(dict())\n                    cnt.append(0)\n                    depth.append(depth[node] + 1)\n                    children[node][ch] = len(children) - 1\n                node = children[node][ch]\n                cnt[node] += 1\n        F = 0\n        for v in range(len(cnt)):\n            if cnt[v] > k and depth[v] > F:\n                F = depth[v]\n        exact_nodes_depth = {}\n        for v in range(len(cnt)):\n            if cnt[v] == k and depth[v] > F:\n                exact_nodes_depth[v] = depth[v]\n        members = {}\n        if exact_nodes_depth:\n            for i, w in enumerate(words):\n                node = 0\n                for ch in w:\n                    node = children[node][ch]\n                    if node in exact_nodes_depth:\n                        members.setdefault(node, []).append(i)\n        ans = [F] * n\n        unresolved = set(range(n))\n        order = sorted(exact_nodes_depth.keys(), key=lambda v: -exact_nodes_depth[v])\n        for v in order:\n            if not unresolved:\n                break\n            d = exact_nodes_depth[v]\n            memset = set(members.get(v, []))\n            newly = unresolved - memset\n            for i in newly:\n                ans[i] = d\n            unresolved &= memset\n        return ans\n",
+    "javascript": "var longestCommonPrefix = function(words, k) {\n    const n = words.length;\n    if (n <= k) return new Array(n).fill(0);\n    const children = [new Map()];\n    const cnt = [0];\n    const depth = [0];\n    for (const w of words) {\n        let node = 0;\n        for (const ch of w) {\n            if (!children[node].has(ch)) {\n                children.push(new Map());\n                cnt.push(0);\n                depth.push(depth[node] + 1);\n                children[node].set(ch, children.length - 1);\n            }\n            node = children[node].get(ch);\n            cnt[node]++;\n        }\n    }\n    let F = 0;\n    for (let v = 0; v < cnt.length; v++) {\n        if (cnt[v] > k && depth[v] > F) F = depth[v];\n    }\n    const exactNodesDepth = new Map();\n    for (let v = 0; v < cnt.length; v++) {\n        if (cnt[v] === k && depth[v] > F) exactNodesDepth.set(v, depth[v]);\n    }\n    const members = new Map();\n    if (exactNodesDepth.size > 0) {\n        for (let i = 0; i < n; i++) {\n            let node = 0;\n            for (const ch of words[i]) {\n                node = children[node].get(ch);\n                if (exactNodesDepth.has(node)) {\n                    if (!members.has(node)) members.set(node, []);\n                    members.get(node).push(i);\n                }\n            }\n        }\n    }\n    const ans = new Array(n).fill(F);\n    let unresolved = new Set();\n    for (let i = 0; i < n; i++) unresolved.add(i);\n    const order = Array.from(exactNodesDepth.keys()).sort((a, b) => exactNodesDepth.get(b) - exactNodesDepth.get(a));\n    for (const v of order) {\n        if (unresolved.size === 0) break;\n        const d = exactNodesDepth.get(v);\n        const memset = new Set(members.get(v) || []);\n        const newly = [];\n        for (const i of unresolved) {\n            if (!memset.has(i)) newly.push(i);\n        }\n        for (const i of newly) {\n            ans[i] = d;\n            unresolved.delete(i);\n        }\n        const remaining = new Set();\n        for (const i of unresolved) {\n            if (memset.has(i)) remaining.add(i);\n        }\n        unresolved = remaining;\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(sum of word lengths)",
+    "space": "O(sum of word lengths)"
+  }
+}

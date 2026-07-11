@@ -1,0 +1,39 @@
+{
+  "slug": "find-the-number-of-copy-arrays",
+  "judge": "exact",
+  "pattern": "Fixing the required differences between consecutive entries means the whole array is really just one free choice -- the first element -- so every other element's bound can be pulled back onto that single choice, and counting valid arrays becomes counting integers in a shrinking interval.",
+  "hints": [
+    "Every later element is forced to equal the first element plus a fixed offset, since consecutive differences are locked to the original array's differences.",
+    "Translate each position's own bound into a bound on the first element by subtracting that position's fixed offset from it.",
+    "Intersect all of the translated bounds into one running interval as you scan left to right; the answer is the number of integers left in that interval once you've seen every position (zero if it ever becomes empty)."
+  ],
+  "constraints": [
+    { "param": "original", "kind": "int[]", "len": [2, 100000], "value": [1, 1000000000] },
+    { "param": "bounds", "kind": "int[][]", "len": [2, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, two valid arrays", "input": [[1, 2, 3, 4], [[1, 2], [2, 3], [3, 4], [4, 5]]] },
+    { "kind": "edge", "description": "statement example, four valid arrays from wide bounds", "input": [[1, 2, 3, 4], [[1, 10], [2, 9], [3, 8], [4, 7]]] },
+    { "kind": "edge", "description": "statement example, no valid array at all", "input": [[1, 2, 1, 2], [[1, 1], [2, 3], [3, 3], [2, 3]]] },
+    { "kind": "boundary", "description": "minimal length two, identical original values so the offset is zero", "input": [[5, 5], [[1, 10], [1, 10]]] },
+    { "kind": "boundary", "description": "extreme values at the top of the constraint range collapsing to a single valid array", "input": [[1, 1000000000], [[1, 1000000000], [1, 1000000000]]] },
+    { "kind": "trap", "description": "decreasing original values, exercising a negative offset", "input": [[5, 3, 4], [[1, 10], [1, 10], [1, 10]]] },
+    { "kind": "trap", "description": "a bound fixed to a single point midway through, forcing the interval down to at most one value", "input": [[10, 12, 9], [[1, 100], [3, 3], [1, 100]]] },
+    { "kind": "trap", "description": "non-monotonic original with a wide first bound but a tight last bound", "input": [[4, 1, 6, 2], [[1, 1000], [1, 1000], [1, 1000], [1, 1000]]] }
+  ],
+  "stress": [
+    {
+      "description": "a random walk for original (clamped into range) paired with bounds built as a window around each original value, so intersections are exercised without being trivially empty or unbounded",
+      "seed": 11,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    original = [rng.randint(1, 1000000000)]\n    for _ in range(n - 1):\n        step = rng.randint(-2000, 2000)\n        nxt = original[-1] + step\n        nxt = max(1, min(1000000000, nxt))\n        original.append(nxt)\n    bounds = []\n    for v in original:\n        r = rng.randint(0, 6000)\n        lo = max(1, v - r)\n        hi = min(1000000000, v + r)\n        bounds.append([lo, hi])\n    return [original, bounds]\n",
+      "note": "bounds are windows around the real original values, guaranteeing at least one valid array exists most of the time while still varying interval width"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countArrays(self, original, bounds):\n        base = original[0]\n        lo = -(10 ** 18)\n        hi = 10 ** 18\n        for i in range(len(original)):\n            offset = original[i] - base\n            lo = max(lo, bounds[i][0] - offset)\n            hi = min(hi, bounds[i][1] - offset)\n        return max(0, hi - lo + 1)\n",
+  "solutions": {
+    "python": "class Solution:\n    def countArrays(self, original, bounds):\n        n = len(original)\n        lo, hi = bounds[0][0], bounds[0][1]\n        for i in range(1, n):\n            diff = original[i] - original[i - 1]\n            lo += diff\n            hi += diff\n            lo = max(lo, bounds[i][0])\n            hi = min(hi, bounds[i][1])\n            if lo > hi:\n                return 0\n        return hi - lo + 1\n",
+    "javascript": "var countArrays = function(original, bounds) {\n    const n = original.length;\n    let lo = bounds[0][0];\n    let hi = bounds[0][1];\n    for (let i = 1; i < n; i++) {\n        const diff = original[i] - original[i - 1];\n        lo += diff;\n        hi += diff;\n        lo = Math.max(lo, bounds[i][0]);\n        hi = Math.min(hi, bounds[i][1]);\n        if (lo > hi) return 0;\n    }\n    return hi - lo + 1;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

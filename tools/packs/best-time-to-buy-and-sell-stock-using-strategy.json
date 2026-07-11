@@ -1,0 +1,39 @@
+{
+  "slug": "best-time-to-buy-and-sell-stock-using-strategy",
+  "judge": "exact",
+  "pattern": "The base profit is fixed; one optional window rewrite changes only the prices inside it, so prefix sums let you evaluate every window's delta in constant time and keep the best.",
+  "hints": [
+    "Start from the profit with no modification, then ask what each allowed window would add or subtract.",
+    "Rewriting a window zeroes the first half's contribution and turns the second half into pure sells, so its new value is just the sum of the second-half prices.",
+    "Precompute a prefix sum of prices and a prefix sum of strategy times price; for each window subtract its original contribution and add the second-half price sum, tracking the maximum delta to add to the base profit."
+  ],
+  "constraints": [
+    { "param": "prices", "kind": "int[]", "len": [2, 100000], "value": [1, 100000] },
+    { "param": "strategy", "kind": "int[]", "len": [2, 100000], "value": [-1, 1] },
+    { "param": "k", "kind": "int", "value": [2, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "modifying the front window is best", "input": [[4, 2, 8], [-1, 0, 1], 2] },
+    { "kind": "edge", "description": "no modification beats every window", "input": [[5, 4, 3], [1, 1, 0], 2] },
+    { "kind": "boundary", "description": "window spans the whole array", "input": [[3, 1, 2, 5], [-1, -1, 1, 1], 4] },
+    { "kind": "trap", "description": "all holds, modification only helps via sells", "input": [[7, 7, 7, 7], [0, 0, 0, 0], 2] },
+    { "kind": "trap", "description": "all sells already, rewrite cannot improve much", "input": [[1, 9, 1, 9], [1, 1, 1, 1], 2] },
+    { "kind": "boundary", "description": "minimum length and k", "input": [[10, 1], [1, -1], 2] },
+    { "kind": "edge", "description": "larger window k equals four", "input": [[2, 9, 1, 8, 3, 7], [-1, 1, -1, 1, 0, 1], 4] }
+  ],
+  "stress": [
+    {
+      "description": "long arrays with an even random window size",
+      "seed": 18,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    prices = [rng.randrange(1, 100001) for _ in range(n)]\n    strategy = [rng.randrange(-1, 2) for _ in range(n)]\n    half = rng.randrange(1, n // 2 + 1)\n    k = 2 * half\n    return [prices, strategy, k]\n",
+      "note": "k is even and at most n by construction"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxProfit(self, prices, strategy, k):\n        n = len(prices)\n        base = sum(strategy[i] * prices[i] for i in range(n))\n        best = base\n        h = k // 2\n        for j in range(0, n - k + 1):\n            modified = list(strategy)\n            for t in range(j, j + h):\n                modified[t] = 0\n            for t in range(j + h, j + k):\n                modified[t] = 1\n            profit = sum(modified[i] * prices[i] for i in range(n))\n            if profit > best:\n                best = profit\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxProfit(self, prices, strategy, k):\n        n = len(prices)\n        h = k // 2\n        pre_price = [0] * (n + 1)\n        pre_sp = [0] * (n + 1)\n        for i in range(n):\n            pre_price[i + 1] = pre_price[i] + prices[i]\n            pre_sp[i + 1] = pre_sp[i] + strategy[i] * prices[i]\n        base = pre_sp[n]\n        best_delta = 0\n        for j in range(0, n - k + 1):\n            orig = pre_sp[j + k] - pre_sp[j]\n            second_half = pre_price[j + k] - pre_price[j + h]\n            delta = second_half - orig\n            if delta > best_delta:\n                best_delta = delta\n        return base + best_delta\n",
+    "javascript": "var maxProfit = function(prices, strategy, k) {\n    const n = prices.length;\n    const h = k / 2;\n    const prePrice = new Array(n + 1).fill(0);\n    const preSp = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        prePrice[i + 1] = prePrice[i] + prices[i];\n        preSp[i + 1] = preSp[i] + strategy[i] * prices[i];\n    }\n    const base = preSp[n];\n    let bestDelta = 0;\n    for (let j = 0; j + k <= n; j++) {\n        const orig = preSp[j + k] - preSp[j];\n        const secondHalf = prePrice[j + k] - prePrice[j + h];\n        const delta = secondHalf - orig;\n        if (delta > bestDelta) bestDelta = delta;\n    }\n    return base + bestDelta;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

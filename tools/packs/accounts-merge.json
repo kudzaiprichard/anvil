@@ -1,0 +1,36 @@
+{
+  "slug": "accounts-merge",
+  "judge": "unordered",
+  "pattern": "Treating shared emails as edges turns account merging into finding connected components, after which each component's emails are gathered, sorted, and prefixed with the owner's name.",
+  "hints": [
+    "Two accounts belong together whenever they share at least one email, so think of emails as nodes that link the accounts containing them.",
+    "Union-find or a graph traversal groups all transitively connected emails into a single component.",
+    "Map every email to a representative via union-find, bucket emails by their root, then for each bucket output the name followed by the emails in sorted order."
+  ],
+  "constraints": [
+    { "param": "accounts", "kind": "string[][]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two Johns merge via a shared email, others stay apart", "input": [[["John", "johnsmith@mail.com", "john_newyork@mail.com"], ["John", "johnsmith@mail.com", "john00@mail.com"], ["Mary", "mary@mail.com"], ["John", "johnnybravo@mail.com"]]] },
+    { "kind": "trap", "description": "same name but no shared emails stays separate", "input": [[["Gabe", "Gabe0@m.co", "Gabe3@m.co", "Gabe1@m.co"], ["Kevin", "Kevin3@m.co", "Kevin5@m.co", "Kevin0@m.co"], ["Ethan", "Ethan5@m.co", "Ethan4@m.co", "Ethan0@m.co"], ["Hanzo", "Hanzo3@m.co", "Hanzo1@m.co", "Hanzo0@m.co"], ["Fern", "Fern5@m.co", "Fern1@m.co", "Fern0@m.co"]]] },
+    { "kind": "edge", "description": "single account", "input": [[["A", "a@x.com"]]] },
+    { "kind": "trap", "description": "chain merge across three accounts via overlapping emails", "input": [[["A", "a@x.com", "b@x.com"], ["A", "b@x.com", "c@x.com"], ["A", "c@x.com", "d@x.com"]]] },
+    { "kind": "edge", "description": "two unrelated people same email count", "input": [[["A", "p@x.com"], ["B", "q@x.com"]]] },
+    { "kind": "trap", "description": "duplicate emails within one account dedupe correctly", "input": [[["A", "a@x.com", "a@x.com", "b@x.com"]]] },
+    { "kind": "edge", "description": "two accounts share every email", "input": [[["Z", "z1@m.com", "z2@m.com"], ["Z", "z2@m.com", "z1@m.com"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random accounts drawn from a shared email pool to force overlaps and components",
+      "seed": 97,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    pool = ['e{}@m.com'.format(i) for i in range(20)]\n    names = ['Al', 'Bo', 'Cy', 'Di']\n    accounts = []\n    for _ in range(n):\n        cnt = rng.randrange(1, 4)\n        emails = rng.sample(pool, cnt)\n        accounts.append([rng.choice(names)] + emails)\n    return [accounts]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def accountsMerge(self, accounts):\n        from collections import defaultdict\n        graph = defaultdict(set)\n        email_name = {}\n        for acc in accounts:\n            name = acc[0]\n            first = acc[1]\n            for e in acc[1:]:\n                email_name[e] = name\n                graph[first].add(e)\n                graph[e].add(first)\n        seen = set()\n        result = []\n        for e in graph:\n            if e in seen:\n                continue\n            stack = [e]\n            comp = []\n            seen.add(e)\n            while stack:\n                cur = stack.pop()\n                comp.append(cur)\n                for nb in graph[cur]:\n                    if nb not in seen:\n                        seen.add(nb)\n                        stack.append(nb)\n            result.append([email_name[e]] + sorted(comp))\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def accountsMerge(self, accounts):\n        parent = {}\n        def find(x):\n            parent.setdefault(x, x)\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            parent[find(a)] = find(b)\n        email_name = {}\n        for acc in accounts:\n            name = acc[0]\n            for e in acc[1:]:\n                email_name[e] = name\n                union(acc[1], e)\n        from collections import defaultdict\n        groups = defaultdict(list)\n        for e in email_name:\n            groups[find(e)].append(e)\n        res = []\n        for root, emails in groups.items():\n            res.append([email_name[root]] + sorted(emails))\n        return res\n",
+    "javascript": "var accountsMerge = function(accounts) {\n    const parent = new Map();\n    function find(x) {\n        if (!parent.has(x)) parent.set(x, x);\n        while (parent.get(x) !== x) {\n            parent.set(x, parent.get(parent.get(x)));\n            x = parent.get(x);\n        }\n        return x;\n    }\n    function union(a, b) { parent.set(find(a), find(b)); }\n    const emailName = new Map();\n    for (const acc of accounts) {\n        const name = acc[0];\n        for (let i = 1; i < acc.length; i++) {\n            emailName.set(acc[i], name);\n            union(acc[1], acc[i]);\n        }\n    }\n    const groups = new Map();\n    for (const e of emailName.keys()) {\n        const r = find(e);\n        if (!groups.has(r)) groups.set(r, []);\n        groups.get(r).push(e);\n    }\n    const res = [];\n    for (const [root, emails] of groups) {\n        emails.sort();\n        res.push([emailName.get(root), ...emails]);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n*k*alpha + sorting)", "space": "O(n*k)" }
+}

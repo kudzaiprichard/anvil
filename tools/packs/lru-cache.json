@@ -1,0 +1,41 @@
+{
+  "slug": "lru-cache",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A hash map for O(1) lookup plus a recency-ordered structure for O(1) eviction together give a constant-time cache.",
+  "hints": [
+    "Every get and put must be O(1), so you cannot scan to find the least-recently-used key — recency has to be maintained as you go.",
+    "You need two things at once: fast lookup by key, and fast identification + removal of the oldest entry.",
+    "Pair a dictionary with an ordering that moves a key to 'most recent' on every access; when size exceeds capacity, evict the front (oldest) entry."
+  ],
+  "constraints": [
+    { "param": "capacity", "kind": "int", "value": [1, 3000] },
+    { "param": "key", "kind": "int", "value": [0, 10000] },
+    { "param": "value", "kind": "int", "value": [0, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "interleaved puts and gets with one eviction",
+      "input": [["LRUCache", "put", "put", "get", "put", "get", "put", "get", "get", "get"], [[2], [1, 1], [2, 2], [1], [3, 3], [2], [4, 4], [1], [3], [4]]] },
+    { "kind": "boundary", "description": "capacity 1 evicts on every new key",
+      "input": [["LRUCache", "put", "get", "put", "get", "get"], [[1], [1, 10], [1], [2, 20], [1], [2]]] },
+    { "kind": "trap", "description": "a get counts as a use and protects a key from eviction",
+      "input": [["LRUCache", "put", "put", "get", "put", "get", "get"], [[2], [1, 1], [2, 2], [1], [3, 3], [2], [1]]] },
+    { "kind": "trap", "description": "updating an existing key refreshes its recency without growing size",
+      "input": [["LRUCache", "put", "put", "put", "get", "put", "get", "get"], [[2], [1, 1], [2, 2], [1, 11], [2], [3, 3], [1], [2]]] }
+  ],
+  "stress": [
+    {
+      "description": "long randomized get/put workload against a small capacity",
+      "seed": 17,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    cap = rng.randint(1, 8)\n    ops = ['LRUCache']\n    args = [[cap]]\n    for _ in range(max(1, size)):\n        if rng.random() < 0.5:\n            ops.append('put'); args.append([rng.randint(0, 20), rng.randint(0, 1000)])\n        else:\n            ops.append('get'); args.append([rng.randint(0, 20)])\n    return [ops, args]\n",
+      "note": "keys drawn from a small space so evictions and hits both occur"
+    }
+  ],
+  "oracle_python": "class LRUCache:\n    def __init__(self, capacity):\n        self.cap = capacity\n        self.order = []\n        self.store = {}\n    def get(self, key):\n        if key not in self.store:\n            return -1\n        self.order.remove(key)\n        self.order.append(key)\n        return self.store[key]\n    def put(self, key, value):\n        if key in self.store:\n            self.order.remove(key)\n        elif len(self.store) >= self.cap:\n            oldest = self.order.pop(0)\n            del self.store[oldest]\n        self.store[key] = value\n        self.order.append(key)\n",
+  "solutions": {
+    "python": "from collections import OrderedDict\n\n\nclass LRUCache:\n    def __init__(self, capacity):\n        self.cap = capacity\n        self.d = OrderedDict()\n    def get(self, key):\n        if key not in self.d:\n            return -1\n        self.d.move_to_end(key)\n        return self.d[key]\n    def put(self, key, value):\n        if key in self.d:\n            self.d.move_to_end(key)\n        self.d[key] = value\n        if len(self.d) > self.cap:\n            self.d.popitem(last=False)\n",
+    "javascript": "class LRUCache {\n    constructor(capacity) {\n        this.cap = capacity;\n        this.m = new Map();\n    }\n    get(key) {\n        if (!this.m.has(key)) return -1;\n        const v = this.m.get(key);\n        this.m.delete(key);\n        this.m.set(key, v);\n        return v;\n    }\n    put(key, value) {\n        if (this.m.has(key)) this.m.delete(key);\n        this.m.set(key, value);\n        if (this.m.size > this.cap) {\n            this.m.delete(this.m.keys().next().value);\n        }\n    }\n}\n"
+  },
+  "complexity": { "time": "O(1) per op", "space": "O(capacity)" }
+}

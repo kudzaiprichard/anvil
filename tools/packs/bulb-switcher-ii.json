@@ -1,0 +1,38 @@
+{
+  "slug": "bulb-switcher-ii",
+  "judge": "exact",
+  "pattern": "Every reachable lighting pattern repeats with a short period, so only the first few bulbs and a press count capped at three actually matter, collapsing a huge search into a tiny enumeration.",
+  "hints": [
+    "Two presses of the same button cancel out, so only the parity of how many times each button is used affects the result.",
+    "The four toggle patterns repeat every six bulbs, and in fact the status of bulbs beyond the third is forced by the first three.",
+    "Enumerate the sixteen parity combinations of the four buttons, keep only those whose total press count has the same parity as presses and does not exceed it, simulate them on min(n, 3) bulbs, and count distinct outcomes."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000] },
+    { "param": "presses", "kind": "int", "value": [0, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "zero presses leaves the single all-on state", "input": [1, 0] },
+    { "kind": "edge", "description": "one bulb one press", "input": [1, 1] },
+    { "kind": "edge", "description": "two bulbs one press", "input": [2, 1] },
+    { "kind": "edge", "description": "three bulbs one press", "input": [3, 1] },
+    { "kind": "trap", "description": "more presses than buttons matter, parity saturates", "input": [3, 100] },
+    { "kind": "boundary", "description": "large n with small presses", "input": [1000, 2] },
+    { "kind": "trap", "description": "even presses with one bulb", "input": [1, 2] },
+    { "kind": "edge", "description": "two bulbs many presses", "input": [2, 3] }
+  ],
+  "stress": [
+    {
+      "description": "random small-to-large n and presses to exercise the parity collapse",
+      "seed": 23,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    return [rng.randrange(1, 1001), rng.randrange(0, 1001)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def flipLights(self, n, presses):\n        m = min(n, 6)\n        start = tuple([1] * m)\n        def apply(state, b):\n            s = list(state)\n            for i in range(m):\n                label = i + 1\n                if b == 0:\n                    s[i] ^= 1\n                elif b == 1:\n                    if label % 2 == 0:\n                        s[i] ^= 1\n                elif b == 2:\n                    if label % 2 == 1:\n                        s[i] ^= 1\n                else:\n                    if label % 3 == 1:\n                        s[i] ^= 1\n            return tuple(s)\n        cur = {start}\n        for _ in range(min(presses, 4)):\n            nxt = set()\n            for st in cur:\n                for b in range(4):\n                    nxt.add(apply(st, b))\n            cur = nxt\n        return len(cur)\n",
+  "solutions": {
+    "python": "class Solution:\n    def flipLights(self, n, presses):\n        m = min(n, 3)\n        reachable = set()\n        for mask in range(16):\n            cnt = bin(mask).count('1')\n            if cnt > presses:\n                continue\n            if (presses - cnt) % 2 != 0:\n                continue\n            state = [1] * m\n            for i in range(m):\n                label = i + 1\n                if mask & 1:\n                    state[i] ^= 1\n                if mask & 2 and label % 2 == 0:\n                    state[i] ^= 1\n                if mask & 4 and label % 2 == 1:\n                    state[i] ^= 1\n                if mask & 8 and label % 3 == 1:\n                    state[i] ^= 1\n            reachable.add(tuple(state))\n        return len(reachable)\n",
+    "javascript": "var flipLights = function(n, presses) {\n    const m = Math.min(n, 3);\n    const reachable = new Set();\n    for (let mask = 0; mask < 16; mask++) {\n        let cnt = 0;\n        for (let b = 0; b < 4; b++) if (mask & (1 << b)) cnt++;\n        if (cnt > presses) continue;\n        if ((presses - cnt) % 2 !== 0) continue;\n        const state = [];\n        for (let i = 0; i < m; i++) {\n            const label = i + 1;\n            let v = 1;\n            if (mask & 1) v ^= 1;\n            if ((mask & 2) && label % 2 === 0) v ^= 1;\n            if ((mask & 4) && label % 2 === 1) v ^= 1;\n            if ((mask & 8) && label % 3 === 1) v ^= 1;\n            state.push(v);\n        }\n        reachable.add(state.join(','));\n    }\n    return reachable.size;\n};\n"
+  },
+  "complexity": { "time": "O(1)", "space": "O(1)" }
+}

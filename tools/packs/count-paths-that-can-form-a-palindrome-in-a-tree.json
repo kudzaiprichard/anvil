@@ -1,0 +1,38 @@
+{
+  "slug": "count-paths-that-can-form-a-palindrome-in-a-tree",
+  "judge": "exact",
+  "pattern": "Track, for every node, the XOR of one-hot letter bits along its path from the root; a path between two nodes can be rearranged into a palindrome exactly when the XOR of their two root-masks has at most one bit set, so counting pairs becomes a frequency-map lookup over 27 mask variants per node instead of walking every path.",
+  "hints": [
+    "A multiset of characters can be rearranged into a palindrome exactly when at most one character appears an odd number of times -- track odd/even parity per letter instead of exact counts.",
+    "Represent the parity of every letter along the root-to-node path as one 26-bit mask (XOR toggles a bit each time that edge letter is crossed); the path between any two nodes has a parity mask equal to the XOR of their two root-masks, because the shared prefix up to their common ancestor cancels out.",
+    "Process nodes in an order where a node's mask is computed after its parent's; for each node, look up how many earlier nodes have the exact same mask (path is already balanced) or a mask differing in exactly one bit (one leftover odd letter), add both to the answer, then record this node's own mask in the frequency map before moving to the next."
+  ],
+  "constraints": [
+    { "param": "parent", "kind": "int[]", "len": [1, 100000], "value": [-1, 99999] },
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a straight-line path with five distinct edge letters", "input": [[-1, 0, 1, 2, 3], "abcde"] },
+    { "kind": "edge", "description": "a star with a mix of repeated and unique leaf letters", "input": [[-1, 0, 0, 0, 0, 0], "aabbcc"] },
+    { "kind": "edge", "description": "a small binary tree where every edge shares the same letter", "input": [[-1, 0, 0, 1, 1, 2, 2], "aaaaaaa"] },
+    { "kind": "boundary", "description": "a single node has no pairs at all", "input": [[-1], "a"] },
+    { "kind": "boundary", "description": "two nodes, exactly one always-palindromic pair", "input": [[-1, 0], "ab"] },
+    { "kind": "trap", "description": "a path with alternating letters where only some longer sub-paths balance out", "input": [[-1, 0, 1, 2], "abab"] },
+    { "kind": "trap", "description": "a longer path with a repeating three-letter pattern", "input": [[-1, 0, 1, 2, 3, 4, 5], "abcabca"] },
+    { "kind": "trap", "description": "a star with 26 leaves each on a distinct letter, exercising every single-bit mask difference", "input": [[-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "zabcdefghijklmnopqrstuvwxyz"] }
+  ],
+  "stress": [
+    {
+      "description": "large random tree (each node's parent chosen from earlier nodes) with random lowercase edge letters",
+      "seed": 41,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    parent = [-1] + [rng.randint(0, i - 1) for i in range(1, n)]\n    s = ''.join(chr(ord('a') + rng.randint(0, 25)) for _ in range(n))\n    return [parent, s]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPalindromePaths(self, parent, s):\n        from collections import Counter\n        n = len(parent)\n\n        def path_chars(u, v):\n            anc_u = set()\n            cur = u\n            path_u = []\n            while cur != -1:\n                anc_u.add(cur)\n                path_u.append(cur)\n                cur = parent[cur]\n            cur = v\n            path_v = []\n            while cur not in anc_u:\n                path_v.append(cur)\n                cur = parent[cur]\n            lca = cur\n            chars = []\n            for node in path_u:\n                if node == lca:\n                    break\n                chars.append(s[node])\n            for node in reversed(path_v):\n                chars.append(s[node])\n            return chars\n\n        count = 0\n        for u in range(n):\n            for v in range(u + 1, n):\n                c = Counter(path_chars(u, v))\n                odd = sum(1 for cnt in c.values() if cnt % 2 == 1)\n                if odd <= 1:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPalindromePaths(self, parent, s):\n        n = len(parent)\n        children = [[] for _ in range(n)]\n        for i in range(1, n):\n            children[parent[i]].append(i)\n        mask = [0] * n\n        order = [0]\n        idx = 0\n        while idx < len(order):\n            u = order[idx]\n            idx += 1\n            for v in children[u]:\n                bit = 1 << (ord(s[v]) - ord('a'))\n                mask[v] = mask[u] ^ bit\n                order.append(v)\n        from collections import defaultdict\n        freq = defaultdict(int)\n        freq[0] = 1\n        ans = 0\n        for u in order[1:]:\n            m = mask[u]\n            ans += freq[m]\n            for b in range(26):\n                ans += freq[m ^ (1 << b)]\n            freq[m] += 1\n        return ans\n",
+    "javascript": "var countPalindromePaths = function(parent, s) {\n    const n = parent.length;\n    const children = Array.from({ length: n }, () => []);\n    for (let i = 1; i < n; i++) children[parent[i]].push(i);\n    const mask = new Array(n).fill(0);\n    const order = [0];\n    let idx = 0;\n    while (idx < order.length) {\n        const u = order[idx++];\n        for (const v of children[u]) {\n            const bit = 1 << (s.charCodeAt(v) - 97);\n            mask[v] = mask[u] ^ bit;\n            order.push(v);\n        }\n    }\n    const freq = new Map();\n    freq.set(0, 1);\n    let ans = 0;\n    for (let i = 1; i < order.length; i++) {\n        const u = order[i];\n        const m = mask[u];\n        ans += freq.get(m) || 0;\n        for (let b = 0; b < 26; b++) {\n            ans += freq.get(m ^ (1 << b)) || 0;\n        }\n        freq.set(m, (freq.get(m) || 0) + 1);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n * 26)", "space": "O(n)" }
+}

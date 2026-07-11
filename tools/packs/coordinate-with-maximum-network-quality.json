@@ -1,0 +1,79 @@
+{
+  "slug": "coordinate-with-maximum-network-quality",
+  "judge": "exact",
+  "pattern": "Since every candidate coordinate's total signal only depends on integer distances to a handful of towers, sweeping a small integer grid and scoring each cell directly turns an apparent optimization problem into a plain exhaustive search with a fixed tie-break rule.",
+  "hints": [
+    "Nothing requires you to search near the towers only -- since the total quality at a coordinate only depends on distances that are cheap to compute, you can safely brute-force every candidate coordinate on a small integer grid and score it directly.",
+    "For a fixed candidate coordinate, sum the floor-divided contribution of every tower whose real Euclidean distance to that coordinate is at most radius, and keep a running best total as you sweep the grid.",
+    "When you find a new total that's strictly greater than your current best, replace it -- but never replace it on a tie. If you sweep x ascending and, within each x, y ascending, always keeping the first-found best on ties guarantees the lexicographically smallest coordinate wins by construction."
+  ],
+  "constraints": [
+    { "param": "towers", "kind": "int[][]", "len": [1, 50], "value": [0, 50] },
+    { "param": "radius", "kind": "int", "value": [1, 50] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, three towers",
+      "input": [[[1, 2, 5], [2, 1, 7], [3, 1, 9]], 2]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, single tower",
+      "input": [[[23, 11, 21]], 9]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, another three towers",
+      "input": [[[1, 2, 13], [2, 1, 7], [0, 1, 9]], 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "zero-quality tower at the origin with the minimum radius -- every reachable cell scores 0, so the lexicographically smallest coordinate wins",
+      "input": [[[0, 0, 0]], 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "max-value tower at the far grid corner with the max radius -- best coordinate is the tower's own location",
+      "input": [[[50, 50, 50]], 50]
+    },
+    {
+      "kind": "trap",
+      "description": "two equally strong towers placed symmetrically, forcing a real tie in total quality that must break lexicographically",
+      "input": [[[0, 25, 50], [50, 25, 50]], 50]
+    },
+    {
+      "kind": "trap",
+      "description": "three towers stacked on the exact same coordinate, so their qualities must all add up at that single point",
+      "input": [[[25, 25, 10], [25, 25, 20], [25, 25, 5]], 5]
+    },
+    {
+      "kind": "edge",
+      "description": "two far-apart towers with a small radius -- neither can influence the other's neighborhood, so the search must scan the whole grid, not just cluster near one tower",
+      "input": [[[0, 0, 50], [50, 50, 50]], 1]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random towers (count, coordinates, and qualities all randomized) with a random radius, sized up to the maximum tower count",
+      "seed": 7,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = min(50, max(1, (size % 50) + 1))\n    towers = [[rng.randint(0, 50), rng.randint(0, 50), rng.randint(0, 50)] for _ in range(n)]\n    radius = rng.randint(1, 50)\n    return [towers, radius]\n"
+    },
+    {
+      "description": "a second random spread with a different seed to vary tower density and radius",
+      "seed": 23,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = min(50, max(1, (size % 50) + 1))\n    towers = [[rng.randint(0, 50), rng.randint(0, 50), rng.randint(0, 50)] for _ in range(n)]\n    radius = rng.randint(1, 50)\n    return [towers, radius]\n"
+    }
+  ],
+  "oracle_python": "import math\n\nclass Solution:\n    def bestCoordinate(self, towers, radius):\n        totals = [[0] * 101 for _ in range(101)]\n        r2 = radius * radius\n        for tx, ty, q in towers:\n            for x in range(101):\n                dx2 = (tx - x) * (tx - x)\n                if dx2 > r2:\n                    continue\n                for y in range(101):\n                    dy2 = (ty - y) * (ty - y)\n                    d2 = dx2 + dy2\n                    if d2 <= r2:\n                        d = math.sqrt(d2)\n                        totals[x][y] += math.floor(q / (1 + d))\n        best = [0, 0]\n        best_total = -1\n        for x in range(101):\n            for y in range(101):\n                if totals[x][y] > best_total:\n                    best_total = totals[x][y]\n                    best = [x, y]\n        return best\n",
+  "solutions": {
+    "python": "import math\n\nclass Solution:\n    def bestCoordinate(self, towers, radius):\n        best = [0, 0]\n        best_total = -1\n        for x in range(101):\n            for y in range(101):\n                total = 0\n                for tx, ty, q in towers:\n                    d = math.hypot(tx - x, ty - y)\n                    if d <= radius:\n                        total += math.floor(q / (1 + d))\n                if total > best_total:\n                    best_total = total\n                    best = [x, y]\n        return best\n",
+    "javascript": "var bestCoordinate = function(towers, radius) {\n    let best = [0, 0];\n    let bestTotal = -1;\n    for (let x = 0; x <= 100; x++) {\n        for (let y = 0; y <= 100; y++) {\n            let total = 0;\n            for (const [tx, ty, q] of towers) {\n                const d = Math.sqrt((tx - x) * (tx - x) + (ty - y) * (ty - y));\n                if (d <= radius) {\n                    total += Math.floor(q / (1 + d));\n                }\n            }\n            if (total > bestTotal) {\n                bestTotal = total;\n                best = [x, y];\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(101 * 101 * towers.length)",
+    "space": "O(1)"
+  }
+}

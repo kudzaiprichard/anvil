@@ -1,0 +1,40 @@
+{
+  "slug": "sum-of-subarray-minimums",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "A monotonic stack computes, for each element, how many subarrays it is the minimum of; multiplying element by that count and summing gives the answer in linear time.",
+  "hints": [
+    "For each element arr[i], count how many subarrays have arr[i] as their minimum — then add arr[i] * count to the answer instead of enumerating every subarray.",
+    "Use a monotonic stack to efficiently find, for each index i, the nearest smaller element to the left (left boundary) and to the right (right boundary); the count of subarrays where arr[i] is the minimum is the product of those two distances.",
+    "Push indices onto an ascending stack; when arr[i] is smaller than the top, pop and compute that element's left/right span using the previous stack element and i; use strict comparison on one side to handle duplicates without double-counting."
+  ],
+  "constraints": [
+    { "param": "arr", "kind": "int[]", "len": [1, 30000], "value": [1, 30000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic small example", "input": [[3,1,2,4]] },
+    { "kind": "edge", "description": "longer example from statement", "input": [[11,81,94,43,3]] },
+    { "kind": "boundary", "description": "single element", "input": [[50]] },
+    { "kind": "trap", "description": "all equal elements — every element is every subarray's minimum", "input": [[3,3,3,3]] },
+    { "kind": "trap", "description": "strictly decreasing — leftmost element is minimum only of first subarray, rightmost is minimum of all", "input": [[5,4,3,2,1]] },
+    { "kind": "trap", "description": "strictly increasing — each element is minimum only of subarrays it starts", "input": [[1,2,3,4,5]] },
+    { "kind": "boundary", "description": "two elements, smaller on left", "input": [[1,2]] },
+    { "kind": "boundary", "description": "two elements, smaller on right", "input": [[2,1]] },
+    { "kind": "trap", "description": "adjacent duplicates at minimum — double-counting risk", "input": [[2,2,2,1,2,2]] }
+  ],
+  "stress": [
+    {
+      "description": "large array with repeated values to stress duplicate handling",
+      "seed": 11,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    return [[rng.randrange(1, 101) for _ in range(size)]]\n",
+      "note": "narrow value range guarantees many duplicate minimums"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sumSubarrayMins(self, arr):\n        MOD = 10**9 + 7\n        n = len(arr)\n        total = 0\n        for i in range(n):\n            mn = arr[i]\n            for j in range(i, n):\n                mn = min(mn, arr[j])\n                total += mn\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def sumSubarrayMins(self, arr):\n        MOD = 10**9 + 7\n        n = len(arr)\n        # left[i]: distance to previous strictly smaller element (or left edge)\n        # right[i]: distance to next smaller-or-equal element (or right edge)\n        left = [0] * n\n        right = [0] * n\n        stack = []\n        for i in range(n):\n            while stack and arr[stack[-1]] >= arr[i]:\n                stack.pop()\n            left[i] = i + 1 if not stack else i - stack[-1]\n            stack.append(i)\n        stack = []\n        for i in range(n - 1, -1, -1):\n            while stack and arr[stack[-1]] > arr[i]:\n                stack.pop()\n            right[i] = n - i if not stack else stack[-1] - i\n            stack.append(i)\n        return sum(arr[i] * left[i] * right[i] for i in range(n)) % MOD\n",
+    "javascript": "var sumSubarrayMins = function(arr) {\n    const MOD = 1000000007n;\n    const n = arr.length;\n    const left = new Array(n).fill(0);\n    const right = new Array(n).fill(0);\n    let stack = [];\n    for (let i = 0; i < n; i++) {\n        while (stack.length && arr[stack[stack.length-1]] >= arr[i]) stack.pop();\n        left[i] = stack.length === 0 ? i + 1 : i - stack[stack.length-1];\n        stack.push(i);\n    }\n    stack = [];\n    for (let i = n - 1; i >= 0; i--) {\n        while (stack.length && arr[stack[stack.length-1]] > arr[i]) stack.pop();\n        right[i] = stack.length === 0 ? n - i : stack[stack.length-1] - i;\n        stack.push(i);\n    }\n    let total = 0n;\n    for (let i = 0; i < n; i++) {\n        total = (total + BigInt(arr[i]) * BigInt(left[i]) * BigInt(right[i])) % MOD;\n    }\n    return Number(total);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

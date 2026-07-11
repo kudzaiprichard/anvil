@@ -1,0 +1,38 @@
+{
+  "slug": "bricks-falling-when-hit",
+  "judge": "exact",
+  "pattern": "Process erasures in reverse and add bricks back with union-find: each restored brick that reconnects a region to the top tells you how many fell when it was removed forward.",
+  "hints": [
+    "Stability means connectivity to the top row, so think in terms of connected components anchored to a virtual top node.",
+    "Running forward is hard because removals cascade; instead remove every hit first, then add the bricks back in reverse order.",
+    "Connect the virtual top node to every surviving top-row brick, then for each reversed hit place the brick and union it with stable neighbours; the newly stabilised count minus one (the placed brick itself) is the answer for that hit."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 200] },
+    { "param": "hits", "kind": "int[][]", "len": [1, 40000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "removing the support drops the two bricks above it", "input": [[[1, 0, 0, 0], [1, 1, 1, 0]], [[1, 0]]] },
+    { "kind": "edge", "description": "both hits leave the rest stable, nothing falls", "input": [[[1, 0, 0, 0], [1, 1, 0, 0]], [[1, 1], [1, 0]]] },
+    { "kind": "trap", "description": "hit on an empty cell drops nothing", "input": [[[1, 1], [0, 0]], [[1, 0]]] },
+    { "kind": "trap", "description": "hitting a top-row brick itself is not counted as falling", "input": [[[1, 1, 1]], [[0, 1]]] },
+    { "kind": "boundary", "description": "single column, removing the top brick drops the whole stack below", "input": [[[1], [1], [1]], [[0, 0]]] },
+    { "kind": "edge", "description": "repeated hits on already-empty positions after the first", "input": [[[1, 1, 1], [0, 1, 0]], [[1, 1], [0, 1]]] },
+    { "kind": "trap", "description": "a brick stays up because a second path to the top survives", "input": [[[1, 1, 1], [1, 0, 1], [0, 0, 1]], [[1, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "small random grid with a handful of hits so the O(hits * grid) brute oracle stays fast",
+      "seed": 64,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 6)\n    n = rng.randint(1, 6)\n    grid = [[1 if rng.random() < 0.6 else 0 for _ in range(n)] for _ in range(m)]\n    cells = [(r, c) for r in range(m) for c in range(n)]\n    rng.shuffle(cells)\n    k = rng.randint(1, min(size, len(cells)))\n    hits = [[r, c] for (r, c) in cells[:k]]\n    return [grid, hits]\n",
+      "note": "grid and hit count kept tiny because the brute oracle recomputes stability per hit"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def hitBricks(self, grid, hits):\n        from collections import deque\n        m = len(grid)\n        n = len(grid[0])\n        g = [row[:] for row in grid]\n        def stable_set():\n            seen = [[False] * n for _ in range(m)]\n            q = deque()\n            for c in range(n):\n                if g[0][c] == 1:\n                    seen[0][c] = True\n                    q.append((0, c))\n            while q:\n                r, c = q.popleft()\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < m and 0 <= nc < n and g[nr][nc] == 1 and not seen[nr][nc]:\n                        seen[nr][nc] = True\n                        q.append((nr, nc))\n            return seen\n        res = []\n        for r, c in hits:\n            if g[r][c] == 0:\n                res.append(0)\n                continue\n            g[r][c] = 0\n            stable = stable_set()\n            fell = 0\n            for i in range(m):\n                for j in range(n):\n                    if g[i][j] == 1 and not stable[i][j]:\n                        g[i][j] = 0\n                        fell += 1\n            res.append(fell)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def hitBricks(self, grid, hits):\n        m = len(grid)\n        n = len(grid[0])\n        g = [row[:] for row in grid]\n        for r, c in hits:\n            g[r][c] -= 1\n        TOP = m * n\n        parent = list(range(m * n + 1))\n        size = [1] * (m * n + 1)\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra == rb:\n                return\n            if size[ra] < size[rb]:\n                ra, rb = rb, ra\n            parent[rb] = ra\n            size[ra] += size[rb]\n        def idx(r, c):\n            return r * n + c\n        for r in range(m):\n            for c in range(n):\n                if g[r][c] == 1:\n                    if r == 0:\n                        union(idx(r, c), TOP)\n                    if r > 0 and g[r - 1][c] == 1:\n                        union(idx(r, c), idx(r - 1, c))\n                    if c > 0 and g[r][c - 1] == 1:\n                        union(idx(r, c), idx(r, c - 1))\n        def top_size():\n            return size[find(TOP)] - 1\n        res = [0] * len(hits)\n        for i in range(len(hits) - 1, -1, -1):\n            r, c = hits[i]\n            if grid[r][c] == 0:\n                res[i] = 0\n                continue\n            before = top_size()\n            g[r][c] = 1\n            if r == 0:\n                union(idx(r, c), TOP)\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n and g[nr][nc] == 1:\n                    union(idx(r, c), idx(nr, nc))\n            after = top_size()\n            res[i] = max(0, after - before - 1)\n        return res\n",
+    "javascript": "var hitBricks = function(grid, hits) {\n    const m = grid.length, n = grid[0].length;\n    const g = grid.map(row => row.slice());\n    for (const [r, c] of hits) g[r][c] -= 1;\n    const TOP = m * n;\n    const parent = new Array(m * n + 1);\n    const size = new Array(m * n + 1).fill(1);\n    for (let i = 0; i <= m * n; i++) parent[i] = i;\n    function find(x) {\n        while (parent[x] !== x) {\n            parent[x] = parent[parent[x]];\n            x = parent[x];\n        }\n        return x;\n    }\n    function union(a, b) {\n        let ra = find(a), rb = find(b);\n        if (ra === rb) return;\n        if (size[ra] < size[rb]) { const t = ra; ra = rb; rb = t; }\n        parent[rb] = ra;\n        size[ra] += size[rb];\n    }\n    const idx = (r, c) => r * n + c;\n    for (let r = 0; r < m; r++) {\n        for (let c = 0; c < n; c++) {\n            if (g[r][c] === 1) {\n                if (r === 0) union(idx(r, c), TOP);\n                if (r > 0 && g[r - 1][c] === 1) union(idx(r, c), idx(r - 1, c));\n                if (c > 0 && g[r][c - 1] === 1) union(idx(r, c), idx(r, c - 1));\n            }\n        }\n    }\n    const topSize = () => size[find(TOP)] - 1;\n    const res = new Array(hits.length).fill(0);\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    for (let i = hits.length - 1; i >= 0; i--) {\n        const [r, c] = hits[i];\n        if (grid[r][c] === 0) { res[i] = 0; continue; }\n        const before = topSize();\n        g[r][c] = 1;\n        if (r === 0) union(idx(r, c), TOP);\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < m && nc >= 0 && nc < n && g[nr][nc] === 1) union(idx(r, c), idx(nr, nc));\n        }\n        const after = topSize();\n        res[i] = Math.max(0, after - before - 1);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O((grid + hits) * alpha)", "space": "O(grid)" }
+}

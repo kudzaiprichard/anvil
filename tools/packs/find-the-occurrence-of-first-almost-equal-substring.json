@@ -1,0 +1,103 @@
+{
+  "slug": "find-the-occurrence-of-first-almost-equal-substring",
+  "judge": "exact",
+  "pattern": "For every window, precompute (via a Z-function both forwards and on the reversed strings) the longest exact prefix match and the longest exact suffix match against the pattern -- a window is almost equal exactly when those two matched lengths, plus one allowed change in between, cover the whole pattern.",
+  "hints": [
+    "Precompute, for every starting index i, the length of the longest prefix of pattern that matches s starting at i exactly (a Z-function over pattern + separator + s does this in linear time).",
+    "Do the same thing on the reversed strings to get, for every ending index, the longest suffix of pattern that matches s ending there exactly.",
+    "A window starting at i is almost equal to pattern if the front-match length equals the whole pattern (zero changes needed), or if front-match-length + back-match-length covers all but at most one character of pattern (one change fixes the gap)."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "str",
+      "len": [
+        2,
+        100000
+      ]
+    },
+    {
+      "param": "pattern",
+      "kind": "str",
+      "len": [
+        1,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "pattern occurs exactly, zero changes needed",
+      "input": [
+        "abcabc",
+        "abc"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "pattern is a single character, matches immediately",
+      "input": [
+        "zzz",
+        "z"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the mismatch has to land right at the start of the window",
+      "input": [
+        "xbc",
+        "abc"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the mismatch has to land right at the end of the window",
+      "input": [
+        "abx",
+        "abc"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "no window comes within one change of pattern",
+      "input": [
+        "aaaa",
+        "zzzz"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "pattern length is one less than s's length",
+      "input": [
+        "abcd",
+        "abx"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several windows are almost equal, must report the smallest index",
+      "input": [
+        "ababab",
+        "bab"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random s/pattern over a tiny alphabet to make near-matches common at scale",
+      "seed": 707,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 4000))\n    s = ''.join(rng.choice('ab') for _ in range(n))\n    m = rng.randint(1, n - 1)\n    pattern = ''.join(rng.choice('ab') for _ in range(m))\n    return [s, pattern]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minStartingIndex(self, s, pattern):\n        n, m = len(s), len(pattern)\n        for i in range(n - m + 1):\n            diff = sum(1 for a, b in zip(s[i:i + m], pattern) if a != b)\n            if diff <= 1:\n                return i\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minStartingIndex(self, s, pattern):\n        def z_function(st):\n            L = len(st)\n            z = [0] * L\n            l, r = 0, 0\n            for i in range(1, L):\n                if i < r:\n                    z[i] = min(r - i, z[i - l])\n                while i + z[i] < L and st[z[i]] == st[i + z[i]]:\n                    z[i] += 1\n                if i + z[i] > r:\n                    l, r = i, i + z[i]\n            return z\n\n        n, m = len(s), len(pattern)\n        if m > n:\n            return -1\n        comb1 = pattern + '\\x00' + s\n        z1 = z_function(comb1)\n        front = [min(m, z1[m + 1 + i]) for i in range(n)]\n\n        rev_s = s[::-1]\n        rev_p = pattern[::-1]\n        comb2 = rev_p + '\\x00' + rev_s\n        z2 = z_function(comb2)\n        back = [0] * n\n        for j in range(n):\n            k = n - 1 - j\n            back[j] = min(m, z2[m + 1 + k])\n\n        for i in range(n - m + 1):\n            f = front[i]\n            if f == m:\n                return i\n            b = back[i + m - 1]\n            if f + b >= m - 1:\n                return i\n        return -1\n",
+    "javascript": "var minStartingIndex = function(s, pattern) {\n    function zFunction(str) {\n        const L = str.length;\n        const z = new Array(L).fill(0);\n        let l = 0, r = 0;\n        for (let i = 1; i < L; i++) {\n            if (i < r) z[i] = Math.min(r - i, z[i - l]);\n            while (i + z[i] < L && str[z[i]] === str[i + z[i]]) z[i]++;\n            if (i + z[i] > r) { l = i; r = i + z[i]; }\n        }\n        return z;\n    }\n    const n = s.length, m = pattern.length;\n    if (m > n) return -1;\n    const comb1 = pattern + '\\u0000' + s;\n    const z1 = zFunction(comb1);\n    const front = new Array(n).fill(0);\n    for (let i = 0; i < n; i++) front[i] = Math.min(m, z1[m + 1 + i]);\n\n    const revS = s.split('').reverse().join('');\n    const revP = pattern.split('').reverse().join('');\n    const comb2 = revP + '\\u0000' + revS;\n    const z2 = zFunction(comb2);\n    const back = new Array(n).fill(0);\n    for (let j = 0; j < n; j++) {\n        const k = n - 1 - j;\n        back[j] = Math.min(m, z2[m + 1 + k]);\n    }\n\n    for (let i = 0; i <= n - m; i++) {\n        const f = front[i];\n        if (f === m) return i;\n        const b = back[i + m - 1];\n        if (f + b >= m - 1) return i;\n    }\n    return -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(s.length + pattern.length)",
+    "space": "O(s.length + pattern.length)"
+  }
+}

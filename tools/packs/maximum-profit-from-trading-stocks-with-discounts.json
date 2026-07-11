@@ -1,0 +1,41 @@
+{
+  "slug": "maximum-profit-from-trading-stocks-with-discounts",
+  "judge": "exact",
+  "pattern": "A tree knapsack where each node returns, per amount spent, the best subtree profit for the two cases of the node buying (children get the half-price discount) or not buying.",
+  "hints": [
+    "Whether an employee gets the half-price discount depends only on whether their direct boss buys, so the decision propagates down the tree.",
+    "For each subtree compute, for every possible amount of budget spent inside it, the maximum profit, in two flavors: the node bought its stock or it did not.",
+    "Merge children with a bounded knapsack over the budget; a node that buys passes the discounted flavor to its children and adds its own profit, otherwise it passes the full-price flavor."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 160] },
+    { "param": "present", "kind": "int[]", "len": [1, 160], "value": [1, 50] },
+    { "param": "future", "kind": "int[]", "len": [1, 160], "value": [1, 50] },
+    { "param": "hierarchy", "kind": "int[][]", "len": [0, 159], "value": [1, 160] },
+    { "param": "budget", "kind": "int", "value": [1, 160] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "boss buys, employee gets the discount", "input": [2, [1, 2], [4, 3], [[1, 2]], 3] },
+    { "kind": "trap", "description": "budget too small to buy both, take the better one", "input": [2, [3, 4], [5, 8], [[1, 2]], 4] },
+    { "kind": "edge", "description": "two children, discount makes both worthwhile", "input": [3, [4, 6, 8], [7, 9, 11], [[1, 2], [1, 3]], 10] },
+    { "kind": "edge", "description": "chain so discount cascades down", "input": [3, [5, 2, 3], [8, 5, 6], [[1, 2], [2, 3]], 7] },
+    { "kind": "boundary", "description": "single employee, profitable", "input": [1, [2], [9], [], 5] },
+    { "kind": "trap", "description": "single employee whose stock loses money is skipped", "input": [1, [10], [3], [], 50] },
+    { "kind": "trap", "description": "tight budget forces choosing fewer buyers", "input": [4, [5, 4, 6, 3], [9, 7, 8, 5], [[1, 2], [1, 3], [2, 4]], 6] }
+  ],
+  "stress": [
+    {
+      "description": "random rooted tree with small prices and a moderate budget",
+      "seed": 2,
+      "size": 11,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 11))\n    present = [rng.randrange(1, 51) for _ in range(n)]\n    future = [rng.randrange(1, 51) for _ in range(n)]\n    hierarchy = []\n    for v in range(2, n + 1):\n        u = rng.randrange(1, v)\n        hierarchy.append([u, v])\n    budget = rng.randrange(1, 40)\n    return [n, present, future, hierarchy, budget]\n",
+      "note": "kept to <=11 employees so the subset-brute oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxProfit(self, n, present, future, hierarchy, budget):\n        boss = {}\n        for u, v in hierarchy:\n            boss[v] = u\n        best = 0\n        for mask in range(1 << n):\n            bought = [(mask >> i) & 1 for i in range(n)]\n            cost = 0\n            prof = 0\n            for e in range(1, n + 1):\n                if bought[e - 1]:\n                    b = boss.get(e)\n                    disc = b is not None and bought[b - 1]\n                    price = present[e - 1] // 2 if disc else present[e - 1]\n                    cost += price\n                    prof += future[e - 1] - price\n            if cost <= budget and prof > best:\n                best = prof\n        return best\n",
+  "solutions": {
+    "python": "import sys\nclass Solution:\n    def maxProfit(self, n, present, future, hierarchy, budget):\n        sys.setrecursionlimit(1000)\n        children = [[] for _ in range(n + 1)]\n        for u, v in hierarchy:\n            children[u].append(v)\n        NEG = float('-inf')\n        def combine(child_list, child_disc):\n            cur = [NEG] * (budget + 1)\n            cur[0] = 0\n            for ch in child_list:\n                cdp = solve(ch, child_disc)\n                nxt = [NEG] * (budget + 1)\n                for c in range(budget + 1):\n                    if cur[c] == NEG:\n                        continue\n                    base = cur[c]\n                    for cc in range(budget + 1 - c):\n                        if cdp[cc] == NEG:\n                            continue\n                        val = base + cdp[cc]\n                        if val > nxt[c + cc]:\n                            nxt[c + cc] = val\n                cur = nxt\n            return cur\n        def solve(node, discounted):\n            full = present[node - 1]\n            price = full // 2 if discounted else full\n            prof_self = future[node - 1] - price\n            res = combine(children[node], False)[:]\n            if price <= budget:\n                buychildren = combine(children[node], True)\n                for c in range(budget + 1):\n                    if buychildren[c] == NEG:\n                        continue\n                    tc = c + price\n                    if tc <= budget:\n                        val = buychildren[c] + prof_self\n                        if val > res[tc]:\n                            res[tc] = val\n            return res\n        arr = solve(1, False)\n        best = 0\n        for c in range(budget + 1):\n            if arr[c] != NEG and arr[c] > best:\n                best = arr[c]\n        return best\n",
+    "javascript": "var maxProfit = function(n, present, future, hierarchy, budget) {\n    const children = Array.from({length: n + 1}, () => []);\n    for (const [u, v] of hierarchy) children[u].push(v);\n    const NEG = -Infinity;\n    function combine(childList, childDisc) {\n        let cur = new Array(budget + 1).fill(NEG);\n        cur[0] = 0;\n        for (const ch of childList) {\n            const cdp = solve(ch, childDisc);\n            const nxt = new Array(budget + 1).fill(NEG);\n            for (let c = 0; c <= budget; c++) {\n                if (cur[c] === NEG) continue;\n                const base = cur[c];\n                for (let cc = 0; cc <= budget - c; cc++) {\n                    if (cdp[cc] === NEG) continue;\n                    const val = base + cdp[cc];\n                    if (val > nxt[c + cc]) nxt[c + cc] = val;\n                }\n            }\n            cur = nxt;\n        }\n        return cur;\n    }\n    function solve(node, discounted) {\n        const full = present[node - 1];\n        const price = discounted ? Math.floor(full / 2) : full;\n        const profSelf = future[node - 1] - price;\n        const res = combine(children[node], false).slice();\n        if (price <= budget) {\n            const buychildren = combine(children[node], true);\n            for (let c = 0; c <= budget; c++) {\n                if (buychildren[c] === NEG) continue;\n                const tc = c + price;\n                if (tc <= budget) {\n                    const val = buychildren[c] + profSelf;\n                    if (val > res[tc]) res[tc] = val;\n                }\n            }\n        }\n        return res;\n    }\n    const arr = solve(1, false);\n    let best = 0;\n    for (let c = 0; c <= budget; c++) {\n        if (arr[c] !== NEG && arr[c] > best) best = arr[c];\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n * budget^2)", "space": "O(n * budget)" }
+}

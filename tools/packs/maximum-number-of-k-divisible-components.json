@@ -1,0 +1,46 @@
+{
+  "slug": "maximum-number-of-k-divisible-components",
+  "judge": "exact",
+  "pattern": "Rooting the tree and folding each subtree's value upward lets a single bottom-up pass decide, node by node, whether the piece hanging below can be sliced off as its own divisible component or must keep merging into its parent.",
+  "hints": [
+    "Think of the tree as rooted at any single node. If you know the total value hanging below a node (its own value plus whatever wasn't already sliced away from its children), you know immediately whether that whole hanging piece could become its own component.",
+    "Process nodes from the leaves upward. For a node, add in the leftover value from each child that could NOT be sliced off on its own; a child that already formed a clean divisible piece contributes nothing further upward, since it was already cut away.",
+    "Once a node's accumulated value (its own value plus the leftovers of its children) is divisible by k, count that as one finished component and let nothing pass further up from it; the root itself always closes out one final component this way, since the whole tree's total is guaranteed divisible by k."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 30000] },
+    { "param": "edges", "kind": "int[][]" },
+    { "param": "values", "kind": "int[]", "len": [1, 30000], "value": [0, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a lone node with no edges at all", "input": [1, [], [0], 5] },
+    { "kind": "edge", "description": "a lone node whose value already matches k exactly", "input": [1, [], [7], 7] },
+    { "kind": "boundary", "description": "a star of all zero values splits into every node on its own", "input": [4, [[0, 1], [0, 2], [0, 3]], [0, 0, 0, 0], 1000000000] },
+    { "kind": "trap", "description": "a short chain where every node's own value already matches k", "input": [3, [[0, 1], [1, 2]], [3, 3, 3], 3] },
+    { "kind": "trap", "description": "a short chain that is only ever divisible as the whole tree", "input": [3, [[0, 1], [1, 2]], [1, 1, 4], 3] },
+    { "kind": "trap", "description": "a small branching tree where every value is even so every cut is legal", "input": [5, [[0, 1], [1, 2], [1, 3], [3, 4]], [2, 4, 6, 8, 10], 2] },
+    { "kind": "boundary", "description": "two nodes each already at the maximum allowed value", "input": [2, [[0, 1]], [1000000000, 1000000000], 1000000000] },
+    { "kind": "edge", "description": "k equal to one, so any split at all is legal", "input": [4, [[0, 1], [1, 2], [2, 3]], [5, 9, 2, 7], 1] }
+  ],
+  "stress": [
+    {
+      "description": "large random tree at the maximum allowed node count, sum forced divisible by k",
+      "seed": 611,
+      "size": 30000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 30000))\n    edges = []\n    for i in range(1, n):\n        parent = rng.randint(0, i - 1)\n        edges.append([parent, i])\n    k = rng.randint(1, 1000)\n    values = [rng.randint(0, 1000) for _ in range(n)]\n    remainder = sum(values) % k\n    if remainder != 0:\n        values[-1] += (k - remainder)\n    return [n, edges, values, k]\n"
+    },
+    {
+      "description": "a long path graph (worst case for recursion depth), sum forced divisible by k",
+      "seed": 612,
+      "size": 30000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 30000))\n    edges = [[i - 1, i] for i in range(1, n)]\n    k = rng.randint(1, 500)\n    values = [rng.randint(0, 500) for _ in range(n)]\n    remainder = sum(values) % k\n    if remainder != 0:\n        values[-1] += (k - remainder)\n    return [n, edges, values, k]\n"
+    }
+  ],
+  "oracle_python": "from collections import defaultdict\n\nclass Solution:\n    def maxKDivisibleComponents(self, n, edges, values, k):\n        m = len(edges)\n        best = 0\n        for mask in range(1 << m):\n            parent = list(range(n))\n\n            def find(x):\n                while parent[x] != x:\n                    parent[x] = parent[parent[x]]\n                    x = parent[x]\n                return x\n\n            for i in range(m):\n                if not ((mask >> i) & 1):\n                    a, b = edges[i]\n                    ra, rb = find(a), find(b)\n                    if ra != rb:\n                        parent[ra] = rb\n            comp_sum = defaultdict(int)\n            for node in range(n):\n                comp_sum[find(node)] += values[node]\n            if all(s % k == 0 for s in comp_sum.values()):\n                count = len(comp_sum)\n                if count > best:\n                    best = count\n        return best\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\nclass Solution:\n    def maxKDivisibleComponents(self, n, edges, values, k):\n        if n == 1:\n            return 1\n        adj = defaultdict(list)\n        for a, b in edges:\n            adj[a].append(b)\n            adj[b].append(a)\n        parent = [-1] * n\n        visited = [False] * n\n        order = []\n        stack = [0]\n        visited[0] = True\n        while stack:\n            node = stack.pop()\n            order.append(node)\n            for nb in adj[node]:\n                if not visited[nb]:\n                    visited[nb] = True\n                    parent[nb] = node\n                    stack.append(nb)\n        total = values[:]\n        count = 0\n        for node in reversed(order):\n            if total[node] % k == 0:\n                count += 1\n            elif parent[node] != -1:\n                total[parent[node]] += total[node]\n        return count\n",
+    "javascript": "var maxKDivisibleComponents = function(n, edges, values, k) {\n    if (n === 1) return 1;\n    const adj = Array.from({ length: n }, () => []);\n    for (const [a, b] of edges) {\n        adj[a].push(b);\n        adj[b].push(a);\n    }\n    const parent = new Array(n).fill(-1);\n    const visited = new Array(n).fill(false);\n    const order = [];\n    const stack = [0];\n    visited[0] = true;\n    while (stack.length) {\n        const node = stack.pop();\n        order.push(node);\n        for (const nb of adj[node]) {\n            if (!visited[nb]) {\n                visited[nb] = true;\n                parent[nb] = node;\n                stack.push(nb);\n            }\n        }\n    }\n    const total = values.slice();\n    let count = 0;\n    for (let i = order.length - 1; i >= 0; i--) {\n        const node = order[i];\n        if (total[node] % k === 0) {\n            count++;\n        } else if (parent[node] !== -1) {\n            total[parent[node]] += total[node];\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

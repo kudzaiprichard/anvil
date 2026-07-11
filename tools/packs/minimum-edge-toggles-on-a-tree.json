@@ -1,0 +1,52 @@
+{
+  "slug": "minimum-edge-toggles-on-a-tree",
+  "judge": "exact",
+  "pattern": "Working from the leaves toward the root, each node's own color can only still be fixed by the single edge connecting it to its parent, so whether to toggle that edge is forced rather than a real choice.",
+  "hints": [
+    "Root the tree anywhere and process nodes from the deepest leaves upward, so every child has already been settled before its parent is considered.",
+    "By the time a non-root node is reached, every edge to its own children has already been decided, so the only remaining lever that can still change that node's color is the single edge to its parent; toggling it flips both the node and its parent.",
+    "If a node's current color does not match its target, toggle its parent edge (recording that edge and flipping both endpoints' running colors); after every non-root node has been settled this way, the whole transformation is impossible exactly when the root's running color still does not match its target."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 99999], "note": "edges.length == n - 1; each edges[i] = [ai, bi] with 0 <= ai, bi < n; the input always forms a valid tree" },
+    { "param": "start", "kind": "string", "len": [2, 100000], "note": "binary string of length n" },
+    { "param": "target", "kind": "string", "len": [2, 100000], "note": "binary string of length n" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the reference example needing a single toggle on a three-node path", "input": [3, [[0, 1], [1, 2]], "010", "100"] },
+    { "kind": "edge", "description": "the reference example on a larger branching tree needing three toggles", "input": [7, [[0, 1], [1, 2], [2, 3], [3, 4], [3, 5], [1, 6]], "0011000", "0010001"] },
+    { "kind": "edge", "description": "the reference example that is impossible on a two-node tree", "input": [2, [[0, 1]], "00", "01"] },
+    { "kind": "edge", "description": "start already equals target, so no toggles are needed at all", "input": [4, [[0, 1], [1, 2], [2, 3]], "0110", "0110"] },
+    { "kind": "boundary", "description": "the smallest possible tree, two nodes, with a feasible single toggle", "input": [2, [[0, 1]], "01", "10"] },
+    { "kind": "trap", "description": "a star tree where every leaf needs its own toggle back to the same center", "input": [5, [[0, 1], [0, 2], [0, 3], [0, 4]], "01111", "00000"] },
+    { "kind": "trap", "description": "a star tree that is impossible because an even number of leaf mismatches would be required", "input": [4, [[0, 1], [0, 2], [0, 3]], "0100", "0000"] },
+    { "kind": "trap", "description": "a deep path where the required toggles alternate along the chain", "input": [6, [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]], "010101", "101010"] }
+  ],
+  "stress": [
+    {
+      "description": "random trees built from random parent pointers with random start and target strings",
+      "seed": 81,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = [[rng.randint(0, i - 1), i] for i in range(1, n)]\n    start = ''.join(rng.choice('01') for _ in range(n))\n    target = ''.join(rng.choice('01') for _ in range(n))\n    return [n, edges, start, target]\n"
+    },
+    {
+      "description": "random trees where the target is built by applying a random feasible set of toggles to start, guaranteeing many reachable instances",
+      "seed": 82,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = [[rng.randint(0, i - 1), i] for i in range(1, n)]\n    start = [rng.randint(0, 1) for _ in range(n)]\n    target = start[:]\n    for a, b in edges:\n        if rng.random() < 0.3:\n            target[a] ^= 1\n            target[b] ^= 1\n    return [n, edges, ''.join(str(c) for c in start), ''.join(str(c) for c in target)]\n"
+    },
+    {
+      "description": "a long path (maximum-depth tree) at the largest size, stressing recursion-free traversal",
+      "seed": 83,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = [[i - 1, i] for i in range(1, n)]\n    start = ''.join(rng.choice('01') for _ in range(n))\n    target = ''.join(rng.choice('01') for _ in range(n))\n    return [n, edges, start, target]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumFlips(self, n, edges, start, target):\n        color = [int(c) for c in start]\n        tgt = [int(c) for c in target]\n        adj = [[] for _ in range(n)]\n        for idx, (u, v) in enumerate(edges):\n            adj[u].append((v, idx))\n            adj[v].append((u, idx))\n        parent = [-1] * n\n        parent_edge = [-1] * n\n        visited = [False] * n\n        order = [0]\n        visited[0] = True\n        head = 0\n        while head < len(order):\n            u = order[head]\n            head += 1\n            for v, idx in adj[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    parent[v] = u\n                    parent_edge[v] = idx\n                    order.append(v)\n        result = []\n        for u in reversed(order):\n            if u == 0:\n                continue\n            if color[u] != tgt[u]:\n                result.append(parent_edge[u])\n                color[u] ^= 1\n                color[parent[u]] ^= 1\n        if color[0] != tgt[0]:\n            return [-1]\n        result.sort()\n        return result\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def minimumFlips(self, n, edges, start: str, target: str):\n        color = [int(c) for c in start]\n        tgt = [int(c) for c in target]\n        adj = [[] for _ in range(n)]\n        for idx, (u, v) in enumerate(edges):\n            adj[u].append((v, idx))\n            adj[v].append((u, idx))\n        parent = [-1] * n\n        parent_edge = [-1] * n\n        visited = [False] * n\n        visited[0] = True\n        order = []\n        dq = deque([0])\n        while dq:\n            u = dq.popleft()\n            order.append(u)\n            for v, idx in adj[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    parent[v] = u\n                    parent_edge[v] = idx\n                    dq.append(v)\n        result = []\n        for u in reversed(order):\n            if u == 0:\n                continue\n            if color[u] != tgt[u]:\n                result.append(parent_edge[u])\n                color[u] ^= 1\n                color[parent[u]] ^= 1\n        if color[0] != tgt[0]:\n            return [-1]\n        result.sort()\n        return result\n",
+    "javascript": "var minimumFlips = function(n, edges, start, target) {\n    const color = new Array(n);\n    const tgt = new Array(n);\n    for (let i = 0; i < n; i++) {\n        color[i] = start.charCodeAt(i) - 48;\n        tgt[i] = target.charCodeAt(i) - 48;\n    }\n    const adj = Array.from({ length: n }, () => []);\n    for (let idx = 0; idx < edges.length; idx++) {\n        const [u, v] = edges[idx];\n        adj[u].push([v, idx]);\n        adj[v].push([u, idx]);\n    }\n    const parent = new Array(n).fill(-1);\n    const parentEdge = new Array(n).fill(-1);\n    const visited = new Array(n).fill(false);\n    visited[0] = true;\n    const order = [0];\n    let head = 0;\n    while (head < order.length) {\n        const u = order[head++];\n        for (const [v, idx] of adj[u]) {\n            if (!visited[v]) {\n                visited[v] = true;\n                parent[v] = u;\n                parentEdge[v] = idx;\n                order.push(v);\n            }\n        }\n    }\n    const result = [];\n    for (let i = order.length - 1; i >= 0; i--) {\n        const u = order[i];\n        if (u === 0) continue;\n        if (color[u] !== tgt[u]) {\n            result.push(parentEdge[u]);\n            color[u] ^= 1;\n            color[parent[u]] ^= 1;\n        }\n    }\n    if (color[0] !== tgt[0]) return [-1];\n    result.sort((a, b) => a - b);\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

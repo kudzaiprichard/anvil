@@ -1,0 +1,78 @@
+{
+  "slug": "count-almost-equal-pairs-ii",
+  "judge": "exact",
+  "pattern": "Since a digit swap is its own reverse, two numbers are within a combined budget of two swaps (spent on either number, in any split) exactly when the set of values reachable from each by zero-or-one swap of its own digits overlaps.",
+  "hints": [
+    "A swap undoes itself: if swapping two positions of A gives B, swapping those same positions of B gives A back. Use that to avoid tracking which number 'spent' which swap.",
+    "For every number, precompute the set of values reachable by zero or exactly one swap of its own digit string (letting a swap collapse into a shorter value through a leading zero). Two numbers need at most two combined swaps to match exactly when those two small sets share any value.",
+    "Count pairs by scanning left to right: for each number, look up how many earlier numbers have a reachable-set overlap with it (via a value -> earlier-index map), then register this number's own reachable values for future lookups - this avoids the O(n^2) pairwise comparison."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 5000], "value": [1, 9999999] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "chain of leading-zero relationships across different digit lengths",
+      "input": [[1, 10, 100]]
+    },
+    {
+      "kind": "edge",
+      "description": "all duplicates, every pair already equal with zero swaps",
+      "input": [[55, 55, 55]]
+    },
+    {
+      "kind": "edge",
+      "description": "a pair that needs one swap on each number (two combined swaps total), not reachable with only one",
+      "input": [[123, 231, 999]]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum and maximum value together",
+      "input": [[1, 9999999]]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme length gap: 7-digit vs 1-digit needing a swap across the whole string",
+      "input": [[1000000, 1]]
+    },
+    {
+      "kind": "trap",
+      "description": "a 4-digit cyclic permutation that needs more than two combined swaps, so it must NOT count",
+      "input": [[1234, 2341]]
+    },
+    {
+      "kind": "trap",
+      "description": "mixed lengths where only some pairs are truly within the two-swap budget",
+      "input": [[100, 1, 10, 1000000]]
+    },
+    {
+      "kind": "trap",
+      "description": "many small-length duplicate-heavy values to stress tie/duplicate handling",
+      "input": [[11, 11, 1, 10, 101, 110]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random values near max length and max magnitude",
+      "seed": 31,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    nums = [rng.randint(1, 9999999) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "small-length duplicate-heavy values so many pairs share reachable variants",
+      "seed": 44,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    pool = [rng.randint(1, 999) for _ in range(40)]\n    nums = [rng.choice(pool) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPairs(self, nums):\n        def variants(x):\n            s = str(x)\n            L = len(s)\n            res = {x}\n            for i in range(L):\n                for j in range(i + 1, L):\n                    lst = list(s)\n                    lst[i], lst[j] = lst[j], lst[i]\n                    res.add(int(''.join(lst)))\n            return res\n\n        vs = [variants(v) for v in nums]\n        n = len(nums)\n        count = 0\n        for i in range(n):\n            for j in range(i + 1, n):\n                if vs[i] & vs[j]:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "from collections import defaultdict\n\n\nclass Solution:\n    def countPairs(self, nums):\n        def variants(x):\n            s = str(x)\n            L = len(s)\n            res = {x}\n            for i in range(L):\n                for j in range(i + 1, L):\n                    lst = list(s)\n                    lst[i], lst[j] = lst[j], lst[i]\n                    res.add(int(''.join(lst)))\n            return res\n\n        buckets = defaultdict(list)\n        count = 0\n        for i, x in enumerate(nums):\n            vs = variants(x)\n            seen = set()\n            for v in vs:\n                if v in buckets:\n                    for j in buckets[v]:\n                        seen.add(j)\n            count += len(seen)\n            for v in vs:\n                buckets[v].append(i)\n        return count\n",
+    "javascript": "var countPairs = function(nums) {\n    function variants(x) {\n        const s = String(x);\n        const L = s.length;\n        const res = new Set([x]);\n        for (let i = 0; i < L; i++) {\n            for (let j = i + 1; j < L; j++) {\n                const arr = s.split('');\n                const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;\n                res.add(parseInt(arr.join(''), 10));\n            }\n        }\n        return res;\n    }\n    const buckets = new Map();\n    let count = 0;\n    for (let i = 0; i < nums.length; i++) {\n        const vs = variants(nums[i]);\n        const seen = new Set();\n        for (const v of vs) {\n            const arr = buckets.get(v);\n            if (arr) for (const j of arr) seen.add(j);\n        }\n        count += seen.size;\n        for (const v of vs) {\n            if (!buckets.has(v)) buckets.set(v, []);\n            buckets.get(v).push(i);\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * d^2) average, where d is the number of digits",
+    "space": "O(n * d^2)"
+  }
+}

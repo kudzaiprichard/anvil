@@ -1,0 +1,37 @@
+{
+  "slug": "construct-binary-tree-from-inorder-and-postorder-traversal",
+  "judge": "exact",
+  "io_types": { "params": ["json", "json"], "returns": "tree" },
+  "pattern": "Postorder names the root last; locating that root inside inorder splits the remaining values into the left and right subtrees, recursively.",
+  "hints": [
+    "The last value of postorder is always the current subtree's root.",
+    "Find that root inside inorder: values to its left form the left subtree, values to its right the right subtree.",
+    "Consume postorder from the back, building the right subtree before the left, with a value-to-inorder-index map for O(1) splits."
+  ],
+  "constraints": [
+    { "param": "inorder", "kind": "int[]", "len": [1, 3000], "value": [-3000, 3000] },
+    { "param": "postorder", "kind": "int[]", "len": [1, 3000], "value": [-3000, 3000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "balanced tree from the canonical traversals", "input": [[9, 3, 15, 20, 7], [9, 15, 7, 20, 3]] },
+    { "kind": "boundary", "description": "single node", "input": [[-1], [-1]] },
+    { "kind": "trap", "description": "fully left-skewed", "input": [[4, 3, 2, 1], [4, 3, 2, 1]] },
+    { "kind": "trap", "description": "fully right-skewed", "input": [[1, 2, 3, 4], [4, 3, 2, 1]] },
+    { "kind": "edge", "description": "mixed shape with negatives", "input": [[-2, 5, 1, 7, 9], [-2, 1, 9, 7, 5]] }
+  ],
+  "stress": [
+    {
+      "description": "build a random tree, derive consistent inorder+postorder so the answer is unique",
+      "seed": 43,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 300))\n    vals = rng.sample(range(-3000, 3001), n)\n    def build(vs):\n        if not vs:\n            return None\n        i = rng.randrange(len(vs))\n        return (vs[i], build(vs[:i]), build(vs[i+1:]))\n    root = build(vals)\n    ino, post = [], []\n    def io(t):\n        if t is None:\n            return\n        io(t[1]); ino.append(t[0]); io(t[2])\n    def po(t):\n        if t is None:\n            return\n        po(t[1]); po(t[2]); post.append(t[0])\n    io(root); po(root)\n    return [ino, post]\n",
+      "note": "distinct values as guaranteed"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def buildTree(self, inorder, postorder):\n        def build(ino, post):\n            if not post:\n                return None\n            root_val = post[-1]\n            k = ino.index(root_val)\n            node = TreeNode(root_val)\n            node.left = build(ino[:k], post[:k])\n            node.right = build(ino[k + 1:], post[k:-1])\n            return node\n        return build(inorder, postorder)\n",
+  "solutions": {
+    "python": "class Solution:\n    def buildTree(self, inorder, postorder):\n        idx = {v: i for i, v in enumerate(inorder)}\n        self.post = len(postorder) - 1\n        def build(lo, hi):\n            if lo > hi:\n                return None\n            root_val = postorder[self.post]\n            self.post -= 1\n            node = TreeNode(root_val)\n            mid = idx[root_val]\n            node.right = build(mid + 1, hi)\n            node.left = build(lo, mid - 1)\n            return node\n        return build(0, len(inorder) - 1)\n",
+    "javascript": "var buildTree = function(inorder, postorder) {\n    const idx = new Map();\n    inorder.forEach((v, i) => idx.set(v, i));\n    let post = postorder.length - 1;\n    function build(lo, hi) {\n        if (lo > hi) return null;\n        const rootVal = postorder[post--];\n        const node = new TreeNode(rootVal);\n        const mid = idx.get(rootVal);\n        node.right = build(mid + 1, hi);\n        node.left = build(lo, mid - 1);\n        return node;\n    }\n    return build(0, inorder.length - 1);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

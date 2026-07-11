@@ -1,0 +1,201 @@
+{
+  "slug": "maximize-the-number-of-target-nodes-after-connecting-trees-ii",
+  "judge": "exact",
+  "pattern": "Whether a path length is even or odd only depends on a tree's two-coloring, so the whole problem collapses to counting same-colored and opposite-colored nodes.",
+  "hints": [
+    "In any tree, two nodes are an even number of edges apart exactly when a simple black/white coloring (alternating by depth) gives them the same color.",
+    "The bridge edge always flips parity once, so from the second tree you want whichever color class there has more nodes -- and that best choice never changes no matter which first-tree node you're evaluating.",
+    "A node's own contribution is just the size of its own color class in the first tree; add the fixed second-tree maximum to every node."
+  ],
+  "constraints": [
+    {
+      "param": "edges1",
+      "kind": "int[][]",
+      "len": [
+        1,
+        99999
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    },
+    {
+      "param": "edges2",
+      "kind": "int[][]",
+      "len": [
+        1,
+        99999
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two single-edge trees",
+      "input": [
+        [
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a path of three nodes against a single edge",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "star-shaped first tree, path-shaped second tree",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "second tree perfectly balanced between the two colors",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "first tree is a long path so parity alternates node by node",
+      "input": [
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "two large random trees",
+      "seed": 304,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(20000, size if size >= 2 else 2))\n    m = max(2, min(20000, (size * 3 // 4) if size >= 3 else 2))\n    edges1 = [[rng.randint(0, i - 1), i] for i in range(1, n)]\n    edges2 = [[rng.randint(0, i - 1), i] for i in range(1, m)]\n    return [edges1, edges2]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxTargetNodes(self, edges1, edges2):\n        # independent re-derivation: explicit breadth-first search per node,\n        # counting even-length paths directly instead of using tree coloring\n        from collections import deque\n        n = len(edges1) + 1\n        m = len(edges2) + 1\n        adj1 = [[] for _ in range(n)]\n        for a, b in edges1:\n            adj1[a].append(b); adj1[b].append(a)\n        adj2 = [[] for _ in range(m)]\n        for a, b in edges2:\n            adj2[a].append(b); adj2[b].append(a)\n        def even_count(adj, src):\n            dist = {src: 0}\n            q = deque([src])\n            cnt = 0\n            while q:\n                u = q.popleft()\n                if dist[u] % 2 == 0:\n                    cnt += 1\n                for v in adj[u]:\n                    if v not in dist:\n                        dist[v] = dist[u] + 1\n                        q.append(v)\n            return cnt\n        def odd_count(adj, src, size):\n            return size - even_count(adj, src)\n        best2 = max(odd_count(adj2, j, m) for j in range(m))\n        return [even_count(adj1, i) + best2 for i in range(n)]\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxTargetNodes(self, edges1, edges2):\n        def color_tree(edges, n):\n            adj = [[] for _ in range(n)]\n            for a, b in edges:\n                adj[a].append(b); adj[b].append(a)\n            color = [-1] * n\n            color[0] = 0\n            stack = [0]\n            while stack:\n                u = stack.pop()\n                for v in adj[u]:\n                    if color[v] == -1:\n                        color[v] = color[u] ^ 1\n                        stack.append(v)\n            return color\n        n = len(edges1) + 1\n        m = len(edges2) + 1\n        c1 = color_tree(edges1, n)\n        c2 = color_tree(edges2, m)\n        cnt1 = [c1.count(0), c1.count(1)]\n        cnt2 = [c2.count(0), c2.count(1)]\n        best2 = m - min(cnt2)\n        return [cnt1[c] + best2 for c in c1]\n",
+    "javascript": "var maxTargetNodes = function(edges1, edges2) {\n    function colorTree(edges, n) {\n        const adj = Array.from({length: n}, () => []);\n        for (const [a, b] of edges) { adj[a].push(b); adj[b].push(a); }\n        const color = new Array(n).fill(-1);\n        color[0] = 0;\n        const stack = [0];\n        while (stack.length) {\n            const u = stack.pop();\n            for (const v of adj[u]) {\n                if (color[v] === -1) { color[v] = color[u] ^ 1; stack.push(v); }\n            }\n        }\n        return color;\n    }\n    const n = edges1.length + 1, m = edges2.length + 1;\n    const c1 = colorTree(edges1, n);\n    const c2 = colorTree(edges2, m);\n    const cnt1 = [0, 0], cnt2 = [0, 0];\n    for (const c of c1) cnt1[c]++;\n    for (const c of c2) cnt2[c]++;\n    const best2 = m - Math.min(cnt2[0], cnt2[1]);\n    return c1.map(c => (c === 0 ? cnt1[0] : cnt1[1]) + best2);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n+m)",
+    "space": "O(n+m)"
+  }
+}

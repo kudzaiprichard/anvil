@@ -1,0 +1,38 @@
+{
+  "slug": "process-string-with-special-operations-ii",
+  "judge": "exact",
+  "pattern": "Because duplication makes the result grow exponentially, you record only the length after each step and then unwind the operations to map the queried index back to an original letter.",
+  "hints": [
+    "Never materialize the string; the duplications can make it astronomically long. Track its length after each operation instead.",
+    "Replay the operations forward to get the length timeline, then walk that timeline backward, rewriting the target index as each operation is undone.",
+    "Undoing a duplicate folds the index into the first half by modulo the prior length; undoing a reverse flips the index against the length; undoing a removal leaves it; a letter resolves it when the index points at the just-added position."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] },
+    { "param": "k", "kind": "int", "value": [0, 1000000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "in-range index after reverse and pop", "input": ["a#b%*", 1] },
+    { "kind": "edge", "description": "duplicate then pop then duplicate, mid index", "input": ["cd%#*#", 3] },
+    { "kind": "edge", "description": "index out of bounds yields the dot sentinel", "input": ["z*#", 0] },
+    { "kind": "boundary", "description": "index zero of a single letter", "input": ["a", 0] },
+    { "kind": "trap", "description": "reverse changes which letter sits at index 0", "input": ["ab%", 0] },
+    { "kind": "trap", "description": "duplication maps a high index back into the first copy", "input": ["ab#", 3] },
+    { "kind": "trap", "description": "out of bounds on an empty result", "input": ["*%", 0] }
+  ],
+  "stress": [
+    {
+      "description": "moderate strings with a random in-or-out-of-range k against the capped length",
+      "seed": 23,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 40)\n    pool = list('abcd') + ['*', '#', '%']\n    s = ''.join(rng.choice(pool) for _ in range(n))\n    CAP = 1 << 60\n    length = 0\n    for ch in s:\n        if ch == '*':\n            if length > 0:\n                length -= 1\n        elif ch == '#':\n            length = min(CAP, length * 2)\n        elif ch == '%':\n            pass\n        else:\n            length += 1\n    hi = max(length, 1)\n    k = rng.randint(0, hi + 2)\n    return [s, k]\n",
+      "note": "k can land out of bounds to exercise the dot sentinel"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def processStr(self, s, k):\n        res = []\n        for ch in s:\n            if ch == '*':\n                if res:\n                    res.pop()\n            elif ch == '#':\n                res = res + res\n            elif ch == '%':\n                res = res[::-1]\n            else:\n                res.append(ch)\n        if 0 <= k < len(res):\n            return res[k]\n        return '.'\n",
+  "solutions": {
+    "python": "class Solution:\n    def processStr(self, s, k):\n        lengths = [0]\n        L = 0\n        for ch in s:\n            if ch == '*':\n                if L > 0:\n                    L -= 1\n            elif ch == '#':\n                L = L * 2\n            elif ch == '%':\n                pass\n            else:\n                L += 1\n            lengths.append(L)\n        if k < 0 or k >= lengths[-1]:\n            return '.'\n        idx = k\n        for i in range(len(s) - 1, -1, -1):\n            ch = s[i]\n            prev = lengths[i]\n            if ch == '*':\n                pass\n            elif ch == '#':\n                if idx >= prev:\n                    idx -= prev\n            elif ch == '%':\n                idx = prev - 1 - idx\n            else:\n                if idx == prev:\n                    return ch\n        return '.'\n",
+    "javascript": "var processStr = function(s, k) {\n    const lengths = [0n];\n    let L = 0n;\n    const kk = BigInt(k);\n    for (const ch of s) {\n        if (ch === '*') {\n            if (L > 0n) L -= 1n;\n        } else if (ch === '#') {\n            L = L * 2n;\n        } else if (ch === '%') {\n            // no length change\n        } else {\n            L += 1n;\n        }\n        lengths.push(L);\n    }\n    if (kk < 0n || kk >= lengths[lengths.length - 1]) return '.';\n    let idx = kk;\n    for (let i = s.length - 1; i >= 0; i--) {\n        const ch = s[i];\n        const prev = lengths[i];\n        if (ch === '*') {\n            // index unchanged\n        } else if (ch === '#') {\n            if (idx >= prev) idx -= prev;\n        } else if (ch === '%') {\n            idx = prev - 1n - idx;\n        } else {\n            if (idx === prev) return ch;\n        }\n    }\n    return '.';\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

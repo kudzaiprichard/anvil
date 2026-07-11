@@ -1,0 +1,43 @@
+{
+  "slug": "count-good-subarrays",
+  "judge": "exact",
+  "pattern": "The OR of a range can only equal one of its own members when that member's bits already cover every bit anyone else in the range contributes, and as a range's left edge slides, its OR only ever gains bits -- a fact that keeps the number of distinct OR values, and therefore the work, small.",
+  "hints": [
+    "A subarray's OR equals one of its own elements exactly when some element in it already has every bit that the OR has -- so scan for, per right edge, which OR value each possible left edge produces.",
+    "As the left edge of a fixed-right-edge window moves further left, the OR value never decreases and only changes O(log(max value)) times, since each change must set a new bit -- group consecutive left edges that share an OR value together instead of testing each one.",
+    "For a group of left edges sharing OR value V, the subarray is good only if V itself occurs as an element within that window -- track the most recent position where each value last appeared and compare it against the group's boundaries."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element, always good on its own", "input": [ [9] ] },
+    { "kind": "edge", "description": "all zeros, every subarray's OR is zero and zero is always present", "input": [ [0, 0, 0] ] },
+    { "kind": "edge", "description": "identical repeated value, every subarray is good", "input": [ [5, 5, 5, 5] ] },
+    { "kind": "trap", "description": "strictly increasing powers of two, no subarray of length > 1 is good", "input": [ [1, 2, 4, 8, 16] ] },
+    { "kind": "trap", "description": "a dominant value that already contains every other value's bits appears first, then smaller values", "input": [ [7, 1, 2, 4] ] },
+    { "kind": "trap", "description": "a dominant value appears last instead of first", "input": [ [1, 2, 4, 7] ] },
+    { "kind": "boundary", "description": "single zero, minimum length", "input": [ [0] ] },
+    { "kind": "boundary", "description": "value at the maximum allowed magnitude", "input": [ [1000000000, 1000000000] ] }
+  ],
+  "stress": [
+    {
+      "description": "random small-range integers, likely to create many OR collisions",
+      "seed": 51,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(0, 63) for _ in range(n)]\n    return [nums]\n"
+    },
+    {
+      "description": "random wide-range integers exercising the full bit width",
+      "seed": 52,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(0, 1000000000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countGoodSubarrays(self, nums):\n        n = len(nums)\n        cnt = 0\n        for l in range(n):\n            cur = 0\n            present = {}\n            for r in range(l, n):\n                cur |= nums[r]\n                present[nums[r]] = present.get(nums[r], 0) + 1\n                if cur in present:\n                    cnt += 1\n        return cnt\n",
+  "solutions": {
+    "python": "class Solution:\n    def countGoodSubarrays(self, nums):\n        n = len(nums)\n        last_seen = {}\n        groups = []\n        total = 0\n        for r in range(n):\n            last_seen[nums[r]] = r\n            new_groups = []\n            cur_val, cur_lo, cur_hi = nums[r], r, r\n            for val, l_lo, l_hi in groups:\n                nv = val | nums[r]\n                if nv == cur_val:\n                    cur_lo = l_lo\n                else:\n                    new_groups.append((cur_val, cur_lo, cur_hi))\n                    cur_val, cur_lo, cur_hi = nv, l_lo, l_hi\n            new_groups.append((cur_val, cur_lo, cur_hi))\n            groups = new_groups\n            for val, l_lo, l_hi in groups:\n                pos = last_seen.get(val, -1)\n                if pos < l_lo:\n                    continue\n                hi = min(l_hi, pos)\n                if hi >= l_lo:\n                    total += hi - l_lo + 1\n        return total\n",
+    "javascript": "var countGoodSubarrays = function(nums) {\n    const n = nums.length;\n    const lastSeen = new Map();\n    let groups = [];\n    let total = 0;\n    for (let r = 0; r < n; r++) {\n        lastSeen.set(nums[r], r);\n        const newGroups = [];\n        let curVal = nums[r], curLo = r, curHi = r;\n        for (const [val, lLo, lHi] of groups) {\n            const nv = val | nums[r];\n            if (nv === curVal) {\n                curLo = lLo;\n            } else {\n                newGroups.push([curVal, curLo, curHi]);\n                curVal = nv; curLo = lLo; curHi = lHi;\n            }\n        }\n        newGroups.push([curVal, curLo, curHi]);\n        groups = newGroups;\n        for (const [val, lLo, lHi] of groups) {\n            const pos = lastSeen.has(val) ? lastSeen.get(val) : -1;\n            if (pos < lLo) continue;\n            const hi = Math.min(lHi, pos);\n            if (hi >= lLo) total += hi - lLo + 1;\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n log(maxValue))", "space": "O(log(maxValue))" }
+}

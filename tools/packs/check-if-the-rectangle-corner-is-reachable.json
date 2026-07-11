@@ -1,0 +1,190 @@
+{
+  "slug": "check-if-the-rectangle-corner-is-reachable",
+  "judge": "exact",
+  "pattern": "A path from the bottom-left to the top-right corner is blocked exactly when some chain of touching circles forms an unbroken wall from the top-or-left boundary to the bottom-or-right boundary, so the whole geometry question collapses into a union-find connectivity check between two virtual 'wall' groups.",
+  "hints": [
+    "Any path has to squeeze past either the top-left pair of edges or the bottom-right pair of edges; a circle only matters if it touches one of the four rectangle edges or overlaps another circle that does.",
+    "Group circles into two virtual buckets -- one for 'touches the top edge or the left edge', one for 'touches the bottom edge or the right edge' -- and union two circles together whenever their distance is at most the sum of their radii.",
+    "The corner path exists exactly when those two virtual buckets never end up in the same union-find component; watch for integer overflow, since squared distances need coordinates up to 1e9, so keep every comparison in exact (unrounded) integer arithmetic."
+  ],
+  "constraints": [
+    {
+      "param": "xCorner",
+      "kind": "int",
+      "value": [
+        3,
+        1000000000
+      ]
+    },
+    {
+      "param": "yCorner",
+      "kind": "int",
+      "value": [
+        3,
+        1000000000
+      ]
+    },
+    {
+      "param": "circles",
+      "kind": "int[][]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, single circle clipping only the bottom-right route",
+      "input": [
+        3,
+        4,
+        [
+          [
+            2,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, one circle spans both the left and bottom edges at once",
+      "input": [
+        3,
+        3,
+        [
+          [
+            1,
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, two overlapping circles chain a top-left circle to a bottom-right one",
+      "input": [
+        3,
+        3,
+        [
+          [
+            2,
+            1,
+            1
+          ],
+          [
+            1,
+            2,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, circle sits entirely outside the rectangle and touches nothing",
+      "input": [
+        4,
+        4,
+        [
+          [
+            5,
+            5,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum-size rectangle with a circle fully interior, touching no edge",
+      "input": [
+        4,
+        4,
+        [
+          [
+            2,
+            2,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a circle touching only the left edge alone must not block the path by itself",
+      "input": [
+        10,
+        10,
+        [
+          [
+            1,
+            5,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one circle on the top-left wall and another on the bottom-right wall, but they never touch each other",
+      "input": [
+        10,
+        10,
+        [
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            10,
+            8,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a circle near the origin corner large enough to cover it, blocking both the left and bottom edges at once",
+      "input": [
+        5,
+        5,
+        [
+          [
+            1,
+            1,
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a mix of tightly clustered circles near the rectangle's center plus scattered circles across a huge coordinate range",
+      "seed": 41,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 1000))\n    x_corner = 1000000000\n    y_corner = 1000000000\n    circles = []\n    cluster_n = m // 2\n    cx0, cy0 = 500000000, 500000000\n    for _ in range(cluster_n):\n        cx = max(1, min(999999999, cx0 + rng.randint(-1000, 1000)))\n        cy = max(1, min(999999999, cy0 + rng.randint(-1000, 1000)))\n        r = rng.randint(500, 1500)\n        circles.append([cx, cy, r])\n    for _ in range(m - cluster_n):\n        cx = rng.randint(1, 999999999)\n        cy = rng.randint(1, 999999999)\n        r = rng.randint(1, 2000000)\n        circles.append([cx, cy, r])\n    return [x_corner, y_corner, circles]\n",
+      "note": "clustered circles exercise deep union-find chains while scattered ones test the O(m^2) pairwise overlap scan at the full 1000-circle constraint"
+    }
+  ],
+  "oracle_python": "from collections import deque\n\nclass Solution:\n    def canReachCorner(self, xCorner, yCorner, circles):\n        m = len(circles)\n\n        def touches_left(cx, cy, r):\n            cyc = min(max(cy, 0), yCorner)\n            return cx * cx + (cy - cyc) ** 2 <= r * r\n\n        def touches_right(cx, cy, r):\n            cyc = min(max(cy, 0), yCorner)\n            return (cx - xCorner) ** 2 + (cy - cyc) ** 2 <= r * r\n\n        def touches_top(cx, cy, r):\n            cxc = min(max(cx, 0), xCorner)\n            return (cx - cxc) ** 2 + (cy - yCorner) ** 2 <= r * r\n\n        def touches_bottom(cx, cy, r):\n            cxc = min(max(cx, 0), xCorner)\n            return (cx - cxc) ** 2 + cy * cy <= r * r\n\n        TOP_LEFT, BOTTOM_RIGHT = m, m + 1\n        adj = [[] for _ in range(m + 2)]\n        for i, (cx, cy, r) in enumerate(circles):\n            if touches_left(cx, cy, r) or touches_top(cx, cy, r):\n                adj[i].append(TOP_LEFT)\n                adj[TOP_LEFT].append(i)\n            if touches_right(cx, cy, r) or touches_bottom(cx, cy, r):\n                adj[i].append(BOTTOM_RIGHT)\n                adj[BOTTOM_RIGHT].append(i)\n        for i in range(m):\n            cxi, cyi, ri = circles[i]\n            for j in range(i + 1, m):\n                cxj, cyj, rj = circles[j]\n                if (cxi - cxj) ** 2 + (cyi - cyj) ** 2 <= (ri + rj) ** 2:\n                    adj[i].append(j)\n                    adj[j].append(i)\n        visited = [False] * (m + 2)\n        visited[TOP_LEFT] = True\n        q = deque([TOP_LEFT])\n        while q:\n            u = q.popleft()\n            for v in adj[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    q.append(v)\n        return not visited[BOTTOM_RIGHT]\n",
+  "solutions": {
+    "python": "class Solution:\n    def canReachCorner(self, xCorner, yCorner, circles):\n        m = len(circles)\n        parent = list(range(m + 2))\n        TOP_LEFT, BOTTOM_RIGHT = m, m + 1\n\n        def find(a):\n            while parent[a] != a:\n                parent[a] = parent[parent[a]]\n                a = parent[a]\n            return a\n\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n\n        def touches_left(cx, cy, r):\n            cyc = min(max(cy, 0), yCorner)\n            return cx * cx + (cy - cyc) ** 2 <= r * r\n\n        def touches_right(cx, cy, r):\n            cyc = min(max(cy, 0), yCorner)\n            return (cx - xCorner) ** 2 + (cy - cyc) ** 2 <= r * r\n\n        def touches_top(cx, cy, r):\n            cxc = min(max(cx, 0), xCorner)\n            return (cx - cxc) ** 2 + (cy - yCorner) ** 2 <= r * r\n\n        def touches_bottom(cx, cy, r):\n            cxc = min(max(cx, 0), xCorner)\n            return (cx - cxc) ** 2 + cy * cy <= r * r\n\n        for i, (cx, cy, r) in enumerate(circles):\n            if touches_left(cx, cy, r) or touches_top(cx, cy, r):\n                union(i, TOP_LEFT)\n            if touches_right(cx, cy, r) or touches_bottom(cx, cy, r):\n                union(i, BOTTOM_RIGHT)\n        for i in range(m):\n            cxi, cyi, ri = circles[i]\n            for j in range(i + 1, m):\n                cxj, cyj, rj = circles[j]\n                if (cxi - cxj) ** 2 + (cyi - cyj) ** 2 <= (ri + rj) ** 2:\n                    union(i, j)\n        return find(TOP_LEFT) != find(BOTTOM_RIGHT)\n",
+    "javascript": "var canReachCorner = function(xCorner, yCorner, circles) {\n    const m = circles.length;\n    const parent = new Array(m + 2);\n    for (let i = 0; i < m + 2; i++) parent[i] = i;\n    const TOP_LEFT = m, BOTTOM_RIGHT = m + 1;\n    function find(a) {\n        while (parent[a] !== a) {\n            parent[a] = parent[parent[a]];\n            a = parent[a];\n        }\n        return a;\n    }\n    function union(a, b) {\n        const ra = find(a), rb = find(b);\n        if (ra !== rb) parent[ra] = rb;\n    }\n    const X = BigInt(xCorner), Y = BigInt(yCorner);\n    function clampBig(v, lo, hi) {\n        if (v < lo) return lo;\n        if (v > hi) return hi;\n        return v;\n    }\n    function touchesLeft(cx, cy, r) {\n        const cyc = clampBig(cy, 0n, Y);\n        const dy = cy - cyc;\n        return cx * cx + dy * dy <= r * r;\n    }\n    function touchesRight(cx, cy, r) {\n        const cyc = clampBig(cy, 0n, Y);\n        const dx = cx - X;\n        const dy = cy - cyc;\n        return dx * dx + dy * dy <= r * r;\n    }\n    function touchesTop(cx, cy, r) {\n        const cxc = clampBig(cx, 0n, X);\n        const dx = cx - cxc;\n        const dy = cy - Y;\n        return dx * dx + dy * dy <= r * r;\n    }\n    function touchesBottom(cx, cy, r) {\n        const cxc = clampBig(cx, 0n, X);\n        const dx = cx - cxc;\n        return dx * dx + cy * cy <= r * r;\n    }\n    const cxs = new Array(m), cys = new Array(m), rs = new Array(m);\n    for (let i = 0; i < m; i++) {\n        const c = circles[i];\n        const cx = BigInt(c[0]), cy = BigInt(c[1]), r = BigInt(c[2]);\n        cxs[i] = cx; cys[i] = cy; rs[i] = r;\n        if (touchesLeft(cx, cy, r) || touchesTop(cx, cy, r)) union(i, TOP_LEFT);\n        if (touchesRight(cx, cy, r) || touchesBottom(cx, cy, r)) union(i, BOTTOM_RIGHT);\n    }\n    for (let i = 0; i < m; i++) {\n        for (let j = i + 1; j < m; j++) {\n            const ddx = cxs[i] - cxs[j];\n            const ddy = cys[i] - cys[j];\n            const rr = rs[i] + rs[j];\n            if (ddx * ddx + ddy * ddy <= rr * rr) union(i, j);\n        }\n    }\n    return find(TOP_LEFT) !== find(BOTTOM_RIGHT);\n};\n"
+  },
+  "complexity": {
+    "time": "O(m^2 alpha(m))",
+    "space": "O(m)"
+  }
+}

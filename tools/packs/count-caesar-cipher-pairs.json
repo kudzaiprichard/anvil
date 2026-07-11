@@ -1,0 +1,43 @@
+{
+  "slug": "count-caesar-cipher-pairs",
+  "judge": "exact",
+  "pattern": "Repeatedly cycling every letter of one word forward is the same as picking a single fixed shift amount, so two words are related exactly when subtracting each word's own first letter from all of its letters produces the same pattern.",
+  "hints": [
+    "Applying the cyclic next-letter operation over and over to a whole string is equivalent to picking one shift amount between 0 and 25 and applying it once; a word can only ever become one of 26 fixed variants of itself.",
+    "Because the operation can be applied to either word in a pair, two words are related exactly when there is some shift amount that turns one into the other, and shifting a word by k is undone by shifting the other word by 26 minus k.",
+    "Normalize every word by subtracting its own first letter's value from every letter's value (wrapping around the alphabet); two words are related exactly when their normalized forms are identical, so group words by that normalized form and add up n*(n-1)/2 for each group of size n."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 100000], "note": "each words[i] length is 1..100000, lowercase English letters only, and the total number of characters across all words (n * m) is at most 100000" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the reference example with exactly one similar pair", "input": [["fusion", "layout"]] },
+    { "kind": "edge", "description": "the reference example with a wrap-around shift and a repeated word", "input": [["ab", "aa", "za", "aa"]] },
+    { "kind": "edge", "description": "a single word, no pair possible", "input": [["abc"]] },
+    { "kind": "edge", "description": "three identical words form three similar pairs", "input": [["aa", "aa", "aa"]] },
+    { "kind": "boundary", "description": "single-letter words are always mutually similar since any single letter can be shifted into any other", "input": [["a", "z", "m"]] },
+    { "kind": "trap", "description": "words that each look like a simple increasing or decreasing run but land on distinct normalized patterns", "input": [["ab", "ac", "ba"]] },
+    { "kind": "trap", "description": "an alphabet wrap on one word must not accidentally coincide with a non-wrapping shift of another", "input": [["az", "za"]] },
+    { "kind": "boundary", "description": "two long identical words near the n times m character budget", "input": [["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]] }
+  ],
+  "stress": [
+    {
+      "description": "a moderate number of longer words built from a handful of shifted base patterns, so several similar groups exist",
+      "seed": 31,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 50))\n    m = 500\n    base_count = max(1, n // 4)\n    bases = [''.join(rng.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(m)) for _ in range(base_count)]\n    words = []\n    for _ in range(n):\n        base = rng.choice(bases)\n        k = rng.randint(0, 25)\n        shifted = ''.join(chr((ord(c) - 97 + k) % 26 + 97) for c in base)\n        words.append(shifted)\n    rng.shuffle(words)\n    return [words]\n"
+    },
+    {
+      "description": "many short words, mostly random with a few deliberately similar pairs mixed in",
+      "seed": 32,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 5000))\n    m = 5\n    words = []\n    for _ in range(n):\n        words.append(''.join(rng.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(m)))\n    for _ in range(n // 10):\n        i = rng.randint(0, n - 1)\n        k = rng.randint(0, 25)\n        words[i] = ''.join(chr((ord(c) - 97 + k) % 26 + 97) for c in words[0])\n    return [words]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countPairs(self, words):\n        n = len(words)\n        def similar(s, t):\n            if len(s) != len(t):\n                return False\n            for k in range(26):\n                ok = True\n                for a, b in zip(s, t):\n                    if (ord(a) - 97 + k) % 26 != ord(b) - 97:\n                        ok = False\n                        break\n                if ok:\n                    return True\n            return False\n        count = 0\n        for i in range(n):\n            for j in range(i + 1, n):\n                if similar(words[i], words[j]):\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countPairs(self, words):\n        from collections import defaultdict\n        groups = defaultdict(int)\n        for w in words:\n            shift = ord(w[0]) - 97\n            norm = tuple((ord(c) - 97 - shift) % 26 for c in w)\n            groups[norm] += 1\n        total = 0\n        for c in groups.values():\n            total += c * (c - 1) // 2\n        return total\n",
+    "javascript": "var countPairs = function(words) {\n    const groups = new Map();\n    for (const w of words) {\n        const shift = w.charCodeAt(0) - 97;\n        let norm = '';\n        for (let i = 0; i < w.length; i++) {\n            const v = ((w.charCodeAt(i) - 97 - shift) % 26 + 26) % 26;\n            norm += String.fromCharCode(97 + v);\n        }\n        groups.set(norm, (groups.get(norm) || 0) + 1);\n    }\n    let total = 0;\n    for (const c of groups.values()) {\n        total += (c * (c - 1)) / 2;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n * m)", "space": "O(n * m)" }
+}

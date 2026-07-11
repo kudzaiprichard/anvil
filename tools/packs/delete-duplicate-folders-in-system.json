@@ -1,0 +1,37 @@
+{
+  "slug": "delete-duplicate-folders-in-system",
+  "judge": "unordered",
+  "pattern": "Serialize every folder subtree into a canonical signature, then mark for deletion any signature that describes two or more non-empty subtrees.",
+  "hints": [
+    "Build the folder tree from the paths, then think about a string that uniquely encodes the shape of each subtree.",
+    "Two folders are identical when their children, recursively, produce the same canonical serialization, so compute a signature bottom-up.",
+    "Count how many times each non-empty subtree signature appears; mark every folder whose signature occurs more than once, then output the paths of all surviving (unmarked, and not under a marked ancestor) folders."
+  ],
+  "constraints": [
+    { "param": "paths", "kind": "string[][]", "len": [1, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two folders each holding an empty 'b' are duplicates", "input": [[["a"], ["c"], ["d"], ["a", "b"], ["c", "b"], ["d", "a"]]] },
+    { "kind": "trap", "description": "deletion is one-shot; later-identical folders survive", "input": [[["a"], ["c"], ["a", "b"], ["c", "b"], ["a", "b", "x"], ["a", "b", "x", "y"], ["w"], ["w", "y"]]] },
+    { "kind": "edge", "description": "all folders unique, nothing deleted", "input": [[["a", "b"], ["c", "d"], ["c"], ["a"]]] },
+    { "kind": "boundary", "description": "single folder", "input": [[["a"]]] },
+    { "kind": "trap", "description": "same leaf name in different parents is not a duplicate subtree", "input": [[["a"], ["b"], ["a", "x"], ["b", "y"]]] },
+    { "kind": "trap", "description": "duplicate empty leaves at different depths get marked", "input": [[["a"], ["a", "p"], ["b"], ["b", "p"], ["c"]]] },
+    { "kind": "edge", "description": "deeper identical subtrees, parents differ only above", "input": [[["x"], ["y"], ["x", "m"], ["x", "m", "k"], ["y", "m"], ["y", "m", "k"], ["y", "extra"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random forest of short folder names with frequent shared subtree shapes",
+      "seed": 61,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    names = [chr(c) for c in range(97, 107)]\n    paths = set()\n    roots = max(1, size // 30)\n    for _ in range(roots):\n        r = rng.choice(names)\n        paths.add((r,))\n        depth = rng.randrange(0, 4)\n        cur = [r]\n        for _ in range(depth):\n            cur = cur + [rng.choice(names)]\n            paths.add(tuple(cur))\n    out = [list(p) for p in paths]\n    return [out]\n",
+      "note": "constraint says parent of any non-root folder is present; building incrementally guarantees it"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def deleteDuplicateFolder(self, paths):\n        from collections import defaultdict\n        root = {}\n        for p in paths:\n            cur = root\n            for name in p:\n                cur = cur.setdefault(name, {})\n        sig_count = defaultdict(int)\n        def serialize(node):\n            if not node:\n                return ''\n            parts = []\n            for name in sorted(node):\n                parts.append(name + '(' + serialize(node[name]) + ')')\n            s = ''.join(parts)\n            sig_count[s] += 1\n            return s\n        for name in sorted(root):\n            serialize(root[name])\n        res = []\n        def collect(node, path):\n            for name in sorted(node):\n                child = node[name]\n                s = serialize_lookup(child)\n                if child and sig_count[s] > 1:\n                    continue\n                res.append(path + [name])\n                collect(child, path + [name])\n        def serialize_lookup(node):\n            if not node:\n                return ''\n            parts = []\n            for name in sorted(node):\n                parts.append(name + '(' + serialize_lookup(node[name]) + ')')\n            return ''.join(parts)\n        collect(root, [])\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def deleteDuplicateFolder(self, paths):\n        from collections import defaultdict\n        root = {}\n        for p in paths:\n            cur = root\n            for name in p:\n                cur = cur.setdefault(name, {})\n        count = defaultdict(int)\n        memo = {}\n        def serialize(node):\n            if not node:\n                return ''\n            parts = []\n            for name in sorted(node):\n                parts.append(name + '(' + serialize(node[name]) + ')')\n            s = ''.join(parts)\n            count[s] += 1\n            return s\n        for name in sorted(root):\n            serialize(root[name])\n        def sig(node):\n            if id(node) in memo:\n                return memo[id(node)]\n            if not node:\n                memo[id(node)] = ''\n                return ''\n            parts = []\n            for name in sorted(node):\n                parts.append(name + '(' + sig(node[name]) + ')')\n            s = ''.join(parts)\n            memo[id(node)] = s\n            return s\n        res = []\n        def walk(node, path):\n            for name in sorted(node):\n                child = node[name]\n                s = sig(child)\n                if child and count[s] > 1:\n                    continue\n                path.append(name)\n                res.append(list(path))\n                walk(child, path)\n                path.pop()\n        walk(root, [])\n        return res\n",
+    "javascript": "var deleteDuplicateFolder = function(paths) {\n    const root = new Map();\n    for (const p of paths) {\n        let cur = root;\n        for (const name of p) {\n            if (!cur.has(name)) cur.set(name, new Map());\n            cur = cur.get(name);\n        }\n    }\n    const count = new Map();\n    const serialize = (node) => {\n        if (node.size === 0) return '';\n        const names = [...node.keys()].sort();\n        let parts = '';\n        for (const name of names) parts += name + '(' + serialize(node.get(name)) + ')';\n        count.set(parts, (count.get(parts) || 0) + 1);\n        return parts;\n    };\n    const names0 = [...root.keys()].sort();\n    for (const name of names0) serialize(root.get(name));\n    const sigOf = (node) => {\n        if (node.size === 0) return '';\n        const names = [...node.keys()].sort();\n        let parts = '';\n        for (const name of names) parts += name + '(' + sigOf(node.get(name)) + ')';\n        return parts;\n    };\n    const res = [];\n    const walk = (node, path) => {\n        const names = [...node.keys()].sort();\n        for (const name of names) {\n            const child = node.get(name);\n            const s = sigOf(child);\n            if (child.size > 0 && (count.get(s) || 0) > 1) continue;\n            path.push(name);\n            res.push([...path]);\n            walk(child, path);\n            path.pop();\n        }\n    };\n    walk(root, []);\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(N log N)", "space": "O(N)" }
+}

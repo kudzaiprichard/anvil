@@ -1,0 +1,45 @@
+{
+  "slug": "valid-parenthesis-string",
+  "judge": "exact",
+  "pattern": "Track the range of possible open-paren counts as wildcards flex between open, close, and empty, accepting only when zero stays reachable.",
+  "hints": [
+    "A star is flexible: it can act like an extra open bracket, an extra close bracket, or nothing at all.",
+    "Instead of fixing each star, keep a running low and high estimate of how many unmatched open brackets could exist after each character.",
+    "Raise both bounds on '(', lower both on ')', and widen the range on '*'; if the high bound ever drops below zero the string is doomed, and at the end zero must lie within the surviving range."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "plain balanced pair", "input": ["()"] },
+    { "kind": "edge", "description": "star fills the middle as nothing", "input": ["(*)"] },
+    { "kind": "trap", "description": "star must absorb an extra close", "input": ["(*))"] },
+    { "kind": "trap", "description": "lone close cannot be matched", "input": [")"] },
+    { "kind": "trap", "description": "single star alone is an empty string", "input": ["*"] },
+    { "kind": "boundary", "description": "single open is unbalanced", "input": ["("] },
+    { "kind": "edge", "description": "stars cannot fix a close that comes too early", "input": ["))(("] },
+    { "kind": "edge", "description": "nested with stars stays valid", "input": ["(((*)))"] },
+    { "kind": "trap", "description": "too many opens for the available stars", "input": ["((*"] }
+  ],
+  "stress": [
+    {
+      "description": "random strings over the three characters at moderate length",
+      "seed": 71,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, size))\n    return [''.join(rng.choice('()*') for _ in range(n))]\n",
+      "note": "mixes valid and invalid arrangements"
+    },
+    {
+      "description": "constructed balanced strings with stars sprinkled in to stress the lenient direction",
+      "seed": 72,
+      "size": 90,
+      "generator_python": "def gen(rng, size):\n    depth = 0\n    out = []\n    n = rng.randint(1, max(1, size))\n    for _ in range(n):\n        r = rng.random()\n        if r < 0.45:\n            out.append('(')\n            depth += 1\n        elif r < 0.8 and depth > 0:\n            out.append(')')\n            depth -= 1\n        else:\n            out.append('*')\n    return [''.join(out)]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def checkValidString(self, s):\n        from functools import lru_cache\n        n = len(s)\n        @lru_cache(maxsize=None)\n        def ok(i, bal):\n            if bal < 0:\n                return False\n            if i == n:\n                return bal == 0\n            c = s[i]\n            if c == '(': \n                return ok(i + 1, bal + 1)\n            if c == ')':\n                return ok(i + 1, bal - 1)\n            return ok(i + 1, bal + 1) or ok(i + 1, bal - 1) or ok(i + 1, bal)\n        return ok(0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def checkValidString(self, s):\n        lo = hi = 0\n        for c in s:\n            if c == '(':\n                lo += 1\n                hi += 1\n            elif c == ')':\n                lo -= 1\n                hi -= 1\n            else:\n                lo -= 1\n                hi += 1\n            if hi < 0:\n                return False\n            if lo < 0:\n                lo = 0\n        return lo == 0\n",
+    "javascript": "var checkValidString = function(s) {\n    let lo = 0, hi = 0;\n    for (const c of s) {\n        if (c === '(') { lo++; hi++; }\n        else if (c === ')') { lo--; hi--; }\n        else { lo--; hi++; }\n        if (hi < 0) return false;\n        if (lo < 0) lo = 0;\n    }\n    return lo === 0;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

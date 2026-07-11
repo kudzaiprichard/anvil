@@ -1,0 +1,41 @@
+{
+  "slug": "minimum-cost-to-hire-k-workers",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "Fixing the worker with the highest wage-to-quality ratio in the group and keeping the k smallest qualities via a max-heap yields the minimum total payment.",
+  "hints": [
+    "Every paid group has a single effective rate (dollars per quality unit) determined by whoever demands the highest such ratio; every other worker is paid more than their minimum wage at that rate.",
+    "Sort workers by their wage/quality ratio. For each candidate as the group's rate-setter, the cheapest k-quality sum is the k smallest qualities seen so far among workers with a ratio no greater than theirs.",
+    "Sort by wage[i]/quality[i]. Sweep left to right maintaining a max-heap of quality values of size k; when the heap reaches size k, compute (sum of heap) * ratio[i] and track the minimum. Eject the largest quality whenever the heap exceeds k."
+  ],
+  "constraints": [
+    { "param": "quality", "kind": "int[]", "len": [1, 10000], "value": [1, 10000] },
+    { "param": "wage", "kind": "int[]", "len": [1, 10000], "value": [1, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small example: two workers hired, classic case", "input": [[10, 20, 5], [70, 50, 30], 2] },
+    { "kind": "edge", "description": "five workers, hire three, mixed wage/quality ratios", "input": [[3, 1, 10, 10, 1], [4, 8, 2, 2, 7], 3] },
+    { "kind": "boundary", "description": "hire all workers — only one valid group exists", "input": [[5, 10], [10, 20], 2] },
+    { "kind": "boundary", "description": "k equals 1 so the single cheapest-rate worker wins", "input": [[4, 8, 2], [12, 8, 6], 1] },
+    { "kind": "trap", "description": "a low-quality worker with a high wage still sets the rate for cheaper-ratio workers", "input": [[1, 2, 3], [10, 1, 1], 2] },
+    { "kind": "trap", "description": "equal quality values; rate alone distinguishes cost", "input": [[5, 5, 5], [10, 15, 20], 2] },
+    { "kind": "edge", "description": "all workers have the same wage/quality ratio so any k-group costs the same", "input": [[3, 6, 9], [6, 12, 18], 2] },
+    { "kind": "boundary", "description": "single worker available and k=1", "input": [[7], [14], 1] },
+    { "kind": "trap", "description": "high-quality worker with low wage would inflate cost for others when hired together", "input": [[10, 1, 1], [100, 2, 2], 2] }
+  ],
+  "stress": [
+    {
+      "description": "large random workers array with k at half the size",
+      "seed": 77,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    quality = [rng.randrange(1, 10001) for _ in range(n)]\n    wage = [rng.randrange(1, 10001) for _ in range(n)]\n    k = max(1, n // 2)\n    return [quality, wage, k]\n",
+      "note": "k = n//2 so heap pressure is exercised throughout the sweep"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def mincostToHireWorkers(self, quality, wage, k):\n        n = len(quality)\n        best = float('inf')\n        for captain in range(n):\n            rate = wage[captain] / quality[captain]\n            costs = []\n            for i in range(n):\n                if wage[i] / quality[i] <= rate + 1e-9:\n                    costs.append(rate * quality[i])\n            if len(costs) >= k:\n                costs.sort()\n                best = min(best, sum(costs[:k]))\n        return best\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def mincostToHireWorkers(self, quality, wage, k):\n        workers = sorted((wage[i] / quality[i], quality[i]) for i in range(len(quality)))\n        heap = []\n        q_sum = 0\n        best = float('inf')\n        for rate, q in workers:\n            heapq.heappush(heap, -q)\n            q_sum += q\n            if len(heap) > k:\n                q_sum += heapq.heappop(heap)\n            if len(heap) == k:\n                best = min(best, rate * q_sum)\n        return best\n",
+    "javascript": "var mincostToHireWorkers = function(quality, wage, k) {\n    const n = quality.length;\n    const workers = [];\n    for (let i = 0; i < n; i++) workers.push([wage[i] / quality[i], quality[i]]);\n    workers.sort((a, b) => a[0] - b[0]);\n    const heap = [];\n    const heapPush = (val) => {\n        heap.push(val);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const par = (i - 1) >> 1;\n            if (heap[par] >= heap[i]) break;\n            [heap[par], heap[i]] = [heap[i], heap[par]];\n            i = par;\n        }\n    };\n    const heapPop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length > 0) {\n            heap[0] = last;\n            let i = 0;\n            for (;;) {\n                let s = i;\n                const l = 2 * i + 1, r = 2 * i + 2;\n                if (l < heap.length && heap[l] > heap[s]) s = l;\n                if (r < heap.length && heap[r] > heap[s]) s = r;\n                if (s === i) break;\n                [heap[s], heap[i]] = [heap[i], heap[s]];\n                i = s;\n            }\n        }\n        return top;\n    };\n    let qSum = 0;\n    let ans = Infinity;\n    for (const [rate, q] of workers) {\n        heapPush(q);\n        qSum += q;\n        if (heap.length > k) qSum -= heapPop();\n        if (heap.length === k) ans = Math.min(ans, rate * qSum);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(k)" }
+}

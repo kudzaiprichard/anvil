@@ -1,0 +1,37 @@
+{
+  "slug": "next-special-palindrome-number",
+  "judge": "exact",
+  "pattern": "Each digit's count is fixed by its value and zero is forbidden, so the valid digit multisets form a tiny enumerable set, and for each one a digit-by-digit construction yields the smallest palindrome exceeding the target.",
+  "hints": [
+    "Digit 0 can never appear (it would need to occur zero times), and a palindrome allows at most one digit with an odd count, so only a handful of digit sets are usable.",
+    "For a chosen digit set the full length is fixed; you only choose the arrangement of its first half, with the unique odd-count digit forced into the center.",
+    "For each valid set, build the smallest half-arrangement whose palindrome beats n (matching n's prefix and then going one digit higher), then take the minimum candidate across all sets."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [0, 1000000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "smallest target jumps to 22", "input": [2] },
+    { "kind": "edge", "description": "two-digit target needs a three-digit answer", "input": [33] },
+    { "kind": "boundary", "description": "zero target, answer is one", "input": [0] },
+    { "kind": "edge", "description": "just past the single-digit special", "input": [1] },
+    { "kind": "edge", "description": "next after 22", "input": [22] },
+    { "kind": "trap", "description": "target equals a special number, must go strictly greater", "input": [212] },
+    { "kind": "trap", "description": "crossing from a four-of-a-kind to a longer palindrome", "input": [55555] },
+    { "kind": "trap", "description": "gap before the next six-plus-digit special", "input": [666666] }
+  ],
+  "stress": [
+    {
+      "description": "random small targets validated against an increment-and-test oracle",
+      "seed": 37,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(0, 30000)\n    return [n]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def specialPalindrome(self, n):\n        from collections import Counter\n        def special(x):\n            s = str(x)\n            if s != s[::-1]:\n                return False\n            c = Counter(s)\n            return all(int(d) == cnt for d, cnt in c.items())\n        x = n + 1\n        while not special(x):\n            x += 1\n        return x\n",
+  "solutions": {
+    "python": "class Solution:\n    def specialPalindrome(self, n):\n        def build(half_counts, H, center, sN):\n            counts = half_counts[:]\n            left = []\n            nleft = sN[:H]\n            def rec(pos, tight):\n                if pos == H:\n                    ls = ''.join(left)\n                    pal = ls + (str(center) if center != -1 else '') + ls[::-1]\n                    return pal if int(pal) > int(sN) else None\n                lo = int(nleft[pos]) if tight else 0\n                for d in range(lo, 10):\n                    if counts[d] == 0:\n                        continue\n                    counts[d] -= 1\n                    left.append(str(d))\n                    r = rec(pos + 1, tight and d == int(nleft[pos]))\n                    if r is not None:\n                        left.pop(); counts[d] += 1; return r\n                    left.pop(); counts[d] += 1\n                return None\n            return rec(0, True)\n        best = None\n        for mask in range(1, 512):\n            S = [d for d in range(1, 10) if (mask >> (d - 1)) & 1]\n            odd = [d for d in S if d % 2 == 1]\n            if len(odd) > 1:\n                continue\n            center = odd[0] if odd else -1\n            L = sum(S)\n            half_counts = [0] * 10\n            for d in S:\n                half_counts[d] += d // 2\n            H = sum(half_counts)\n            ndig = len(str(n))\n            if L < ndig:\n                continue\n            if L > ndig:\n                left = ''.join(str(d) * half_counts[d] for d in range(1, 10))\n                cand = left + (str(center) if center != -1 else '') + left[::-1]\n            else:\n                cand = build(half_counts, H, center, str(n))\n            if cand is not None:\n                val = int(cand)\n                if val > n and (best is None or val < best):\n                    best = val\n        return best\n",
+    "javascript": "var specialPalindrome = function(n) {\n    const N = BigInt(n);\n    const build = (halfCounts, H, center, sN) => {\n        const counts = halfCounts.slice();\n        const left = [];\n        const nleft = sN.slice(0, H);\n        const rec = (pos, tight) => {\n            if (pos === H) {\n                const ls = left.join('');\n                const pal = ls + (center !== -1 ? String(center) : '') + ls.split('').reverse().join('');\n                return BigInt(pal) > BigInt(sN) ? pal : null;\n            }\n            const lo = tight ? Number(nleft[pos]) : 0;\n            for (let d = lo; d < 10; d++) {\n                if (counts[d] === 0) continue;\n                counts[d]--; left.push(String(d));\n                const r = rec(pos + 1, tight && d === Number(nleft[pos]));\n                if (r !== null) { left.pop(); counts[d]++; return r; }\n                left.pop(); counts[d]++;\n            }\n            return null;\n        };\n        return rec(0, true);\n    };\n    let best = null;\n    const sN0 = String(n);\n    for (let mask = 1; mask < 512; mask++) {\n        const S = [];\n        for (let d = 1; d <= 9; d++) if ((mask >> (d - 1)) & 1) S.push(d);\n        const odd = S.filter(d => d % 2 === 1);\n        if (odd.length > 1) continue;\n        const center = odd.length ? odd[0] : -1;\n        const L = S.reduce((a, b) => a + b, 0);\n        const halfCounts = new Array(10).fill(0);\n        for (const d of S) halfCounts[d] += Math.floor(d / 2);\n        const H = halfCounts.reduce((a, b) => a + b, 0);\n        const ndig = sN0.length;\n        let cand = null;\n        if (L < ndig) continue;\n        if (L > ndig) {\n            let leftStr = '';\n            for (let d = 1; d <= 9; d++) leftStr += String(d).repeat(halfCounts[d]);\n            cand = leftStr + (center !== -1 ? String(center) : '') + leftStr.split('').reverse().join('');\n        } else {\n            cand = build(halfCounts, H, center, sN0);\n        }\n        if (cand !== null) {\n            const val = BigInt(cand);\n            if (val > N && (best === null || val < best)) best = val;\n        }\n    }\n    return Number(best);\n};\n"
+  },
+  "complexity": { "time": "O(512 * L)", "space": "O(L)" }
+}

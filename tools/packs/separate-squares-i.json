@@ -1,0 +1,76 @@
+{
+  "slug": "separate-squares-i",
+  "judge": {
+    "type": "float",
+    "epsilon": 0.00001
+  },
+  "pattern": "The area below a horizontal line is a monotonically non-decreasing function of that line's height, so the balancing height can be pinned down with a binary search on the real number line.",
+  "hints": [
+    "For a candidate line height Y, the area of a square below it only depends on how much of that square's own height falls under Y -- clamp(Y - y, 0, side) * side, summed over every square (overlaps count separately here, so x-coordinates never matter).",
+    "That total 'area below Y' only ever increases as Y increases, so binary search on Y for the height where it equals exactly half the total area.",
+    "Run enough binary search iterations (or narrow the interval until it is far tighter than the required precision) between the lowest and highest square edges to land within the allowed tolerance."
+  ],
+  "constraints": [
+    {
+      "param": "squares",
+      "kind": "int[][]",
+      "rows": [1, 50000],
+      "cols": [3, 3],
+      "value": [0, 1000000000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two disjoint unit squares",
+      "input": [[[0,0,1],[2,2,1]]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, overlapping squares counted multiple times",
+      "input": [[[0,0,2],[1,1,1]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single square, the line must sit at its exact midpoint",
+      "input": [[[5, 5, 10]]]
+    },
+    {
+      "kind": "edge",
+      "description": "many identical stacked squares, overlap counted repeatedly",
+      "input": [[[0,0,4],[0,0,4],[0,0,4]]]
+    },
+    {
+      "kind": "trap",
+      "description": "one huge square and one tiny square far above it",
+      "input": [[[0,0,100],[0,200,1]]]
+    },
+    {
+      "kind": "boundary",
+      "description": "squares touching edge to edge with no gap",
+      "input": [[[0,0,3],[0,3,3]]]
+    },
+    {
+      "kind": "trap",
+      "description": "squares at very different scales stress the binary search precision",
+      "input": [[[0,0,1000000000],[0,999999999,1]]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random squares with varied positions and sizes",
+      "seed": 4,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(200, size))\n    squares = []\n    for _ in range(n):\n        x = rng.randint(0, 1000)\n        y = rng.randint(0, 1000)\n        l = rng.randint(1, 200)\n        squares.append([x, y, l])\n    return [squares]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def separateSquares(self, squares):\n        pts = set()\n        for _, y, l in squares:\n            pts.add(y)\n            pts.add(y + l)\n        pts = sorted(pts)\n        total = sum(l * l for _, _, l in squares)\n        target = total / 2\n\n        def below(Y):\n            return sum(max(0.0, min(Y, y + l) - y) * l for _, y, l in squares)\n\n        for i in range(len(pts) - 1):\n            Y0, Y1 = pts[i], pts[i + 1]\n            C0 = below(Y0)\n            C1 = below(Y1)\n            if C0 <= target <= C1:\n                if C1 == C0:\n                    return Y0\n                frac = (target - C0) / (C1 - C0)\n                return Y0 + frac * (Y1 - Y0)\n        return pts[-1]\n",
+  "solutions": {
+    "python": "class Solution:\n    def separateSquares(self, squares):\n        lo = min(s[1] for s in squares)\n        hi = max(s[1] + s[2] for s in squares)\n        total = sum(s[2] * s[2] for s in squares)\n        target = total / 2\n        for _ in range(100):\n            mid = (lo + hi) / 2\n            below = sum(max(0.0, min(mid, s[1] + s[2]) - s[1]) * s[2] for s in squares)\n            if below < target:\n                lo = mid\n            else:\n                hi = mid\n        return (lo + hi) / 2\n",
+    "javascript": "var separateSquares = function(squares) {\n    let lo = Math.min(...squares.map(s => s[1]));\n    let hi = Math.max(...squares.map(s => s[1] + s[2]));\n    const total = squares.reduce((acc, s) => acc + s[2] * s[2], 0);\n    const target = total / 2;\n    for (let iter = 0; iter < 100; iter++) {\n        const mid = (lo + hi) / 2;\n        let below = 0;\n        for (const [, y, l] of squares) {\n            below += Math.max(0, Math.min(mid, y + l) - y) * l;\n        }\n        if (below < target) lo = mid; else hi = mid;\n    }\n    return (lo + hi) / 2;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log(range/epsilon))",
+    "space": "O(1)"
+  }
+}

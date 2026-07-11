@@ -1,0 +1,39 @@
+{
+  "slug": "distribute-repeating-integers",
+  "judge": "exact",
+  "pattern": "Reduce each customer to a bit in a small mask, then use a submask dynamic program to decide, value stock by value stock, which still-unsatisfied group of customers that stock alone could complete.",
+  "hints": [
+    "There are at most fifty distinct values and at most ten customers, so represent the set of already-satisfied customers as bits in a mask rather than reasoning about the raw quantity list directly.",
+    "For a table of masks known to be fully satisfiable, feed in one distinct value's total stock at a time and see which additional group of not-yet-satisfied customers that single stock could complete on its own.",
+    "For each satisfiable mask, enumerate submasks of its complement whose combined demand fits the current stock, and mark the union as newly satisfiable; stop as soon as the mask covering every customer is reached."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000] },
+    { "param": "quantity", "kind": "int[]", "len": [1, 10], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one customer exactly matches the stock of a repeated value", "input": [[5, 5, 5, 5], [4]] },
+    { "kind": "edge", "description": "three customers each take one of three distinct values", "input": [[1, 2, 3], [1, 1, 1]] },
+    { "kind": "boundary", "description": "fifty distinct values, each appearing once, one small customer", "input": [[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50], [1]] },
+    { "kind": "boundary", "description": "single customer consumes the entire stock of one value", "input": [[7, 7, 7], [3]] },
+    { "kind": "trap", "description": "total elements suffice but no single value has enough copies", "input": [[1, 1, 2, 2, 2], [4]] },
+    { "kind": "trap", "description": "two customers compete for a scarce value that cannot cover both", "input": [[9, 9, 9], [2, 2]] },
+    { "kind": "trap", "description": "quantities match totals exactly only when paired with the right values", "input": [[1, 1, 1, 2, 2], [3, 2]] },
+    { "kind": "edge", "description": "single customer, single untouched value", "input": [[42], [1]] }
+  ],
+  "stress": [
+    {
+      "description": "large nums array over few distinct values against up to ten random customer orders",
+      "seed": 7,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(100000, size))\n    unique_vals = rng.randint(1, 50)\n    vals = list(range(1, unique_vals + 1))\n    nums = [rng.choice(vals) for _ in range(n)]\n    m = rng.randint(1, 10)\n    quantity = [rng.randint(1, max(1, min(100000, n // m))) for _ in range(m)]\n    return [nums, quantity]\n",
+      "note": "quantities are scaled down from n so both feasible and infeasible cases occur"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canDistribute(self, nums, quantity):\n        from collections import Counter\n        counts = tuple(sorted(Counter(nums).values(), reverse=True))\n        orders = sorted(quantity, reverse=True)\n        memo = {}\n\n        def backtrack(idx, remaining):\n            if idx == len(orders):\n                return True\n            key = (idx, remaining)\n            if key in memo:\n                return memo[key]\n            need = orders[idx]\n            ok = False\n            tried = set()\n            for i, have in enumerate(remaining):\n                if have in tried or have < need:\n                    continue\n                tried.add(have)\n                nxt = list(remaining)\n                nxt[i] -= need\n                nxt.sort(reverse=True)\n                if backtrack(idx + 1, tuple(nxt)):\n                    ok = True\n                    break\n            memo[key] = ok\n            return ok\n\n        return backtrack(0, counts)\n",
+  "solutions": {
+    "python": "class Solution:\n    def canDistribute(self, nums, quantity):\n        from collections import Counter\n        counts = list(Counter(nums).values())\n        m = len(quantity)\n        full = 1 << m\n        subsum = [0] * full\n        for mask in range(1, full):\n            low = mask & (-mask)\n            idx = low.bit_length() - 1\n            subsum[mask] = subsum[mask ^ low] + quantity[idx]\n        dp = [False] * full\n        dp[0] = True\n        for cnt in counts:\n            if dp[full - 1]:\n                break\n            new_dp = dp[:]\n            for mask in range(full):\n                if not dp[mask]:\n                    continue\n                rest = (full - 1) ^ mask\n                sub = rest\n                while sub:\n                    if subsum[sub] <= cnt:\n                        new_dp[mask | sub] = True\n                    sub = (sub - 1) & rest\n            dp = new_dp\n        return dp[full - 1]\n",
+    "javascript": "var canDistribute = function(nums, quantity) {\n    const counts = new Map();\n    for (const v of nums) counts.set(v, (counts.get(v) || 0) + 1);\n    const countList = Array.from(counts.values());\n    const m = quantity.length;\n    const full = 1 << m;\n    const subsum = new Array(full).fill(0);\n    for (let mask = 1; mask < full; mask++) {\n        const low = mask & (-mask);\n        const idx = Math.round(Math.log2(low));\n        subsum[mask] = subsum[mask ^ low] + quantity[idx];\n    }\n    let dp = new Array(full).fill(false);\n    dp[0] = true;\n    for (const cnt of countList) {\n        if (dp[full - 1]) break;\n        const newDp = dp.slice();\n        for (let mask = 0; mask < full; mask++) {\n            if (!dp[mask]) continue;\n            const rest = (full - 1) ^ mask;\n            let sub = rest;\n            while (sub) {\n                if (subsum[sub] <= cnt) newDp[mask | sub] = true;\n                sub = (sub - 1) & rest;\n            }\n        }\n        dp = newDp;\n    }\n    return dp[full - 1];\n};\n"
+  },
+  "complexity": { "time": "O(uniqueValues * 3^m)", "space": "O(2^m)" }
+}

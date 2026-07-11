@@ -1,0 +1,38 @@
+{
+  "slug": "replace-words",
+  "judge": "exact",
+  "pattern": "For each word, the shortest dictionary root that prefixes it wins, which a trie finds by stopping at the first root marker walking down the word.",
+  "hints": [
+    "Process the sentence word by word; the answer for a word depends only on whether some root is a prefix of it.",
+    "Among all roots that are prefixes of a word, you want the shortest, so search prefixes from short to long.",
+    "Build a trie of the roots, marking word-ends. For each word, walk the trie following the word's characters; the first end-marker you hit gives the shortest matching root, which replaces the word. If none, keep the word."
+  ],
+  "constraints": [
+    { "param": "dictionary", "kind": "string[]", "len": [1, 1000] },
+    { "param": "sentence", "kind": "string", "len": [1, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "several words replaced by their roots", "input": [["cat", "bat", "rat"], "the cattle was rattled by the battery"] },
+    { "kind": "trap", "description": "single-letter roots match aggressively", "input": [["a", "b", "c"], "aadsfasf absbs bbab cadsfafs"] },
+    { "kind": "trap", "description": "shortest root must win when two roots both prefix a word", "input": [["ab", "abc"], "abcd"] },
+    { "kind": "edge", "description": "no root matches, sentence unchanged", "input": [["xyz"], "the quick brown fox"] },
+    { "kind": "edge", "description": "root equals the whole word", "input": [["hello"], "hello world"] },
+    { "kind": "boundary", "description": "single word, single root that is a prefix", "input": [["go"], "going"] },
+    { "kind": "trap", "description": "root longer than word cannot match", "input": [["abcdef"], "abc"] }
+  ],
+  "stress": [
+    {
+      "description": "random roots and a sentence of random words, some derived from roots",
+      "seed": 21,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    alpha = 'abcde'\n    nd = rng.randrange(1, max(2, min(size, 60)))\n    roots = []\n    for _ in range(nd):\n        ln = rng.randrange(1, 6)\n        roots.append(''.join(rng.choice(alpha) for _ in range(ln)))\n    nw = rng.randrange(1, max(2, min(size, 60)))\n    words = []\n    for _ in range(nw):\n        if roots and rng.random() < 0.5:\n            base = rng.choice(roots)\n            extra = ''.join(rng.choice(alpha) for _ in range(rng.randrange(0, 4)))\n            words.append(base + extra)\n        else:\n            ln = rng.randrange(1, 7)\n            words.append(''.join(rng.choice(alpha) for _ in range(ln)))\n    sentence = ' '.join(words)\n    return [roots, sentence]\n",
+      "note": "half of words are derived from a root so replacements occur"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def replaceWords(self, dictionary, sentence):\n        roots = sorted(set(dictionary), key=len)\n        out = []\n        for w in sentence.split(' '):\n            best = w\n            for r in roots:\n                if w.startswith(r):\n                    best = r\n                    break\n            out.append(best)\n        return ' '.join(out)\n",
+  "solutions": {
+    "python": "class Solution:\n    def replaceWords(self, dictionary, sentence):\n        trie = {}\n        END = '#'\n        for r in dictionary:\n            node = trie\n            for ch in r:\n                node = node.setdefault(ch, {})\n            node[END] = r\n        def shortest(word):\n            node = trie\n            for ch in word:\n                if ch not in node:\n                    return word\n                node = node[ch]\n                if END in node:\n                    return node[END]\n            return word\n        return ' '.join(shortest(w) for w in sentence.split(' '))\n",
+    "javascript": "var replaceWords = function(dictionary, sentence) {\n    const trie = {};\n    const END = '#';\n    for (const r of dictionary) {\n        let node = trie;\n        for (const ch of r) {\n            if (!node[ch]) node[ch] = {};\n            node = node[ch];\n        }\n        node[END] = r;\n    }\n    const shortest = (word) => {\n        let node = trie;\n        for (const ch of word) {\n            if (!(ch in node)) return word;\n            node = node[ch];\n            if (END in node) return node[END];\n        }\n        return word;\n    };\n    return sentence.split(' ').map(shortest).join(' ');\n};\n"
+  },
+  "complexity": { "time": "O(total characters)", "space": "O(dictionary characters)" }
+}

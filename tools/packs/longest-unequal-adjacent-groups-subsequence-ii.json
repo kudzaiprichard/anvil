@@ -1,0 +1,43 @@
+{
+  "slug": "longest-unequal-adjacent-groups-subsequence-ii",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    words, groups = args[0], args[1]\n    n = len(words)\n    if not isinstance(output, list) or not output or not all(isinstance(w, str) for w in output):\n        return False\n    index_of = {w: i for i, w in enumerate(words)}\n    idxs = []\n    for w in output:\n        if w not in index_of:\n            return False\n        idxs.append(index_of[w])\n\n    def hamming_one(a, b):\n        if len(a) != len(b):\n            return False\n        diff = 0\n        for x, y in zip(a, b):\n            if x != y:\n                diff += 1\n                if diff > 1:\n                    return False\n        return diff == 1\n\n    for a, b in zip(idxs, idxs[1:]):\n        if b <= a:\n            return False\n        if groups[a] == groups[b]:\n            return False\n        if not hamming_one(words[a], words[b]):\n            return False\n\n    dp = [1] * n\n    for i in range(n):\n        for j in range(i):\n            if groups[j] == groups[i]:\n                continue\n            if not hamming_one(words[j], words[i]):\n                continue\n            if dp[j] + 1 > dp[i]:\n                dp[i] = dp[j] + 1\n    return len(output) == max(dp)\n",
+    "validator_javascript": "function validate(args, output) {\n    const words = args[0], groups = args[1];\n    const n = words.length;\n    if (!Array.isArray(output) || output.length === 0 || !output.every(w => typeof w === 'string')) return false;\n    const indexOf = new Map(words.map((w, i) => [w, i]));\n    const idxs = [];\n    for (const w of output) {\n        if (!indexOf.has(w)) return false;\n        idxs.push(indexOf.get(w));\n    }\n\n    function hammingOne(a, b) {\n        if (a.length !== b.length) return false;\n        let diff = 0;\n        for (let k = 0; k < a.length; k++) {\n            if (a[k] !== b[k]) {\n                diff++;\n                if (diff > 1) return false;\n            }\n        }\n        return diff === 1;\n    }\n\n    for (let k = 0; k + 1 < idxs.length; k++) {\n        if (idxs[k + 1] <= idxs[k]) return false;\n        if (groups[idxs[k]] === groups[idxs[k + 1]]) return false;\n        if (!hammingOne(words[idxs[k]], words[idxs[k + 1]])) return false;\n    }\n\n    const dp = new Array(n).fill(1);\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < i; j++) {\n            if (groups[j] === groups[i]) continue;\n            if (!hammingOne(words[j], words[i])) continue;\n            if (dp[j] + 1 > dp[i]) dp[i] = dp[j] + 1;\n        }\n    }\n    return output.length === Math.max(...dp);\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Treat two words as linkable exactly when their group values differ, their lengths match, and they differ in a single character, then find the longest chain of links while keeping the words in their original order.",
+  "hints": [
+    "Think of each word as only being allowed to attach onto an earlier word when the two have different group values, the same length, and differ in exactly one character.",
+    "This becomes a longest-chain dynamic program: for every word, look back at every earlier word that could link to it and extend that word's best chain by one.",
+    "Track, for each position, the length of the best chain ending there and which earlier position it came from, then follow the back-links from whichever position has the longest chain to rebuild the answer in order."
+  ],
+  "constraints": [
+    { "param": "words", "kind": "string[]", "len": [1, 1000], "elem_len": [1, 10], "note": "words are distinct and use only lowercase English letters" },
+    { "param": "groups", "kind": "int[]", "len": [1, 1000], "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one word links to two different later words through two separate valid two-word chains", "input": [["bab", "dab", "cab"], [1, 2, 2]] },
+    { "kind": "edge", "description": "every consecutive pair meets all three linking conditions, so the whole array chains together", "input": [["a", "b", "c", "d"], [1, 2, 3, 4]] },
+    { "kind": "edge", "description": "a single word is trivially the whole answer", "input": [["only"], [5]] },
+    { "kind": "trap", "description": "equal group values block the link even though the words otherwise match closely", "input": [["cat", "bat"], [1, 1]] },
+    { "kind": "trap", "description": "different lengths block the link even when the group values differ", "input": [["cat", "cats"], [1, 2]] },
+    { "kind": "trap", "description": "a hamming distance greater than one blocks the link even when group values differ and lengths match", "input": [["cat", "cop"], [1, 2]] },
+    { "kind": "edge", "description": "three words that are pairwise compatible in sequence form one continuous three-word chain", "input": [["aaa", "aab", "aac"], [1, 2, 1]] },
+    { "kind": "trap", "description": "two separate equally long valid chains exist among the words, and either is an acceptable answer", "input": [["ax", "bx", "ay", "by"], [1, 2, 1, 2]] },
+    { "kind": "boundary", "description": "linking checks stay correct at the maximum word length", "input": [["abcdefghij", "abcdefghik"], [3, 7]] }
+  ],
+  "stress": [
+    {
+      "description": "random distinct words of varying lengths with random group values, up to the maximum array length",
+      "seed": 11,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    alphabet = 'abcdefghijklmnopqrstuvwxyz'\n    words = []\n    seen = set()\n    while len(words) < n:\n        length = rng.randint(1, 10)\n        w = ''.join(rng.choice(alphabet) for _ in range(length))\n        if w not in seen:\n            seen.add(w)\n            words.append(w)\n    groups = [rng.randint(1, n) for _ in range(n)]\n    return [words, groups]\n"
+    }
+  ],
+  "solutions": {
+    "python": "class Solution:\n    def getWordsInLongestSubsequence(self, words, groups):\n        def hamming_one(a, b):\n            if len(a) != len(b):\n                return False\n            diff = 0\n            for x, y in zip(a, b):\n                if x != y:\n                    diff += 1\n                    if diff > 1:\n                        return False\n            return diff == 1\n\n        n = len(words)\n        dp = [1] * n\n        parent = [-1] * n\n        best_end = 0\n        for i in range(n):\n            for j in range(i):\n                if groups[j] == groups[i]:\n                    continue\n                if not hamming_one(words[j], words[i]):\n                    continue\n                if dp[j] + 1 > dp[i]:\n                    dp[i] = dp[j] + 1\n                    parent[i] = j\n            if dp[i] > dp[best_end]:\n                best_end = i\n        idx = []\n        cur = best_end\n        while cur != -1:\n            idx.append(cur)\n            cur = parent[cur]\n        idx.reverse()\n        return [words[i] for i in idx]\n",
+    "javascript": "var getWordsInLongestSubsequence = function(words, groups) {\n    function hammingOne(a, b) {\n        if (a.length !== b.length) return false;\n        let diff = 0;\n        for (let k = 0; k < a.length; k++) {\n            if (a[k] !== b[k]) {\n                diff++;\n                if (diff > 1) return false;\n            }\n        }\n        return diff === 1;\n    }\n\n    const n = words.length;\n    const dp = new Array(n).fill(1);\n    const parent = new Array(n).fill(-1);\n    let bestEnd = 0;\n    for (let i = 0; i < n; i++) {\n        for (let j = 0; j < i; j++) {\n            if (groups[j] === groups[i]) continue;\n            if (!hammingOne(words[j], words[i])) continue;\n            if (dp[j] + 1 > dp[i]) {\n                dp[i] = dp[j] + 1;\n                parent[i] = j;\n            }\n        }\n        if (dp[i] > dp[bestEnd]) bestEnd = i;\n    }\n    const idx = [];\n    let cur = bestEnd;\n    while (cur !== -1) {\n        idx.push(cur);\n        cur = parent[cur];\n    }\n    idx.reverse();\n    return idx.map(i => words[i]);\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * L)", "space": "O(n)" }
+}

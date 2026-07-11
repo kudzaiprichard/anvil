@@ -1,0 +1,39 @@
+{
+  "slug": "number-of-beautiful-partitions",
+  "judge": "exact",
+  "pattern": "A valid cut only lands where a non-prime digit is immediately followed by a prime digit, so dynamic programming over those legal boundaries counts the partitions with a prefix-sum speedup.",
+  "hints": [
+    "A piece is valid exactly when it begins on a prime digit and ends on a non-prime one, so think about which positions can ever start or end a piece.",
+    "A cut between index i-1 and i is only legal when i-1 is a non-prime digit and i is a prime digit; the whole string must also start prime and end non-prime.",
+    "Let dp[j][i] be the ways to split the first i characters into j valid pieces; sum dp[j-1][p] over legal start positions p at least minLength back, and accelerate that sum with a running prefix total."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 1000] },
+    { "param": "k", "kind": "int", "value": [1, 1000] },
+    { "param": "minLength", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "several valid partitions with min length two", "input": ["23542185131", 3, 2] },
+    { "kind": "trap", "description": "tighter min length cuts options to one", "input": ["23542185131", 3, 3] },
+    { "kind": "edge", "description": "min length one still constrained by digit types", "input": ["3312958", 3, 1] },
+    { "kind": "trap", "description": "string ends on a prime so no valid partition", "input": ["23", 1, 1] },
+    { "kind": "boundary", "description": "single piece equals the whole valid string", "input": ["24", 1, 1] },
+    { "kind": "trap", "description": "string starts non-prime so zero", "input": ["48", 1, 1] },
+    { "kind": "edge", "description": "k larger than possible pieces gives zero", "input": ["246", 5, 1] }
+  ],
+  "stress": [
+    {
+      "description": "random short digit strings with small k and minLength",
+      "seed": 43,
+      "size": 16,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 16)))\n    s = ''.join(rng.choice('123456789') for _ in range(n))\n    k = rng.randint(1, n)\n    minLength = rng.randint(1, n)\n    return [s, k, minLength]\n",
+      "note": "kept tiny so the exponential oracle enumerating cut sets stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def beautifulPartitions(self, s, k, minLength):\n        MOD = 10**9 + 7\n        primes = set('2357')\n        n = len(s)\n        def is_prime(c):\n            return c in primes\n        from functools import lru_cache\n        # brute: try every set of k-1 cut positions among 1..n-1\n        import itertools\n        if k > n:\n            return 0\n        count = 0\n        positions = range(1, n)\n        for cuts in itertools.combinations(positions, k - 1):\n            bounds = [0] + list(cuts) + [n]\n            ok = True\n            for idx in range(k):\n                a = bounds[idx]\n                b = bounds[idx + 1]\n                if b - a < minLength:\n                    ok = False\n                    break\n                if not is_prime(s[a]) or is_prime(s[b - 1]):\n                    ok = False\n                    break\n            if ok:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def beautifulPartitions(self, s, k, minLength):\n        MOD = 10**9 + 7\n        primes = set('2357')\n        n = len(s)\n        def can_start(i):\n            return s[i] in primes\n        def can_end(i):\n            return s[i] not in primes\n        if k * minLength > n or not can_start(0) or not can_end(n - 1):\n            return 0\n        # dp[j][i]: ways to partition first i chars into j pieces, with a cut before i\n        dp = [[0] * (n + 1) for _ in range(k + 1)]\n        dp[0][0] = 1\n        for j in range(1, k + 1):\n            pref = 0\n            # i is the end position (exclusive) of the j-th piece\n            # a piece ends at i-1, which must be a valid end, and starts at some p\n            # where p is a valid start; cut positions are where a new piece can start\n            for i in range(1, n + 1):\n                # we can close a j-th piece ending at index i-1 if can_end(i-1)\n                # add contributions of dp[j-1][p] for valid start p <= i-minLength\n                p = i - minLength\n                if p >= 0 and (p == 0 or can_start(p)):\n                    pref = (pref + dp[j - 1][p]) % MOD\n                if can_end(i - 1):\n                    dp[j][i] = pref\n                else:\n                    dp[j][i] = 0\n            # reset pref handled per j by recomputation above (pref accumulates within j)\n        return dp[k][n] % MOD\n",
+    "javascript": "var beautifulPartitions = function(s, k, minLength) {\n    const MOD = 1000000007n;\n    const primes = new Set(['2', '3', '5', '7']);\n    const n = s.length;\n    const canStart = i => primes.has(s[i]);\n    const canEnd = i => !primes.has(s[i]);\n    if (k * minLength > n || !canStart(0) || !canEnd(n - 1)) return 0;\n    const dp = Array.from({ length: k + 1 }, () => new Array(n + 1).fill(0n));\n    dp[0][0] = 1n;\n    for (let j = 1; j <= k; j++) {\n        let pref = 0n;\n        for (let i = 1; i <= n; i++) {\n            const p = i - minLength;\n            if (p >= 0 && (p === 0 || canStart(p))) {\n                pref = (pref + dp[j - 1][p]) % MOD;\n            }\n            dp[j][i] = canEnd(i - 1) ? pref : 0n;\n        }\n    }\n    return Number(dp[k][n] % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n*k)", "space": "O(n*k)" }
+}

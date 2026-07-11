@@ -1,0 +1,42 @@
+{
+  "slug": "group-anagrams",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    strs = args[0]\n    if not isinstance(output, list):\n        return False\n    from collections import Counter\n    def sig(w):\n        return ''.join(sorted(w))\n    # 1. partition: the flattened output is exactly the input multiset\n    flat = []\n    for group in output:\n        if not isinstance(group, list) or len(group) == 0:\n            return False\n        for w in group:\n            if not isinstance(w, str):\n                return False\n            flat.append(w)\n    if Counter(flat) != Counter(strs):\n        return False\n    # 2. each group is internally all anagrams\n    group_sigs = []\n    for group in output:\n        s0 = sig(group[0])\n        for w in group:\n            if sig(w) != s0:\n                return False\n        group_sigs.append(s0)\n    # 3. maximality: distinct groups must not share a signature\n    if len(set(group_sigs)) != len(group_sigs):\n        return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const strs = args[0];\n    if (!Array.isArray(output)) return false;\n    const sig = (w) => w.split('').sort().join('');\n    function counter(arr) {\n        const m = new Map();\n        for (const v of arr) m.set(v, (m.get(v) || 0) + 1);\n        return m;\n    }\n    const flat = [];\n    const groupSigs = [];\n    for (const group of output) {\n        if (!Array.isArray(group) || group.length === 0) return false;\n        for (const w of group) {\n            if (typeof w !== 'string') return false;\n            flat.push(w);\n        }\n        const s0 = sig(group[0]);\n        for (const w of group) if (sig(w) !== s0) return false;\n        groupSigs.push(s0);\n    }\n    const a = counter(flat), b = counter(strs);\n    if (a.size !== b.size) return false;\n    for (const [k, v] of a) if (b.get(k) !== v) return false;\n    if (new Set(groupSigs).size !== groupSigs.length) return false;\n    return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Bucketing strings by a canonical key (their sorted letters) groups anagrams together in one pass, since two words are anagrams exactly when they share that key.",
+  "hints": [
+    "Two strings are anagrams precisely when their multisets of characters match.",
+    "A canonical key that is identical for anagrams (sorted letters, or a 26-letter count signature) lets a hash map collect them.",
+    "For each string compute its sorted-character key, append the string to that key's bucket in a dictionary, then return the dictionary's value lists."
+  ],
+  "constraints": [
+    { "param": "strs", "kind": "string[]", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "several mutual anagrams plus a singleton", "input": [["eat", "tea", "tan", "ate", "nat", "bat"]] },
+    { "kind": "boundary", "description": "single empty string is its own group", "input": [[""]] },
+    { "kind": "boundary", "description": "single one-letter string", "input": [["a"]] },
+    { "kind": "trap", "description": "exact duplicates land in the same group and must be preserved", "input": [["ab", "ba", "ab"]] },
+    { "kind": "trap", "description": "no two strings are anagrams so every group is a singleton", "input": [["abc", "def", "ghi"]] },
+    { "kind": "edge", "description": "repeated letters within words", "input": [["aabb", "abab", "baba", "abc"]] },
+    { "kind": "trap", "description": "multiple empty strings all group together", "input": [["", "", "a"]] }
+  ],
+  "stress": [
+    {
+      "description": "random short lowercase words over a small alphabet so many anagram collisions occur",
+      "seed": 49,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    words = []\n    for _ in range(n):\n        ln = rng.randrange(1, 5)\n        words.append(''.join(rng.choice('abc') for _ in range(ln)))\n    return [words]\n",
+      "note": "tiny alphabet and short words force frequent anagram grouping and duplicates"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def groupAnagrams(self, strs):\n        groups = []\n        keys = []\n        for w in strs:\n            k = tuple(sorted(w))\n            if k in keys:\n                groups[keys.index(k)].append(w)\n            else:\n                keys.append(k)\n                groups.append([w])\n        for g in groups:\n            g.sort()\n        groups.sort(key=lambda g: (len(g), g))\n        return groups\n",
+  "solutions": {
+    "python": "class Solution:\n    def groupAnagrams(self, strs):\n        buckets = {}\n        for w in strs:\n            key = ''.join(sorted(w))\n            buckets.setdefault(key, []).append(w)\n        res = list(buckets.values())\n        for g in res:\n            g.sort()\n        res.sort(key=lambda g: (len(g), g))\n        return res\n",
+    "javascript": "var groupAnagrams = function(strs) {\n    const buckets = new Map();\n    for (const w of strs) {\n        const key = w.split('').sort().join('');\n        if (!buckets.has(key)) buckets.set(key, []);\n        buckets.get(key).push(w);\n    }\n    const res = Array.from(buckets.values());\n    for (const g of res) g.sort();\n    res.sort((a, b) => {\n        if (a.length !== b.length) return a.length - b.length;\n        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;\n        return 0;\n    });\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n*k*log k)", "space": "O(n*k)" }
+}

@@ -1,0 +1,70 @@
+{
+  "slug": "maximize-the-number-of-partitions-after-operations",
+  "judge": "exact",
+  "pattern": "Bitmask DP tracking the set of distinct characters in the current partition: try changing each index to each letter and simulate the greedy partitioning, keeping the best result.",
+  "hints": [
+    "Without any change, simulate greedily: extend the current partition while it has at most k distinct chars, starting a new partition when adding the next char would exceed k.",
+    "A single character change can only affect partitions that include the changed index — iterate over all n*26 choices, re-simulate, and take the maximum.",
+    "Represent the current set of distinct characters as a 26-bit bitmask for O(1) popcount and union."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 26] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "Single character, k=1 — one partition, no change helps",
+      "input": ["a", 1]
+    },
+    {
+      "kind": "edge",
+      "description": "All same characters, k=1",
+      "input": ["aaaa", 1]
+    },
+    {
+      "kind": "edge",
+      "description": "k=26 — never need more than 1 partition",
+      "input": ["abcdefghij", 26]
+    },
+    {
+      "kind": "boundary",
+      "description": "Statement example 1",
+      "input": ["accca", 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "Statement example 2",
+      "input": ["aabaab", 3]
+    },
+    {
+      "kind": "boundary",
+      "description": "Statement example 3",
+      "input": ["xxyz", 1]
+    },
+    {
+      "kind": "trap",
+      "description": "Change middle character to something new — splits middle partition",
+      "input": ["abab", 2]
+    },
+    {
+      "kind": "trap",
+      "description": "k=1 — every distinct character is a new partition",
+      "input": ["abcde", 1]
+    }
+  ],
+  "stress": [
+    {
+      "description": "Random string of length 100 with k in [1,5]",
+      "seed": 44,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    import string\n    s = ''.join(rng.choice(string.ascii_lowercase[:8]) for _ in range(size))\n    k = rng.randint(1, 5)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPartitionsAfterOperations(self, s, k):\n        def count_partitions(t, k):\n            cur = 0\n            parts = 1\n            for c in t:\n                bit = 1 << (ord(c) - ord('a'))\n                if bin(cur | bit).count('1') > k:\n                    parts += 1\n                    cur = bit\n                else:\n                    cur |= bit\n            return parts\n        n = len(s)\n        best = count_partitions(s, k)\n        for i in range(n):\n            for c in 'abcdefghijklmnopqrstuvwxyz':\n                if c != s[i]:\n                    t = s[:i] + c + s[i+1:]\n                    best = max(best, count_partitions(t, k))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPartitionsAfterOperations(self, s, k):\n        def count_partitions(t):\n            cur = 0\n            parts = 1\n            for c in t:\n                bit = 1 << (ord(c) - ord('a'))\n                if bin(cur | bit).count('1') > k:\n                    parts += 1\n                    cur = bit\n                else:\n                    cur |= bit\n            return parts\n        n = len(s)\n        best = count_partitions(s)\n        for i in range(n):\n            orig = s[i]\n            for c in 'abcdefghijklmnopqrstuvwxyz':\n                if c != orig:\n                    t = s[:i] + c + s[i+1:]\n                    best = max(best, count_partitions(t))\n        return best\n",
+    "javascript": "var maxPartitionsAfterOperations = function(s, k) {\n    function countParts(t) {\n        let cur = 0, parts = 1;\n        for (const c of t) {\n            const bit = 1 << (c.charCodeAt(0) - 97);\n            if (popcount(cur | bit) > k) { parts++; cur = bit; }\n            else cur |= bit;\n        }\n        return parts;\n    }\n    function popcount(x) {\n        let c = 0; while (x) { c += x & 1; x >>>= 1; } return c;\n    }\n    const n = s.length;\n    let best = countParts(s);\n    for (let i = 0; i < n; i++) {\n        for (let ci = 0; ci < 26; ci++) {\n            const c = String.fromCharCode(97 + ci);\n            if (c !== s[i]) {\n                const t = s.slice(0, i) + c + s.slice(i+1);\n                best = Math.max(best, countParts(t));\n            }\n        }\n    }\n    return best;\n};"
+  },
+  "complexity": { "time": "O(n^2 * 26) for brute force, O(n * 26) optimal with prefix/suffix arrays", "space": "O(n)" }
+}

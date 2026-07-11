@@ -1,0 +1,37 @@
+{
+  "slug": "sliding-window-median",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "Slide a window across the array while keeping its contents sorted, so the median is read from the middle in constant time after each O(log k) insert/remove.",
+  "hints": [
+    "The only thing each window needs from you is its middle element (or the mean of its two middle elements), so you want the window's values kept in sorted order as it moves.",
+    "Moving the window one step adds one value on the right and drops one on the left; maintaining a sorted container lets you splice both in O(log k) using binary search.",
+    "Keep a sorted list of the current k values; per step bisect-insert the entering value and bisect-remove the leaving one, then take the average of the middle one or two entries."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [-2147483648, 2147483647] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "odd window, mixed signs", "input": [[1, 3, -1, -3, 5, 3, 6, 7], 3] },
+    { "kind": "edge", "description": "odd window with repeated medians", "input": [[1, 2, 3, 4, 2, 3, 1, 4, 2], 3] },
+    { "kind": "boundary", "description": "window of one returns each element", "input": [[5, -2, 9, 0], 1] },
+    { "kind": "boundary", "description": "window spans the whole array", "input": [[4, 1, 3, 2], 4] },
+    { "kind": "trap", "description": "even window averages two middles to a half value", "input": [[1, 2, 3, 4], 2] },
+    { "kind": "trap", "description": "large magnitudes whose mean overflows 32-bit if summed naively", "input": [[2147483647, 2147483647], 2] }
+  ],
+  "stress": [
+    {
+      "description": "long array with a mid-size window, full value range",
+      "seed": 53,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(-2147483648, 2147483647) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n",
+      "note": "k chosen within [1, len(nums)]"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def medianSlidingWindow(self, nums, k):\n        res = []\n        for i in range(len(nums) - k + 1):\n            w = sorted(nums[i:i + k])\n            if k % 2:\n                res.append(float(w[k // 2]))\n            else:\n                res.append((w[k // 2 - 1] + w[k // 2]) / 2.0)\n        return res\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass Solution:\n    def medianSlidingWindow(self, nums, k):\n        window = sorted(nums[:k])\n        res = []\n        for i in range(k, len(nums) + 1):\n            if k % 2:\n                res.append(float(window[k // 2]))\n            else:\n                res.append((window[k // 2 - 1] + window[k // 2]) / 2.0)\n            if i == len(nums):\n                break\n            out = nums[i - k]\n            window.pop(bisect.bisect_left(window, out))\n            bisect.insort(window, nums[i])\n        return res\n",
+    "javascript": "var medianSlidingWindow = function(nums, k) {\n    const lower = (arr, x) => {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] < x) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    };\n    const window = nums.slice(0, k).sort((a, b) => a - b);\n    const res = [];\n    for (let i = k; i <= nums.length; i++) {\n        if (k % 2) {\n            res.push(window[(k - 1) >> 1]);\n        } else {\n            res.push((window[k / 2 - 1] + window[k / 2]) / 2);\n        }\n        if (i === nums.length) break;\n        const out = nums[i - k];\n        window.splice(lower(window, out), 1);\n        const ins = nums[i];\n        window.splice(lower(window, ins), 0, ins);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(n log k)", "space": "O(k)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "shortest-path-with-alternating-colors",
+  "judge": "exact",
+  "pattern": "Treating each (node, last-edge-color) as a distinct BFS state lets a single breadth-first search find the shortest color-alternating distance to every node.",
+  "hints": [
+    "The validity of your next move depends on the color of the edge you just used, so a node's state is not just the node but the node paired with that last color.",
+    "Run BFS from node 0 over states (node, color); from a state you may only follow edges of the opposite color.",
+    "Start with both (0, red) and (0, blue) at distance 0; for each node the answer is the smaller of the two state distances, or -1 if neither was reached."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100] },
+    { "param": "redEdges", "kind": "int[][]", "len": [0, 400], "value": [0, 99] },
+    { "param": "blueEdges", "kind": "int[][]", "len": [0, 400], "value": [0, 99] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two red edges cannot chain so node 2 is unreachable", "input": [3, [[0, 1], [1, 2]], []] },
+    { "kind": "trap", "description": "blue edge does not originate from the path so node 2 unreachable", "input": [3, [[0, 1]], [[2, 1]]] },
+    { "kind": "boundary", "description": "single node, only the trivial path", "input": [1, [], []] },
+    { "kind": "edge", "description": "alternating red then blue reaches node 2", "input": [3, [[0, 1]], [[1, 2]]] },
+    { "kind": "trap", "description": "self loop and parallel edges do not break BFS", "input": [3, [[0, 0], [0, 1], [0, 1]], [[1, 2]]] },
+    { "kind": "edge", "description": "both colors from source give distance one to the same node", "input": [2, [[0, 1]], [[0, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random directed red/blue graphs over up to 100 nodes",
+      "seed": 15,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    rcount = rng.randint(0, min(400, n * 3))\n    bcount = rng.randint(0, min(400, n * 3))\n    red = [[rng.randrange(n), rng.randrange(n)] for _ in range(rcount)]\n    blue = [[rng.randrange(n), rng.randrange(n)] for _ in range(bcount)]\n    return [n, red, blue]\n",
+      "note": "self-edges and parallel edges occur naturally"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shortestAlternatingPaths(self, n, redEdges, blueEdges):\n        INF = float('inf')\n        radj = [[] for _ in range(n)]\n        badj = [[] for _ in range(n)]\n        for a, b in redEdges:\n            radj[a].append(b)\n        for a, b in blueEdges:\n            badj[a].append(b)\n        # dist[node][color]: color 0 = arrived via red, 1 = via blue\n        dist = [[INF, INF] for _ in range(n)]\n        # Bellman-Ford-style relaxation over states\n        dist[0][0] = 0\n        dist[0][1] = 0\n        changed = True\n        while changed:\n            changed = False\n            for node in range(n):\n                for color in (0, 1):\n                    d = dist[node][color]\n                    if d == INF:\n                        continue\n                    # last edge color was 'color'; next must be opposite\n                    if color == 0:\n                        nbrs, ncol = badj[node], 1\n                    else:\n                        nbrs, ncol = radj[node], 0\n                    for nxt in nbrs:\n                        if d + 1 < dist[nxt][ncol]:\n                            dist[nxt][ncol] = d + 1\n                            changed = True\n        ans = []\n        for node in range(n):\n            best = min(dist[node][0], dist[node][1])\n            ans.append(-1 if best == INF else best)\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def shortestAlternatingPaths(self, n, redEdges, blueEdges):\n        from collections import deque\n        radj = [[] for _ in range(n)]\n        badj = [[] for _ in range(n)]\n        for a, b in redEdges:\n            radj[a].append(b)\n        for a, b in blueEdges:\n            badj[a].append(b)\n        INF = float('inf')\n        dist = [[INF, INF] for _ in range(n)]\n        dist[0][0] = 0\n        dist[0][1] = 0\n        q = deque([(0, 0), (0, 1)])\n        while q:\n            node, color = q.popleft()\n            d = dist[node][color]\n            if color == 0:\n                nbrs, ncol = badj[node], 1\n            else:\n                nbrs, ncol = radj[node], 0\n            for nxt in nbrs:\n                if dist[nxt][ncol] == INF:\n                    dist[nxt][ncol] = d + 1\n                    q.append((nxt, ncol))\n        ans = []\n        for node in range(n):\n            best = min(dist[node][0], dist[node][1])\n            ans.append(-1 if best == INF else best)\n        return ans\n",
+    "javascript": "var shortestAlternatingPaths = function(n, redEdges, blueEdges) {\n    const radj = Array.from({length: n}, () => []);\n    const badj = Array.from({length: n}, () => []);\n    for (const [a, b] of redEdges) radj[a].push(b);\n    for (const [a, b] of blueEdges) badj[a].push(b);\n    const INF = Infinity;\n    const dist = Array.from({length: n}, () => [INF, INF]);\n    dist[0][0] = 0;\n    dist[0][1] = 0;\n    const q = [[0, 0], [0, 1]];\n    let head = 0;\n    while (head < q.length) {\n        const [node, color] = q[head++];\n        const d = dist[node][color];\n        const nbrs = color === 0 ? badj[node] : radj[node];\n        const ncol = color === 0 ? 1 : 0;\n        for (const nxt of nbrs) {\n            if (dist[nxt][ncol] === INF) {\n                dist[nxt][ncol] = d + 1;\n                q.push([nxt, ncol]);\n            }\n        }\n    }\n    const ans = [];\n    for (let node = 0; node < n; node++) {\n        const best = Math.min(dist[node][0], dist[node][1]);\n        ans.push(best === INF ? -1 : best);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n + edges)", "space": "O(n + edges)" }
+}

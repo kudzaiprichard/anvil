@@ -1,0 +1,39 @@
+{
+  "slug": "count-the-number-of-inversions",
+  "judge": "exact",
+  "pattern": "DP on inversion count with prefix constraints: dp[i][j] = count of permutations of [0..i] with exactly j inversions, using a sliding-window prefix sum; requirements zero out the DP except at the pinned count.",
+  "hints": [
+    "When inserting element i into a permutation of [0..i-1], placing it in position p from the right adds p new inversions. So dp[i][j] sums dp[i-1][j-p] for p = 0..i — a window sum computable in O(max_cnt) per row.",
+    "Each requirement [end, cnt] forces dp[end][cnt] to be the only non-zero entry at position end. Carry only that value forward; if it would be zero, the answer is 0.",
+    "Use a sliding-window prefix sum to compute each DP row in O(max_cnt) time. Total: O(n * max_cnt). The answer is dp[n-1][req_map[n-1]]."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 300] },
+    { "param": "requirements", "kind": "int[][]", "len": [1, 300] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "example 1: n=3, two requirements", "input": [3, [[2, 2], [0, 0]]] },
+    { "kind": "edge", "description": "example 2: n=3, three requirements pinning all", "input": [3, [[2, 2], [1, 1], [0, 0]]] },
+    { "kind": "edge", "description": "example 3: n=2, no inversions at both positions", "input": [2, [[0, 0], [1, 0]]] },
+    { "kind": "edge", "description": "single requirement at n-1 with 0 inversions (only sorted perm)", "input": [4, [[3, 0]]] },
+    { "kind": "edge", "description": "maximum inversions for n=3 is 3", "input": [3, [[2, 3]]] },
+    { "kind": "boundary", "description": "n=2: 1 inversion means [1,0]", "input": [2, [[1, 1]]] },
+    { "kind": "trap", "description": "requirement at position 0 with cnt=0 (only one starting perm)", "input": [4, [[0, 0], [3, 2]]] },
+    { "kind": "trap", "description": "impossible: cnt exceeds max inversions for that prefix", "input": [3, [[1, 5]]] },
+    { "kind": "trap", "description": "n=5, middle constraint at position 2 with cnt=2", "input": [5, [[4, 4], [2, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "small n with random requirements (oracle uses permutations so n<=7)",
+      "seed": 77,
+      "size": 7,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, size)\n    indices = list(range(n))\n    k = rng.randint(1, min(n, 3))\n    ends = sorted(rng.sample(indices, k))\n    if n - 1 not in ends:\n        ends[-1] = n - 1\n    ends = sorted(set(ends))\n    max_inv = n * (n - 1) // 2\n    reqs = [[e, rng.randint(0, e * (e + 1) // 2)] for e in ends]\n    return [n, reqs]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfPermutations(self, n, requirements):\n        from itertools import permutations\n        MOD = 10**9 + 7\n        req_map = {e: c for e, c in requirements}\n        count = 0\n        for perm in permutations(range(n)):\n            ok = True\n            for end, cnt in req_map.items():\n                inv = sum(1 for i in range(end + 1) for j in range(i + 1, end + 1) if perm[i] > perm[j])\n                if inv != cnt:\n                    ok = False\n                    break\n            if ok:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfPermutations(self, n, requirements):\n        MOD = 10**9 + 7\n        req_map = {e: c for e, c in requirements}\n        max_cnt = n * (n - 1) // 2\n        # dp[j] = # permutations of [0..i] with j inversions\n        dp = [0] * (max_cnt + 1)\n        dp[0] = 1\n        # Handle requirement at position 0\n        if 0 in req_map:\n            c0 = req_map[0]\n            if c0 != 0:\n                return 0\n            # dp stays [1, 0, 0, ...]\n        for i in range(1, n):\n            # Prefix sum for sliding window of size i+1\n            prefix = [0] * (max_cnt + 2)\n            for j in range(max_cnt + 1):\n                prefix[j + 1] = (prefix[j] + dp[j]) % MOD\n            new_dp = [0] * (max_cnt + 1)\n            for j in range(max_cnt + 1):\n                lo = max(0, j - i)\n                new_dp[j] = (prefix[j + 1] - prefix[lo] + MOD) % MOD\n            if i in req_map:\n                c = req_map[i]\n                val = new_dp[c] if 0 <= c <= max_cnt else 0\n                new_dp = [0] * (max_cnt + 1)\n                if 0 <= c <= max_cnt:\n                    new_dp[c] = val\n            dp = new_dp\n        c_final = req_map.get(n - 1, -1)\n        if c_final < 0:\n            return 0  # n-1 must be in requirements per problem statement\n        return dp[c_final] if 0 <= c_final <= max_cnt else 0\n",
+    "javascript": "var numberOfPermutations = function(n, requirements) {\n    const MOD = 1000000007n;\n    const reqMap = new Map(requirements.map(([e, c]) => [e, c]));\n    const maxCnt = n * (n - 1) / 2;\n    let dp = new Array(maxCnt + 1).fill(0n);\n    dp[0] = 1n;\n    if (reqMap.has(0)) {\n        if (reqMap.get(0) !== 0) return 0;\n    }\n    for (let i = 1; i < n; i++) {\n        const prefix = new Array(maxCnt + 2).fill(0n);\n        for (let j = 0; j <= maxCnt; j++) prefix[j + 1] = (prefix[j] + dp[j]) % MOD;\n        const newDp = new Array(maxCnt + 1).fill(0n);\n        for (let j = 0; j <= maxCnt; j++) {\n            const lo = Math.max(0, j - i);\n            newDp[j] = (prefix[j + 1] - prefix[lo] + MOD) % MOD;\n        }\n        if (reqMap.has(i)) {\n            const c = reqMap.get(i);\n            const val = c <= maxCnt ? newDp[c] : 0n;\n            newDp.fill(0n);\n            if (c <= maxCnt) newDp[c] = val;\n        }\n        dp = newDp;\n    }\n    const cFinal = reqMap.has(n - 1) ? reqMap.get(n - 1) : -1;\n    if (cFinal < 0 || cFinal > maxCnt) return 0;\n    return Number(dp[cFinal]);\n};"
+  },
+  "complexity": { "time": "O(n * max_cnt)", "space": "O(max_cnt)" }
+}

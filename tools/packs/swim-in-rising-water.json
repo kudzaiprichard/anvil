@@ -1,0 +1,36 @@
+{
+  "slug": "swim-in-rising-water",
+  "judge": "exact",
+  "pattern": "The answer is the minimum over all start-to-finish paths of the path's largest elevation, found by a Dijkstra-style expansion that always advances through the lowest reachable cell.",
+  "hints": [
+    "You want the path whose highest cell is as small as possible, since the wait time equals that maximum elevation.",
+    "Grow a region from the top-left, always stepping next into the lowest-elevation frontier cell with a min-heap.",
+    "Pop the smallest frontier cell, track the running maximum elevation popped, and when you pop the bottom-right cell that running maximum is the answer."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 50], "value": [0, 2499] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two by two where the corner gates the time", "input": [[[0, 2], [1, 3]]] },
+    { "kind": "trap", "description": "snake pattern forces a high bottleneck", "input": [[[0, 1, 2, 3, 4], [24, 23, 22, 21, 5], [12, 13, 14, 15, 16], [11, 17, 18, 19, 20], [10, 9, 8, 7, 6]]] },
+    { "kind": "boundary", "description": "single cell needs no swimming", "input": [[[0]]] },
+    { "kind": "edge", "description": "two by two sorted in reading order", "input": [[[0, 1], [2, 3]]] },
+    { "kind": "trap", "description": "the highest elevation sits on every path", "input": [[[3, 0], [2, 1]]] },
+    { "kind": "edge", "description": "three by three increasing in reading order", "input": [[[0, 1, 2], [3, 4, 5], [6, 7, 8]]] }
+  ],
+  "stress": [
+    {
+      "description": "random unique elevation grids covering exactly 0..n*n-1",
+      "seed": 67,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, min(20, max(1, size)))\n    vals = list(range(n * n))\n    rng.shuffle(vals)\n    grid = [vals[i * n:(i + 1) * n] for i in range(n)]\n    return [grid]\n",
+      "note": "values are a permutation of 0..n*n-1 so all elevations are unique"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def swimInWater(self, grid):\n        n = len(grid)\n        def reachable(t):\n            if grid[0][0] > t:\n                return False\n            from collections import deque\n            seen = [[False] * n for _ in range(n)]\n            seen[0][0] = True\n            q = deque([(0, 0)])\n            while q:\n                r, c = q.popleft()\n                if r == n - 1 and c == n - 1:\n                    return True\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < n and 0 <= nc < n and not seen[nr][nc] and grid[nr][nc] <= t:\n                        seen[nr][nc] = True\n                        q.append((nr, nc))\n            return False\n        lo, hi = 0, n * n - 1\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if reachable(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+  "solutions": {
+    "python": "class Solution:\n    def swimInWater(self, grid):\n        import heapq\n        n = len(grid)\n        visited = [[False] * n for _ in range(n)]\n        heap = [(grid[0][0], 0, 0)]\n        visited[0][0] = True\n        ans = 0\n        while heap:\n            elev, r, c = heapq.heappop(heap)\n            ans = max(ans, elev)\n            if r == n - 1 and c == n - 1:\n                return ans\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < n and 0 <= nc < n and not visited[nr][nc]:\n                    visited[nr][nc] = True\n                    heapq.heappush(heap, (grid[nr][nc], nr, nc))\n        return ans\n",
+    "javascript": "var swimInWater = function(grid) {\n    const n = grid.length;\n    const visited = Array.from({length: n}, () => new Array(n).fill(false));\n    const heap = [[grid[0][0], 0, 0]];\n    visited[0][0] = true;\n    const swap = (i, j) => { const t = heap[i]; heap[i] = heap[j]; heap[j] = t; };\n    const push = (item) => {\n        heap.push(item);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p][0] <= heap[i][0]) break;\n            swap(p, i); i = p;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            while (true) {\n                const l = 2 * i + 1, r = 2 * i + 2;\n                let m = i;\n                if (l < heap.length && heap[l][0] < heap[m][0]) m = l;\n                if (r < heap.length && heap[r][0] < heap[m][0]) m = r;\n                if (m === i) break;\n                swap(m, i); i = m;\n            }\n        }\n        return top;\n    };\n    let ans = 0;\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    while (heap.length) {\n        const [elev, r, c] = pop();\n        ans = Math.max(ans, elev);\n        if (r === n - 1 && c === n - 1) return ans;\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < n && nc >= 0 && nc < n && !visited[nr][nc]) {\n                visited[nr][nc] = true;\n                push([grid[nr][nc], nr, nc]);\n            }\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n^2 log n)", "space": "O(n^2)" }
+}

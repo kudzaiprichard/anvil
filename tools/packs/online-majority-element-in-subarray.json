@@ -1,0 +1,43 @@
+{
+  "slug": "online-majority-element-in-subarray",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Indexing each value's sorted positions lets a candidate found by random sampling be verified in logarithmic time via counting occurrences inside the queried range.",
+  "hints": [
+    "Any element occurring in more than half a range is the strict majority, so at most one value can ever qualify per query.",
+    "If you pick a random position inside the range, a true majority element is the value you land on with probability above one half, so a few random probes almost surely surface the candidate.",
+    "Precompute, for every value, the sorted list of indices where it appears; then verifying a candidate's count in a range is two binary searches, and a handful of random samples per query finds the candidate cheaply."
+  ],
+  "constraints": [
+    { "param": "left", "kind": "int", "value": [0, 19999] },
+    { "param": "right", "kind": "int", "value": [0, 19999] },
+    { "param": "threshold", "kind": "int", "value": [1, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a clear majority, no majority, and a tight half-plus-one case",
+      "input": [["MajorityChecker", "query", "query", "query"], [[[1, 1, 2, 2, 1, 1]], [0, 5, 4], [0, 3, 3], [2, 3, 2]]] },
+    { "kind": "boundary", "description": "single element range meets a threshold of one",
+      "input": [["MajorityChecker", "query"], [[[7]], [0, 0, 1]]] },
+    { "kind": "trap", "description": "threshold exactly one above the true count returns minus one",
+      "input": [["MajorityChecker", "query", "query"], [[[5, 5, 5, 9, 9]], [0, 4, 3], [0, 4, 4]]] },
+    { "kind": "trap", "description": "two values tie so neither exceeds the half threshold",
+      "input": [["MajorityChecker", "query"], [[[3, 3, 8, 8]], [0, 3, 3]]] },
+    { "kind": "edge", "description": "overlapping ranges with different dominant values",
+      "input": [["MajorityChecker", "query", "query", "query"], [[[2, 2, 2, 6, 6, 6, 6]], [0, 2, 2], [3, 6, 3], [1, 5, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random array with queries whose threshold respects the strict-majority bound",
+      "seed": 29,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 60)\n    arr = [rng.randint(1, 6) for _ in range(n)]\n    ops = ['MajorityChecker']\n    args = [[arr]]\n    q = max(1, min(size, 40))\n    for _ in range(q):\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        span = r - l + 1\n        lo = span // 2 + 1\n        threshold = rng.randint(lo, span)\n        ops.append('query'); args.append([l, r, threshold])\n    return [ops, args]\n",
+      "note": "threshold chosen so 2*threshold > span, matching the strict-majority guarantee"
+    }
+  ],
+  "oracle_python": "class MajorityChecker:\n    def __init__(self, arr):\n        self.arr = arr\n    def query(self, left, right, threshold):\n        from collections import Counter\n        c = Counter(self.arr[left:right + 1])\n        val, cnt = c.most_common(1)[0]\n        return val if cnt >= threshold else -1\n",
+  "solutions": {
+    "python": "import bisect\nimport random\n\n\nclass MajorityChecker:\n    def __init__(self, arr):\n        self.arr = arr\n        self.pos = {}\n        for i, v in enumerate(arr):\n            self.pos.setdefault(v, []).append(i)\n        self.rng = random.Random(12345)\n    def _count(self, v, left, right):\n        idx = self.pos[v]\n        return bisect.bisect_right(idx, right) - bisect.bisect_left(idx, left)\n    def query(self, left, right, threshold):\n        for _ in range(20):\n            v = self.arr[self.rng.randint(left, right)]\n            if self._count(v, left, right) >= threshold:\n                return v\n        return -1\n",
+    "javascript": "var MajorityChecker = function(arr) {\n    this.arr = arr;\n    this.pos = new Map();\n    for (let i = 0; i < arr.length; i++) {\n        if (!this.pos.has(arr[i])) this.pos.set(arr[i], []);\n        this.pos.get(arr[i]).push(i);\n    }\n    let s = 12345;\n    this.rand = function() { s = (s * 1103515245 + 12345) & 0x7fffffff; return s; };\n};\nMajorityChecker.prototype._count = function(v, left, right) {\n    const idx = this.pos.get(v);\n    const lower = (target) => { let lo = 0, hi = idx.length; while (lo < hi) { const m = (lo + hi) >> 1; if (idx[m] < target) lo = m + 1; else hi = m; } return lo; };\n    const upper = (target) => { let lo = 0, hi = idx.length; while (lo < hi) { const m = (lo + hi) >> 1; if (idx[m] <= target) lo = m + 1; else hi = m; } return lo; };\n    return upper(right) - lower(left);\n};\nMajorityChecker.prototype.query = function(left, right, threshold) {\n    for (let t = 0; t < 20; t++) {\n        const i = left + (this.rand() % (right - left + 1));\n        const v = this.arr[i];\n        if (this._count(v, left, right) >= threshold) return v;\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(log n) per query (randomized)", "space": "O(n)" }
+}

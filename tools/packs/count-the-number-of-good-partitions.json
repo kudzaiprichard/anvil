@@ -1,0 +1,38 @@
+{
+  "slug": "count-the-number-of-good-partitions",
+  "judge": "exact",
+  "pattern": "Every value's first and last occurrence pin down a mandatory merged block it must stay inside, and once you sweep through and find where those overlapping spans finally settle, the free choice of a cut or not between each settled block is a doubling per gap.",
+  "hints": [
+    "For any value, all of its occurrences must end up in the same contiguous piece, so start by finding the last position each value appears at.",
+    "Sweep left to right while keeping track of the furthest 'must extend to at least here' position implied by every value seen so far in the current piece; when your current index actually reaches that furthest position, the piece is forced to close there.",
+    "Count how many such forced closes happen across the whole array; between any two consecutive forced closes you may independently decide to cut or not, so the answer is two raised to one less than that count, taken modulo one billion seven."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "all distinct values so every position is its own forced block", "input": [[1, 2, 3, 4]] },
+    { "kind": "edge", "description": "one repeated value spanning the whole array", "input": [[1, 1, 1, 1]] },
+    { "kind": "edge", "description": "a repeated value forces a merge while a later value stays isolated", "input": [[1, 2, 1, 3]] },
+    { "kind": "boundary", "description": "single element array", "input": [[9]] },
+    { "kind": "trap", "description": "two equal elements must always stay together", "input": [[2, 2]] },
+    { "kind": "trap", "description": "two distinct elements can always be split or joined", "input": [[2, 3]] },
+    { "kind": "edge", "description": "a value's second occurrence forces the entire array into one block", "input": [[1, 2, 3, 1]] },
+    { "kind": "edge", "description": "two independent forced blocks each containing a nested repeated value", "input": [[1, 2, 2, 1, 3, 4, 4, 3]] }
+  ],
+  "stress": [
+    {
+      "description": "large array from a restricted alphabet so forced blocks frequently overlap and merge",
+      "seed": 8,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    alphabet = max(1, n // 50)\n    nums = [rng.randint(1, alphabet) for _ in range(n)]\n    return [nums]\n",
+      "note": "a small alphabet relative to length keeps repeats frequent, exercising the merge sweep"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfGoodPartitions(self, nums):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        total = 0\n        for mask in range(1 << (n - 1)):\n            parts = []\n            start = 0\n            for i in range(n - 1):\n                if (mask >> i) & 1:\n                    parts.append(nums[start:i + 1])\n                    start = i + 1\n            parts.append(nums[start:n])\n            seen_overall = set()\n            ok = True\n            for part in parts:\n                s = set(part)\n                if seen_overall & s:\n                    ok = False\n                    break\n                seen_overall |= s\n            if ok:\n                total += 1\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfGoodPartitions(self, nums):\n        MOD = 10 ** 9 + 7\n        last = {}\n        for i, v in enumerate(nums):\n            last[v] = i\n        reach = 0\n        count = 0\n        for i, v in enumerate(nums):\n            reach = max(reach, last[v])\n            if i == reach:\n                count += 1\n        return pow(2, count - 1, MOD)\n",
+    "javascript": "var numberOfGoodPartitions = function(nums) {\n    const MOD = 1000000007;\n    const last = new Map();\n    for (let i = 0; i < nums.length; i++) {\n        last.set(nums[i], i);\n    }\n    let reach = 0;\n    let count = 0;\n    for (let i = 0; i < nums.length; i++) {\n        reach = Math.max(reach, last.get(nums[i]));\n        if (i === reach) count++;\n    }\n    function modpow(base, exp, mod) {\n        let result = 1n;\n        let b = BigInt(base) % BigInt(mod);\n        let e = BigInt(exp);\n        const m = BigInt(mod);\n        while (e > 0n) {\n            if (e & 1n) result = (result * b) % m;\n            b = (b * b) % m;\n            e >>= 1n;\n        }\n        return result;\n    }\n    return Number(modpow(2, count - 1, MOD));\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

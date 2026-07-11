@@ -1,0 +1,176 @@
+{
+  "slug": "maximum-amount-of-money-robot-can-earn",
+  "judge": "exact",
+  "pattern": "Neutralizing a cell is just an extra choice at every step, so tracking, alongside the usual grid-path best sum, how many of the up-to-two neutralizations have been spent turns this into ordinary right/down DP with one extra small dimension.",
+  "hints": [
+    "This is the standard right-or-down grid DP, except each cell also carries a count of how many neutralizations have been used so far to reach it (0, 1, or 2).",
+    "Arriving at a cell, you either add its value as usual or spend one neutralization to add zero instead -- both options only ever look at the best value from directly above or directly to the left.",
+    "Compute the best total for every (cell, neutralizations-used) combination and take the best value at the destination cell across all three neutralization counts, since spending fewer than the full budget is always allowed."
+  ],
+  "constraints": [
+    {
+      "param": "coins",
+      "kind": "int[][]",
+      "rows": [
+        1,
+        500
+      ],
+      "cols": [
+        1,
+        500
+      ],
+      "value": [
+        -1000,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, one robber worth neutralizing",
+      "input": [
+        [
+          [
+            0,
+            1,
+            -1
+          ],
+          [
+            1,
+            -2,
+            3
+          ],
+          [
+            2,
+            -3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, all positive, no neutralization needed",
+      "input": [
+        [
+          [
+            10,
+            10,
+            10
+          ],
+          [
+            10,
+            10,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single cell grid",
+      "input": [
+        [
+          [
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single row, straight line path",
+      "input": [
+        [
+          [
+            1,
+            -5,
+            1,
+            -5,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "more than two robbers on every path forces leaving one unneutralized",
+      "input": [
+        [
+          [
+            0,
+            -5,
+            -5
+          ],
+          [
+            -5,
+            -5,
+            -5
+          ],
+          [
+            -5,
+            -5,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "neutralizing is never forced, sometimes taking the loss is unavoidable",
+      "input": [
+        [
+          [
+            -1,
+            -1
+          ],
+          [
+            -1,
+            -1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single column, straight line path",
+      "input": [
+        [
+          [
+            3
+          ],
+          [
+            -8
+          ],
+          [
+            3
+          ],
+          [
+            -8
+          ],
+          [
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "moderate random grid with frequent negative robbers",
+      "seed": 47,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 500))\n    n = max(1, min(size, 500))\n    grid = [[rng.randint(-1000, 1000) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumAmount(self, coins):\n        m, n = len(coins), len(coins[0])\n        best = float('-inf')\n        paths = []\n\n        def dfs(i, j, path):\n            path.append((i, j))\n            if i == m - 1 and j == n - 1:\n                paths.append(list(path))\n            else:\n                if i + 1 < m:\n                    dfs(i + 1, j, path)\n                if j + 1 < n:\n                    dfs(i, j + 1, path)\n            path.pop()\n\n        dfs(0, 0, [])\n        for path in paths:\n            vals = [coins[i][j] for i, j in path]\n            L = len(vals)\n            import itertools\n            for r in range(0, min(2, L) + 1):\n                for combo in itertools.combinations(range(L), r):\n                    s = sum(0 if idx in combo else vals[idx] for idx in range(L))\n                    best = max(best, s)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumAmount(self, coins):\n        m, n = len(coins), len(coins[0])\n        NEG = float('-inf')\n        dp = [[[NEG] * 3 for _ in range(n)] for _ in range(m)]\n        for i in range(m):\n            for j in range(n):\n                val = coins[i][j]\n                if i == 0 and j == 0:\n                    dp[i][j][0] = val\n                    dp[i][j][1] = 0\n                    dp[i][j][2] = NEG\n                    continue\n                for t in range(3):\n                    best = NEG\n                    if i > 0 and dp[i - 1][j][t] > NEG:\n                        best = max(best, dp[i - 1][j][t] + val)\n                    if j > 0 and dp[i][j - 1][t] > NEG:\n                        best = max(best, dp[i][j - 1][t] + val)\n                    if t >= 1:\n                        if i > 0 and dp[i - 1][j][t - 1] > NEG:\n                            best = max(best, dp[i - 1][j][t - 1])\n                        if j > 0 and dp[i][j - 1][t - 1] > NEG:\n                            best = max(best, dp[i][j - 1][t - 1])\n                    dp[i][j][t] = best\n        return max(dp[m - 1][n - 1])\n",
+    "javascript": "var maximumAmount = function(coins) {\n    const m = coins.length, n = coins[0].length;\n    const NEG = -Infinity;\n    const dp = Array.from({ length: m }, () => Array.from({ length: n }, () => [NEG, NEG, NEG]));\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            const val = coins[i][j];\n            if (i === 0 && j === 0) {\n                dp[i][j][0] = val;\n                dp[i][j][1] = 0;\n                dp[i][j][2] = NEG;\n                continue;\n            }\n            for (let t = 0; t < 3; t++) {\n                let best = NEG;\n                if (i > 0 && dp[i - 1][j][t] > NEG) best = Math.max(best, dp[i - 1][j][t] + val);\n                if (j > 0 && dp[i][j - 1][t] > NEG) best = Math.max(best, dp[i][j - 1][t] + val);\n                if (t >= 1) {\n                    if (i > 0 && dp[i - 1][j][t - 1] > NEG) best = Math.max(best, dp[i - 1][j][t - 1]);\n                    if (j > 0 && dp[i][j - 1][t - 1] > NEG) best = Math.max(best, dp[i][j - 1][t - 1]);\n                }\n                dp[i][j][t] = best;\n            }\n        }\n    }\n    return Math.max(...dp[m - 1][n - 1]);\n};\n"
+  },
+  "complexity": {
+    "time": "O(m*n)",
+    "space": "O(m*n)"
+  }
+}

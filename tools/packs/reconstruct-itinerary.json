@@ -1,0 +1,36 @@
+{
+  "slug": "reconstruct-itinerary",
+  "judge": "exact",
+  "pattern": "Using every ticket exactly once is an Eulerian path, and processing each airport's destinations in sorted order while building the route on the way back out of a depth-first search yields the lexicographically smallest valid itinerary.",
+  "hints": [
+    "Every ticket must be used exactly once, so you are looking for a trail that traverses every edge of a directed multigraph, always starting at the same fixed airport.",
+    "Sort each airport's outgoing destinations so that, when you have a choice, you always try the alphabetically smaller one first.",
+    "Run a depth-first walk that consumes edges as it goes and prepends each airport to the answer only when it has no remaining outgoing tickets, then reverse the collected list."
+  ],
+  "constraints": [
+    { "param": "tickets", "kind": "int[][]", "len": [1, 300] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a chain that forces a single ordering", "input": [[["MUC", "LHR"], ["JFK", "MUC"], ["SFO", "SJC"], ["LHR", "SFO"]]] },
+    { "kind": "trap", "description": "two choices from JFK where the greedy smaller-first pick would dead-end early", "input": [[["JFK", "SFO"], ["JFK", "ATL"], ["SFO", "ATL"], ["ATL", "JFK"], ["ATL", "SFO"]]] },
+    { "kind": "boundary", "description": "a single ticket", "input": [[["JFK", "AAA"]]] },
+    { "kind": "edge", "description": "duplicate identical tickets between the same pair", "input": [[["JFK", "KUL"], ["JFK", "NRT"], ["NRT", "JFK"]]] },
+    { "kind": "trap", "description": "a self-loop-free graph where lexicographic order conflicts with completing the trail", "input": [[["JFK", "A"], ["A", "JFK"], ["JFK", "B"], ["B", "JFK"], ["JFK", "C"]]] },
+    { "kind": "edge", "description": "all tickets leave and return to JFK forming a star", "input": [[["JFK", "B"], ["B", "JFK"], ["JFK", "A"], ["A", "JFK"]]] }
+  ],
+  "stress": [
+    {
+      "description": "random Eulerian graphs built by walking a closed loop back to JFK so a valid itinerary always exists",
+      "seed": 23,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    m = max(1, min(size, 280))\n    codes = ['JFK']\n    for i in range(1, 14):\n        codes.append('A' + str(i).zfill(2))\n    tickets = []\n    cur = 'JFK'\n    for _ in range(m - 1):\n        nxt = rng.choice(codes)\n        tickets.append([cur, nxt])\n        cur = nxt\n    tickets.append([cur, 'JFK'])\n    rng.shuffle(tickets)\n    return [tickets]\n",
+      "note": "closing the walk back to JFK guarantees an Eulerian trail exists so the reference never dead-ends"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findItinerary(self, tickets):\n        from collections import defaultdict\n        adj = defaultdict(list)\n        for a, b in sorted(tickets):\n            adj[a].append(b)\n        total = len(tickets)\n        result = []\n\n        def backtrack(node):\n            if len(result) == total:\n                return ['JFK'] + result_path[:]\n            return None\n\n        # explicit backtracking search for the lexicographically smallest trail\n        used = []\n        path = ['JFK']\n\n        def search(node):\n            if len(path) == total + 1:\n                return True\n            options = adj[node]\n            for i in range(len(options)):\n                if options[i] is None:\n                    continue\n                nxt = options[i]\n                options[i] = None\n                path.append(nxt)\n                if search(nxt):\n                    return True\n                path.pop()\n                options[i] = nxt\n            return False\n\n        search('JFK')\n        return path\n",
+  "solutions": {
+    "python": "class Solution:\n    def findItinerary(self, tickets):\n        from collections import defaultdict\n        adj = defaultdict(list)\n        for a, b in sorted(tickets, reverse=True):\n            adj[a].append(b)\n        route = []\n        stack = ['JFK']\n        while stack:\n            while adj[stack[-1]]:\n                stack.append(adj[stack[-1]].pop())\n            route.append(stack.pop())\n        return route[::-1]\n",
+    "javascript": "var findItinerary = function(tickets) {\n    const adj = new Map();\n    const sorted = tickets.slice().sort((a, b) => {\n        if (a[0] !== b[0]) return a[0] < b[0] ? 1 : -1;\n        return a[1] < b[1] ? 1 : -1;\n    });\n    for (const [a, b] of sorted) {\n        if (!adj.has(a)) adj.set(a, []);\n        adj.get(a).push(b);\n    }\n    const route = [];\n    const stack = ['JFK'];\n    while (stack.length) {\n        const top = stack[stack.length - 1];\n        const dests = adj.get(top);\n        if (dests && dests.length) {\n            stack.push(dests.pop());\n        } else {\n            route.push(stack.pop());\n        }\n    }\n    return route.reverse();\n};\n"
+  },
+  "complexity": { "time": "O(E log E)", "space": "O(E)" }
+}

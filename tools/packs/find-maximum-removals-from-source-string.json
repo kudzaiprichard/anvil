@@ -1,0 +1,165 @@
+{
+  "slug": "find-maximum-removals-from-source-string",
+  "judge": "exact",
+  "pattern": "Removing a target index is safe exactly when some embedding of the pattern as a subsequence never needs that character, so the true question becomes finding an embedding that uses as few of the removable positions as possible.",
+  "hints": [
+    "Instead of thinking about which characters to remove, think about which characters the pattern absolutely must use to remain a subsequence -- any character not needed by some valid embedding can always be removed.",
+    "Work backward with a two-index dynamic program over (position in source, position in pattern): at each step you may skip the current source character for free, or, if it matches the current pattern character, consume it -- paying a cost of one only if that position is removable.",
+    "The dynamic program's minimum total cost is the fewest removable positions any embedding is forced to use; subtracting that from the total number of removable positions gives the maximum number of characters that can be deleted."
+  ],
+  "constraints": [
+    {
+      "param": "source",
+      "kind": "string",
+      "len": [
+        1,
+        3000
+      ]
+    },
+    {
+      "param": "pattern",
+      "kind": "string",
+      "len": [
+        1,
+        3000
+      ]
+    },
+    {
+      "param": "targetIndices",
+      "kind": "int[]",
+      "len": [
+        1,
+        3000
+      ],
+      "value": [
+        0,
+        2999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, only one of two overlapping removals possible",
+      "input": [
+        "abbaa",
+        "aba",
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, single-character pattern with two removable indices",
+      "input": [
+        "bcda",
+        "d",
+        [
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, pattern equals source, nothing removable",
+      "input": [
+        "dda",
+        "dda",
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, larger mixed source",
+      "input": [
+        "yeyeykyded",
+        "yeyyd",
+        [
+          0,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-character source and pattern, the only target index",
+      "input": [
+        "z",
+        "z",
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "pattern needs every occurrence of a repeated letter, so no removable index can be spared",
+      "input": [
+        "aaaa",
+        "aaaa",
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "target indices are not the letters the pattern actually needs, so all can be removed",
+      "input": [
+        "xaxbxc",
+        "abc",
+        [
+          0,
+          2,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "every index in source is a target index",
+      "input": [
+        "abcabc",
+        "abc",
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase source with a randomly-thinned subsequence as the pattern, half the indices removable",
+      "seed": 3,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 500))\n    source = ''.join(rng.choice('abc') for _ in range(n))\n    pattern_chars = []\n    kept = []\n    for i, ch in enumerate(source):\n        if rng.random() < 0.6:\n            pattern_chars.append(ch)\n            kept.append(i)\n    if not pattern_chars:\n        pattern_chars.append(source[0])\n    pattern = ''.join(pattern_chars)\n    targetIndices = sorted(rng.sample(range(n), max(1, n // 2)))\n    return [source, pattern, targetIndices]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxRemovals(self, source, pattern, targetIndices):\n        target = list(targetIndices)\n        t = len(target)\n        best = 0\n        for mask in range(1 << t):\n            removed = {target[i] for i in range(t) if (mask >> i) & 1}\n            remaining = [ch for idx, ch in enumerate(source) if idx not in removed]\n            pos = 0\n            for ch in remaining:\n                if pos < len(pattern) and ch == pattern[pos]:\n                    pos += 1\n            if pos == len(pattern):\n                best = max(best, bin(mask).count('1'))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxRemovals(self, source, pattern, targetIndices):\n        n = len(source)\n        m = len(pattern)\n        target = set(targetIndices)\n        INF = float('inf')\n        dp = [[0] * (m + 1) for _ in range(n + 1)]\n        for j in range(m - 1, -1, -1):\n            dp[n][j] = INF\n        for i in range(n - 1, -1, -1):\n            for j in range(m - 1, -1, -1):\n                best = dp[i + 1][j]\n                if source[i] == pattern[j]:\n                    cost = 1 if i in target else 0\n                    cand = cost + dp[i + 1][j + 1]\n                    if cand < best:\n                        best = cand\n                dp[i][j] = best\n        return len(target) - dp[0][0]\n",
+    "javascript": "var maxRemovals = function(source, pattern, targetIndices) {\n    const n = source.length, m = pattern.length;\n    const target = new Set(targetIndices);\n    const INF = Infinity;\n    const dp = new Array(n + 1);\n    for (let i = 0; i <= n; i++) dp[i] = new Array(m + 1).fill(0);\n    for (let j = m - 1; j >= 0; j--) dp[n][j] = INF;\n    for (let i = n - 1; i >= 0; i--) {\n        for (let j = m - 1; j >= 0; j--) {\n            let best = dp[i + 1][j];\n            if (source[i] === pattern[j]) {\n                const cost = target.has(i) ? 1 : 0;\n                const cand = cost + dp[i + 1][j + 1];\n                if (cand < best) best = cand;\n            }\n            dp[i][j] = best;\n        }\n    }\n    return target.size - dp[0][0];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * m)",
+    "space": "O(n * m)"
+  }
+}

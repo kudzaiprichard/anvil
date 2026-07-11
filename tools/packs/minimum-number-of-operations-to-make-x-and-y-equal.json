@@ -1,0 +1,119 @@
+{
+  "slug": "minimum-number-of-operations-to-make-x-and-y-equal",
+  "judge": "exact",
+  "pattern": "Treating every intermediate value x can pass through as a graph node connected by its four moves turns 'fewest operations' into an unweighted shortest path search from x to y.",
+  "hints": [
+    "Every operation changes the current value to exactly one new value, so think of each reachable integer as a node and each operation as an edge of weight one.",
+    "Breadth-first search from the starting value explores values in order of operation count, so the first time you reach the target you have the minimum.",
+    "The search never needs to wander far past the larger of the two values plus a small buffer, since overshooting only helps when it immediately unlocks a division by 5 or 11."
+  ],
+  "constraints": [
+    {
+      "param": "x",
+      "kind": "int",
+      "value": [
+        1,
+        10000
+      ]
+    },
+    {
+      "param": "y",
+      "kind": "int",
+      "value": [
+        1,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "one division then a decrement gets there",
+      "input": [
+        26,
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "an increment unlocks two divisions",
+      "input": [
+        54,
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "target above start needs only increments",
+      "input": [
+        25,
+        30
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "already equal needs zero operations",
+      "input": [
+        7,
+        7
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "both values at the minimum of the range",
+      "input": [
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "both values at the maximum of the range",
+      "input": [
+        10000,
+        10000
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "start is a large multiple of 11 but target is small and not a clean divisor chain",
+      "input": [
+        9999,
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "start below target where dividing would only move further away",
+      "input": [
+        3,
+        9999
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random pairs across the full range",
+      "seed": 12,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    x = rng.randint(1, 10000)\n    y = rng.randint(1, 10000)\n    return [x, y]\n",
+      "note": "exercises the BFS frontier growth across the whole value range"
+    },
+    {
+      "description": "pairs near multiples of 5 and 11 where divisions chain",
+      "seed": 13,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    base = rng.choice([5, 11, 25, 55, 121, 605])\n    x = max(1, min(10000, base * rng.randint(1, 20) + rng.randint(-3, 3)))\n    y = rng.randint(1, 10000)\n    return [x, y]\n",
+      "note": "stresses the division branches of the search"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumOperationsToMakeEqual(self, x, y):\n        # Independent Dijkstra (priority queue) over the same move set; if the\n        # BFS implementation has an off-by-one in its bound or neighbor list,\n        # this differently-structured search will disagree.\n        import heapq\n        if x == y:\n            return 0\n        upper = max(x, y) + 1000\n        dist = {x: 0}\n        pq = [(0, x)]\n        while pq:\n            d, v = heapq.heappop(pq)\n            if v == y:\n                return d\n            if d > dist.get(v, float('inf')):\n                continue\n            nbrs = []\n            if v % 11 == 0:\n                nbrs.append(v // 11)\n            if v % 5 == 0:\n                nbrs.append(v // 5)\n            if v + 1 <= upper:\n                nbrs.append(v + 1)\n            if v - 1 >= 0:\n                nbrs.append(v - 1)\n            for nv in nbrs:\n                nd = d + 1\n                if nd < dist.get(nv, float('inf')):\n                    dist[nv] = nd\n                    heapq.heappush(pq, (nd, nv))\n        return dist[y]\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def minimumOperationsToMakeEqual(self, x, y):\n        if x == y:\n            return 0\n        upper = max(x, y) + 1000\n        dist = [-1] * (upper + 1)\n        dist[x] = 0\n        dq = deque([x])\n        while dq:\n            v = dq.popleft()\n            if v == y:\n                return dist[v]\n            nbrs = []\n            if v % 11 == 0:\n                nbrs.append(v // 11)\n            if v % 5 == 0:\n                nbrs.append(v // 5)\n            if v + 1 <= upper:\n                nbrs.append(v + 1)\n            if v - 1 >= 0:\n                nbrs.append(v - 1)\n            for nv in nbrs:\n                if 0 <= nv <= upper and dist[nv] == -1:\n                    dist[nv] = dist[v] + 1\n                    dq.append(nv)\n        return dist[y]\n",
+    "javascript": "var minimumOperationsToMakeEqual = function(x, y) {\n    if (x === y) return 0;\n    const upper = Math.max(x, y) + 1000;\n    const dist = new Array(upper + 1).fill(-1);\n    dist[x] = 0;\n    const dq = [x];\n    let head = 0;\n    while (head < dq.length) {\n        const v = dq[head++];\n        if (v === y) return dist[v];\n        const nbrs = [];\n        if (v % 11 === 0) nbrs.push(v / 11);\n        if (v % 5 === 0) nbrs.push(v / 5);\n        if (v + 1 <= upper) nbrs.push(v + 1);\n        if (v - 1 >= 0) nbrs.push(v - 1);\n        for (const nv of nbrs) {\n            if (nv >= 0 && nv <= upper && dist[nv] === -1) {\n                dist[nv] = dist[v] + 1;\n                dq.push(nv);\n            }\n        }\n    }\n    return dist[y];\n};\n"
+  },
+  "complexity": {
+    "time": "O(max(x,y))",
+    "space": "O(max(x,y))"
+  }
+}

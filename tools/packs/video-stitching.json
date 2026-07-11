@@ -1,0 +1,37 @@
+{
+  "slug": "video-stitching",
+  "judge": "exact",
+  "pattern": "Treating each clip as a jump from its start to its end turns minimal coverage into a greedy reach-extension: from the covered prefix, always grab the clip that pushes the frontier furthest.",
+  "hints": [
+    "For every possible start second, record the farthest end reachable by any clip beginning at or before it.",
+    "This becomes the classic jump-game reach: track the current covered end and the best end reachable within it.",
+    "Sweep from 0; whenever you exhaust the current reach you must spend one more clip to extend it to the best reachable end. If that frontier ever fails to advance before covering time, return -1."
+  ],
+  "constraints": [
+    { "param": "clips", "kind": "int[][]", "len": [1, 100], "value": [0, 100] },
+    { "param": "time", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "overlapping clips cover with three picks", "input": [[[0, 2], [4, 6], [8, 10], [1, 9], [1, 5], [5, 9]], 10] },
+    { "kind": "trap", "description": "gap in the middle makes it impossible", "input": [[[0, 1], [1, 2]], 5] },
+    { "kind": "edge", "description": "many small clips, greedy picks the long jumps", "input": [[[0, 1], [6, 8], [0, 2], [5, 6], [0, 4], [0, 3], [6, 7], [1, 3], [4, 7], [1, 4], [2, 5], [2, 6], [3, 4], [4, 5], [5, 7], [6, 9]], 9] },
+    { "kind": "boundary", "description": "no clip starts at 0, impossible", "input": [[[1, 4], [2, 5]], 4] },
+    { "kind": "trap", "description": "single clip exactly covers the interval", "input": [[[0, 5]], 5] },
+    { "kind": "trap", "description": "clip overshoots but starts past 0", "input": [[[0, 3], [3, 7]], 6] }
+  ],
+  "stress": [
+    {
+      "description": "random clips with guaranteed full coverage so the answer is finite",
+      "seed": 33,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    T = rng.randint(5, 100)\n    clips = []\n    # ensure coverage: chain of unit clips\n    for i in range(T):\n        clips.append([i, i + 1])\n    extra = max(0, min(size, 100) - T)\n    for _ in range(extra):\n        a = rng.randint(0, T)\n        b = rng.randint(a, min(100, a + 30))\n        clips.append([a, b])\n    rng.shuffle(clips)\n    return [clips, T]\n",
+      "note": "unit-clip chain guarantees coverage; answer is never -1"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def videoStitching(self, clips, time):\n        # Brute force DP: dp[t] = min clips to cover [0, t].\n        INF = float('inf')\n        dp = [0] + [INF] * time\n        for t in range(1, time + 1):\n            for a, b in clips:\n                if a < t <= b:\n                    if dp[a] + 1 < dp[t]:\n                        dp[t] = dp[a] + 1\n        return -1 if dp[time] == INF else dp[time]\n",
+  "solutions": {
+    "python": "class Solution:\n    def videoStitching(self, clips, time):\n        maxReach = [0] * (time + 1)\n        for a, b in clips:\n            if a <= time:\n                maxReach[a] = max(maxReach[a], b)\n        count = 0\n        cur_end = 0\n        next_end = 0\n        i = 0\n        while cur_end < time:\n            while i <= cur_end and i <= time:\n                next_end = max(next_end, maxReach[i])\n                i += 1\n            if next_end <= cur_end:\n                return -1\n            count += 1\n            cur_end = next_end\n        return count\n",
+    "javascript": "var videoStitching = function(clips, time) {\n    const maxReach = new Array(time + 1).fill(0);\n    for (const [a, b] of clips) {\n        if (a <= time) maxReach[a] = Math.max(maxReach[a], b);\n    }\n    let count = 0, curEnd = 0, nextEnd = 0, i = 0;\n    while (curEnd < time) {\n        while (i <= curEnd && i <= time) {\n            nextEnd = Math.max(nextEnd, maxReach[i]);\n            i += 1;\n        }\n        if (nextEnd <= curEnd) return -1;\n        count += 1;\n        curEnd = nextEnd;\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n + time)", "space": "O(time)" }
+}

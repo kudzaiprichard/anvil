@@ -1,0 +1,38 @@
+{
+  "slug": "cinema-seat-allocation",
+  "judge": "exact",
+  "pattern": "Group reserved seats by row, then use bitmask logic to check the three possible four-seat blocks per row; unaffected rows each fit two groups.",
+  "hints": [
+    "Rows with no reservations can always fit two groups (seats 2-5 and 6-9); only process rows that appear in reservedSeats.",
+    "For each affected row, represent the reserved inner seats (2-9) as a bitmask and check whether any of the three blocks (2-5, 4-7, 6-9) has all four seats free.",
+    "Count blocked block pairs using the bitmask: if left block 2-5 is free use it; else if right block 6-9 is free use it; the middle block 4-7 can only be used if neither side was taken—total is at most 2 per row."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000000000] },
+    { "param": "reservedSeats", "kind": "int[][]", "len": [0, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "no reserved seats", "input": [5, []] },
+    { "kind": "edge", "description": "single row fully reserved in middle", "input": [1, [[1,4],[1,5],[1,6],[1,7]]] },
+    { "kind": "edge", "description": "left and right blocks both free", "input": [1, [[1,5],[1,6]]] },
+    { "kind": "boundary", "description": "n=1 row, seat 1 and 10 reserved only", "input": [1, [[1,1],[1,10]]] },
+    { "kind": "boundary", "description": "n very large with few reservations", "input": [1000000000, [[1,2],[1,3],[1,8],[2,6],[3,1],[3,10]]] },
+    { "kind": "trap", "description": "center block 4-7 reserved by one seat blocks both left and middle", "input": [2, [[1,5]]] },
+    { "kind": "trap", "description": "only seats 1 and 10 taken, both blocks available", "input": [1, [[1,1],[1,10]]] },
+    { "kind": "trap", "description": "all three blocks partially blocked, zero groups", "input": [1, [[1,2],[1,6],[1,9]]] }
+  ],
+  "stress": [
+    {
+      "description": "n=10^9 rows, 10000 random reservations spread across 1000 rows",
+      "seed": 17,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    n = 10**9\n    reserved = set()\n    for _ in range(size):\n        r = rng.randint(1, 1000)\n        s = rng.randint(1, 10)\n        reserved.add((r, s))\n    return [n, [list(x) for x in reserved]]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxNumberOfFamilies(self, n, reservedSeats):\n        from collections import defaultdict\n        rows = defaultdict(set)\n        for r, s in reservedSeats:\n            rows[r].add(s)\n        total = 2 * (n - len(rows))\n        for r, seats in rows.items():\n            left = all(s not in seats for s in [2,3,4,5])\n            mid = all(s not in seats for s in [4,5,6,7])\n            right = all(s not in seats for s in [6,7,8,9])\n            if left and right:\n                total += 2\n            elif left or mid or right:\n                total += 1\n        return total\n",
+  "solutions": {
+    "python": "from collections import defaultdict\nclass Solution:\n    def maxNumberOfFamilies(self, n, reservedSeats):\n        rows = defaultdict(int)\n        for r, s in reservedSeats:\n            if 2 <= s <= 9:\n                rows[r] |= 1 << (s - 2)\n        total = 2 * (n - len(rows))\n        LEFT  = 0b00001111  # seats 2-5\n        MID   = 0b00111100  # seats 4-7\n        RIGHT = 0b11110000  # seats 6-9\n        for mask in rows.values():\n            if not (mask & LEFT) and not (mask & RIGHT):\n                total += 2\n            elif not (mask & LEFT) or not (mask & MID) or not (mask & RIGHT):\n                total += 1\n        return total\n",
+    "javascript": "var maxNumberOfFamilies = function(n, reservedSeats) {\n    const rows = new Map();\n    for (const [r, s] of reservedSeats) {\n        if (s >= 2 && s <= 9) {\n            rows.set(r, (rows.get(r) || 0) | (1 << (s - 2)));\n        }\n    }\n    let total = 2 * (n - rows.size);\n    const LEFT  = 0b00001111;\n    const MID   = 0b00111100;\n    const RIGHT = 0b11110000;\n    for (const mask of rows.values()) {\n        if (!(mask & LEFT) && !(mask & RIGHT)) {\n            total += 2;\n        } else if (!(mask & LEFT) || !(mask & MID) || !(mask & RIGHT)) {\n            total += 1;\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(R)", "space": "O(R)" }
+}

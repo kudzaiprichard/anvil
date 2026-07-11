@@ -1,0 +1,38 @@
+{
+  "slug": "number-of-zigzag-arrays-ii",
+  "judge": "exact",
+  "pattern": "The per-length update is a fixed linear map on the up/down counts per value, so raising that transition matrix to the (n-1) power by fast exponentiation handles enormous lengths.",
+  "hints": [
+    "The strict-alternation rule makes the state a vector of up-ending and down-ending counts per value, and each length step applies the same linear transformation.",
+    "A fixed linear recurrence over a huge number of steps is the textbook case for matrix exponentiation.",
+    "Build the (2m) by (2m) transition matrix where an up-count flows from smaller down-counts and a down-count from larger up-counts, raise it to the n-1 power, apply it to the all-ones start vector, and sum."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [3, 1000000000] },
+    { "param": "l", "kind": "int", "value": [1, 75] },
+    { "param": "r", "kind": "int", "value": [1, 75] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two values, length three", "input": [3, 4, 5] },
+    { "kind": "edge", "description": "three values, length three", "input": [3, 1, 3] },
+    { "kind": "boundary", "description": "minimum length, wider range", "input": [3, 1, 6] },
+    { "kind": "edge", "description": "large length, small range exercises many squaring bits", "input": [100000, 1, 3] },
+    { "kind": "trap", "description": "odd large length with a tiny range", "input": [99991, 2, 3] },
+    { "kind": "trap", "description": "even moderate length, range of four values", "input": [50000, 1, 4] }
+  ],
+  "stress": [
+    {
+      "description": "moderately large length with small range - matrix power and the DP oracle agree across many bits",
+      "seed": 121,
+      "size": 6,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(3, 60000)\n    l = rng.randint(1, 70)\n    width = rng.randint(1, 5)\n    r = l + width\n    return [n, l, r]\n",
+      "note": "range width <= 5 keeps the O(n*m) oracle fast; n large enough to cover many exponent bits"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def zigZagArrays(self, n, l, r):\n        MOD = 10**9 + 7\n        m = r - l + 1\n        up = [1] * m\n        down = [1] * m\n        for _ in range(n - 1):\n            pref_down = [0] * (m + 1)\n            for i in range(m):\n                pref_down[i + 1] = (pref_down[i] + down[i]) % MOD\n            suf_up = [0] * (m + 1)\n            for i in range(m - 1, -1, -1):\n                suf_up[i] = (suf_up[i + 1] + up[i]) % MOD\n            new_up = [0] * m\n            new_down = [0] * m\n            for i in range(m):\n                new_up[i] = pref_down[i]\n                new_down[i] = suf_up[i + 1]\n            up, down = new_up, new_down\n        total = 0\n        for i in range(m):\n            total = (total + up[i] + down[i]) % MOD\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def zigZagArrays(self, n, l, r):\n        MOD = 10**9 + 7\n        m = r - l + 1\n        size = 2 * m\n        def matmul(A, B):\n            C = [[0] * size for _ in range(size)]\n            for i in range(size):\n                Ai = A[i]\n                Ci = C[i]\n                for k in range(size):\n                    a = Ai[k]\n                    if a:\n                        Bk = B[k]\n                        for j in range(size):\n                            Ci[j] = (Ci[j] + a * Bk[j]) % MOD\n            return C\n        T = [[0] * size for _ in range(size)]\n        for i in range(m):\n            for j in range(i):\n                T[i][m + j] = 1\n            for j in range(i + 1, m):\n                T[m + i][j] = 1\n        R = [[1 if i == j else 0 for j in range(size)] for i in range(size)]\n        e = n - 1\n        base = T\n        while e > 0:\n            if e & 1:\n                R = matmul(R, base)\n            base = matmul(base, base)\n            e >>= 1\n        vec = [1] * size\n        total = 0\n        for i in range(size):\n            s = 0\n            Ri = R[i]\n            for j in range(size):\n                s = (s + Ri[j] * vec[j]) % MOD\n            total = (total + s) % MOD\n        return total\n",
+    "javascript": "var zigZagArrays = function(n, l, r) {\n    const MOD = 1000000007n;\n    const m = r - l + 1;\n    const size = 2 * m;\n    function matmul(A, B) {\n        const C = Array.from({ length: size }, () => new Array(size).fill(0n));\n        for (let i = 0; i < size; i++) {\n            for (let k = 0; k < size; k++) {\n                const a = A[i][k];\n                if (a !== 0n) {\n                    const Bk = B[k];\n                    const Ci = C[i];\n                    for (let j = 0; j < size; j++) Ci[j] = (Ci[j] + a * Bk[j]) % MOD;\n                }\n            }\n        }\n        return C;\n    }\n    const T = Array.from({ length: size }, () => new Array(size).fill(0n));\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < i; j++) T[i][m + j] = 1n;\n        for (let j = i + 1; j < m; j++) T[m + i][j] = 1n;\n    }\n    let R = Array.from({ length: size }, (_, i) => Array.from({ length: size }, (_, j) => (i === j ? 1n : 0n)));\n    let e = n - 1;\n    let base = T;\n    while (e > 0) {\n        if (e & 1) R = matmul(R, base);\n        base = matmul(base, base);\n        e = Math.floor(e / 2);\n    }\n    const vec = new Array(size).fill(1n);\n    let total = 0n;\n    for (let i = 0; i < size; i++) {\n        let s = 0n;\n        for (let j = 0; j < size; j++) s = (s + R[i][j] * vec[j]) % MOD;\n        total = (total + s) % MOD;\n    }\n    return Number(total);\n};\n"
+  },
+  "complexity": { "time": "O((2m)^3 * log n)", "space": "O(m^2)" }
+}

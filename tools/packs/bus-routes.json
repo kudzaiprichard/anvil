@@ -1,0 +1,39 @@
+{
+  "slug": "bus-routes",
+  "judge": "exact",
+  "pattern": "Breadth-first search over buses rather than stops: from the buses serving the current reachable stops, hop to every connected bus, counting transfers as BFS layers.",
+  "hints": [
+    "Boarding a bus lets you reach every stop on its route, so the natural unit of distance is the number of buses ridden, not stops travelled.",
+    "Index which buses pass through each stop, then treat two buses as adjacent when they share any stop.",
+    "BFS from all buses serving the source stop; the first layer whose route includes the target gives the minimum bus count, and exhausting the queue without reaching it means it is impossible."
+  ],
+  "constraints": [
+    { "param": "routes", "kind": "int[][]", "len": [1, 500] },
+    { "param": "source", "kind": "int", "value": [0, 1000000] },
+    { "param": "target", "kind": "int", "value": [0, 1000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two buses connected by a shared stop", "input": [[[1, 2, 7], [3, 6, 7]], 1, 6] },
+    { "kind": "trap", "description": "disconnected routes make the target unreachable", "input": [[[7, 12], [4, 5, 15], [6], [15, 19], [9, 12, 13]], 15, 12] },
+    { "kind": "boundary", "description": "source already equals target needs zero buses", "input": [[[1, 2, 3]], 2, 2] },
+    { "kind": "edge", "description": "single bus directly connecting source and target", "input": [[[1, 2, 3, 4]], 1, 4] },
+    { "kind": "trap", "description": "target stop exists but on no route reachable from source", "input": [[[1, 2], [10, 11]], 1, 11] },
+    { "kind": "edge", "description": "three-bus chain requiring two transfers", "input": [[[1, 2], [2, 3], [3, 4]], 1, 4] },
+    { "kind": "boundary", "description": "source not served by any bus is impossible unless it is the target", "input": [[[5, 6]], 1, 6] }
+  ],
+  "stress": [
+    {
+      "description": "random routes over a modest stop universe so chains of transfers and dead ends both occur",
+      "seed": 73,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    num_routes = rng.randint(1, max(1, min(size, 60)))\n    max_stop = 40\n    routes = []\n    for _ in range(num_routes):\n        length = rng.randint(1, 5)\n        stops = rng.sample(range(max_stop), length)\n        routes.append(stops)\n    source = rng.randint(0, max_stop - 1)\n    target = rng.randint(0, max_stop - 1)\n    return [routes, source, target]\n",
+      "note": "small stop universe forces overlapping routes and reachable/unreachable mixes"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numBusesToDestination(self, routes, source, target):\n        from collections import deque\n        if source == target:\n            return 0\n        # Independent: BFS over stops, expanding via every unused route at a stop.\n        stop_to_buses = {}\n        for b, route in enumerate(routes):\n            for s in route:\n                stop_to_buses.setdefault(s, []).append(b)\n        visited_stops = {source}\n        used_buses = set()\n        q = deque([(source, 0)])\n        while q:\n            stop, buses = q.popleft()\n            for b in stop_to_buses.get(stop, []):\n                if b in used_buses:\n                    continue\n                used_buses.add(b)\n                for ns in routes[b]:\n                    if ns == target:\n                        return buses + 1\n                    if ns not in visited_stops:\n                        visited_stops.add(ns)\n                        q.append((ns, buses + 1))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def numBusesToDestination(self, routes, source, target):\n        from collections import deque, defaultdict\n        if source == target:\n            return 0\n        stop_to_buses = defaultdict(list)\n        for b, route in enumerate(routes):\n            for s in route:\n                stop_to_buses[s].append(b)\n        route_sets = [set(r) for r in routes]\n        visited_bus = set()\n        q = deque()\n        for b in stop_to_buses[source]:\n            visited_bus.add(b)\n            q.append((b, 1))\n        while q:\n            bus, count = q.popleft()\n            if target in route_sets[bus]:\n                return count\n            for s in routes[bus]:\n                for nb in stop_to_buses[s]:\n                    if nb not in visited_bus:\n                        visited_bus.add(nb)\n                        q.append((nb, count + 1))\n        return -1\n",
+    "javascript": "var numBusesToDestination = function(routes, source, target) {\n    if (source === target) return 0;\n    const stopToBuses = new Map();\n    for (let b = 0; b < routes.length; b++) {\n        for (const s of routes[b]) {\n            if (!stopToBuses.has(s)) stopToBuses.set(s, []);\n            stopToBuses.get(s).push(b);\n        }\n    }\n    const routeSets = routes.map(r => new Set(r));\n    const visited = new Set();\n    const q = [];\n    for (const b of (stopToBuses.get(source) || [])) {\n        visited.add(b);\n        q.push([b, 1]);\n    }\n    let head = 0;\n    while (head < q.length) {\n        const [bus, count] = q[head++];\n        if (routeSets[bus].has(target)) return count;\n        for (const s of routes[bus]) {\n            for (const nb of (stopToBuses.get(s) || [])) {\n                if (!visited.has(nb)) {\n                    visited.add(nb);\n                    q.push([nb, count + 1]);\n                }\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(sum route lengths squared worst case)", "space": "O(sum route lengths)" }
+}

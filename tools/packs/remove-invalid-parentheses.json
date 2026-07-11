@@ -1,0 +1,42 @@
+{
+  "slug": "remove-invalid-parentheses",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    s = args[0]\n    if not isinstance(output, list):\n        return False\n    def is_valid(t):\n        depth = 0\n        for ch in t:\n            if ch == '(': depth += 1\n            elif ch == ')':\n                depth -= 1\n                if depth < 0: return False\n        return depth == 0\n    def min_removals(t):\n        left = right = 0\n        for ch in t:\n            if ch == '(': left += 1\n            elif ch == ')':\n                if left > 0: left -= 1\n                else: right += 1\n        return left + right\n    min_rem = min_removals(s)\n    correct = set()\n    from itertools import combinations\n    n = len(s)\n    for mask_size in range(n + 1):\n        removed = mask_size\n        if removed > min_rem: break\n        if removed < min_rem: continue\n        # try removing exactly mask_size characters\n        for indices in combinations(range(n), mask_size):\n            candidate = ''.join(s[i] for i in range(n) if i not in indices)\n            if is_valid(candidate):\n                correct.add(candidate)\n    seen = set()\n    for item in output:\n        if not isinstance(item, str): return False\n        if item in seen: return False\n        seen.add(item)\n        if not is_valid(item): return False\n        if len(item) != len(s) - min_rem: return False\n    return seen == correct\n",
+    "validator_javascript": "function validate(args, output) {\n    const s = args[0];\n    if (!Array.isArray(output)) return false;\n    function isValid(t) {\n        let depth = 0;\n        for (const ch of t) {\n            if (ch === '(') depth++;\n            else if (ch === ')') {\n                depth--;\n                if (depth < 0) return false;\n            }\n        }\n        return depth === 0;\n    }\n    function minRemovals(t) {\n        let left = 0, right = 0;\n        for (const ch of t) {\n            if (ch === '(') left++;\n            else if (ch === ')') {\n                if (left > 0) left--;\n                else right++;\n            }\n        }\n        return left + right;\n    }\n    const minRem = minRemovals(s);\n    const targetLen = s.length - minRem;\n    // Build correct set via BFS removing one char at a time\n    let current = new Set([s]);\n    let correct = null;\n    for (let level = 0; level <= s.length; level++) {\n        const valid = new Set();\n        for (const t of current) if (isValid(t)) valid.add(t);\n        if (valid.size > 0) { correct = valid; break; }\n        const next = new Set();\n        for (const t of current) {\n            for (let i = 0; i < t.length; i++) {\n                if (t[i] === '(' || t[i] === ')') {\n                    next.add(t.slice(0, i) + t.slice(i + 1));\n                }\n            }\n        }\n        current = next;\n    }\n    if (!correct) correct = new Set(['']);\n    const seen = new Set();\n    for (const item of output) {\n        if (typeof item !== 'string') return false;\n        if (seen.has(item)) return false;\n        seen.add(item);\n        if (!isValid(item)) return false;\n        if (item.length !== targetLen) return false;\n        if (!correct.has(item)) return false;\n    }\n    return seen.size === correct.size;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "BFS level by level removes one invalid parenthesis at a time, collecting all valid strings at the first level where any valid string appears, which guarantees the minimum removal count.",
+  "hints": [
+    "Try every possible single removal at each BFS level; if any result is a valid parenthesization, collect all valid ones at that level and stop.",
+    "To avoid re-exploring the same string, keep a visited set across BFS levels.",
+    "A valid parenthesization has equal open and close counts and no prefix with more closes than opens; checking this in O(n) prunes most candidates quickly."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 25] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one extra close at the boundary yields two solutions", "input": ["()())()"] },
+    { "kind": "edge", "description": "letter between parentheses with extra close", "input": ["(a)())()"] },
+    { "kind": "boundary", "description": "open and close with nothing else invalid", "input": [")("] },
+    { "kind": "boundary", "description": "already valid string returns itself", "input": ["()"] },
+    { "kind": "trap", "description": "all opens need matching closes removed", "input": ["((("] },
+    { "kind": "trap", "description": "letters only, always valid as is", "input": ["abc"] },
+    { "kind": "edge", "description": "mixed letters and multiple invalid parens", "input": ["(a))b(c))"] }
+  ],
+  "stress": [
+    {
+      "description": "short string of parentheses and letters up to length 12",
+      "seed": 8,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = min(max(1, size), 12)\n    chars = [rng.choice('()()ab') for _ in range(n)]\n    return [''.join(chars)]\n",
+      "note": "cap at 12 to bound BFS branching; parentheses weighted heavier"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def removeInvalidParentheses(self, s):\n        from collections import deque\n        visited = {s}\n        queue = deque([s])\n        found = []\n        found_level = False\n        while queue and not found_level:\n            size = len(queue)\n            for _ in range(size):\n                curr = queue.popleft()\n                depth = 0\n                valid = True\n                for ch in curr:\n                    if ch == '(': depth += 1\n                    elif ch == ')':\n                        depth -= 1\n                        if depth < 0: valid = False; break\n                if valid and depth == 0:\n                    found.append(curr)\n                    found_level = True\n                if not found_level:\n                    for i in range(len(curr)):\n                        if curr[i] not in '()':\n                            continue\n                        nxt = curr[:i] + curr[i+1:]\n                        if nxt not in visited:\n                            visited.add(nxt)\n                            queue.append(nxt)\n        return sorted(found)\n",
+  "solutions": {
+    "python": "class Solution:\n    def removeInvalidParentheses(self, s):\n        from collections import deque\n        visited = {s}\n        queue = deque([s])\n        found = []\n        found_level = False\n        while queue and not found_level:\n            size = len(queue)\n            for _ in range(size):\n                curr = queue.popleft()\n                depth = 0\n                valid = True\n                for ch in curr:\n                    if ch == '(': depth += 1\n                    elif ch == ')':\n                        depth -= 1\n                        if depth < 0: valid = False; break\n                if valid and depth == 0:\n                    found.append(curr)\n                    found_level = True\n                if not found_level:\n                    for i in range(len(curr)):\n                        if curr[i] not in '()':\n                            continue\n                        nxt = curr[:i] + curr[i+1:]\n                        if nxt not in visited:\n                            visited.add(nxt)\n                            queue.append(nxt)\n        return sorted(found)\n",
+    "javascript": "var removeInvalidParentheses = function(s) {\n    let current = new Set([s]);\n    while (true) {\n        const valid = [...current].filter(t => {\n            let d = 0;\n            for (const ch of t) {\n                if (ch === '(') d++;\n                else if (ch === ')') { d--; if (d < 0) return false; }\n            }\n            return d === 0;\n        });\n        if (valid.length > 0) return valid.sort();\n        const next = new Set();\n        for (const t of current) {\n            for (let i = 0; i < t.length; i++) {\n                if (t[i] === '(' || t[i] === ')') {\n                    next.add(t.slice(0, i) + t.slice(i + 1));\n                }\n            }\n        }\n        current = next;\n    }\n};\n"
+  },
+  "complexity": { "time": "O(2^n * n)", "space": "O(2^n)" }
+}

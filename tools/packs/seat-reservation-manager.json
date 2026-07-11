@@ -1,0 +1,88 @@
+{
+  "slug": "seat-reservation-manager",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "A min-heap of freed seat numbers plus a single running counter for never-touched seats gives O(log n) reserve and unreserve while always handing out the smallest available number.",
+  "hints": [
+    "reserve must always return the smallest free seat, so you need fast access to the minimum among the available ones.",
+    "Seats that were never reserved form a contiguous block from a moving pointer upward; only seats that get unreserved create gaps below that pointer.",
+    "Keep a counter for the next pristine seat and a min-heap of unreserved gap seats; reserve pops the heap if it is non-empty and smaller, otherwise hands out the counter and increments it."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 100000] },
+    { "param": "seatNumber", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example: reserve, reserve, unreserve a middle seat, then reserve picks it again",
+      "input": [
+        ["SeatManager", "reserve", "reserve", "unreserve", "reserve", "reserve", "reserve", "reserve", "unreserve"],
+        [[5], [], [], [2], [], [], [], [], [5]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single seat: reserve then unreserve then reserve again",
+      "input": [
+        ["SeatManager", "reserve", "unreserve", "reserve"],
+        [[1], [], [1], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "reserve all seats in order",
+      "input": [
+        ["SeatManager", "reserve", "reserve", "reserve", "reserve"],
+        [[4], [], [], [], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "unreserve a low seat after reserving several; next reserve must return the freed low seat, not the next pristine one",
+      "input": [
+        ["SeatManager", "reserve", "reserve", "reserve", "unreserve", "reserve"],
+        [[10], [], [], [], [1], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "multiple unreserves create several gaps; reserves must return them in ascending order",
+      "input": [
+        ["SeatManager", "reserve", "reserve", "reserve", "reserve", "unreserve", "unreserve", "unreserve", "reserve", "reserve", "reserve"],
+        [[10], [], [], [], [], [3], [1], [2], [], [], []]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "interleave reserve and unreserve repeatedly on the same low seat",
+      "input": [
+        ["SeatManager", "reserve", "unreserve", "reserve", "unreserve", "reserve"],
+        [[3], [], [1], [], [1], []]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "unreserve a high seat then a low seat; reserve must prefer the lower freed seat",
+      "input": [
+        ["SeatManager", "reserve", "reserve", "reserve", "unreserve", "unreserve", "reserve"],
+        [[5], [], [], [], [3], [1], []]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long randomised sequence of reserves and unreserves that always respects the guarantees (only reserved seats are unreserved, reserve only when a seat is free)",
+      "seed": 7,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = 2000\n    ops = ['SeatManager']\n    args = [[n]]\n    reserved = []\n    free_count = n\n    for _ in range(size):\n        if reserved and rng.random() < 0.45:\n            idx = rng.randint(0, len(reserved) - 1)\n            seat = reserved.pop(idx)\n            ops.append('unreserve')\n            args.append([seat])\n            free_count += 1\n        elif free_count > 0:\n            ops.append('reserve')\n            args.append([])\n            reserved.append(None)\n            free_count -= 1\n    # the harness will compute the actual reserved seat numbers; we only need a\n    # valid op sequence where every unreserve targets a currently-reserved seat.\n    # Rebuild a self-consistent sequence by simulating reserve return values.\n    import heapq\n    ops2 = ['SeatManager']\n    args2 = [[n]]\n    heap = []\n    nxt = 1\n    held = set()\n    cnt = 0\n    for op, a in zip(ops[1:], args[1:]):\n        if op == 'reserve':\n            if heap and heap[0] < nxt:\n                s = heapq.heappop(heap)\n            else:\n                s = nxt\n                nxt += 1\n            held.add(s)\n            ops2.append('reserve')\n            args2.append([])\n        else:\n            if not held:\n                continue\n            s = rng.choice(sorted(held))\n            held.discard(s)\n            heapq.heappush(heap, s)\n            ops2.append('unreserve')\n            args2.append([s])\n    return [ops2, args2]\n",
+      "note": "the second pass re-derives a consistent op stream so every unreserve hits a held seat"
+    }
+  ],
+  "oracle_python": "class SeatManager:\n    def __init__(self, n: int):\n        self.free = set(range(1, n + 1))\n    def reserve(self) -> int:\n        s = min(self.free)\n        self.free.discard(s)\n        return s\n    def unreserve(self, seatNumber: int) -> None:\n        self.free.add(seatNumber)\n",
+  "solutions": {
+    "python": "import heapq\nclass SeatManager:\n    def __init__(self, n: int):\n        self._heap = []\n        self._next = 1\n    def reserve(self) -> int:\n        if self._heap and self._heap[0] < self._next:\n            return heapq.heappop(self._heap)\n        s = self._next\n        self._next += 1\n        return s\n    def unreserve(self, seatNumber: int) -> None:\n        if seatNumber < self._next:\n            heapq.heappush(self._heap, seatNumber)\n",
+    "javascript": "var SeatManager = function(n) {\n    this.heap = [];\n    this.next = 1;\n};\nSeatManager.prototype._up = function(i) {\n    const h = this.heap;\n    while (i > 0) {\n        const p = (i - 1) >> 1;\n        if (h[p] <= h[i]) break;\n        [h[p], h[i]] = [h[i], h[p]];\n        i = p;\n    }\n};\nSeatManager.prototype._down = function(i) {\n    const h = this.heap, n = h.length;\n    while (true) {\n        let s = i, l = 2 * i + 1, r = 2 * i + 2;\n        if (l < n && h[l] < h[s]) s = l;\n        if (r < n && h[r] < h[s]) s = r;\n        if (s === i) break;\n        [h[s], h[i]] = [h[i], h[s]];\n        i = s;\n    }\n};\nSeatManager.prototype.reserve = function() {\n    if (this.heap.length && this.heap[0] < this.next) {\n        const top = this.heap[0];\n        const last = this.heap.pop();\n        if (this.heap.length) { this.heap[0] = last; this._down(0); }\n        return top;\n    }\n    return this.next++;\n};\nSeatManager.prototype.unreserve = function(seatNumber) {\n    if (seatNumber < this.next) {\n        this.heap.push(seatNumber);\n        this._up(this.heap.length - 1);\n    }\n};\n"
+  },
+  "complexity": { "time": "O(log n) per reserve/unreserve", "space": "O(n)" }
+}

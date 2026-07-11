@@ -1,0 +1,35 @@
+{
+  "slug": "crawler-log-folder",
+  "judge": "exact",
+  "pattern": "Tracking only the current depth as a single counter is enough to answer 'how far from the root', since going up, staying put, or going down each change that counter by a fixed, predictable amount regardless of the folder names involved.",
+  "hints": [
+    "You never need to know the actual folder names, only how deep you currently are.",
+    "Three operations each have a fixed effect on depth: moving to the parent decreases it (but never below the root), staying decreases nothing, and moving into a named folder increases it.",
+    "Scan the operations once, clamping depth at zero whenever a parent-move would otherwise take it negative, and return the final depth."
+  ],
+  "constraints": [
+    { "param": "logs", "kind": "string[]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a simple descent and one step back", "input": [["d1/", "d2/", "../", "d21/", "./"]] },
+    { "kind": "edge", "description": "descends deep then returns fully to the root", "input": [["d1/", "d2/", "./", "d3/", "../", "d31/"]] },
+    { "kind": "boundary", "description": "a single stay-in-place operation from the root", "input": [["./"]] },
+    { "kind": "trap", "description": "trying to go above the root should clamp at zero, not go negative", "input": [["../", "../"]] },
+    { "kind": "trap", "description": "many alternating up and down moves that should mostly cancel out", "input": [["a/", "../", "b/", "../", "c/", "../", "d/"]] },
+    { "kind": "trap", "description": "descend then go up one more time than allowed at a shallow point", "input": [["a/", "b/", "../", "../", "../"]] }
+  ],
+  "stress": [
+    {
+      "description": "long random sequence of the three operation kinds",
+      "seed": 61,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    ops = []\n    for _ in range(n):\n        choice = rng.random()\n        if choice < 0.3:\n            ops.append('../')\n        elif choice < 0.5:\n            ops.append('./')\n        else:\n            name = ''.join(rng.choice('abc123') for _ in range(rng.randint(1, 5)))\n            ops.append(name + '/')\n    return [ops]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minOperations(self, logs):\n        stack = []\n        for log in logs:\n            if log == '../':\n                if stack:\n                    stack.pop()\n            elif log == './':\n                continue\n            else:\n                stack.append(log)\n        return len(stack)\n",
+  "solutions": {
+    "python": "class Solution:\n    def minOperations(self, logs):\n        depth = 0\n        for log in logs:\n            if log == '../':\n                depth = max(0, depth - 1)\n            elif log == './':\n                continue\n            else:\n                depth += 1\n        return depth\n",
+    "javascript": "var minOperations = function(logs) {\n    let depth = 0;\n    for (const log of logs) {\n        if (log === '../') {\n            depth = Math.max(0, depth - 1);\n        } else if (log === './') {\n            continue;\n        } else {\n            depth += 1;\n        }\n    }\n    return depth;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

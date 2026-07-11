@@ -1,0 +1,43 @@
+{
+  "slug": "data-stream-as-disjoint-intervals",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Maintaining a sorted set of merged intervals lets each new number be absorbed by locating its neighbors and coalescing only the touching ranges, keeping the interval list always compact and ordered.",
+  "hints": [
+    "Storing every number individually wastes space; what the query wants is the set of maximal runs of consecutive integers.",
+    "When a new number arrives it can extend an interval on its left, extend one on its right, bridge a gap between two, or start a fresh one.",
+    "Keep the intervals sorted by start and, on each insert, find where the number lands; merge with an adjacent interval whose end is one less, or one whose start is one more, joining both if it sits exactly between them."
+  ],
+  "constraints": [
+    { "param": "value", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the statement's own sequence: scattered inserts that later bridge into bigger runs",
+      "input": [["SummaryRanges", "addNum", "getIntervals", "addNum", "getIntervals", "addNum", "getIntervals", "addNum", "getIntervals", "addNum", "getIntervals"], [[], [1], [], [3], [], [7], [], [2], [], [6], []]] },
+    { "kind": "boundary", "description": "a single number is an interval of length one",
+      "input": [["SummaryRanges", "addNum", "getIntervals"], [[], [5], []]] },
+    { "kind": "trap", "description": "adding a number already covered must not change the intervals",
+      "input": [["SummaryRanges", "addNum", "addNum", "addNum", "getIntervals"], [[], [4], [5], [4], []]] },
+    { "kind": "trap", "description": "a number exactly between two intervals fuses all three into one",
+      "input": [["SummaryRanges", "addNum", "addNum", "addNum", "getIntervals"], [[], [1], [3], [2], []]] },
+    { "kind": "edge", "description": "consecutive ascending inserts grow a single interval",
+      "input": [["SummaryRanges", "addNum", "addNum", "addNum", "getIntervals"], [[], [10], [11], [12], []]] },
+    { "kind": "edge", "description": "out-of-order inserts that stay disjoint",
+      "input": [["SummaryRanges", "addNum", "addNum", "addNum", "getIntervals"], [[], [100], [10], [50], []]] }
+  ],
+  "stress": [
+    {
+      "description": "many random inserts over a small range so merges and bridges happen often, with frequent getIntervals checks",
+      "seed": 53,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    ops = ['SummaryRanges']\n    args = [[]]\n    added = False\n    for _ in range(max(1, size)):\n        if not added or rng.random() < 0.6:\n            ops.append('addNum'); args.append([rng.randint(0, 60)]); added = True\n        else:\n            ops.append('getIntervals'); args.append([])\n    return [ops, args]\n",
+      "note": "small value space forces dense coalescing; getIntervals output is the canonical sorted interval list"
+    }
+  ],
+  "oracle_python": "class SummaryRanges:\n    def __init__(self):\n        self.seen = set()\n    def addNum(self, value):\n        self.seen.add(value)\n    def getIntervals(self):\n        res = []\n        for v in sorted(self.seen):\n            if res and v == res[-1][1] + 1:\n                res[-1][1] = v\n            else:\n                res.append([v, v])\n        return res\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass SummaryRanges:\n    def __init__(self):\n        self.starts = []\n        self.intervals = []\n    def addNum(self, value):\n        starts = self.starts\n        iv = self.intervals\n        i = bisect.bisect_right(starts, value)\n        if i > 0 and iv[i - 1][1] >= value:\n            return\n        merge_left = i > 0 and iv[i - 1][1] == value - 1\n        merge_right = i < len(iv) and iv[i][0] == value + 1\n        if merge_left and merge_right:\n            iv[i - 1][1] = iv[i][1]\n            del iv[i]; del starts[i]\n        elif merge_left:\n            iv[i - 1][1] = value\n        elif merge_right:\n            iv[i][0] = value\n            starts[i] = value\n        else:\n            starts.insert(i, value)\n            iv.insert(i, [value, value])\n    def getIntervals(self):\n        return [list(p) for p in self.intervals]\n",
+    "javascript": "class SummaryRanges {\n    constructor() {\n        this.intervals = [];\n    }\n    addNum(value) {\n        const iv = this.intervals;\n        let lo = 0, hi = iv.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (iv[mid][0] <= value) lo = mid + 1; else hi = mid;\n        }\n        const i = lo;\n        if (i > 0 && iv[i - 1][1] >= value) return;\n        const mergeLeft = i > 0 && iv[i - 1][1] === value - 1;\n        const mergeRight = i < iv.length && iv[i][0] === value + 1;\n        if (mergeLeft && mergeRight) {\n            iv[i - 1][1] = iv[i][1];\n            iv.splice(i, 1);\n        } else if (mergeLeft) {\n            iv[i - 1][1] = value;\n        } else if (mergeRight) {\n            iv[i][0] = value;\n        } else {\n            iv.splice(i, 0, [value, value]);\n        }\n    }\n    getIntervals() {\n        return this.intervals.map(p => [p[0], p[1]]);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) per insert worst case, O(k) per query", "space": "O(k)" }
+}

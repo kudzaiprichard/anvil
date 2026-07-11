@@ -1,0 +1,157 @@
+{
+  "slug": "minimum-inversion-count-in-subarrays-of-fixed-length",
+  "judge": "exact",
+  "pattern": "Sliding a fixed-size window one step only removes one element's inversions with the rest of the window and adds one new element's inversions with what remains, so a value-indexed counting structure lets the whole scan update in logarithmic time per step instead of recomputing from scratch.",
+  "hints": [
+    "Compute the inversion count of the very first window directly, inserting elements one at a time and, for each new element, counting how many already-inserted elements are strictly greater than it.",
+    "When the window slides by one, exactly two things change: the leaving (leftmost) element stops contributing its inversions with everyone else in the old window, and the entering (new rightmost) element starts contributing inversions with everyone still in the window.",
+    "A value-indexed Fenwick tree (built over the compressed set of array values) answers 'how many currently-in-window elements are less than / greater than this value' in logarithmic time, which is exactly what both the removal and insertion steps need."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example 1",
+      "input": [
+        [
+          3,
+          1,
+          2,
+          5,
+          4
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example 2, only one window, fully reversed",
+      "input": [
+        [
+          5,
+          3,
+          2,
+          1
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example 3, k = 1 always has zero inversions",
+      "input": [
+        [
+          2,
+          1
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equals the array length",
+      "input": [
+        [
+          4,
+          2,
+          3,
+          1
+        ],
+        4
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element array with k = 1",
+      "input": [
+        [
+          9
+        ],
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "an already-sorted array has a window with zero inversions",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate values are not inversions with each other",
+      "input": [
+        [
+          3,
+          3,
+          3,
+          1,
+          3,
+          3
+        ],
+        3
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "strictly decreasing then strictly increasing, best window straddles the valley",
+      "input": [
+        [
+          9,
+          7,
+          5,
+          3,
+          4,
+          6,
+          8
+        ],
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "large random array with a random fixed window length",
+      "seed": 1111,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minInversionCount(self, nums, k):\n        n = len(nums)\n        best = None\n        for s in range(0, n - k + 1):\n            window = nums[s:s + k]\n            inv = 0\n            for i in range(len(window)):\n                for j in range(i + 1, len(window)):\n                    if window[i] > window[j]:\n                        inv += 1\n            if best is None or inv < best:\n                best = inv\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minInversionCount(self, nums: List[int], k: int) -> int:\n        n = len(nums)\n        sorted_vals = sorted(set(nums))\n        comp = {v: i + 1 for i, v in enumerate(sorted_vals)}\n        m = len(sorted_vals)\n        bit = [0] * (m + 1)\n\n        def update(idx, delta):\n            while idx <= m:\n                bit[idx] += delta\n                idx += idx & (-idx)\n\n        def prefix(idx):\n            s = 0\n            while idx > 0:\n                s += bit[idx]\n                idx -= idx & (-idx)\n            return s\n\n        def count_less(v):\n            c = comp[v]\n            return prefix(c - 1)\n\n        def count_greater(v):\n            c = comp[v]\n            return prefix(m) - prefix(c)\n\n        total = 0\n        for i in range(k):\n            v = nums[i]\n            total += count_greater(v)\n            update(comp[v], 1)\n        best = total\n        for s in range(1, n - k + 1):\n            left = nums[s - 1]\n            total -= count_less(left)\n            update(comp[left], -1)\n            newv = nums[s + k - 1]\n            total += count_greater(newv)\n            update(comp[newv], 1)\n            if total < best:\n                best = total\n        return best\n",
+    "javascript": "var minInversionCount = function(nums, k) {\n    const n = nums.length;\n    const sortedVals = Array.from(new Set(nums)).sort((a, b) => a - b);\n    const comp = new Map();\n    sortedVals.forEach((v, i) => comp.set(v, i + 1));\n    const m = sortedVals.length;\n    const bit = new Array(m + 1).fill(0);\n\n    function update(idx, delta) {\n        while (idx <= m) { bit[idx] += delta; idx += idx & (-idx); }\n    }\n    function prefix(idx) {\n        let s = 0;\n        while (idx > 0) { s += bit[idx]; idx -= idx & (-idx); }\n        return s;\n    }\n    function countLess(v) {\n        const c = comp.get(v);\n        return prefix(c - 1);\n    }\n    function countGreater(v) {\n        const c = comp.get(v);\n        return prefix(m) - prefix(c);\n    }\n\n    let total = 0;\n    for (let i = 0; i < k; i++) {\n        const v = nums[i];\n        total += countGreater(v);\n        update(comp.get(v), 1);\n    }\n    let best = total;\n    for (let s = 1; s <= n - k; s++) {\n        const left = nums[s - 1];\n        total -= countLess(left);\n        update(comp.get(left), -1);\n        const newv = nums[s + k - 1];\n        total += countGreater(newv);\n        update(comp.get(newv), 1);\n        if (total < best) best = total;\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

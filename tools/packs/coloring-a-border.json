@@ -1,0 +1,39 @@
+{
+  "slug": "coloring-a-border",
+  "judge": "exact",
+  "pattern": "A flood fill identifies the connected component, but only the cells that touch the grid edge or a differently-colored neighbor are borders, so mark them and recolor afterward to avoid corrupting the in-progress search.",
+  "hints": [
+    "Explore the connected region of same-colored cells starting from the given cell using DFS or BFS.",
+    "A cell is on the border if it lies on the grid boundary or has at least one 4-directional neighbor that is NOT part of the component.",
+    "Decide which cells are borders first (or use a visited marker) before recoloring, otherwise recolored cells would falsely look like 'different color' neighbors during the traversal."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 50], "value": [1, 1000] },
+    { "param": "row", "kind": "int", "value": [0, 49] },
+    { "param": "col", "kind": "int", "value": [0, 49] },
+    { "param": "color", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "tiny grid, component of two cells", "input": [[[1, 1], [1, 2]], 0, 0, 3] },
+    { "kind": "trap", "description": "interior cell of a larger component", "input": [[[1, 2, 2], [2, 3, 2]], 0, 1, 3] },
+    { "kind": "trap", "description": "center stays original; only the ring is bordered", "input": [[[1, 1, 1], [1, 1, 1], [1, 1, 1]], 1, 1, 2] },
+    { "kind": "boundary", "description": "single cell grid", "input": [[[5]], 0, 0, 9] },
+    { "kind": "trap", "description": "recolor equals existing color of a neighbor must not merge components", "input": [[[1, 1, 1], [1, 2, 1], [1, 1, 1]], 0, 0, 2] },
+    { "kind": "edge", "description": "component touches only part of the boundary", "input": [[[2, 2, 2, 2], [2, 1, 1, 2], [2, 2, 2, 2]], 1, 1, 5] }
+  ],
+  "stress": [
+    {
+      "description": "random small grid with few colors so components are non-trivial",
+      "seed": 31,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 12)))\n    n = rng.randint(1, max(1, min(size, 12)))\n    grid = [[rng.randint(1, 3) for _ in range(n)] for _ in range(m)]\n    r = rng.randint(0, m - 1)\n    c = rng.randint(0, n - 1)\n    color = rng.randint(1, 5)\n    return [grid, r, c, color]\n",
+      "note": "small color palette guarantees meaningful connected components"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def colorBorder(self, grid, row, col, color):\n        # Brute force: flood fill to collect the component, then independently\n        # test each component cell for border-ness against the original grid.\n        m, n = len(grid), len(grid[0])\n        orig = grid[row][col]\n        comp = set()\n        stack = [(row, col)]\n        while stack:\n            r, c = stack.pop()\n            if (r, c) in comp:\n                continue\n            if not (0 <= r < m and 0 <= c < n) or grid[r][c] != orig:\n                continue\n            comp.add((r, c))\n            stack.extend([(r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)])\n        border = []\n        for (r, c) in comp:\n            on_edge = r == 0 or c == 0 or r == m - 1 or c == n - 1\n            touches = False\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n and (nr, nc) not in comp:\n                    touches = True\n            if on_edge or touches:\n                border.append((r, c))\n        out = [row[:] for row in grid]\n        for (r, c) in border:\n            out[r][c] = color\n        return out\n",
+  "solutions": {
+    "python": "class Solution:\n    def colorBorder(self, grid, row, col, color):\n        m, n = len(grid), len(grid[0])\n        orig = grid[row][col]\n        visited = [[False] * n for _ in range(m)]\n        border = []\n        stack = [(row, col)]\n        visited[row][col] = True\n        while stack:\n            r, c = stack.pop()\n            is_border = False\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if not (0 <= nr < m and 0 <= nc < n):\n                    is_border = True\n                elif grid[nr][nc] != orig:\n                    is_border = True\n                elif not visited[nr][nc]:\n                    visited[nr][nc] = True\n                    stack.append((nr, nc))\n            if is_border:\n                border.append((r, c))\n        for (r, c) in border:\n            grid[r][c] = color\n        return grid\n",
+    "javascript": "var colorBorder = function(grid, row, col, color) {\n    const m = grid.length, n = grid[0].length;\n    const orig = grid[row][col];\n    const visited = Array.from({ length: m }, () => new Array(n).fill(false));\n    const border = [];\n    const stack = [[row, col]];\n    visited[row][col] = true;\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    while (stack.length) {\n        const [r, c] = stack.pop();\n        let isBorder = false;\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr < 0 || nr >= m || nc < 0 || nc >= n) {\n                isBorder = true;\n            } else if (grid[nr][nc] !== orig) {\n                isBorder = true;\n            } else if (!visited[nr][nc]) {\n                visited[nr][nc] = true;\n                stack.push([nr, nc]);\n            }\n        }\n        if (isBorder) border.push([r, c]);\n    }\n    for (const [r, c] of border) grid[r][c] = color;\n    return grid;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

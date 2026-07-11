@@ -1,0 +1,184 @@
+{
+  "slug": "two-best-non-overlapping-events",
+  "judge": "exact",
+  "pattern": "Sort events by start time, then for each event binary-search for the earliest event starting after it ends and consult a precomputed suffix-maximum of values to find the best possible partner event.",
+  "hints": [
+    "Sort all events by start time; picking at most two events means: pick one, then optimally pick a second event that starts strictly after the first one ends.",
+    "Precompute, from right to left over the start-sorted order, the maximum value achievable using any event at or beyond a given position (a suffix maximum).",
+    "For each event, binary-search (on start times) for the first event starting after this one's end time, look up the suffix-max value from there, and take the best of (this event alone) vs (this event plus its best compatible partner)."
+  ],
+  "constraints": [
+    {
+      "param": "events",
+      "kind": "int[][]",
+      "len": [
+        2,
+        100000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two events that don't overlap at all",
+      "input": [
+        [
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            3,
+            4,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two events that fully overlap",
+      "input": [
+        [
+          [
+            1,
+            10,
+            5
+          ],
+          [
+            2,
+            8,
+            10
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "events touching at adjacent instants, which counts as non-overlapping",
+      "input": [
+        [
+          [
+            1,
+            5,
+            3
+          ],
+          [
+            6,
+            10,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "events touching at the exact same instant, which counts as overlapping",
+      "input": [
+        [
+          [
+            1,
+            5,
+            3
+          ],
+          [
+            5,
+            10,
+            7
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the single best event alone beats any valid pair",
+      "input": [
+        [
+          [
+            1,
+            100,
+            1000000
+          ],
+          [
+            2,
+            3,
+            1
+          ],
+          [
+            4,
+            5,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the two highest-value events overlap and must be rejected in favor of a valid pairing",
+      "input": [
+        [
+          [
+            1,
+            10,
+            50
+          ],
+          [
+            1,
+            10,
+            60
+          ],
+          [
+            11,
+            20,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "several events share identical start and end times, only their values differ",
+      "input": [
+        [
+          [
+            1,
+            5,
+            10
+          ],
+          [
+            1,
+            5,
+            20
+          ],
+          [
+            1,
+            5,
+            5
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random events with random start/end/value at realistic scale",
+      "seed": 19,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    events = []\n    for _ in range(n):\n        s = rng.randint(1, 1000000000 - 10)\n        e = s + rng.randint(0, 10)\n        v = rng.randint(1, 1000000)\n        events.append([s, e, v])\n    return [events]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxTwoEvents(self, events):\n        n = len(events)\n        best = 0\n        for i in range(n):\n            s1, e1, v1 = events[i]\n            if v1 > best:\n                best = v1\n            for j in range(n):\n                if i == j:\n                    continue\n                s2, e2, v2 = events[j]\n                if e1 < s2 or e2 < s1:\n                    if v1 + v2 > best:\n                        best = v1 + v2\n        return best\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def maxTwoEvents(self, events):\n        events = sorted(events, key=lambda e: e[0])\n        n = len(events)\n        starts = [e[0] for e in events]\n        suffix_max = [0] * (n + 1)\n        for i in range(n - 1, -1, -1):\n            suffix_max[i] = max(suffix_max[i + 1], events[i][2])\n        ans = 0\n        for s, e, v in events:\n            idx = bisect.bisect_right(starts, e)\n            best_other = suffix_max[idx]\n            ans = max(ans, v, v + best_other)\n        return ans\n",
+    "javascript": "var maxTwoEvents = function(events) {\n    const sorted = events.slice().sort((a, b) => a[0] - b[0]);\n    const n = sorted.length;\n    const starts = sorted.map(e => e[0]);\n    const suffixMax = new Array(n + 1).fill(0);\n    for (let i = n - 1; i >= 0; i--) {\n        suffixMax[i] = Math.max(suffixMax[i + 1], sorted[i][2]);\n    }\n    function bisectRight(arr, x) {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] <= x) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n    let ans = 0;\n    for (const [s, e, v] of sorted) {\n        const idx = bisectRight(starts, e);\n        const bestOther = suffixMax[idx];\n        ans = Math.max(ans, v, v + bestOther);\n    }\n    return ans;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

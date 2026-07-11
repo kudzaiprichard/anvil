@@ -1,0 +1,38 @@
+{
+  "slug": "solve-the-equation",
+  "judge": "exact",
+  "pattern": "Summing the x-coefficients and constants on each side reduces the equation to a*x = b, whose solvability is read off a and b.",
+  "hints": [
+    "Split on '='; each side is a sum of signed terms that are either constants or multiples of x.",
+    "Accumulate two totals per side: the coefficient of x and the constant; then move everything to one side.",
+    "Let A be (left x-coeff minus right x-coeff) and B be (right const minus left const). If A is 0 and B is 0 there are infinite solutions; if A is 0 and B is not, no solution; otherwise x = B/A as an integer."
+  ],
+  "constraints": [
+    { "param": "equation", "kind": "string", "len": [3, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "terms on both sides, unique integer solution", "input": ["x+5-3+x=6+x-2"] },
+    { "kind": "trap", "description": "identical sides give infinite solutions", "input": ["x=x"] },
+    { "kind": "edge", "description": "solution is zero", "input": ["2x=x"] },
+    { "kind": "trap", "description": "contradiction gives no solution", "input": ["2x+1=2x+2"] },
+    { "kind": "trap", "description": "bare x has implicit coefficient one", "input": ["x+x+x=3"] },
+    { "kind": "edge", "description": "negative coefficient and constant", "input": ["-x=-1"] },
+    { "kind": "trap", "description": "explicit zero coefficient term", "input": ["0x=0"] },
+    { "kind": "edge", "description": "negative solution", "input": ["x+3=0"] }
+  ],
+  "stress": [
+    {
+      "description": "random equations built from signed integer and x-terms on each side",
+      "seed": 77,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    def side():\n        k = rng.randrange(1, 5)\n        terms = []\n        for _ in range(k):\n            sign = rng.choice(['+', '-']) if terms else rng.choice(['', '-'])\n            if rng.random() < 0.5:\n                coef = rng.randrange(0, 21)\n                terms.append(sign + str(coef) + 'x')\n            else:\n                val = rng.randrange(0, 51)\n                terms.append(sign + str(val))\n        s = ''.join(terms)\n        if s == '' or s == '-':\n            s = '0'\n        return s\n    left = side()\n    right = side()\n    eq = left + '=' + right\n    return [eq]\n",
+      "note": "produces solvable, infinite, and no-solution equations; division uses integer arithmetic"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def solveEquation(self, equation):\n        def parse(side):\n            coef = 0\n            const = 0\n            i = 0\n            n = len(side)\n            terms = []\n            sign = 1\n            buf = ''\n            # tokenize into signed terms\n            i = 0\n            while i < n:\n                c = side[i]\n                if c in '+-' and i != 0:\n                    terms.append(buf)\n                    buf = c\n                else:\n                    buf += c\n                i += 1\n            if buf:\n                terms.append(buf)\n            for t in terms:\n                if t == '' or t == '+' or t == '-':\n                    continue\n                if t.endswith('x'):\n                    num = t[:-1]\n                    if num in ('', '+'):\n                        coef += 1\n                    elif num == '-':\n                        coef -= 1\n                    else:\n                        coef += int(num)\n                else:\n                    const += int(t)\n            return coef, const\n        l, r = equation.split('=')\n        lc, lk = parse(l)\n        rc, rk = parse(r)\n        A = lc - rc\n        B = rk - lk\n        if A == 0:\n            if B == 0:\n                return 'Infinite solutions'\n            return 'No solution'\n        return 'x=' + str(B // A)\n",
+  "solutions": {
+    "python": "class Solution:\n    def solveEquation(self, equation):\n        import re\n        def parse(side):\n            coef = 0\n            const = 0\n            for t in re.findall(r'[+-]?[^+-]+', side):\n                if t.endswith('x'):\n                    num = t[:-1]\n                    if num in ('', '+'):\n                        coef += 1\n                    elif num == '-':\n                        coef -= 1\n                    else:\n                        coef += int(num)\n                else:\n                    const += int(t)\n            return coef, const\n        l, r = equation.split('=')\n        lc, lk = parse(l)\n        rc, rk = parse(r)\n        A = lc - rc\n        B = rk - lk\n        if A == 0:\n            return 'Infinite solutions' if B == 0 else 'No solution'\n        return 'x=' + str(B // A)\n",
+    "javascript": "var solveEquation = function(equation) {\n    const parse = (side) => {\n        let coef = 0, constant = 0;\n        const terms = side.match(/[+-]?[^+-]+/g) || [];\n        for (const t of terms) {\n            if (t.endsWith('x')) {\n                let num = t.slice(0, -1);\n                if (num === '' || num === '+') coef += 1;\n                else if (num === '-') coef -= 1;\n                else coef += parseInt(num, 10);\n            } else {\n                constant += parseInt(t, 10);\n            }\n        }\n        return [coef, constant];\n    };\n    const [l, r] = equation.split('=');\n    const [lc, lk] = parse(l);\n    const [rc, rk] = parse(r);\n    const A = lc - rc;\n    const B = rk - lk;\n    if (A === 0) return B === 0 ? 'Infinite solutions' : 'No solution';\n    const q = B / A;\n    return 'x=' + Math.trunc(q);\n};\n"
+  },
+  "complexity": { "time": "O(len(equation))", "space": "O(len(equation))" }
+}

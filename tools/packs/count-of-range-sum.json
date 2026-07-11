@@ -1,0 +1,45 @@
+{
+  "slug": "count-of-range-sum",
+  "judge": "exact",
+  "pattern": "Counting subarrays whose sum lands inside a range becomes a counting-inversions problem on prefix sums: for each prefix you count how many earlier prefixes sit within a sliding window, which a merge sort or balanced order-statistic structure does in n log n.",
+  "hints": [
+    "Rewrite the sum of a subarray as the difference of two prefix sums, so the question turns into pairs of prefixes whose difference falls in a fixed band.",
+    "For a right prefix value p, the valid left prefixes are those in the interval from p minus upper to p minus lower; you need to count earlier prefixes inside a moving window.",
+    "Sort the prefix sums with a merge sort and, while merging, for each left-half value count how many right-half values fall in its band; accumulate those counts to get the answer in n log n time."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [-2147483648, 2147483647] },
+    { "param": "lower", "kind": "int", "value": [-100000, 100000] },
+    { "param": "upper", "kind": "int", "value": [-100000, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed signs with a small symmetric range", "input": [[-2, 5, -1], -2, 2] },
+    { "kind": "boundary", "description": "single element equal to the only allowed sum", "input": [[0], 0, 0] },
+    { "kind": "edge", "description": "all positive, range that includes several windows", "input": [[1, 2, 3], 3, 6] },
+    { "kind": "trap", "description": "lower equals upper so only exact-sum subarrays count", "input": [[1, -1, 1, -1], 0, 0] },
+    { "kind": "trap", "description": "large magnitudes whose prefix differences need wide integers", "input": [[2147483647, -2147483648, -1, 0], -1, 0] },
+    { "kind": "edge", "description": "no subarray fits the range", "input": [[1, 2, 3], 100, 200] },
+    { "kind": "boundary", "description": "single negative element inside the range", "input": [[-5], -10, -1] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays of small integers with a moderate range so many subarrays qualify",
+      "seed": 13,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(-20, 20) for _ in range(n)]\n    lo = rng.randint(-30, 0)\n    hi = rng.randint(0, 30)\n    return [nums, lo, hi]\n",
+      "note": "moderate range keeps the answer large and stresses the windowed count"
+    },
+    {
+      "description": "random arrays with large magnitudes to stress integer width",
+      "seed": 41,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(-1000000000, 1000000000) for _ in range(n)]\n    lo = rng.randint(-100000, 0)\n    hi = rng.randint(0, 100000)\n    return [nums, lo, hi]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countRangeSum(self, nums, lower, upper):\n        n = len(nums)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + nums[i]\n        count = 0\n        for i in range(n):\n            s = 0\n            for j in range(i, n):\n                s += nums[j]\n                if lower <= s <= upper:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def countRangeSum(self, nums, lower, upper):\n        prefix = [0]\n        for x in nums:\n            prefix.append(prefix[-1] + x)\n\n        def sort(lo, hi):\n            if hi - lo <= 1:\n                return 0\n            mid = (lo + hi) // 2\n            count = sort(lo, mid) + sort(mid, hi)\n            j = k = mid\n            for left in prefix[lo:mid]:\n                while k < hi and prefix[k] - left < lower:\n                    k += 1\n                while j < hi and prefix[j] - left <= upper:\n                    j += 1\n                count += j - k\n            prefix[lo:hi] = sorted(prefix[lo:hi])\n            return count\n\n        return sort(0, len(prefix))\n",
+    "javascript": "var countRangeSum = function(nums, lower, upper) {\n    const prefix = [0];\n    for (const x of nums) prefix.push(prefix[prefix.length - 1] + x);\n\n    const sort = function(lo, hi) {\n        if (hi - lo <= 1) return 0;\n        const mid = Math.floor((lo + hi) / 2);\n        let count = sort(lo, mid) + sort(mid, hi);\n        let j = mid, k = mid;\n        for (let i = lo; i < mid; i++) {\n            const left = prefix[i];\n            while (k < hi && prefix[k] - left < lower) k++;\n            while (j < hi && prefix[j] - left <= upper) j++;\n            count += j - k;\n        }\n        const merged = prefix.slice(lo, hi).sort((a, b) => a - b);\n        for (let i = 0; i < merged.length; i++) prefix[lo + i] = merged[i];\n        return count;\n    };\n\n    return sort(0, prefix.length);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

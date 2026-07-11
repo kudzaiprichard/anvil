@@ -1,0 +1,36 @@
+{
+  "slug": "minimize-deviation-in-array",
+  "judge": "exact",
+  "pattern": "Doubling odd values first turns the problem into repeatedly halving the current maximum (only while it stays even), so a max-heap greedily narrows the max-min gap toward its true optimum.",
+  "hints": [
+    "Every odd value can only ever grow (by doubling once) before it behaves like an even value; do that doubling up front so every number is even to start.",
+    "The maximum can always be shrunk by halving it as long as it stays even, and shrinking the maximum can only help; halving the minimum would only hurt, so never do that.",
+    "Keep all values in a max-heap plus track the running minimum. Repeatedly: record max-min, then if the max is even, pop it, halve it, update the minimum, and push it back; stop once the max is odd."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small mix of odd and even values", "input": [[1, 2, 3, 4]] },
+    { "kind": "edge", "description": "already-equal deviation of a pair after one halving", "input": [[4, 1, 5, 20, 3]] },
+    { "kind": "boundary", "description": "two elements, minimum size", "input": [[2, 10]] },
+    { "kind": "boundary", "description": "all values already odd, each doubles exactly once", "input": [[1, 1, 1, 1]] },
+    { "kind": "trap", "description": "a value with a long chain of factors of two, tempting an early stop", "input": [[3, 8]] },
+    { "kind": "trap", "description": "one large power-of-two value dominates and must be halved all the way down", "input": [[1, 16]] },
+    { "kind": "trap", "description": "every value already even and equal: deviation is zero from the start", "input": [[6, 6, 6]] }
+  ],
+  "stress": [
+    {
+      "description": "large random array of mixed parity values",
+      "seed": 23,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "import itertools\nclass Solution:\n    def minimumDeviation(self, nums):\n        chains = []\n        for x in nums:\n            if x % 2 == 1:\n                x *= 2\n            chain = [x]\n            while chain[-1] % 2 == 0:\n                chain.append(chain[-1] // 2)\n            chains.append(chain)\n        best = None\n        for combo in itertools.product(*chains):\n            d = max(combo) - min(combo)\n            if best is None or d < best:\n                best = d\n        return best\n",
+  "solutions": {
+    "python": "import heapq\nclass Solution:\n    def minimumDeviation(self, nums):\n        heap = []\n        lo = float('inf')\n        for x in nums:\n            if x % 2 == 1:\n                x *= 2\n            heap.append(-x)\n            lo = min(lo, x)\n        heapq.heapify(heap)\n        best = -heap[0] - lo\n        while (-heap[0]) % 2 == 0:\n            x = -heapq.heappop(heap)\n            x //= 2\n            lo = min(lo, x)\n            heapq.heappush(heap, -x)\n            best = min(best, -heap[0] - lo)\n        return best\n",
+    "javascript": "var minimumDeviation = function(nums) {\n    class MaxHeap {\n        constructor() { this.a = []; }\n        push(v) {\n            const a = this.a; a.push(v);\n            let i = a.length - 1;\n            while (i > 0) {\n                const p = (i - 1) >> 1;\n                if (a[p] >= a[i]) break;\n                [a[p], a[i]] = [a[i], a[p]]; i = p;\n            }\n        }\n        pop() {\n            const a = this.a; const top = a[0]; const last = a.pop();\n            if (a.length) {\n                a[0] = last; let i = 0;\n                while (true) {\n                    let l = 2 * i + 1, r = 2 * i + 2, m = i;\n                    if (l < a.length && a[l] > a[m]) m = l;\n                    if (r < a.length && a[r] > a[m]) m = r;\n                    if (m === i) break;\n                    [a[m], a[i]] = [a[i], a[m]]; i = m;\n                }\n            }\n            return top;\n        }\n        peek() { return this.a[0]; }\n    }\n    const heap = new MaxHeap();\n    let lo = Infinity;\n    for (let x of nums) {\n        if (x % 2 === 1) x *= 2;\n        heap.push(x);\n        lo = Math.min(lo, x);\n    }\n    let best = heap.peek() - lo;\n    while (heap.peek() % 2 === 0) {\n        let x = heap.pop();\n        x = Math.floor(x / 2);\n        lo = Math.min(lo, x);\n        heap.push(x);\n        best = Math.min(best, heap.peek() - lo);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n log(max value))", "space": "O(n)" }
+}

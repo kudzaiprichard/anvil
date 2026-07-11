@@ -1,0 +1,44 @@
+{
+  "slug": "maximize-score-of-numbers-in-ranges",
+  "judge": "exact",
+  "pattern": "The best achievable minimum gap is monotonic in the gap value itself, so binary search on the answer and greedily place each next pick as early as its range allows, right after the previous pick plus the candidate gap.",
+  "hints": [
+    "If a gap of size g is achievable, any smaller gap is also achievable -- that monotonic property is a strong hint to binary search on the answer instead of constructing picks directly.",
+    "To test whether a candidate gap g is feasible, sort the ranges by their start and greedily choose each pick as small as possible: the first range's start, then for every later range the maximum of its own start and the previous pick plus g.",
+    "A candidate gap is feasible exactly when every greedily-placed pick still fits inside its own range (does not exceed start[i] + d); binary search the largest feasible g between 0 and the full span of the sorted starts."
+  ],
+  "constraints": [
+    { "param": "start", "kind": "int[]", "len": [2, 100000], "value": [0, 1000000000] },
+    { "param": "d", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, three ranges", "input": [[6, 0, 3], 2] },
+    { "kind": "edge", "description": "statement example, four ranges with a tie", "input": [[2, 6, 13, 13], 5] },
+    { "kind": "boundary", "description": "two ranges, minimum length", "input": [[0, 0], 1] },
+    { "kind": "boundary", "description": "d is zero, every pick is forced to its start", "input": [[5, 9, 1], 0] },
+    { "kind": "trap", "description": "identical starts, only d spreads the picks apart", "input": [[10, 10, 10, 10], 100] },
+    { "kind": "trap", "description": "ranges already far apart, so the tight constraint is the closest pair not the widest", "input": [[0, 1000000, 2000000], 1] },
+    { "kind": "edge", "description": "descending starts, forces sorting before the greedy pass", "input": [[100, 50, 0], 10] },
+    { "kind": "boundary", "description": "max value starts near the integer ceiling", "input": [[1000000000, 0], 500000000] }
+  ],
+  "stress": [
+    {
+      "description": "many random ranges with a moderate d",
+      "seed": 7,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 20000))\n    start = [rng.randint(0, 2000000) for _ in range(n)]\n    d = rng.randint(0, 2000000)\n    return [start, d]\n"
+    },
+    {
+      "description": "clustered starts (few distinct values repeated) to stress ties in the greedy sort",
+      "seed": 8,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 5000))\n    buckets = [rng.randint(0, 50) for _ in range(10)]\n    start = [buckets[rng.randint(0, 9)] for _ in range(n)]\n    d = rng.randint(0, 100)\n    return [start, d]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxPossibleScore(self, start, d):\n        starts = sorted(start)\n        n = len(starts)\n        lo, hi = 0, starts[-1] + d - starts[0]\n        def feasible(g):\n            prev = starts[0]\n            for i in range(1, n):\n                nxt = max(starts[i], prev + g)\n                if nxt > starts[i] + d:\n                    return False\n                prev = nxt\n            return True\n        ans = 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                ans = mid\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        return ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxPossibleScore(self, start, d):\n        starts = sorted(start)\n        n = len(starts)\n\n        def feasible(g):\n            prev = starts[0]\n            for i in range(1, n):\n                nxt = max(starts[i], prev + g)\n                if nxt > starts[i] + d:\n                    return False\n                prev = nxt\n            return True\n\n        lo, hi = 0, starts[-1] + d - starts[0]\n        ans = 0\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if feasible(mid):\n                ans = mid\n                lo = mid + 1\n            else:\n                hi = mid - 1\n        return ans\n",
+    "javascript": "var maxPossibleScore = function(start, d) {\n    const starts = start.slice().sort((a, b) => a - b);\n    const n = starts.length;\n\n    const feasible = (g) => {\n        let prev = starts[0];\n        for (let i = 1; i < n; i++) {\n            const nxt = Math.max(starts[i], prev + g);\n            if (nxt > starts[i] + d) return false;\n            prev = nxt;\n        }\n        return true;\n    };\n\n    let lo = 0, hi = starts[n - 1] + d - starts[0];\n    let ans = 0;\n    while (lo <= hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (feasible(mid)) {\n            ans = mid;\n            lo = mid + 1;\n        } else {\n            hi = mid - 1;\n        }\n    }\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n log n + n log D)", "space": "O(n)" }
+}

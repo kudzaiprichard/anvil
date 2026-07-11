@@ -1,0 +1,45 @@
+{
+  "slug": "range-sum-query-2d-immutable",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Precomputing a 2D prefix-sum table once lets any axis-aligned rectangle sum be answered with a fixed four-term inclusion-exclusion formula in constant time.",
+  "hints": [
+    "Answering each query by walking the rectangle is too slow when there are many queries; do the heavy work once up front.",
+    "Build a table where each cell holds the sum of everything above-and-left of it, including itself.",
+    "The sum of a rectangle is the big prefix block minus the strip above minus the strip to the left, plus the corner that was subtracted twice (inclusion-exclusion)."
+  ],
+  "constraints": [
+    { "param": "matrix", "kind": "int[][]", "len": [1, 200], "value": [-100000, 100000] },
+    { "param": "row1", "kind": "int", "value": [0, 199] },
+    { "param": "col1", "kind": "int", "value": [0, 199] },
+    { "param": "row2", "kind": "int", "value": [0, 199] },
+    { "param": "col2", "kind": "int", "value": [0, 199] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "the statement's own matrix with three overlapping sub-rectangles",
+      "input": [["NumMatrix", "sumRegion", "sumRegion", "sumRegion"], [[[[3, 0, 1, 4, 2], [5, 6, 3, 2, 1], [1, 2, 0, 1, 5], [4, 1, 0, 1, 7], [1, 0, 3, 0, 5]]], [2, 1, 4, 3], [1, 1, 2, 2], [1, 2, 2, 4]]] },
+    { "kind": "boundary", "description": "single-cell matrix queried at its only cell",
+      "input": [["NumMatrix", "sumRegion"], [[[[42]]], [0, 0, 0, 0]]] },
+    { "kind": "edge", "description": "whole-matrix region equals the total of all cells",
+      "input": [["NumMatrix", "sumRegion"], [[[[1, 2], [3, 4]]], [0, 0, 1, 1]]] },
+    { "kind": "trap", "description": "single row and single column regions touch the prefix edges",
+      "input": [["NumMatrix", "sumRegion", "sumRegion"], [[[[2, -1, 3], [4, 5, -6], [-7, 8, 9]]], [0, 0, 0, 2], [0, 1, 2, 1]]] },
+    { "kind": "trap", "description": "negative values across the rectangle exercise the inclusion-exclusion signs",
+      "input": [["NumMatrix", "sumRegion", "sumRegion"], [[[[-1, -2, -3], [-4, -5, -6]]], [0, 0, 1, 2], [1, 1, 1, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random matrix then many random valid rectangle queries",
+      "seed": 31,
+      "size": 600,
+      "generator_python": "def gen(rng, size):\n    rows = rng.randint(1, 40)\n    cols = rng.randint(1, 40)\n    matrix = [[rng.randint(-1000, 1000) for _ in range(cols)] for _ in range(rows)]\n    ops = ['NumMatrix']\n    args = [[matrix]]\n    for _ in range(max(1, size)):\n        r1 = rng.randint(0, rows - 1)\n        r2 = rng.randint(r1, rows - 1)\n        c1 = rng.randint(0, cols - 1)\n        c2 = rng.randint(c1, cols - 1)\n        ops.append('sumRegion'); args.append([r1, c1, r2, c2])\n    return [ops, args]\n",
+      "note": "queries are constructed with r1<=r2 and c1<=c2 so every rectangle is valid"
+    }
+  ],
+  "oracle_python": "class NumMatrix:\n    def __init__(self, matrix):\n        self.m = matrix\n    def sumRegion(self, row1, col1, row2, col2):\n        total = 0\n        for r in range(row1, row2 + 1):\n            for c in range(col1, col2 + 1):\n                total += self.m[r][c]\n        return total\n",
+  "solutions": {
+    "python": "class NumMatrix:\n    def __init__(self, matrix):\n        rows = len(matrix)\n        cols = len(matrix[0]) if rows else 0\n        self.pre = [[0] * (cols + 1) for _ in range(rows + 1)]\n        for r in range(rows):\n            row_acc = 0\n            for c in range(cols):\n                row_acc += matrix[r][c]\n                self.pre[r + 1][c + 1] = self.pre[r][c + 1] + row_acc\n    def sumRegion(self, row1, col1, row2, col2):\n        p = self.pre\n        return p[row2 + 1][col2 + 1] - p[row1][col2 + 1] - p[row2 + 1][col1] + p[row1][col1]\n",
+    "javascript": "class NumMatrix {\n    constructor(matrix) {\n        const rows = matrix.length;\n        const cols = rows ? matrix[0].length : 0;\n        this.pre = Array.from({ length: rows + 1 }, () => new Array(cols + 1).fill(0));\n        for (let r = 0; r < rows; r++) {\n            let rowAcc = 0;\n            for (let c = 0; c < cols; c++) {\n                rowAcc += matrix[r][c];\n                this.pre[r + 1][c + 1] = this.pre[r][c + 1] + rowAcc;\n            }\n        }\n    }\n    sumRegion(row1, col1, row2, col2) {\n        const p = this.pre;\n        return p[row2 + 1][col2 + 1] - p[row1][col2 + 1] - p[row2 + 1][col1] + p[row1][col1];\n    }\n}\n"
+  },
+  "complexity": { "time": "O(rows*cols) build, O(1) per query", "space": "O(rows*cols)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "ipo",
+  "judge": "exact",
+  "pattern": "Greedily picking, among all currently affordable projects, the one with the highest profit and rolling its return into capital maximizes the final total after at most k picks.",
+  "hints": [
+    "At each step you can only start projects whose capital requirement is met by your current funds.",
+    "Among the affordable ones, the most profitable choice is always best because profit only ever grows your future options.",
+    "Sort projects by capital, and as capital rises unlock newly affordable ones into a max-heap by profit; pop the best up to k times."
+  ],
+  "constraints": [
+    { "param": "k", "kind": "int", "value": [1, 100000] },
+    { "param": "w", "kind": "int", "value": [0, 1000000000] },
+    { "param": "profits", "kind": "int[]", "len": [1, 100000], "value": [0, 10000] },
+    { "param": "capital", "kind": "int[]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": [2, 0, [1, 2, 3], [0, 1, 1]] },
+    { "kind": "edge", "description": "statement example two takes all", "input": [3, 0, [1, 2, 3], [0, 1, 2]] },
+    { "kind": "boundary", "description": "single project affordable", "input": [1, 5, [10], [3]] },
+    { "kind": "trap", "description": "no project affordable from start", "input": [3, 0, [5, 6], [2, 4]] },
+    { "kind": "trap", "description": "k exceeds number of projects", "input": [10, 0, [4, 1, 7], [0, 0, 0]] },
+    { "kind": "edge", "description": "must take lower profit first to unlock higher", "input": [2, 1, [2, 100], [0, 5]] }
+  ],
+  "stress": [
+    {
+      "description": "random projects with capital reachable from initial funds, random k",
+      "seed": 23,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 50))\n    profits = [rng.randint(0, 50) for _ in range(n)]\n    capital = [rng.randint(0, 30) for _ in range(n)]\n    k = rng.randint(1, n)\n    w = rng.randint(0, 10)\n    return [k, w, profits, capital]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMaximizedCapital(self, k, w, profits, capital):\n        projects = list(zip(capital, profits))\n        for _ in range(k):\n            best = -1\n            best_idx = -1\n            for i, (c, p) in enumerate(projects):\n                if c <= w and p > best:\n                    best = p\n                    best_idx = i\n            if best_idx == -1:\n                break\n            w += projects[best_idx][1]\n            projects.pop(best_idx)\n        return w\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMaximizedCapital(self, k, w, profits, capital):\n        import heapq\n        projects = sorted(zip(capital, profits))\n        heap = []\n        i = 0\n        n = len(projects)\n        for _ in range(k):\n            while i < n and projects[i][0] <= w:\n                heapq.heappush(heap, -projects[i][1])\n                i += 1\n            if not heap:\n                break\n            w += -heapq.heappop(heap)\n        return w\n",
+    "javascript": "var findMaximizedCapital = function(k, w, profits, capital) {\n    const n = profits.length;\n    const idx = Array.from({length: n}, (_, i) => i);\n    idx.sort((a, b) => capital[a] - capital[b]);\n    const heap = [];\n    const push = (v) => {\n        heap.push(v);\n        let i = heap.length - 1;\n        while (i > 0) {\n            const p = (i - 1) >> 1;\n            if (heap[p] >= heap[i]) break;\n            [heap[p], heap[i]] = [heap[i], heap[p]];\n            i = p;\n        }\n    };\n    const pop = () => {\n        const top = heap[0];\n        const last = heap.pop();\n        if (heap.length) {\n            heap[0] = last;\n            let i = 0;\n            const len = heap.length;\n            while (true) {\n                let largest = i;\n                const l = 2 * i + 1, r = 2 * i + 2;\n                if (l < len && heap[l] > heap[largest]) largest = l;\n                if (r < len && heap[r] > heap[largest]) largest = r;\n                if (largest === i) break;\n                [heap[largest], heap[i]] = [heap[i], heap[largest]];\n                i = largest;\n            }\n        }\n        return top;\n    };\n    let i = 0;\n    for (let t = 0; t < k; t++) {\n        while (i < n && capital[idx[i]] <= w) {\n            push(profits[idx[i]]);\n            i++;\n        }\n        if (heap.length === 0) break;\n        w += pop();\n    }\n    return w;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

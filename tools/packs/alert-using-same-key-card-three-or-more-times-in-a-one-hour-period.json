@@ -1,0 +1,36 @@
+{
+  "slug": "alert-using-same-key-card-three-or-more-times-in-a-one-hour-period",
+  "judge": "exact",
+  "pattern": "Once a person's access times are converted to minutes and sorted, a 60-minute window containing three uses is just a check on every group of three consecutive sorted timestamps, since any wider gap could only make a triple's span larger, never smaller.",
+  "hints": [
+    "Convert every 'HH:MM' timestamp into a single integer number of minutes since midnight, then group all of a single person's timestamps together.",
+    "Sort each person's timestamps; if any three uses within a 60-minute window exist, the tightest such window is always three timestamps that are consecutive once sorted.",
+    "For each person, scan their sorted timestamps in triples (index i and i+2); if the gap between them is at most 60, that person gets an alert. Collect and sort the alerted names alphabetically."
+  ],
+  "constraints": [
+    { "param": "keyName", "kind": "string[]", "len": [1, 100000] },
+    { "param": "keyTime", "kind": "string[]", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one person alerts, one does not, from the classic three-uses-in-an-hour case", "input": [["daniel", "daniel", "daniel", "luis", "luis", "luis", "luis"], ["10:00", "10:40", "11:00", "09:00", "11:00", "13:00", "15:00"]] },
+    { "kind": "edge", "description": "unsorted input times must still be handled correctly", "input": [["alice", "alice", "alice"], ["23:51", "00:10", "00:20"]] },
+    { "kind": "boundary", "description": "exactly two uses, never enough to alert", "input": [["bob", "bob"], ["09:00", "09:30"]] },
+    { "kind": "trap", "description": "exactly 60 minutes apart counts as within the window, not outside it", "input": [["eve", "eve", "eve"], ["10:00", "10:30", "11:00"]] },
+    { "kind": "trap", "description": "just over 60 minutes apart must not alert", "input": [["eve", "eve", "eve"], ["10:00", "10:31", "11:01"]] },
+    { "kind": "trap", "description": "multiple people, only names that actually qualify are returned, sorted", "input": [["zoe", "zoe", "zoe", "amy", "amy"], ["01:00", "01:20", "01:40", "05:00", "05:59"]] }
+  ],
+  "stress": [
+    {
+      "description": "many people with random access times over a single day",
+      "seed": 79,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    import string\n    n = max(1, min(size, 100000))\n    names = [''.join(rng.choice(string.ascii_lowercase) for _ in range(rng.randint(1, 6))) for _ in range(max(1, n // 10))]\n    key_name = []\n    key_time = []\n    for _ in range(n):\n        name = rng.choice(names)\n        h = rng.randint(0, 23)\n        m = rng.randint(0, 59)\n        key_name.append(name)\n        key_time.append(f'{h:02d}:{m:02d}')\n    return [key_name, key_time]\n"
+    }
+  ],
+  "oracle_python": "from collections import defaultdict\nfrom itertools import combinations\nclass Solution:\n    def alertNames(self, keyName, keyTime):\n        times = defaultdict(list)\n        for name, t in zip(keyName, keyTime):\n            h, m = t.split(':')\n            times[name].append(int(h) * 60 + int(m))\n        result = []\n        for name, lst in times.items():\n            lst.sort()\n            n = len(lst)\n            found = False\n            for i, j, k in combinations(range(n), 3):\n                if lst[k] - lst[i] <= 60:\n                    found = True\n                    break\n            if found:\n                result.append(name)\n        return sorted(result)\n",
+  "solutions": {
+    "python": "from collections import defaultdict\nclass Solution:\n    def alertNames(self, keyName, keyTime):\n        times = defaultdict(list)\n        for name, t in zip(keyName, keyTime):\n            h, m = t.split(':')\n            times[name].append(int(h) * 60 + int(m))\n        result = []\n        for name, lst in times.items():\n            lst.sort()\n            for i in range(len(lst) - 2):\n                if lst[i + 2] - lst[i] <= 60:\n                    result.append(name)\n                    break\n        return sorted(result)\n",
+    "javascript": "var alertNames = function(keyName, keyTime) {\n    const times = new Map();\n    for (let i = 0; i < keyName.length; i++) {\n        const name = keyName[i];\n        const [h, m] = keyTime[i].split(':').map(Number);\n        const mins = h * 60 + m;\n        if (!times.has(name)) times.set(name, []);\n        times.get(name).push(mins);\n    }\n    const result = [];\n    for (const [name, lst] of times) {\n        lst.sort((a, b) => a - b);\n        for (let i = 0; i + 2 < lst.length; i++) {\n            if (lst[i + 2] - lst[i] <= 60) {\n                result.push(name);\n                break;\n            }\n        }\n    }\n    result.sort();\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

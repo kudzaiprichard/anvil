@@ -1,0 +1,37 @@
+{
+  "slug": "shortest-path-visiting-all-nodes",
+  "judge": "exact",
+  "pattern": "Breadth-first search over states of (current node, set of visited nodes) finds the fewest edges needed to cover every node, since each step adds one edge of uniform cost.",
+  "hints": [
+    "The state you explore is not just where you are but also which nodes you have already touched.",
+    "Encode the visited set as a bitmask, so a state is the pair of current node and that bitmask.",
+    "Start a breadth-first search seeded from every node with only itself visited, expanding along edges and updating the bitmask, and stop when the bitmask marks all nodes visited."
+  ],
+  "constraints": [
+    { "param": "graph", "kind": "int[][]", "len": [1, 12], "value": [0, 11] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a star where the center must be revisited", "input": [[[1, 2, 3], [0], [0], [0]]] },
+    { "kind": "edge", "description": "denser graph with multiple short routes", "input": [[[1], [0, 2, 4], [1, 3, 4], [2], [1, 2]]] },
+    { "kind": "boundary", "description": "single node needs no travel", "input": [[[]]] },
+    { "kind": "edge", "description": "two connected nodes need one edge", "input": [[[1], [0]]] },
+    { "kind": "trap", "description": "a path graph forces traversal end to end", "input": [[[1], [0, 2], [1, 3], [2]]] },
+    { "kind": "edge", "description": "a triangle, every node one hop away", "input": [[[1, 2], [0, 2], [0, 1]]] },
+    { "kind": "trap", "description": "two leaves off a path require backtracking", "input": [[[1], [0, 2, 3], [1], [1]]] }
+  ],
+  "stress": [
+    {
+      "description": "random connected graphs built from a spanning tree plus extra edges",
+      "seed": 91,
+      "size": 12,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, min(max(1, size), 12))\n    adj = [set() for _ in range(n)]\n    for v in range(1, n):\n        u = rng.randrange(v)\n        adj[u].add(v)\n        adj[v].add(u)\n    extra = rng.randint(0, n)\n    for _ in range(extra):\n        a = rng.randrange(n)\n        b = rng.randrange(n)\n        if a != b:\n            adj[a].add(b)\n            adj[b].add(a)\n    return [[sorted(adj[i]) for i in range(n)]]\n",
+      "note": "spanning tree guarantees connectivity; n capped at 12 keeps state space small"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shortestPathLength(self, graph):\n        n = len(graph)\n        if n <= 1:\n            return 0\n        full = (1 << n) - 1\n        from collections import deque\n        # plain BFS without a visited-set optimisation beyond a dict of distances\n        start = [(i, 1 << i) for i in range(n)]\n        dist = {}\n        dq = deque()\n        for node, mask in start:\n            dist[(node, mask)] = 0\n            dq.append((node, mask))\n        while dq:\n            node, mask = dq.popleft()\n            d = dist[(node, mask)]\n            if mask == full:\n                return d\n            for nb in graph[node]:\n                nmask = mask | (1 << nb)\n                if (nb, nmask) not in dist:\n                    dist[(nb, nmask)] = d + 1\n                    dq.append((nb, nmask))\n        return 0\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def shortestPathLength(self, graph):\n        n = len(graph)\n        if n <= 1:\n            return 0\n        full = (1 << n) - 1\n        seen = set()\n        dq = deque()\n        for i in range(n):\n            state = (i, 1 << i)\n            dq.append((i, 1 << i, 0))\n            seen.add(state)\n        while dq:\n            node, mask, dist = dq.popleft()\n            if mask == full:\n                return dist\n            for nb in graph[node]:\n                nmask = mask | (1 << nb)\n                if (nb, nmask) not in seen:\n                    seen.add((nb, nmask))\n                    dq.append((nb, nmask, dist + 1))\n        return 0\n",
+    "javascript": "var shortestPathLength = function(graph) {\n    const n = graph.length;\n    if (n <= 1) return 0;\n    const full = (1 << n) - 1;\n    const seen = new Set();\n    let queue = [];\n    for (let i = 0; i < n; i++) {\n        queue.push([i, 1 << i]);\n        seen.add(i * (1 << n) + (1 << i));\n    }\n    let dist = 0;\n    while (queue.length) {\n        const next = [];\n        for (const [node, mask] of queue) {\n            if (mask === full) return dist;\n            for (const nb of graph[node]) {\n                const nmask = mask | (1 << nb);\n                const key = nb * (1 << n) + nmask;\n                if (!seen.has(key)) {\n                    seen.add(key);\n                    next.push([nb, nmask]);\n                }\n            }\n        }\n        queue = next;\n        dist++;\n    }\n    return 0;\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * 2^n)", "space": "O(n * 2^n)" }
+}

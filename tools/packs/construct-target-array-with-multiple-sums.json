@@ -1,0 +1,116 @@
+{
+  "slug": "construct-target-array-with-multiple-sums",
+  "judge": "exact",
+  "pattern": "Running the construction backwards, the largest element was just written as the whole-array sum, so repeatedly subtracting the rest from the maximum (with a modulo shortcut) must drive every element down to one.",
+  "hints": [
+    "Forward construction is hard to search, but each step overwrote one slot with the current total — so the biggest value is always the most recently written one. Undo from there.",
+    "To undo a step, replace the maximum with maximum minus the sum of the other elements; if that drops below one, or the others sum to zero while the max exceeds one, it is impossible.",
+    "Use a max-heap. Each round, pop the largest, let rest = total - largest; if rest is the whole remainder reduce via largest mod rest to skip many identical steps, push the reduced value back, and stop when everything is one."
+  ],
+  "constraints": [
+    {
+      "param": "target",
+      "kind": "int[]",
+      "len": [
+        1,
+        50000
+      ],
+      "value": [
+        1,
+        1000000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "constructible triple",
+      "input": [
+        [
+          9,
+          3,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "not constructible from all ones",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "constructible pair",
+      "input": [
+        [
+          8,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element equal to one is the trivial start",
+      "input": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "single element greater than one is impossible",
+      "input": [
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all ones is already the start array",
+      "input": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "large gap needing the modulo shortcut to avoid timing out",
+      "input": [
+        [
+          1000000000,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "forward-simulated reachable targets so the answer is always true",
+      "seed": 146,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, min(size, 20)))\n    arr = [1] * n\n    steps = rng.randint(0, 25)\n    for _ in range(steps):\n        total = sum(arr)\n        i = rng.randrange(n)\n        arr[i] = total\n    return [arr]\n",
+      "note": "forward construction guarantees reachability"
+    }
+  ],
+  "solutions": {
+    "python": "import heapq\n\n\nclass Solution:\n    def isPossible(self, target):\n        if len(target) == 1:\n            return target[0] == 1\n        total = sum(target)\n        heap = [-x for x in target]\n        heapq.heapify(heap)\n        while True:\n            largest = -heapq.heappop(heap)\n            rest = total - largest\n            if largest == 1 or rest == 1:\n                return True\n            if rest == 0 or largest < rest or largest % rest == 0:\n                return False\n            largest %= rest\n            total = rest + largest\n            heapq.heappush(heap, -largest)\n",
+    "javascript": "var isPossible = function(target) {\n    if (target.length === 1) return target[0] === 1;\n    let total = 0;\n    for (const x of target) total += x;\n    const heap = target.slice();\n    const up = (i) => { while (i > 0) { const p = (i - 1) >> 1; if (heap[p] >= heap[i]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };\n    const down = (i) => { const n = heap.length; for (;;) { let l = 2 * i + 1, r = l + 1, b = i; if (l < n && heap[l] > heap[b]) b = l; if (r < n && heap[r] > heap[b]) b = r; if (b === i) break; [heap[b], heap[i]] = [heap[i], heap[b]]; i = b; } };\n    for (let i = 1; i < heap.length; i++) up(i);\n    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; down(0); } return top; };\n    const push = (v) => { heap.push(v); up(heap.length - 1); };\n    for (;;) {\n        let largest = pop();\n        const rest = total - largest;\n        if (largest === 1 || rest === 1) return true;\n        if (rest === 0 || largest < rest || largest % rest === 0) return false;\n        largest %= rest;\n        total = rest + largest;\n        push(largest);\n    }\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n + log(max) log n)",
+    "space": "O(n)"
+  }
+}

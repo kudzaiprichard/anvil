@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-moves-to-reach-target-in-grid",
+  "judge": "exact",
+  "pattern": "Because each move adds the current larger coordinate, values grow at least geometrically, so a bounded breadth-first search that prunes anything past the target settles in only a logarithmic number of layers.",
+  "hints": [
+    "When the larger coordinate is positive every move roughly doubles a coordinate, so the target is reached in very few moves if at all.",
+    "Search forward from the start, but discard any state whose x exceeds tx or y exceeds ty since coordinates never shrink.",
+    "Run BFS adding states (x+m, y) and (x, y+m) with m = max(x,y), dedup visited cells, and return the first depth that lands exactly on (tx, ty); a stuck (0,0) start reaches only itself."
+  ],
+  "constraints": [
+    { "param": "sx", "kind": "int", "value": [0, 1000000000] },
+    { "param": "sy", "kind": "int", "value": [0, 1000000000] },
+    { "param": "tx", "kind": "int", "value": [0, 1000000000] },
+    { "param": "ty", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two moves to the target", "input": [1, 2, 5, 4] },
+    { "kind": "edge", "description": "three moves with small starts", "input": [0, 1, 2, 3] },
+    { "kind": "trap", "description": "unreachable target", "input": [1, 1, 2, 2] },
+    { "kind": "boundary", "description": "already at target", "input": [3, 7, 3, 7] },
+    { "kind": "trap", "description": "origin start is frozen", "input": [0, 0, 5, 5] },
+    { "kind": "edge", "description": "one coordinate already aligned", "input": [2, 1, 2, 3] }
+  ],
+  "stress": [
+    {
+      "description": "construct a reachable target by replaying random moves, occasionally an unreachable one",
+      "seed": 121,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    sx = rng.randrange(0, 50)\n    sy = rng.randrange(0, 50)\n    x, y = sx, sy\n    steps = rng.randrange(0, 6)\n    for _ in range(steps):\n        m = max(x, y)\n        if m == 0:\n            break\n        if rng.random() < 0.5:\n            x += m\n        else:\n            y += m\n    # sometimes perturb to make it unreachable\n    if rng.random() < 0.3:\n        x += rng.randrange(1, 3)\n    return [sx, sy, x, y]\n",
+      "note": "replayed moves guarantee many reachable cases; perturbation tests -1 paths"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minMoves(self, sx, sy, tx, ty):\n        import sys\n        sys.setrecursionlimit(10000)\n        from functools import lru_cache\n        best = {}\n        INF = float('inf')\n        # DFS with memo on (x,y) -> min moves to target, pruning out-of-bounds\n        memo = {}\n        def dfs(x, y):\n            if x == tx and y == ty:\n                return 0\n            if x > tx or y > ty:\n                return INF\n            m = max(x, y)\n            if m == 0:\n                return INF\n            key = (x, y)\n            if key in memo:\n                return memo[key]\n            memo[key] = INF  # guard against revisits in this acyclic-by-growth graph\n            r = min(dfs(x + m, y), dfs(x, y + m))\n            res = INF if r == INF else r + 1\n            memo[key] = res\n            return res\n        ans = dfs(sx, sy)\n        return -1 if ans == INF else ans\n",
+  "solutions": {
+    "python": "class Solution:\n    def minMoves(self, sx, sy, tx, ty):\n        from collections import deque\n        if sx == tx and sy == ty:\n            return 0\n        start = (sx, sy)\n        dist = {start: 0}\n        dq = deque([start])\n        while dq:\n            x, y = dq.popleft()\n            d = dist[(x, y)]\n            m = max(x, y)\n            if m == 0:\n                continue\n            for nx, ny in ((x + m, y), (x, y + m)):\n                if nx > tx or ny > ty:\n                    continue\n                if (nx, ny) in dist:\n                    continue\n                if nx == tx and ny == ty:\n                    return d + 1\n                dist[(nx, ny)] = d + 1\n                dq.append((nx, ny))\n        return -1\n",
+    "javascript": "var minMoves = function(sx, sy, tx, ty) {\n    if (sx === tx && sy === ty) return 0;\n    const key = (x, y) => x + ',' + y;\n    const dist = new Map();\n    dist.set(key(sx, sy), 0);\n    const queue = [[sx, sy]];\n    let qh = 0;\n    while (qh < queue.length) {\n        const [x, y] = queue[qh++];\n        const d = dist.get(key(x, y));\n        const m = Math.max(x, y);\n        if (m === 0) continue;\n        const nexts = [[x + m, y], [x, y + m]];\n        for (const [nx, ny] of nexts) {\n            if (nx > tx || ny > ty) continue;\n            const k = key(nx, ny);\n            if (dist.has(k)) continue;\n            if (nx === tx && ny === ty) return d + 1;\n            dist.set(k, d + 1);\n            queue.push([nx, ny]);\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(B) reachable states", "space": "O(B)" }
+}

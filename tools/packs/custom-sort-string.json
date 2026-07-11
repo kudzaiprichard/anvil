@@ -1,0 +1,42 @@
+{
+  "slug": "custom-sort-string",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    order, s = args[0], args[1]\n    if not isinstance(output, str):\n        return False\n    from collections import Counter\n    if Counter(output) != Counter(s):\n        return False\n    rank = {c: i for i, c in enumerate(order)}\n    # the subsequence of output restricted to chars in order must be non-decreasing by rank\n    last = -1\n    for ch in output:\n        if ch in rank:\n            if rank[ch] < last:\n                return False\n            last = rank[ch]\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const order = args[0], s = args[1];\n    if (typeof output !== 'string') return false;\n    const ca = {}, cb = {};\n    for (const ch of output) ca[ch] = (ca[ch] || 0) + 1;\n    for (const ch of s) cb[ch] = (cb[ch] || 0) + 1;\n    const keys = new Set([...Object.keys(ca), ...Object.keys(cb)]);\n    for (const k of keys) if ((ca[k] || 0) !== (cb[k] || 0)) return false;\n    const rank = {};\n    for (let i = 0; i < order.length; i++) rank[order[i]] = i;\n    let last = -1;\n    for (const ch of output) {\n        if (ch in rank) {\n            if (rank[ch] < last) return false;\n            last = rank[ch];\n        }\n    }\n    return true;\n}\n"
+  },
+  "pattern": "Only the characters named in the priority string have a required relative order, so counting each character and emitting the prioritized ones in priority order, then the rest, yields a valid arrangement.",
+  "hints": [
+    "Characters absent from the priority string are unconstrained and can go anywhere, so focus on placing only the prioritized ones correctly.",
+    "Tally how many of each character the target string holds, then walk the priority string emitting each character that many times.",
+    "After emitting all prioritized characters in priority order using the counts, append every remaining character (those not in the priority string) in any consistent order."
+  ],
+  "constraints": [
+    { "param": "order", "kind": "string", "len": [1, 26] },
+    { "param": "s", "kind": "string", "len": [1, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one leftover character not in the priority string", "input": ["cba", "abcd"] },
+    { "kind": "trap", "description": "priority string longer than needed, extra letters unused", "input": ["bcafg", "abcd"] },
+    { "kind": "boundary", "description": "single character strings", "input": ["a", "a"] },
+    { "kind": "trap", "description": "none of s appears in order, all leftovers", "input": ["xyz", "abc"] },
+    { "kind": "edge", "description": "repeated characters preserve counts", "input": ["kqep", "pekeqkmlsdjbn"] },
+    { "kind": "boundary", "description": "every character of s is prioritized", "input": ["zyx", "xyzzyx"] },
+    { "kind": "edge", "description": "order covers all 26 letters", "input": ["abcdefghijklmnopqrstuvwxyz", "thequickbrownfox"] }
+  ],
+  "stress": [
+    {
+      "description": "random distinct priority string and a random target over lowercase letters",
+      "seed": 67,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    import string\n    letters = list(string.ascii_lowercase)\n    k = rng.randint(1, 26)\n    order = rng.sample(letters, k)\n    order_s = ''.join(order)\n    n = rng.randint(1, min(200, max(1, size)))\n    s = ''.join(rng.choice(letters) for _ in range(n))\n    return [order_s, s]\n",
+      "note": "order is a sample (unique chars); s freely random"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def customSortString(self, order, s):\n        from collections import Counter\n        cnt = Counter(s)\n        res = []\n        for ch in order:\n            if cnt[ch]:\n                res.append(ch * cnt[ch])\n                cnt[ch] = 0\n        for ch in sorted(cnt):\n            if cnt[ch]:\n                res.append(ch * cnt[ch])\n        return ''.join(res)\n",
+  "solutions": {
+    "python": "class Solution:\n    def customSortString(self, order, s):\n        from collections import Counter\n        cnt = Counter(s)\n        out = []\n        for ch in order:\n            if ch in cnt:\n                out.append(ch * cnt[ch])\n                del cnt[ch]\n        for ch in sorted(cnt):\n            out.append(ch * cnt[ch])\n        return ''.join(out)\n",
+    "javascript": "var customSortString = function(order, s) {\n    const cnt = {};\n    for (const ch of s) cnt[ch] = (cnt[ch] || 0) + 1;\n    const out = [];\n    for (const ch of order) {\n        if (cnt[ch]) {\n            out.push(ch.repeat(cnt[ch]));\n            delete cnt[ch];\n        }\n    }\n    for (const ch of Object.keys(cnt).sort()) {\n        out.push(ch.repeat(cnt[ch]));\n    }\n    return out.join('');\n};\n"
+  },
+  "complexity": { "time": "O(n + k log k)", "space": "O(n)" }
+}

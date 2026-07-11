@@ -1,0 +1,48 @@
+{
+  "slug": "range-module",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Tracking coverage as a sorted set of disjoint half-open intervals lets add, remove, and query each be done by locating the affected span and splicing only the boundaries that change.",
+  "hints": [
+    "Keep the tracked region as a list of non-overlapping intervals sorted by start; a number is covered exactly when it falls inside one of them.",
+    "Adding an interval merges it with every interval it touches or overlaps into one larger interval; removing carves a hole that may split an interval in two.",
+    "A query is true only if a single tracked interval starts at or before the left bound and ends at or after the right bound, since the intervals never overlap."
+  ],
+  "constraints": [
+    { "param": "left", "kind": "int", "value": [1, 1000000000] },
+    { "param": "right", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: add, punch a hole, then three queries straddling the gap",
+      "input": [["RangeModule", "addRange", "removeRange", "queryRange", "queryRange", "queryRange"], [[], [10, 20], [14, 16], [10, 14], [13, 15], [16, 17]]] },
+    { "kind": "boundary", "description": "query before anything is added is false",
+      "input": [["RangeModule", "queryRange"], [[], [1, 2]]] },
+    { "kind": "trap", "description": "half-open: querying up to the exact end is covered, but one past it is not",
+      "input": [["RangeModule", "addRange", "queryRange", "queryRange"], [[], [5, 10], [5, 10], [5, 11]]] },
+    { "kind": "trap", "description": "two abutting added ranges fuse so a query across the seam is true",
+      "input": [["RangeModule", "addRange", "addRange", "queryRange"], [[], [1, 5], [5, 10], [2, 8]]] },
+    { "kind": "edge", "description": "removing the middle of a range splits it, leaving the ends tracked",
+      "input": [["RangeModule", "addRange", "removeRange", "queryRange", "queryRange", "queryRange"], [[], [1, 100], [40, 60], [1, 40], [45, 55], [60, 100]]] },
+    { "kind": "trap", "description": "overlapping adds extend coverage without leaving gaps",
+      "input": [["RangeModule", "addRange", "addRange", "queryRange", "queryRange"], [[], [10, 30], [20, 50], [10, 50], [10, 51]]] },
+    { "kind": "edge", "description": "remove that spans multiple ranges clears all of them",
+      "input": [["RangeModule", "addRange", "addRange", "addRange", "removeRange", "queryRange", "queryRange"], [[], [1, 3], [5, 7], [9, 11], [2, 10], [1, 2], [10, 11]]] },
+    { "kind": "boundary", "description": "extreme bounds within constraints",
+      "input": [["RangeModule", "addRange", "queryRange"], [[], [1, 1000000000], [1, 1000000000]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random add/remove/query operations over a small coordinate space so overlaps, splits, and merges happen densely",
+      "seed": 67,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    ops = ['RangeModule']\n    args = [[]]\n    for _ in range(max(1, size)):\n        a = rng.randint(1, 60)\n        b = rng.randint(1, 60)\n        if a == b:\n            b = a + 1\n        lo, hi = min(a, b), max(a, b)\n        r = rng.random()\n        if r < 0.4:\n            ops.append('addRange'); args.append([lo, hi])\n        elif r < 0.7:\n            ops.append('queryRange'); args.append([lo, hi])\n        else:\n            ops.append('removeRange'); args.append([lo, hi])\n    return [ops, args]\n",
+      "note": "tight coordinate range forces frequent boundary splicing and coalescing"
+    }
+  ],
+  "oracle_python": "class RangeModule:\n    def __init__(self):\n        self.intervals = []\n    def addRange(self, left, right):\n        res = []\n        placed = False\n        for s, e in self.intervals:\n            if e < left or s > right:\n                res.append([s, e])\n            else:\n                left = min(left, s)\n                right = max(right, e)\n        res.append([left, right])\n        res.sort()\n        self.intervals = res\n    def queryRange(self, left, right):\n        for s, e in self.intervals:\n            if s <= left and right <= e:\n                return True\n        return False\n    def removeRange(self, left, right):\n        res = []\n        for s, e in self.intervals:\n            if e <= left or s >= right:\n                res.append([s, e])\n            else:\n                if s < left:\n                    res.append([s, left])\n                if e > right:\n                    res.append([right, e])\n        res.sort()\n        self.intervals = res\n",
+  "solutions": {
+    "python": "import bisect\n\n\nclass RangeModule:\n    def __init__(self):\n        self.bounds = []\n    def addRange(self, left, right):\n        b = self.bounds\n        i = bisect.bisect_left(b, left)\n        j = bisect.bisect_right(b, right)\n        new = []\n        if i % 2 == 0:\n            new.append(left)\n        if j % 2 == 0:\n            new.append(right)\n        self.bounds = b[:i] + new + b[j:]\n    def queryRange(self, left, right):\n        b = self.bounds\n        i = bisect.bisect_right(b, left)\n        j = bisect.bisect_left(b, right)\n        return i == j and i % 2 == 1\n    def removeRange(self, left, right):\n        b = self.bounds\n        i = bisect.bisect_left(b, left)\n        j = bisect.bisect_right(b, right)\n        new = []\n        if i % 2 == 1:\n            new.append(left)\n        if j % 2 == 1:\n            new.append(right)\n        self.bounds = b[:i] + new + b[j:]\n",
+    "javascript": "function bisectLeft(a, x) {\n    let lo = 0, hi = a.length;\n    while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] < x) lo = m + 1; else hi = m; }\n    return lo;\n}\nfunction bisectRight(a, x) {\n    let lo = 0, hi = a.length;\n    while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] <= x) lo = m + 1; else hi = m; }\n    return lo;\n}\nclass RangeModule {\n    constructor() {\n        this.bounds = [];\n    }\n    addRange(left, right) {\n        const b = this.bounds;\n        const i = bisectLeft(b, left);\n        const j = bisectRight(b, right);\n        const mid = [];\n        if (i % 2 === 0) mid.push(left);\n        if (j % 2 === 0) mid.push(right);\n        this.bounds = b.slice(0, i).concat(mid, b.slice(j));\n    }\n    queryRange(left, right) {\n        const b = this.bounds;\n        const i = bisectRight(b, left);\n        const j = bisectLeft(b, right);\n        return i === j && i % 2 === 1;\n    }\n    removeRange(left, right) {\n        const b = this.bounds;\n        const i = bisectLeft(b, left);\n        const j = bisectRight(b, right);\n        const mid = [];\n        if (i % 2 === 1) mid.push(left);\n        if (j % 2 === 1) mid.push(right);\n        this.bounds = b.slice(0, i).concat(mid, b.slice(j));\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n) per add/remove worst case, O(log n) per query", "space": "O(n)" }
+}

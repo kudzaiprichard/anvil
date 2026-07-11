@@ -1,0 +1,41 @@
+{
+  "slug": "maximum-total-beauty-of-the-gardens",
+  "judge": "exact",
+  "pattern": "Fixing how many of the not-yet-complete gardens get finished off (always the ones closest to target, since that is cheapest) turns the leftover budget question into a single binary search for the highest floor you can raise the remaining gardens' minimum to.",
+  "hints": [
+    "Gardens already at or above target are free complete gardens and never change; focus only on the gardens still below target, sorted by how many flowers they still need.",
+    "If you decide exactly r of the below-target gardens will become complete, the cheapest way is always to complete the r gardens that are closest to target already -- that leaves the most budget for the rest.",
+    "For a fixed choice of r, whatever flowers are left over should all go toward raising the minimum of the remaining (still incomplete) gardens as high as possible; binary search that ceiling using prefix sums, try every value of r, and keep the best total beauty."
+  ],
+  "constraints": [
+    { "param": "flowers", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] },
+    { "param": "newFlowers", "kind": "int", "value": [1, 10000000000] },
+    { "param": "target", "kind": "int", "value": [1, 100000] },
+    { "param": "full", "kind": "int", "value": [1, 100000] },
+    { "param": "partial", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, best plan leaves one garden incomplete", "input": [[1, 3, 1, 1], 7, 6, 12, 1] },
+    { "kind": "edge", "description": "statement example, completing everything would be worse than leaving some incomplete", "input": [[2, 4, 5, 3], 10, 5, 2, 6] },
+    { "kind": "boundary", "description": "single garden already complete, no incomplete gardens ever", "input": [[5], 3, 5, 10, 10] },
+    { "kind": "boundary", "description": "single garden far below target with a huge new-flowers budget", "input": [[1], 10000000000, 50, 1, 1] },
+    { "kind": "trap", "description": "budget is exactly enough to complete every garden, but that is not optimal", "input": [[1, 1, 1, 1], 20, 5, 1, 100] },
+    { "kind": "trap", "description": "zero budget to plant anything, answer depends only on current counts", "input": [[3, 1, 4], 0, 5, 10, 2] },
+    { "kind": "trap", "description": "all gardens already complete, partial term must stay zero", "input": [[9, 9, 9], 5, 3, 4, 100] },
+    { "kind": "edge", "description": "partial is worth far more than full, favors raising the minimum over completing gardens", "input": [[1, 2, 3, 4, 5], 6, 10, 1, 1000] }
+  ],
+  "stress": [
+    {
+      "description": "random garden counts against random targets, budgets, and reward weights",
+      "seed": 83,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, min(max(size, 1), 200))\n    target = rng.randint(1, 50)\n    flowers = [rng.randint(1, target + 20) for _ in range(n)]\n    new_flowers = rng.randint(0, n * target + 50)\n    full = rng.randint(1, 100)\n    partial = rng.randint(1, 100)\n    return [flowers, new_flowers, target, full, partial]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumBeauty(self, flowers, newFlowers, target, full, partial):\n        n = len(flowers)\n        best = 0\n\n        def dfs(idx, remaining, current):\n            nonlocal best\n            if idx == n:\n                complete = sum(1 for v in current if v >= target)\n                incomplete = [v for v in current if v < target]\n                min_incomplete = min(incomplete) if incomplete else 0\n                beauty = complete * full + min_incomplete * partial\n                if beauty > best:\n                    best = beauty\n                return\n            base = flowers[idx]\n            max_add = min(remaining, target - base) if base < target else 0\n            for add in range(0, max_add + 1):\n                dfs(idx + 1, remaining - add, current + [base + add])\n\n        dfs(0, min(newFlowers, n * target), [])\n        return best\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def maximumBeauty(self, flowers, newFlowers, target, full, partial):\n        n = len(flowers)\n        already_complete = sum(1 for f in flowers if f >= target)\n        b = sorted(f for f in flowers if f < target)\n        m = len(b)\n        if m == 0:\n            return n * full\n        prefix = [0] * (m + 1)\n        for i in range(m):\n            prefix[i + 1] = prefix[i] + b[i]\n        total_b = prefix[m]\n        best = 0\n        for i in range(m, -1, -1):\n            r = m - i\n            cost = r * target - (total_b - prefix[i])\n            if cost > newFlowers:\n                break\n            leftover = newFlowers - cost\n            if i == 0:\n                v = 0\n            else:\n                lo, hi = 0, target - 1\n                while lo < hi:\n                    mid = (lo + hi + 1) // 2\n                    p = bisect.bisect_left(b, mid, 0, i)\n                    raise_cost = mid * p - prefix[p]\n                    if raise_cost <= leftover:\n                        lo = mid\n                    else:\n                        hi = mid - 1\n                v = lo\n            beauty = (already_complete + r) * full + v * partial\n            if beauty > best:\n                best = beauty\n        return best\n",
+    "javascript": "var maximumBeauty = function(flowers, newFlowers, target, full, partial) {\n    const n = flowers.length;\n    let alreadyComplete = 0;\n    for (const f of flowers) if (f >= target) alreadyComplete++;\n    const b = flowers.filter(f => f < target).sort((a, c) => a - c);\n    const m = b.length;\n    if (m === 0) return n * full;\n    const prefix = new Array(m + 1).fill(0);\n    for (let i = 0; i < m; i++) prefix[i + 1] = prefix[i] + b[i];\n    const totalB = prefix[m];\n\n    function bisectLeft(value, hiIdx) {\n        let lo = 0, hi = hiIdx;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (b[mid] < value) lo = mid + 1;\n            else hi = mid;\n        }\n        return lo;\n    }\n\n    let best = 0;\n    for (let i = m; i >= 0; i--) {\n        const r = m - i;\n        const cost = r * target - (totalB - prefix[i]);\n        if (cost > newFlowers) break;\n        const leftover = newFlowers - cost;\n        let v;\n        if (i === 0) {\n            v = 0;\n        } else {\n            let lo = 0, hi = target - 1;\n            while (lo < hi) {\n                const mid = Math.floor((lo + hi + 1) / 2);\n                const p = bisectLeft(mid, i);\n                const raiseCost = mid * p - prefix[p];\n                if (raiseCost <= leftover) lo = mid;\n                else hi = mid - 1;\n            }\n            v = lo;\n        }\n        const beauty = (alreadyComplete + r) * full + v * partial;\n        if (beauty > best) best = beauty;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n + n log(target))", "space": "O(n)" }
+}

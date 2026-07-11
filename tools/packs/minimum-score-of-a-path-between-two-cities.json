@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-score-of-a-path-between-two-cities",
+  "judge": "exact",
+  "pattern": "Since a path may revisit roads and cities freely, the reachable score is really a property of the whole connected component containing city 1 -- flood-filling that component and tracking the smallest edge weight touched along the way answers the question in one traversal, no shortest-path search required.",
+  "hints": [
+    "Because you're allowed to reuse roads and revisit cities, every road inside the connected component that contains city 1 is fair game -- the path doesn't need to be simple.",
+    "That means the answer is just the smallest road weight anywhere in the connected component reachable from city 1 (which is guaranteed to include city n).",
+    "Build an adjacency list, then flood-fill (BFS or DFS) starting from city 1, visiting every city and every road in its component exactly once while keeping a running minimum of the road weights you cross."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "roads", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, best path uses a road not directly on the shortest route", "input": [4, [[1, 2, 9], [2, 3, 6], [2, 4, 5], [1, 4, 7]]] },
+    { "kind": "edge", "description": "statement example, revisiting a city finds a smaller edge", "input": [4, [[1, 2, 2], [1, 3, 4], [3, 4, 7]]] },
+    { "kind": "boundary", "description": "two cities joined by a single road at the maximum distance", "input": [2, [[1, 2, 10000]]] },
+    { "kind": "trap", "description": "extra cities and roads exist outside the component containing city 1 and city n, and have a smaller weight that must be ignored", "input": [6, [[1, 2, 8], [2, 3, 5], [3, 6, 4], [4, 5, 1]]] },
+    { "kind": "trap", "description": "the smallest-weight road is far from city n, requiring the whole component to be explored", "input": [5, [[1, 2, 10], [2, 3, 10], [3, 4, 1], [4, 5, 10]]] },
+    { "kind": "trap", "description": "multiple parallel-ish paths from 1 to n, minimum sits on a side branch", "input": [4, [[1, 2, 5], [1, 3, 3], [2, 4, 4], [3, 4, 6]]] },
+    { "kind": "edge", "description": "a cycle exists in the component, traversal must not loop forever", "input": [3, [[1, 2, 4], [2, 3, 6], [3, 1, 2]]] },
+    { "kind": "boundary", "description": "component containing 1 and n is a long simple chain", "input": [6, [[1, 2, 9], [2, 3, 4], [3, 4, 8], [4, 5, 2], [5, 6, 6]]] }
+  ],
+  "stress": [
+    {
+      "description": "random connected graphs built from a random spanning tree plus extra random edges, guaranteeing 1 and n stay reachable",
+      "seed": 61,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    order = list(range(1, n + 1))\n    rng.shuffle(order)\n    roads = []\n    seen_pairs = set()\n    for i in range(1, n):\n        a = order[i]\n        b = order[rng.randint(0, i - 1)]\n        w = rng.randint(1, 10000)\n        key = (min(a, b), max(a, b))\n        seen_pairs.add(key)\n        roads.append([a, b, w])\n    extra = min(rng.randint(0, n), 100000 - len(roads))\n    attempts = 0\n    while extra > 0 and attempts < extra * 5:\n        attempts += 1\n        a = rng.randint(1, n)\n        b = rng.randint(1, n)\n        if a == b:\n            continue\n        key = (min(a, b), max(a, b))\n        if key in seen_pairs:\n            continue\n        seen_pairs.add(key)\n        roads.append([a, b, rng.randint(1, 10000)])\n        extra -= 1\n    return [n, roads]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minScore(self, n, roads):\n        parent = list(range(n + 1))\n\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n\n        for a, b, _ in roads:\n            union(a, b)\n\n        target_root = find(1)\n        best = float('inf')\n        for a, b, w in roads:\n            if find(a) == target_root:\n                best = min(best, w)\n        return best\n",
+  "solutions": {
+    "python": "from collections import deque\n\nclass Solution:\n    def minScore(self, n, roads):\n        adj = [[] for _ in range(n + 1)]\n        for a, b, w in roads:\n            adj[a].append((b, w))\n            adj[b].append((a, w))\n        visited = [False] * (n + 1)\n        visited[1] = True\n        queue = deque([1])\n        best = float('inf')\n        while queue:\n            city = queue.popleft()\n            for nxt, w in adj[city]:\n                best = min(best, w)\n                if not visited[nxt]:\n                    visited[nxt] = True\n                    queue.append(nxt)\n        return best\n",
+    "javascript": "var minScore = function(n, roads) {\n    const adj = Array.from({ length: n + 1 }, () => []);\n    for (const [a, b, w] of roads) {\n        adj[a].push([b, w]);\n        adj[b].push([a, w]);\n    }\n    const visited = new Array(n + 1).fill(false);\n    visited[1] = true;\n    const queue = [1];\n    let head = 0;\n    let best = Infinity;\n    while (head < queue.length) {\n        const city = queue[head++];\n        for (const [nxt, w] of adj[city]) {\n            if (w < best) best = w;\n            if (!visited[nxt]) {\n                visited[nxt] = true;\n                queue.push(nxt);\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n + m)", "space": "O(n + m)" }
+}

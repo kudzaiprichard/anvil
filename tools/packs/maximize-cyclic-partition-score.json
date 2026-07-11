@@ -1,0 +1,98 @@
+{
+  "slug": "maximize-cyclic-partition-score",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Any cyclic partition, once you cut the circle open at one of its own part boundaries, becomes an ordinary linear partition -- so trying every possible cut point and solving the classic 'split into at most k parts to maximize summed ranges' linear problem at each one is guaranteed to expose the true cyclic optimum.",
+  "hints": [
+    "If you cut the circle open at a point that happens to be a genuine boundary between two parts of some partition, that partition turns into an ordinary left-to-right partition of the resulting linear array -- with the identical score.",
+    "So instead of reasoning about wraparound directly, try cutting the circle open at every possible position and, for each resulting linear array, solve the standard 'partition into at most k contiguous groups to maximize the sum of each group's max-minus-min' with a DP over (position, parts used so far).",
+    "The true cyclic answer is exactly the best score found across all of those cut points -- no cut can ever report a score higher than truly achievable, and the cut that lands on a real boundary of the optimal partition will find it."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [1, 1000],
+      "value": [1, 1000000000]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [1, 1000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "wraparound split beats the whole-array split",
+      "input": [[1, 2, 3, 3], 2]
+    },
+    {
+      "kind": "edge",
+      "description": "k forces a single whole-circle part",
+      "input": [[1, 2, 3, 3], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "k larger than needed, same best split as with a smaller k",
+      "input": [[1, 2, 3, 3], 4]
+    },
+    {
+      "kind": "edge",
+      "description": "single element, no range possible",
+      "input": [[5], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "k allows only a single whole-circle part",
+      "input": [[4, 1, 4, 1], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "k large enough that splitting into pairs beats one whole part",
+      "input": [[4, 1, 4, 1], 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "k equals the array length, allowing every element its own part",
+      "input": [[3, 1, 4, 1, 5], 5]
+    },
+    {
+      "kind": "boundary",
+      "description": "all elements identical, every partition scores zero",
+      "input": [[7, 7, 7, 7], 3]
+    },
+    {
+      "kind": "trap",
+      "description": "the best split wraps around the array boundary rather than sitting inside it",
+      "input": [[1, 9, 1, 9], 2]
+    },
+    {
+      "kind": "trap",
+      "description": "k is larger than needed; fewer parts than k is optimal",
+      "input": [[1, 2, 3, 4, 5], 5]
+    },
+    {
+      "kind": "trap",
+      "description": "a big value at one end and a small value at the other, favoring a wraparound part",
+      "input": [[1, 2, 3, 100], 2]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random values with k scaled to a fraction of the array length",
+      "seed": 31,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    nums = [rng.randint(1, 1000000000) for _ in range(n)]\n    k = rng.randint(1, n)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\nclass Solution:\n    def maximumScore(self, nums, k):\n        n = len(nums)\n        best = float('-inf')\n        max_m = min(k, n)\n        for m in range(0, max_m + 1):\n            parts_count = m if m > 0 else 1\n            if parts_count > k:\n                continue\n            gap_combos = [()] if m == 0 else combinations(range(n), m)\n            for cuts in gap_combos:\n                if cuts:\n                    cs = sorted(cuts)\n                    parts = []\n                    mm = len(cs)\n                    for t in range(mm):\n                        start = (cs[t] + 1) % n\n                        nxt = cs[(t + 1) % mm]\n                        length = (nxt - cs[t]) % n\n                        if length == 0:\n                            length = n\n                        parts.append([(start + o) % n for o in range(length)])\n                else:\n                    parts = [list(range(n))]\n                score = 0\n                for idxs in parts:\n                    vals = [nums[i] for i in idxs]\n                    score += max(vals) - min(vals)\n                if score > best:\n                    best = score\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumScore(self, nums, k):\n        def best_linear(arr, kk):\n            n = len(arr)\n            NEG = float('-inf')\n            dp = [[NEG] * (kk + 1) for _ in range(n + 1)]\n            dp[0][0] = 0\n            for i in range(1, n + 1):\n                mx = arr[i - 1]\n                mn = arr[i - 1]\n                for p in range(i - 1, -1, -1):\n                    if p < i - 1:\n                        if arr[p] > mx:\n                            mx = arr[p]\n                        if arr[p] < mn:\n                            mn = arr[p]\n                    rng = mx - mn\n                    for j in range(1, kk + 1):\n                        if dp[p][j - 1] != NEG:\n                            val = dp[p][j - 1] + rng\n                            if val > dp[i][j]:\n                                dp[i][j] = val\n            return max(dp[n][1:kk + 1])\n\n        n = len(nums)\n        kk = min(k, n)\n        best = float('-inf')\n        for r in range(n):\n            rotated = nums[r:] + nums[:r]\n            val = best_linear(rotated, kk)\n            if val > best:\n                best = val\n        return best\n",
+    "javascript": "var maximumScore = function(nums, k) {\n    function bestLinear(arr, kk) {\n        const n = arr.length;\n        const NEG = -Infinity;\n        const dp = [];\n        for (let i = 0; i <= n; i++) dp.push(new Array(kk + 1).fill(NEG));\n        dp[0][0] = 0;\n        for (let i = 1; i <= n; i++) {\n            let mx = arr[i - 1], mn = arr[i - 1];\n            for (let p = i - 1; p >= 0; p--) {\n                if (p < i - 1) {\n                    if (arr[p] > mx) mx = arr[p];\n                    if (arr[p] < mn) mn = arr[p];\n                }\n                const rng = mx - mn;\n                for (let j = 1; j <= kk; j++) {\n                    if (dp[p][j - 1] !== NEG) {\n                        const val = dp[p][j - 1] + rng;\n                        if (val > dp[i][j]) dp[i][j] = val;\n                    }\n                }\n            }\n        }\n        return Math.max(...dp[n].slice(1, kk + 1));\n    }\n\n    const n = nums.length;\n    const kk = Math.min(k, n);\n    let best = -Infinity;\n    for (let r = 0; r < n; r++) {\n        const rotated = nums.slice(r).concat(nums.slice(0, r));\n        const val = bestLinear(rotated, kk);\n        if (val > best) best = val;\n    }\n    return best;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^3 * k) via trying every cut point",
+    "space": "O(n * k)"
+  }
+}

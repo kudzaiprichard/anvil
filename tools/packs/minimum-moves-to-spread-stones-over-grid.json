@@ -1,0 +1,181 @@
+{
+  "judge": "exact",
+  "pattern": "With exactly nine stones and nine cells, the cheapest way to give every cell one stone is a small bipartite assignment problem, solvable exactly with a bitmask dynamic program over which target cells have been filled.",
+  "hints": [
+    "List every stone as a source position (a cell with 3 stones contributes that position three times) and every cell as a target that needs exactly one stone; the answer is the minimum-cost way to match each source to a distinct target, where cost is the Manhattan distance moved.",
+    "There are only 9 sources and 9 targets, so this small assignment problem can be solved by trying, for the sources in a fixed order, every unused target next -- track which targets are already taken with a 9-bit mask.",
+    "Build a dynamic program over that bitmask: dp[mask] is the cheapest cost to have assigned the first popcount(mask) sources to exactly the targets marked in mask, extending it one source at a time to every still-open target."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [
+        3,
+        3
+      ],
+      "value": [
+        0,
+        9
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, three moves needed",
+      "input": [
+        [
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            2,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, four moves needed with stones far from their targets",
+      "input": [
+        [
+          [
+            1,
+            3,
+            0
+          ],
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "already perfectly spread, zero moves needed",
+      "input": [
+        [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "every stone piled in one corner, the maximum possible distance to move",
+      "input": [
+        [
+          [
+            9,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two cells each need to give away stones in opposite directions",
+      "input": [
+        [
+          [
+            0,
+            3,
+            0
+          ],
+          [
+            3,
+            0,
+            3
+          ],
+          [
+            0,
+            3,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "stones concentrated along one edge of the grid",
+      "input": [
+        [
+          [
+            3,
+            3,
+            3
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random distributions of nine stones across the nine cells",
+      "seed": 47,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    cells = [(r, c) for r in range(3) for c in range(3)]\n    grid = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]\n    for _ in range(9):\n        r, c = rng.choice(cells)\n        grid[r][c] += 1\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "from itertools import permutations\n\n\nclass Solution:\n    def minimumMoves(self, grid):\n        cells = [(r, c) for r in range(3) for c in range(3)]\n        sources = []\n        for r in range(3):\n            for c in range(3):\n                sources.extend([(r, c)] * grid[r][c])\n        best = None\n        for perm in permutations(cells):\n            total = 0\n            for i in range(9):\n                total += abs(sources[i][0] - perm[i][0]) + abs(sources[i][1] - perm[i][1])\n            if best is None or total < best:\n                best = total\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumMoves(self, grid: List[List[int]]) -> int:\n        sources = []\n        for r in range(3):\n            for c in range(3):\n                sources.extend([(r, c)] * grid[r][c])\n        targets = [(r, c) for r in range(3) for c in range(3)]\n        n = 9\n        inf = float('inf')\n        dp = [inf] * (1 << n)\n        dp[0] = 0\n        for mask in range(1 << n):\n            if dp[mask] == inf:\n                continue\n            i = bin(mask).count('1')\n            if i >= n:\n                continue\n            for j in range(n):\n                if mask & (1 << j):\n                    continue\n                cost = abs(sources[i][0] - targets[j][0]) + abs(sources[i][1] - targets[j][1])\n                nmask = mask | (1 << j)\n                if dp[mask] + cost < dp[nmask]:\n                    dp[nmask] = dp[mask] + cost\n        return dp[(1 << n) - 1]\n",
+    "javascript": "var minimumMoves = function(grid) {\n    const sources = [];\n    for (let r = 0; r < 3; r++) {\n        for (let c = 0; c < 3; c++) {\n            for (let k = 0; k < grid[r][c]; k++) sources.push([r, c]);\n        }\n    }\n    const targets = [];\n    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) targets.push([r, c]);\n    const n = 9;\n    const size = 1 << n;\n    const dp = new Array(size).fill(Infinity);\n    dp[0] = 0;\n    const popcount = (x) => { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; };\n    for (let mask = 0; mask < size; mask++) {\n        if (dp[mask] === Infinity) continue;\n        const i = popcount(mask);\n        if (i >= n) continue;\n        for (let j = 0; j < n; j++) {\n            if (mask & (1 << j)) continue;\n            const cost = Math.abs(sources[i][0] - targets[j][0]) + Math.abs(sources[i][1] - targets[j][1]);\n            const nmask = mask | (1 << j);\n            if (dp[mask] + cost < dp[nmask]) dp[nmask] = dp[mask] + cost;\n        }\n    }\n    return dp[size - 1];\n};\n"
+  },
+  "complexity": {
+    "time": "O(2^9 * 9)",
+    "space": "O(2^9)"
+  },
+  "slug": "minimum-moves-to-spread-stones-over-grid"
+}

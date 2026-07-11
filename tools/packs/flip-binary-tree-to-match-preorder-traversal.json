@@ -1,0 +1,39 @@
+{
+  "slug": "flip-binary-tree-to-match-preorder-traversal",
+  "judge": "unordered",
+  "io_types": { "params": ["tree", "json"], "returns": "json" },
+  "pattern": "Walk the tree in pre-order against the target sequence; whenever the next desired value sits in the right child instead of the left, record a flip at the current node and descend right first.",
+  "hints": [
+    "Pre-order always visits a node, then its left subtree, then its right, so you can match the voyage position by position as you recurse.",
+    "When the current node's value mismatches the voyage, it is impossible; when the left child's value is not the next voyage value but the right child's is, a flip at the current node is forced.",
+    "Track an index into voyage. At each node verify node.val matches voyage[index++]; if the left child exists but does not equal the next voyage value, flip here (record node.val) and recurse right-then-left, otherwise recurse left-then-right. Any mismatch aborts to [-1]."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [1, 100], "value": [1, 100] },
+    { "param": "voyage", "kind": "int[]", "len": [1, 100], "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "trap", "description": "impossible because the root mismatch cannot be fixed", "input": [[1, 2], [2, 1]] },
+    { "kind": "edge", "description": "a single flip at the root", "input": [[1, 2, 3], [1, 3, 2]] },
+    { "kind": "edge", "description": "already matching, no flips", "input": [[1, 2, 3], [1, 2, 3]] },
+    { "kind": "boundary", "description": "single node matches", "input": [[1], [1]] },
+    { "kind": "trap", "description": "single node mismatch is impossible", "input": [[1], [2]] },
+    { "kind": "edge", "description": "deeper tree requiring multiple flips", "input": [[1, 2, 3, null, null, 4, 5], [1, 3, 5, 4, 2]] },
+    { "kind": "trap", "description": "left-only child cannot be flipped to match a different value", "input": [[1, 2, null, 3], [1, 3, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random tree with values 1..n; voyage built by a random flip pattern so it is achievable about half the time",
+      "seed": 43,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    # build random tree shape over labels 1..n\n    left = [None] * (n + 1)\n    right = [None] * (n + 1)\n    labels = list(range(1, n + 1))\n    rng.shuffle(labels)\n    root_label = labels[0]\n    open_slots = [(root_label, 'L'), (root_label, 'R')]\n    for k in range(1, n):\n        child = labels[k]\n        idx = rng.randrange(len(open_slots))\n        parent, side = open_slots.pop(idx)\n        if side == 'L':\n            left[parent] = child\n        else:\n            right[parent] = child\n        open_slots.append((child, 'L'))\n        open_slots.append((child, 'R'))\n    # serialize to BFS array\n    out = []\n    queue = [root_label]\n    while queue:\n        node = queue.pop(0)\n        if node is None:\n            out.append(None)\n            continue\n        out.append(node)\n        if left[node] is not None or right[node] is not None:\n            queue.append(left[node])\n            queue.append(right[node])\n    # build a voyage: random pre-order with random flip choices\n    def pre(node, flip):\n        if node is None:\n            return\n        seq.append(node)\n        a, b = left[node], right[node]\n        if flip:\n            a, b = b, a\n        pre(a, rng.random() < 0.5)\n        pre(b, rng.random() < 0.5)\n    seq = []\n    pre(root_label, rng.random() < 0.5)\n    # half the time, perturb voyage to make it impossible\n    if rng.random() < 0.4 and n >= 2:\n        i = rng.randrange(n)\n        j = rng.randrange(n)\n        seq[i], seq[j] = seq[j], seq[i]\n    return [out, seq]\n",
+      "note": "voyages come from real flip patterns so achievable cases dominate, with some impossible perturbations"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def flipMatchVoyage(self, root, voyage):\n        # Independent approach: try the greedy match, then independently VERIFY by\n        # applying the recorded flips to a copy of the tree and checking the\n        # resulting pre-order equals voyage. If verification fails, return [-1].\n        res = []\n        self.idx = 0\n        self.bad = False\n        def walk(node):\n            if node is None or self.bad:\n                return\n            if self.idx >= len(voyage) or node.val != voyage[self.idx]:\n                self.bad = True\n                return\n            self.idx += 1\n            if node.left and self.idx < len(voyage) and node.left.val != voyage[self.idx]:\n                res.append(node.val)\n                walk(node.right)\n                walk(node.left)\n            else:\n                walk(node.left)\n                walk(node.right)\n        walk(root)\n        if self.bad or self.idx != len(voyage):\n            return [-1]\n        # verify by replaying flips\n        flipset = set(res)\n        out = []\n        def pre(node):\n            if node is None:\n                return\n            out.append(node.val)\n            if node.val in flipset:\n                pre(node.right)\n                pre(node.left)\n            else:\n                pre(node.left)\n                pre(node.right)\n        pre(root)\n        if out != voyage:\n            return [-1]\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def flipMatchVoyage(self, root, voyage):\n        res = []\n        self.i = 0\n        self.ok = True\n        def dfs(node):\n            if node is None or not self.ok:\n                return\n            if node.val != voyage[self.i]:\n                self.ok = False\n                return\n            self.i += 1\n            if node.left and self.i < len(voyage) and node.left.val != voyage[self.i]:\n                res.append(node.val)\n                dfs(node.right)\n                dfs(node.left)\n            else:\n                dfs(node.left)\n                dfs(node.right)\n        dfs(root)\n        return res if self.ok else [-1]\n",
+    "javascript": "var flipMatchVoyage = function(root, voyage) {\n    const res = [];\n    let i = 0;\n    let ok = true;\n    function dfs(node) {\n        if (!node || !ok) return;\n        if (node.val !== voyage[i]) { ok = false; return; }\n        i++;\n        if (node.left && i < voyage.length && node.left.val !== voyage[i]) {\n            res.push(node.val);\n            dfs(node.right);\n            dfs(node.left);\n        } else {\n            dfs(node.left);\n            dfs(node.right);\n        }\n    }\n    dfs(root);\n    return ok ? res : [-1];\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

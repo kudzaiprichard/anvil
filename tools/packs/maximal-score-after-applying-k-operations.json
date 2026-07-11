@@ -1,0 +1,38 @@
+{
+  "slug": "maximal-score-after-applying-k-operations",
+  "judge": "exact",
+  "pattern": "Since taking the current largest value is never worse than taking any smaller one, and shrinking a value can only ever reduce future gains, a greedy repeated-max strategy driven by a heap is always at least as good as any other order of operations.",
+  "hints": [
+    "At every step you want to grab the single largest value available right now — using a smaller one instead never helps later, since the shrink rule only ever makes values smaller or equal.",
+    "Repeatedly scanning the whole array for the current maximum works but is slow; a max-heap lets you fetch and update the largest value in logarithmic time.",
+    "Pop the maximum, add it to the running score, replace it with its ceiling-divided-by-three value, and push that back onto the heap; repeat this exactly k times and return the accumulated score."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "identical values, one operation applied to each", "input": [[7, 7, 7, 7], 2] },
+    { "kind": "edge", "description": "a single element that repeatedly gets divided down", "input": [[100], 5] },
+    { "kind": "boundary", "description": "only one operation is allowed, so just the single largest value is taken", "input": [[3, 9, 4], 1] },
+    { "kind": "trap", "description": "the value one never shrinks further, since ceil(1/3) is still 1", "input": [[1], 5] },
+    { "kind": "trap", "description": "one dominant value must be picked repeatedly until it falls below the others", "input": [[1, 1, 1, 50], 4] },
+    { "kind": "boundary", "description": "operations far outnumber the array length, forcing many repeats over a tiny array", "input": [[2, 3], 6] },
+    { "kind": "boundary", "description": "a value near the top of the allowed range combined with a small operation count", "input": [[1000000000, 5], 3] },
+    { "kind": "edge", "description": "several elements tie for the current maximum", "input": [[5, 5, 5], 2] }
+  ],
+  "stress": [
+    {
+      "description": "randomized arrays and operation counts, bounded so the brute-force oracle stays fast",
+      "seed": 8,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    bound = max(1, min(size, 60))\n    n = rng.randint(1, bound)\n    nums = [rng.randint(1, 1000) for _ in range(n)]\n    k = rng.randint(1, bound)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "import math\n\nclass Solution:\n    def maxKelements(self, nums, k):\n        arr = list(nums)\n        score = 0\n        for _ in range(k):\n            best = 0\n            for i in range(1, len(arr)):\n                if arr[i] > arr[best]:\n                    best = i\n            score += arr[best]\n            arr[best] = math.ceil(arr[best] / 3)\n        return score\n",
+  "solutions": {
+    "python": "import heapq\n\nclass Solution:\n    def maxKelements(self, nums, k):\n        heap = [-x for x in nums]\n        heapq.heapify(heap)\n        score = 0\n        for _ in range(k):\n            x = -heapq.heappop(heap)\n            score += x\n            nxt = -(-x // 3)\n            heapq.heappush(heap, -nxt)\n        return score\n",
+    "javascript": "var maxKelements = function(nums, k) {\n    const heap = nums.slice();\n    const n = heap.length;\n    function siftDown(i, size) {\n        while (true) {\n            let largest = i;\n            const l = 2 * i + 1, r = 2 * i + 2;\n            if (l < size && heap[l] > heap[largest]) largest = l;\n            if (r < size && heap[r] > heap[largest]) largest = r;\n            if (largest === i) break;\n            const tmp = heap[i]; heap[i] = heap[largest]; heap[largest] = tmp;\n            i = largest;\n        }\n    }\n    for (let i = Math.floor(n / 2) - 1; i >= 0; i--) siftDown(i, n);\n    let score = 0;\n    for (let t = 0; t < k; t++) {\n        const top = heap[0];\n        score += top;\n        heap[0] = Math.ceil(top / 3);\n        siftDown(0, n);\n    }\n    return score;\n};\n"
+  },
+  "complexity": { "time": "O((n + k) log n)", "space": "O(n)" }
+}

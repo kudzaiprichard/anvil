@@ -1,0 +1,38 @@
+{
+  "slug": "make-array-strictly-increasing",
+  "judge": "exact",
+  "pattern": "A dynamic program keyed on the last value placed, advanced position by position, balances keeping the original entry against the cheapest larger replacement from the sorted spare array.",
+  "hints": [
+    "At each index you either keep the original value (only if it stays above the previous value) or replace it with something from the second array; track the best cost for each possible 'previous value'.",
+    "Sort and dedup the replacement array so you can binary-search the smallest value strictly greater than the current previous value when you need a replacement.",
+    "Carry a map from last-placed-value to minimum operations; for each new element, branch on keep versus replace-with-next-bigger, and the answer is the min cost over all final states (or -1 if none)."
+  ],
+  "constraints": [
+    { "param": "arr1", "kind": "int[]", "len": [1, 2000], "value": [0, 1000000000] },
+    { "param": "arr2", "kind": "int[]", "len": [1, 2000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one replacement suffices", "input": [[1, 5, 3, 6, 7], [1, 3, 2, 4]] },
+    { "kind": "edge", "description": "two replacements needed", "input": [[1, 5, 3, 6, 7], [4, 3, 1]] },
+    { "kind": "trap", "description": "impossible to make strictly increasing", "input": [[1, 5, 3, 6, 7], [1, 6, 3, 3]] },
+    { "kind": "boundary", "description": "already strictly increasing, zero ops", "input": [[1, 2, 3], [4]] },
+    { "kind": "trap", "description": "duplicates in arr2 do not help twice", "input": [[5, 16, 19, 2, 1, 12, 7, 14, 5, 16], [6, 17, 4, 3, 6, 4, 8, 3, 5, 9]] },
+    { "kind": "edge", "description": "single element is trivially increasing", "input": [[7], [1, 2, 3]] },
+    { "kind": "trap", "description": "must replace the first to enable the rest", "input": [[5, 1, 2, 3], [0]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate arrays over a small value range so many feasible replacements exist",
+      "seed": 91,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 60))\n    m = max(1, min(size, 60))\n    arr1 = [rng.randint(0, 40) for _ in range(n)]\n    arr2 = [rng.randint(0, 40) for _ in range(m)]\n    return [arr1, arr2]\n",
+      "note": "small range keeps the exponential oracle tractable while exercising the DP"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def makeArrayIncreasing(self, arr1, arr2):\n        from functools import lru_cache\n        b = sorted(set(arr2))\n        n = len(arr1)\n        INF = float('inf')\n        import sys\n        sys.setrecursionlimit(10000)\n        @lru_cache(maxsize=None)\n        def solve(i, prev):\n            if i == n:\n                return 0\n            best = INF\n            if arr1[i] > prev:\n                best = min(best, solve(i + 1, arr1[i]))\n            for v in b:\n                if v > prev:\n                    best = min(best, 1 + solve(i + 1, v))\n                    break\n            return best\n        res = solve(0, -1)\n        return res if res < INF else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def makeArrayIncreasing(self, arr1, arr2):\n        import bisect\n        arr2 = sorted(set(arr2))\n        dp = {-1: 0}\n        for num in arr1:\n            ndp = {}\n            for prev, ops in dp.items():\n                if num > prev:\n                    ndp[num] = min(ndp.get(num, float('inf')), ops)\n                j = bisect.bisect_right(arr2, prev)\n                if j < len(arr2):\n                    cand = arr2[j]\n                    ndp[cand] = min(ndp.get(cand, float('inf')), ops + 1)\n            dp = ndp\n            if not dp:\n                return -1\n        return min(dp.values())\n",
+    "javascript": "var makeArrayIncreasing = function(arr1, arr2) {\n    const b = Array.from(new Set(arr2)).sort((a, c) => a - c);\n    const upper = (x) => {\n        let lo = 0, hi = b.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (b[mid] <= x) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    };\n    let dp = new Map([[-1, 0]]);\n    for (const num of arr1) {\n        const ndp = new Map();\n        for (const [prev, ops] of dp) {\n            if (num > prev) {\n                const c = ndp.has(num) ? Math.min(ndp.get(num), ops) : ops;\n                ndp.set(num, c);\n            }\n            const j = upper(prev);\n            if (j < b.length) {\n                const cand = b[j];\n                const c = ndp.has(cand) ? Math.min(ndp.get(cand), ops + 1) : ops + 1;\n                ndp.set(cand, c);\n            }\n        }\n        dp = ndp;\n        if (dp.size === 0) return -1;\n    }\n    let ans = Infinity;\n    for (const v of dp.values()) ans = Math.min(ans, v);\n    return ans;\n};\n"
+  },
+  "complexity": { "time": "O(n * m log m)", "space": "O(m)" }
+}

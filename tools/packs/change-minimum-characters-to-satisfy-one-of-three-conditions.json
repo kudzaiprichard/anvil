@@ -1,0 +1,37 @@
+{
+  "slug": "change-minimum-characters-to-satisfy-one-of-three-conditions",
+  "judge": "exact",
+  "pattern": "Frequency counts of both strings let each candidate threshold letter and each single-letter target be costed in constant time, and the minimum over all candidates is the answer.",
+  "hints": [
+    "Only the letter histograms of a and b matter, so count occurrences of each of the 26 letters in both.",
+    "For the separation conditions, pick a boundary letter and count how many characters must move to the correct side of it.",
+    "For each split c (1..25): cost = (letters in a >= c) + (letters in b < c) for one direction and the mirror for the other; also try making both strings a single letter c, costing total length minus 2*count(c). Take the minimum."
+  ],
+  "constraints": [
+    { "param": "a", "kind": "string", "len": [1, 100000] },
+    { "param": "b", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first sample", "input": ["aba", "caa"] },
+    { "kind": "trap", "description": "second sample favors separation", "input": ["dabadd", "cda"] },
+    { "kind": "boundary", "description": "both single identical letter, already satisfied", "input": ["a", "a"] },
+    { "kind": "edge", "description": "single letters already separated", "input": ["a", "z"] },
+    { "kind": "trap", "description": "single letters reversed need fixing", "input": ["z", "a"] },
+    { "kind": "edge", "description": "all same letters across both", "input": ["bbbb", "bb"] },
+    { "kind": "trap", "description": "interleaved letters", "input": ["abab", "baba"] }
+  ],
+  "stress": [
+    {
+      "description": "random lowercase strings over a small alphabet",
+      "seed": 29,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    m = max(1, min(size, 2000))\n    a = ''.join(rng.choice('abcde') for _ in range(n))\n    b = ''.join(rng.choice('abcde') for _ in range(m))\n    return [a, b]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minCharacters(self, a, b):\n        from itertools import product\n        best = len(a) + len(b)\n        # condition 3: both become single letter c\n        for c in range(26):\n            ch = chr(ord('a') + c)\n            cost = sum(1 for x in a if x != ch) + sum(1 for x in b if x != ch)\n            best = min(best, cost)\n        # condition 1: every letter of a < every letter of b, threshold t (a<t<=... ) try boundary t from 1..25 meaning a chars < t, b chars >= t\n        for t in range(1, 26):\n            thr = chr(ord('a') + t)\n            cost = sum(1 for x in a if x >= thr) + sum(1 for x in b if x < thr)\n            best = min(best, cost)\n            cost2 = sum(1 for x in b if x >= thr) + sum(1 for x in a if x < thr)\n            best = min(best, cost2)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minCharacters(self, a, b):\n        ca = [0] * 26\n        cb = [0] * 26\n        for x in a:\n            ca[ord(x) - 97] += 1\n        for x in b:\n            cb[ord(x) - 97] += 1\n        la, lb = len(a), len(b)\n        best = la + lb\n        # condition 3\n        for c in range(26):\n            best = min(best, la - ca[c] + lb - cb[c])\n        # prefix counts\n        pa = [0] * 27\n        pb = [0] * 27\n        for c in range(26):\n            pa[c + 1] = pa[c] + ca[c]\n            pb[c + 1] = pb[c] + cb[c]\n        for t in range(1, 26):\n            a_ge = la - pa[t]\n            b_lt = pb[t]\n            best = min(best, a_ge + b_lt)\n            b_ge = lb - pb[t]\n            a_lt = pa[t]\n            best = min(best, b_ge + a_lt)\n        return best\n",
+    "javascript": "var minCharacters = function(a, b) {\n    const ca = new Array(26).fill(0), cb = new Array(26).fill(0);\n    for (const x of a) ca[x.charCodeAt(0) - 97]++;\n    for (const x of b) cb[x.charCodeAt(0) - 97]++;\n    const la = a.length, lb = b.length;\n    let best = la + lb;\n    for (let c = 0; c < 26; c++) best = Math.min(best, la - ca[c] + lb - cb[c]);\n    const pa = new Array(27).fill(0), pb = new Array(27).fill(0);\n    for (let c = 0; c < 26; c++) { pa[c + 1] = pa[c] + ca[c]; pb[c + 1] = pb[c] + cb[c]; }\n    for (let t = 1; t < 26; t++) {\n        best = Math.min(best, (la - pa[t]) + pb[t]);\n        best = Math.min(best, (lb - pb[t]) + pa[t]);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n + m)", "space": "O(1)" }
+}

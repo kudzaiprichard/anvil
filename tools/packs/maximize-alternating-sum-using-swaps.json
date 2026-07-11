@@ -1,0 +1,37 @@
+{
+  "slug": "maximize-alternating-sum-using-swaps",
+  "judge": "exact",
+  "pattern": "Swap pairs link indices into connected components within which values are freely rearrangeable, so each component independently assigns its largest values to the plus positions and smallest to the minus positions.",
+  "hints": [
+    "Repeated swaps let any two indices in the same swap-connected group exchange values, so think in terms of connected components of indices.",
+    "Inside one component you may place its collected values into its positions in any order; each position carries a fixed plus or minus sign based on its parity.",
+    "Union the indices joined by swaps, then per component count how many positions are even (plus); sort the component's values descending and give the top ones to the plus positions and the rest to the minus positions."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [1, 1000000000] },
+    { "param": "swaps", "kind": "int[][]" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "no swaps, fixed alternating sum", "input": [[1, 2, 3], []] },
+    { "kind": "edge", "description": "two swaps connect all three indices", "input": [[1, 2, 3], [[0, 2], [1, 2]]] },
+    { "kind": "edge", "description": "single swap between two odd-parity-mixed indices", "input": [[1, 2, 3], [[1, 2]]] },
+    { "kind": "boundary", "description": "large values with no swaps gives negative result", "input": [[1, 1000000000, 1, 1000000000, 1, 1000000000], []] },
+    { "kind": "trap", "description": "swap connects two even positions, no sign change benefit", "input": [[5, 1, 9, 1], [[0, 2]]] },
+    { "kind": "trap", "description": "chain of swaps forms one big component", "input": [[4, 3, 2, 1], [[0, 1], [1, 2], [2, 3]]] },
+    { "kind": "trap", "description": "two separate components each optimized independently", "input": [[8, 2, 7, 3], [[0, 2], [1, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "random values with random swap edges so components of varied parity mixes form",
+      "seed": 97,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    nums = [rng.randint(1, 10**9) for _ in range(n)]\n    m = rng.randint(0, n)\n    seen = set()\n    swaps = []\n    for _ in range(m):\n        a = rng.randint(0, n - 1)\n        b = rng.randint(0, n - 1)\n        if a == b:\n            continue\n        if a > b:\n            a, b = b, a\n        if (a, b) in seen:\n            continue\n        seen.add((a, b))\n        swaps.append([a, b])\n    return [nums, swaps]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxAlternatingSum(self, nums, swaps):\n        n = len(nums)\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        for a, b in swaps:\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        from collections import defaultdict\n        comp_vals = defaultdict(list)\n        comp_even = defaultdict(int)\n        for i in range(n):\n            r = find(i)\n            comp_vals[r].append(nums[i])\n            if i % 2 == 0:\n                comp_even[r] += 1\n        total = 0\n        for r, vals in comp_vals.items():\n            vals.sort()\n            e = comp_even[r]\n            # smallest go to minus, largest go to plus\n            minus = vals[:len(vals) - e]\n            plus = vals[len(vals) - e:]\n            total += sum(plus) - sum(minus)\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxAlternatingSum(self, nums, swaps):\n        n = len(nums)\n        parent = list(range(n))\n        rank = [0] * n\n        def find(x):\n            root = x\n            while parent[root] != root:\n                root = parent[root]\n            while parent[x] != root:\n                parent[x], x = root, parent[x]\n            return root\n        for a, b in swaps:\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                if rank[ra] < rank[rb]:\n                    ra, rb = rb, ra\n                parent[rb] = ra\n                if rank[ra] == rank[rb]:\n                    rank[ra] += 1\n        groups = {}\n        for i in range(n):\n            r = find(i)\n            if r not in groups:\n                groups[r] = [[], 0]\n            groups[r][0].append(nums[i])\n            if i % 2 == 0:\n                groups[r][1] += 1\n        total = 0\n        for vals, e in groups.values():\n            vals.sort(reverse=True)\n            for idx, v in enumerate(vals):\n                if idx < e:\n                    total += v\n                else:\n                    total -= v\n        return total\n",
+    "javascript": "var maxAlternatingSum = function(nums, swaps) {\n    const n = nums.length;\n    const parent = Array.from({length: n}, (_, i) => i);\n    const rank = new Array(n).fill(0);\n    const find = (x) => {\n        let root = x;\n        while (parent[root] !== root) root = parent[root];\n        while (parent[x] !== root) { const nx = parent[x]; parent[x] = root; x = nx; }\n        return root;\n    };\n    for (const [a, b] of swaps) {\n        let ra = find(a), rb = find(b);\n        if (ra !== rb) {\n            if (rank[ra] < rank[rb]) { const t = ra; ra = rb; rb = t; }\n            parent[rb] = ra;\n            if (rank[ra] === rank[rb]) rank[ra]++;\n        }\n    }\n    const groups = new Map();\n    for (let i = 0; i < n; i++) {\n        const r = find(i);\n        if (!groups.has(r)) groups.set(r, {vals: [], even: 0});\n        const g = groups.get(r);\n        g.vals.push(nums[i]);\n        if (i % 2 === 0) g.even++;\n    }\n    let total = 0;\n    for (const {vals, even} of groups.values()) {\n        vals.sort((a, b) => b - a);\n        for (let idx = 0; idx < vals.length; idx++) {\n            if (idx < even) total += vals[idx]; else total -= vals[idx];\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O((n + m) log n)", "space": "O(n)" }
+}

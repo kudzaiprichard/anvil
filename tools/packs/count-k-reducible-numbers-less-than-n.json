@@ -1,0 +1,37 @@
+{
+  "slug": "count-k-reducible-numbers-less-than-n",
+  "judge": "exact",
+  "pattern": "Since one popcount application already shrinks any huge number down to at most a few hundred, precomputing how many steps every small number needs to reach 1 turns the real question into 'count numbers below n whose bit-count lands in an allowed set', which a digit DP over the binary string answers directly.",
+  "hints": [
+    "Popcount(x) is at most the number of bits of x, so after just one operation any x, however large, becomes a small number (at most a few hundred). Precompute, for every small value m, how many extra popcount steps it needs to reach 1.",
+    "x itself is k-reducible exactly when popcount(x) belongs to the set of small values whose precomputed step count is at most k - 1 (one step is already spent turning x into popcount(x), unless x is already 1).",
+    "Counting integers below n with a popcount in a fixed target set is a classic digit-DP over n's binary digits: at every '1' bit of n, consider placing a '0' there instead and freely choosing the remaining lower bits, using binomial coefficients to count how many ways reach each target popcount."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 800] },
+    { "param": "k", "kind": "int", "value": [1, 5] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example 1", "input": ["111", 1] },
+    { "kind": "edge", "description": "statement example 2", "input": ["1000", 2] },
+    { "kind": "edge", "description": "statement example 3, n equals 1", "input": ["1", 3] },
+    { "kind": "boundary", "description": "smallest possible n greater than 1", "input": ["10", 1] },
+    { "kind": "boundary", "description": "maximum k", "input": ["1111", 5] },
+    { "kind": "trap", "description": "k of exactly 1 excludes numbers that need two popcount steps", "input": ["10000", 1] },
+    { "kind": "trap", "description": "a long run of set bits pushes many numbers just out of reach for a small k", "input": ["11111111", 1] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings (no leading zero) with a random k",
+      "seed": 19,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    length = rng.randint(1, max(1, min(size, 60)))\n    if length == 1:\n        s = '1'\n    else:\n        s = '1' + ''.join(rng.choice('01') for _ in range(length - 1))\n    k = rng.randint(1, 5)\n    return [s, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countKReducibleNumbers(self, s, k):\n        MOD = 10 ** 9 + 7\n        n = int(s, 2)\n        def steps(x):\n            cnt = 0\n            while x != 1:\n                x = bin(x).count('1')\n                cnt += 1\n            return cnt\n        total = 0\n        for x in range(1, n):\n            if steps(x) <= k:\n                total += 1\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def countKReducibleNumbers(self, s, k):\n        MOD = 10 ** 9 + 7\n        n_bits = len(s)\n        memo = {1: 0}\n        def steps(m):\n            if m in memo:\n                return memo[m]\n            r = 1 + steps(bin(m).count('1'))\n            memo[m] = r\n            return r\n        allowed = [p for p in range(1, n_bits + 1) if steps(p) <= k - 1]\n        C = [[0] * (n_bits + 1) for _ in range(n_bits + 1)]\n        for i in range(n_bits + 1):\n            C[i][0] = 1\n            for j in range(1, i + 1):\n                C[i][j] = (C[i - 1][j - 1] + C[i - 1][j]) % MOD\n        ones_so_far = 0\n        total = 0\n        for i, ch in enumerate(s):\n            if ch == '1':\n                remaining = n_bits - 1 - i\n                for p in allowed:\n                    need = p - ones_so_far\n                    if 0 <= need <= remaining:\n                        total = (total + C[remaining][need]) % MOD\n                ones_so_far += 1\n        return total % MOD\n",
+    "javascript": "var countKReducibleNumbers = function(s, k) {\n    const MOD = 1000000007n;\n    const nBits = s.length;\n    function popcount(m) {\n        let c = 0;\n        while (m > 0) { c += m & 1; m >>= 1; }\n        return c;\n    }\n    const memo = new Map([[1, 0]]);\n    function steps(m) {\n        if (memo.has(m)) return memo.get(m);\n        const r = 1 + steps(popcount(m));\n        memo.set(m, r);\n        return r;\n    }\n    const allowed = [];\n    for (let p = 1; p <= nBits; p++) {\n        if (steps(p) <= k - 1) allowed.push(p);\n    }\n    const C = [];\n    for (let i = 0; i <= nBits; i++) {\n        C.push(new Array(nBits + 1).fill(0n));\n        C[i][0] = 1n;\n        for (let j = 1; j <= i; j++) {\n            C[i][j] = (C[i - 1][j - 1] + C[i - 1][j]) % MOD;\n        }\n    }\n    let onesSoFar = 0;\n    let total = 0n;\n    for (let i = 0; i < nBits; i++) {\n        if (s[i] === '1') {\n            const remaining = nBits - 1 - i;\n            for (const p of allowed) {\n                const need = p - onesSoFar;\n                if (need >= 0 && need <= remaining) {\n                    total = (total + C[remaining][need]) % MOD;\n                }\n            }\n            onesSoFar++;\n        }\n    }\n    return Number(total % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n_bits^2)", "space": "O(n_bits^2)" }
+}

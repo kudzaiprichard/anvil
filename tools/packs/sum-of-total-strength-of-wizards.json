@@ -1,0 +1,37 @@
+{
+  "slug": "sum-of-total-strength-of-wizards",
+  "judge": "exact",
+  "pattern": "A monotonic stack fixes each element as the subarray minimum, and a prefix-of-prefix-sum identity collapses the contribution of all subarrays in that range into O(1) arithmetic, all under the modulus.",
+  "hints": [
+    "Each element is the minimum of a contiguous block of subarrays; find, with a monotonic stack, the span where it is the strict minimum.",
+    "Within that span the answer needs the sum over all subarrays containing position i of their element-sum, which expands into a weighted combination of prefix sums.",
+    "Let P be prefix sums and PP the prefix sums of P. For minimum at i spanning (left, right), its contribution is strength[i] * ((i - left + 1)*(PP[right+1]-PP[i]) - (right - i + 1)*(PP[i]-PP[left])), summed mod 1e9+7."
+  ],
+  "constraints": [
+    { "param": "strength", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "small array with a clear repeated minimum", "input": [[1, 3, 1, 2]] },
+    { "kind": "edge", "description": "strictly increasing run", "input": [[5, 4, 6]] },
+    { "kind": "boundary", "description": "single wizard", "input": [[7]] },
+    { "kind": "boundary", "description": "two equal values, tie-breaking in the stack matters", "input": [[3, 3]] },
+    { "kind": "edge", "description": "all equal values", "input": [[2, 2, 2, 2]] },
+    { "kind": "trap", "description": "duplicate minima must not double-count overlapping spans", "input": [[2, 1, 2, 1, 2]] },
+    { "kind": "trap", "description": "large values approaching the modulus stress the mod arithmetic", "input": [[1000000000, 999999999, 1000000000]] }
+  ],
+  "stress": [
+    {
+      "description": "moderate array over a small value range so duplicates and ties abound",
+      "seed": 23,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    return [[rng.randint(1, 10) for _ in range(n)]]\n",
+      "note": "small range forces many equal minima, stressing strict/non-strict boundary handling"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def totalStrength(self, strength):\n        MOD = 10**9 + 7\n        n = len(strength)\n        total = 0\n        for i in range(n):\n            running = 0\n            mn = strength[i]\n            for j in range(i, n):\n                running += strength[j]\n                if strength[j] < mn:\n                    mn = strength[j]\n                total += mn * running\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def totalStrength(self, strength):\n        MOD = 10**9 + 7\n        n = len(strength)\n        P = [0] * (n + 1)\n        for i in range(n):\n            P[i + 1] = P[i] + strength[i]\n        PP = [0] * (n + 2)\n        for i in range(n + 1):\n            PP[i + 1] = PP[i] + P[i]\n        left = [0] * n\n        stack = []\n        for i in range(n):\n            while stack and strength[stack[-1]] >= strength[i]:\n                stack.pop()\n            left[i] = stack[-1] + 1 if stack else 0\n            stack.append(i)\n        right = [0] * n\n        stack = []\n        for i in range(n - 1, -1, -1):\n            while stack and strength[stack[-1]] > strength[i]:\n                stack.pop()\n            right[i] = stack[-1] - 1 if stack else n - 1\n            stack.append(i)\n        ans = 0\n        for i in range(n):\n            l = left[i]\n            r = right[i]\n            pos = (i - l + 1) * (PP[r + 2] - PP[i + 1]) % MOD\n            neg = (r - i + 1) * (PP[i + 1] - PP[l]) % MOD\n            ans = (ans + strength[i] * ((pos - neg) % MOD)) % MOD\n        return ans % MOD\n",
+    "javascript": "var totalStrength = function(strength) {\n    const MOD = 1000000007n;\n    const n = strength.length;\n    const s = strength.map(BigInt);\n    const P = new Array(n + 1).fill(0n);\n    for (let i = 0; i < n; i++) P[i + 1] = P[i] + s[i];\n    const PP = new Array(n + 2).fill(0n);\n    for (let i = 0; i <= n; i++) PP[i + 1] = PP[i] + P[i];\n    const left = new Array(n).fill(0);\n    let stack = [];\n    for (let i = 0; i < n; i++) {\n        while (stack.length && strength[stack[stack.length - 1]] >= strength[i]) stack.pop();\n        left[i] = stack.length ? stack[stack.length - 1] + 1 : 0;\n        stack.push(i);\n    }\n    const right = new Array(n).fill(0);\n    stack = [];\n    for (let i = n - 1; i >= 0; i--) {\n        while (stack.length && strength[stack[stack.length - 1]] > strength[i]) stack.pop();\n        right[i] = stack.length ? stack[stack.length - 1] - 1 : n - 1;\n        stack.push(i);\n    }\n    let ans = 0n;\n    for (let i = 0; i < n; i++) {\n        const l = BigInt(left[i]);\n        const r = BigInt(right[i]);\n        const bi = BigInt(i);\n        const pos = ((bi - l + 1n) * (((PP[right[i] + 2] - PP[i + 1]) % MOD + MOD) % MOD)) % MOD;\n        const neg = ((r - bi + 1n) * (((PP[i + 1] - PP[l] % MOD) % MOD + MOD) % MOD)) % MOD;\n        ans = (ans + s[i] * (((pos - neg) % MOD + MOD) % MOD)) % MOD;\n        ans = ((ans % MOD) + MOD) % MOD;\n    }\n    return Number(((ans % MOD) + MOD) % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

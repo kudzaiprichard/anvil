@@ -1,0 +1,37 @@
+{
+  "slug": "shortest-path-to-get-all-keys",
+  "judge": "exact",
+  "pattern": "Breadth-first search over an augmented state of position plus the bitmask of collected keys, since the same cell may be revisited with a different key set and the goal is the first time every key bit is set.",
+  "hints": [
+    "Your state is not just where you stand, but also which keys you already hold, because a locked door becomes passable once you own its key.",
+    "Encode the set of collected keys as a bitmask and treat (row, column, keymask) as a single search node.",
+    "Run breadth-first search from the start with an empty keymask; expand to neighbors, skipping walls and locks whose key bit is unset, and stop when the keymask equals all-keys-present."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "string[]", "len": [1, 30] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "must collect a key before a lock blocks the path", "input": [["@.a..", "###.#", "b.A.B"]] },
+    { "kind": "edge", "description": "two keys reachable around a wall", "input": [["@..aA", "..B#.", "....b"]] },
+    { "kind": "trap", "description": "a lock with its key behind it is unreachable", "input": [["@Aa"]] },
+    { "kind": "boundary", "description": "a single adjacent key, one move", "input": [["@a"]] },
+    { "kind": "edge", "description": "straight corridor collecting keys in order before locks", "input": [["@abABC", "######", "..cC.."]] },
+    { "kind": "trap", "description": "wall fully isolates the only key", "input": [["@#a"]] },
+    { "kind": "edge", "description": "key requires a detour through an opened door", "input": [["@.a", ".#A", "..b"]] }
+  ],
+  "stress": [
+    {
+      "description": "random small grids with one key/lock pair placed so the start, key, and lock are distinct reachable-ish cells",
+      "seed": 91,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    rows = rng.randint(2, max(2, min(size, 6)))\n    cols = rng.randint(2, max(2, min(size, 6)))\n    cells = [[ '.' for _ in range(cols)] for _ in range(rows)]\n    # sprinkle some walls\n    for r in range(rows):\n        for c in range(cols):\n            if rng.random() < 0.2:\n                cells[r][c] = '#'\n    coords = [(r, c) for r in range(rows) for c in range(cols)]\n    rng.shuffle(coords)\n    picks = coords[:3]\n    sr, sc = picks[0]\n    kr, kc = picks[1]\n    lr, lc = picks[2]\n    cells[sr][sc] = '@'\n    cells[kr][kc] = 'a'\n    cells[lr][lc] = 'A'\n    return [[''.join(row) for row in cells]]\n",
+      "note": "exactly one '@', one key 'a', one lock 'A'; result may be -1 when blocked, which is a valid answer"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def shortestPathAllKeys(self, grid):\n        # Brute BFS, identical state model but recomputing the all-keys target\n        # by scanning the grid and using a plain visited set.\n        from collections import deque\n        rows = len(grid)\n        cols = len(grid[0])\n        all_keys = 0\n        start = None\n        for r in range(rows):\n            for c in range(cols):\n                ch = grid[r][c]\n                if ch == '@':\n                    start = (r, c)\n                elif ch.islower():\n                    all_keys |= (1 << (ord(ch) - ord('a')))\n        q = deque([(start[0], start[1], 0, 0)])\n        visited = {(start[0], start[1], 0)}\n        while q:\n            r, c, keys, dist = q.popleft()\n            if keys == all_keys:\n                return dist\n            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < rows and 0 <= nc < cols:\n                    ch = grid[nr][nc]\n                    if ch == '#':\n                        continue\n                    nk = keys\n                    if ch.islower():\n                        nk |= (1 << (ord(ch) - ord('a')))\n                    if ch.isupper() and not (keys & (1 << (ord(ch) - ord('A')))):\n                        continue\n                    if (nr, nc, nk) not in visited:\n                        visited.add((nr, nc, nk))\n                        q.append((nr, nc, nk, dist + 1))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def shortestPathAllKeys(self, grid):\n        from collections import deque\n        rows, cols = len(grid), len(grid[0])\n        target = 0\n        sr = sc = 0\n        for r in range(rows):\n            for c in range(cols):\n                ch = grid[r][c]\n                if ch == '@':\n                    sr, sc = r, c\n                elif 'a' <= ch <= 'f':\n                    target |= 1 << (ord(ch) - ord('a'))\n        q = deque([(sr, sc, 0)])\n        seen = {(sr, sc, 0)}\n        steps = 0\n        while q:\n            for _ in range(len(q)):\n                r, c, keys = q.popleft()\n                if keys == target:\n                    return steps\n                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    nr, nc = r + dr, c + dc\n                    if not (0 <= nr < rows and 0 <= nc < cols):\n                        continue\n                    ch = grid[nr][nc]\n                    if ch == '#':\n                        continue\n                    if 'A' <= ch <= 'F' and not (keys & (1 << (ord(ch) - ord('A')))):\n                        continue\n                    nk = keys\n                    if 'a' <= ch <= 'f':\n                        nk |= 1 << (ord(ch) - ord('a'))\n                    if (nr, nc, nk) not in seen:\n                        seen.add((nr, nc, nk))\n                        q.append((nr, nc, nk))\n            steps += 1\n        return -1\n",
+    "javascript": "var shortestPathAllKeys = function(grid) {\n    const rows = grid.length, cols = grid[0].length;\n    let target = 0, sr = 0, sc = 0;\n    for (let r = 0; r < rows; r++) {\n        for (let c = 0; c < cols; c++) {\n            const ch = grid[r][c];\n            if (ch === '@') { sr = r; sc = c; }\n            else if (ch >= 'a' && ch <= 'f') target |= 1 << (ch.charCodeAt(0) - 97);\n        }\n    }\n    let queue = [[sr, sc, 0]];\n    const seen = new Set([sr + ',' + sc + ',0']);\n    let steps = 0;\n    while (queue.length) {\n        const next = [];\n        for (const [r, c, keys] of queue) {\n            if (keys === target) return steps;\n            for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {\n                const nr = r + dr, nc = c + dc;\n                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;\n                const ch = grid[nr][nc];\n                if (ch === '#') continue;\n                if (ch >= 'A' && ch <= 'F' && !(keys & (1 << (ch.charCodeAt(0) - 65)))) continue;\n                let nk = keys;\n                if (ch >= 'a' && ch <= 'f') nk |= 1 << (ch.charCodeAt(0) - 97);\n                const key = nr + ',' + nc + ',' + nk;\n                if (!seen.has(key)) {\n                    seen.add(key);\n                    next.push([nr, nc, nk]);\n                }\n            }\n        }\n        queue = next;\n        steps += 1;\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(m * n * 2^k)", "space": "O(m * n * 2^k)" }
+}

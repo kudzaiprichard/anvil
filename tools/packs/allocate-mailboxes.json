@@ -1,0 +1,74 @@
+{
+  "slug": "allocate-mailboxes",
+  "judge": "exact",
+  "pattern": "The cheapest way to serve a contiguous run of houses with one mailbox is always to plant it at the median, which turns the whole problem into a partition-into-contiguous-runs DP over a precomputed cost table.",
+  "hints": [
+    "Sort the houses first - an optimal solution never assigns a mailbox to a non-contiguous group of houses, since swapping to keep each group contiguous never increases the total distance.",
+    "For any contiguous run of sorted houses, the mailbox position that minimizes total distance is the median of that run; precompute this cost for every (start, end) run once.",
+    "With costs precomputed, let dp[i][b] be the minimum total distance to cover the first i sorted houses using b mailboxes, transitioning by choosing where the last mailbox's run begins."
+  ],
+  "constraints": [
+    { "param": "houses", "kind": "int[]", "len": [1, 100], "value": [1, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 100] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single house needs exactly one mailbox at its own position",
+      "input": [[7], 1]
+    },
+    {
+      "kind": "edge",
+      "description": "as many mailboxes as houses drives every distance to zero",
+      "input": [[3, 9, 15, 2], 4]
+    },
+    {
+      "kind": "edge",
+      "description": "one mailbox for a tight cluster plus a distant outlier",
+      "input": [[1, 2, 3, 50], 2]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single mailbox for every house, forcing the whole-array median",
+      "input": [[10, 1, 100, 40, 25], 1]
+    },
+    {
+      "kind": "boundary",
+      "description": "houses at the extreme position bounds",
+      "input": [[1, 10000], 1]
+    },
+    {
+      "kind": "trap",
+      "description": "an even-sized run needs the correct median tie handling, not just one endpoint",
+      "input": [[1, 2, 3, 4], 1]
+    },
+    {
+      "kind": "trap",
+      "description": "unsorted input order must not change the optimal grouping",
+      "input": [[40, 10, 20, 30], 2]
+    }
+  ],
+  "stress": [
+    {
+      "description": "near-max house count with a mid-range mailbox budget",
+      "seed": 9,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    houses = rng.sample(range(1, 10001), n)\n    k = rng.randint(1, n)\n    return [houses, k]\n"
+    },
+    {
+      "description": "clustered houses in a few tight groups, testing median-cost precision",
+      "seed": 10,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100))\n    centers = [rng.randint(200, 9800) for _ in range(5)]\n    pool = set()\n    while len(pool) < n:\n        c = rng.choice(centers)\n        pool.add(c + rng.randint(-15, 15))\n    houses = [max(1, min(10000, v)) for v in list(pool)[:n]]\n    houses = list(dict.fromkeys(houses))\n    k = rng.randint(1, len(houses))\n    return [houses, k]\n"
+    }
+  ],
+  "oracle_python": "from functools import lru_cache\n\n\nclass Solution:\n    def minDistance(self, houses, k):\n        houses = sorted(houses)\n        n = len(houses)\n\n        def cost(l, r):\n            best = None\n            for p in range(houses[l], houses[r] + 1):\n                s = sum(abs(x - p) for x in houses[l:r + 1])\n                if best is None or s < best:\n                    best = s\n            return best\n\n        @lru_cache(maxsize=None)\n        def rec(i, b):\n            if b == 0:\n                return 0 if i == n else float('inf')\n            if i == n:\n                return float('inf')\n            best = float('inf')\n            for j in range(i + 1, n + 1):\n                sub = rec(j, b - 1)\n                if sub < float('inf'):\n                    v = cost(i, j - 1) + sub\n                    if v < best:\n                        best = v\n            return best\n\n        result = rec(0, k)\n        rec.cache_clear()\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def minDistance(self, houses, k):\n        houses = sorted(houses)\n        n = len(houses)\n        cost = [[0] * n for _ in range(n)]\n        for i in range(n):\n            for j in range(i, n):\n                mid = (i + j) // 2\n                m = houses[mid]\n                s = sum(abs(houses[x] - m) for x in range(i, j + 1))\n                cost[i][j] = s\n        INF = float('inf')\n        dp = [[INF] * (k + 1) for _ in range(n + 1)]\n        dp[0][0] = 0\n        for i in range(1, n + 1):\n            for b in range(1, k + 1):\n                for j in range(i):\n                    if dp[j][b - 1] < INF:\n                        val = dp[j][b - 1] + cost[j][i - 1]\n                        if val < dp[i][b]:\n                            dp[i][b] = val\n        return dp[n][k]\n",
+    "javascript": "var minDistance = function(houses, k) {\n    houses = houses.slice().sort((a, b) => a - b);\n    const n = houses.length;\n    const cost = Array.from({ length: n }, () => new Array(n).fill(0));\n    for (let i = 0; i < n; i++) {\n        for (let j = i; j < n; j++) {\n            const mid = (i + j) >> 1;\n            const m = houses[mid];\n            let s = 0;\n            for (let x = i; x <= j; x++) s += Math.abs(houses[x] - m);\n            cost[i][j] = s;\n        }\n    }\n    const INF = Infinity;\n    const dp = Array.from({ length: n + 1 }, () => new Array(k + 1).fill(INF));\n    dp[0][0] = 0;\n    for (let i = 1; i <= n; i++) {\n        for (let b = 1; b <= k; b++) {\n            for (let j = 0; j < i; j++) {\n                if (dp[j][b - 1] < INF) {\n                    const val = dp[j][b - 1] + cost[j][i - 1];\n                    if (val < dp[i][b]) dp[i][b] = val;\n                }\n            }\n        }\n    }\n    return dp[n][k];\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2 * k)",
+    "space": "O(n^2)"
+  }
+}

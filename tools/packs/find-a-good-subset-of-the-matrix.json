@@ -1,0 +1,47 @@
+{
+  "slug": "find-a-good-subset-of-the-matrix",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    grid = args[0]\n    m = len(grid)\n    n = len(grid[0]) if m else 0\n    if not isinstance(output, list):\n        return False\n    if any(not isinstance(x, int) or isinstance(x, bool) for x in output):\n        return False\n    k = len(output)\n    if len(set(output)) != k:\n        return False\n    if output != sorted(output):\n        return False\n    for idx in output:\n        if idx < 0 or idx >= m:\n            return False\n    if k == 0:\n        # A good subset exists at all iff some row is all-zero, or some pair\n        # of rows has disjoint 1-bits (columns never both 1). This reduction\n        # is valid because n <= 5, so patterns are cheap to enumerate; if\n        # either condition holds, an empty answer is wrong.\n        patterns = set()\n        for row in grid:\n            p = 0\n            for j in range(n):\n                if row[j]:\n                    p |= (1 << j)\n            patterns.add(p)\n        if 0 in patterns:\n            return False\n        plist = sorted(patterns)\n        for a in range(len(plist)):\n            for b in range(a + 1, len(plist)):\n                if plist[a] & plist[b] == 0:\n                    return False\n        return True\n    limit = k // 2\n    for j in range(n):\n        total = sum(grid[i][j] for i in output)\n        if total > limit:\n            return False\n    return True\n",
+    "validator_javascript": "function validate(args, output) {\n    const grid = args[0];\n    const m = grid.length;\n    const n = m ? grid[0].length : 0;\n    if (!Array.isArray(output)) return false;\n    for (const x of output) {\n        if (!Number.isInteger(x)) return false;\n    }\n    const k = output.length;\n    if (new Set(output).size !== k) return false;\n    for (let i = 1; i < k; i++) {\n        if (output[i] < output[i - 1]) return false;\n    }\n    for (const idx of output) {\n        if (idx < 0 || idx >= m) return false;\n    }\n    if (k === 0) {\n        const patterns = new Set();\n        for (const row of grid) {\n            let p = 0;\n            for (let j = 0; j < n; j++) {\n                if (row[j]) p |= (1 << j);\n            }\n            patterns.add(p);\n        }\n        if (patterns.has(0)) return false;\n        const plist = Array.from(patterns).sort((a, b) => a - b);\n        for (let a = 0; a < plist.length; a++) {\n            for (let b = a + 1; b < plist.length; b++) {\n                if ((plist[a] & plist[b]) === 0) return false;\n            }\n        }\n        return true;\n    }\n    const limit = Math.floor(k / 2);\n    for (let j = 0; j < n; j++) {\n        let total = 0;\n        for (const i of output) total += grid[i][j];\n        if (total > limit) return false;\n    }\n    return true;\n}\n"
+  },
+  "pattern": "A binary matrix with very few columns only has a handful of distinct row patterns, so whenever any workable subset of rows exists, one made of a single all-zero row or a pair of bit-disjoint rows already works.",
+  "hints": [
+    "There are at most 2^n distinct row patterns since each column only ever holds a 0 or a 1 - two rows that look identical are the same pattern for this purpose.",
+    "A single row is a good subset exactly when it is all zeros, and a pair of rows is a good subset exactly when no column has a 1 in both of them at once.",
+    "Because the column count is so small, dedupe the rows by pattern, look for an all-zero pattern first, and otherwise test every pair of distinct patterns for having no shared 1-bit - you never need to consider larger subsets."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 10000], "value": [0, 1], "note": "every row has the same length n, where 1 <= n <= 5" }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single all-zero row is trivially good on its own", "input": [[[0, 0, 0]]] },
+    { "kind": "edge", "description": "a single non-zero row has no good subset", "input": [[[1, 0, 1]]] },
+    { "kind": "edge", "description": "two rows whose 1-bits never overlap form a good pair", "input": [[[1, 0], [0, 1]]] },
+    { "kind": "trap", "description": "two identical non-zero rows always share a 1-bit, so no pair works", "input": [[[1, 1], [1, 1]]] },
+    { "kind": "trap", "description": "the only all-zero row is buried behind several identical non-zero rows", "input": [[[1, 1, 1], [1, 1, 1], [1, 1, 1], [0, 0, 0]]] },
+    { "kind": "boundary", "description": "a single-column matrix still resolves via the first zero row", "input": [[[0], [1], [0]]] },
+    { "kind": "boundary", "description": "maximum column count with every row identical and non-zero leaves no good subset", "input": [[[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]]] },
+    { "kind": "trap", "description": "the first candidate pair overlaps but a later pair of patterns is disjoint", "input": [[[1, 0, 0], [1, 1, 0], [0, 0, 1]]] }
+  ],
+  "stress": [
+    {
+      "description": "near-maximum row count with a random column width and random bits",
+      "seed": 5001,
+      "size": 10000,
+      "generator_python": "def gen(rng, size):\n    m = max(1, size)\n    n = rng.randint(1, 5)\n    grid = [[rng.randint(0, 1) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    },
+    {
+      "description": "large row count drawn from a small pool of repeated patterns at the maximum column width",
+      "seed": 5002,
+      "size": 8000,
+      "generator_python": "def gen(rng, size):\n    m = max(1, size)\n    n = 5\n    pool = [rng.randint(0, (1 << n) - 1) for _ in range(6)]\n    grid = []\n    for _ in range(m):\n        p = rng.choice(pool)\n        grid.append([(p >> j) & 1 for j in range(n)])\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "import itertools\n\n\nclass Solution:\n    def goodSubsetofBinaryMatrix(self, grid):\n        m = len(grid)\n        n = len(grid[0]) if m else 0\n\n        def pattern(row):\n            p = 0\n            for j in range(n):\n                if row[j]:\n                    p |= (1 << j)\n            return p\n\n        first_idx = {}\n        zero_idx = None\n        for i, row in enumerate(grid):\n            p = pattern(row)\n            if p == 0 and zero_idx is None:\n                zero_idx = i\n            if p not in first_idx:\n                first_idx[p] = i\n        if zero_idx is not None:\n            return [zero_idx]\n\n        def column_sums_ok(rows):\n            k = len(rows)\n            limit = k // 2\n            for j in range(n):\n                total = sum(grid[r][j] for r in rows)\n                if total > limit:\n                    return False\n            return True\n\n        distinct = sorted(first_idx.keys())\n        for p1, p2 in itertools.combinations(distinct, 2):\n            rows = [first_idx[p1], first_idx[p2]]\n            if column_sums_ok(rows):\n                return sorted(rows)\n        return []\n",
+  "solutions": {
+    "python": "class Solution:\n    def goodSubsetofBinaryMatrix(self, grid: List[List[int]]) -> List[int]:\n        m = len(grid)\n        n = len(grid[0]) if m else 0\n        first_index = {}\n        zero_idx = None\n        for i, row in enumerate(grid):\n            p = 0\n            for j in range(n):\n                if row[j]:\n                    p |= (1 << j)\n            if p == 0 and zero_idx is None:\n                zero_idx = i\n            if p not in first_index:\n                first_index[p] = i\n        if zero_idx is not None:\n            return [zero_idx]\n        patterns_list = sorted(first_index.keys())\n        for a in range(len(patterns_list)):\n            for b in range(a + 1, len(patterns_list)):\n                p1 = patterns_list[a]\n                p2 = patterns_list[b]\n                if p1 & p2 == 0:\n                    i1 = first_index[p1]\n                    i2 = first_index[p2]\n                    return sorted([i1, i2])\n        return []\n",
+    "javascript": "var goodSubsetofBinaryMatrix = function(grid) {\n    const m = grid.length;\n    const n = m ? grid[0].length : 0;\n    const firstIndex = new Map();\n    let zeroIdx = -1;\n    for (let i = 0; i < m; i++) {\n        let p = 0;\n        for (let j = 0; j < n; j++) {\n            if (grid[i][j]) p |= (1 << j);\n        }\n        if (p === 0 && zeroIdx === -1) zeroIdx = i;\n        if (!firstIndex.has(p)) firstIndex.set(p, i);\n    }\n    if (zeroIdx !== -1) return [zeroIdx];\n    const patterns = Array.from(firstIndex.keys()).sort((a, b) => a - b);\n    for (let a = 0; a < patterns.length; a++) {\n        for (let b = a + 1; b < patterns.length; b++) {\n            const p1 = patterns[a], p2 = patterns[b];\n            if ((p1 & p2) === 0) {\n                const i1 = firstIndex.get(p1);\n                const i2 = firstIndex.get(p2);\n                return i1 < i2 ? [i1, i2] : [i2, i1];\n            }\n        }\n    }\n    return [];\n};\n"
+  },
+  "complexity": { "time": "O(m * n + 2^n * n) — at most 2^n <= 32 distinct row patterns for n <= 5", "space": "O(m + 2^n)" }
+}

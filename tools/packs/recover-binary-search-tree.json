@@ -1,0 +1,35 @@
+{
+  "slug": "recover-binary-search-tree",
+  "judge": { "type": "in_place", "arg_index": 0 },
+  "io_types": { "params": ["tree"], "returns": "json" },
+  "pattern": "An in-order walk of a BST is sorted; exactly two such readings are out of order when two nodes are swapped, so find that pair and swap their values back.",
+  "hints": [
+    "In-order traversal of a correct BST gives strictly increasing values; a single swap breaks that ordering in one or two places.",
+    "Scan the in-order sequence for descents (a value bigger than the next): the first descent's larger node and the last descent's smaller node are the two culprits.",
+    "If the two swapped nodes are adjacent in the in-order sequence there is one descent; otherwise two. Swap the two offending node values, not their positions."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [2, 1000], "value": [-2147483648, 2147483647] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two adjacent in-order nodes swapped (single descent)", "input": [[1, 3, null, null, 2]] },
+    { "kind": "edge", "description": "two non-adjacent nodes swapped (two descents)", "input": [[3, 1, 4, null, null, 2]] },
+    { "kind": "boundary", "description": "minimal tree of two nodes, root and child swapped", "input": [[1, 2]] },
+    { "kind": "trap", "description": "root and a deep node swapped", "input": [[10, 5, 8, 2, 20]] }
+  ],
+  "stress": [
+    {
+      "description": "build a valid BST from distinct values, then swap two random nodes' values",
+      "seed": 53,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 200))\n    vals = sorted(rng.sample(range(-100000, 100001), n))\n    # balanced BST from the sorted values -> level-order array with nulls\n    nodes = {}\n    def build(lo, hi):\n        if lo > hi:\n            return None\n        mid = (lo + hi) // 2\n        idx = build.counter\n        build.counter += 1\n        node = {'val': vals[mid], 'l': None, 'r': None}\n        node['l'] = build(lo, mid - 1)\n        node['r'] = build(mid + 1, hi)\n        return node\n    build.counter = 0\n    root = build(0, n - 1)\n    # collect nodes (BFS) then swap two random ones' values\n    order = []\n    q = [root]\n    while q:\n        nd = q.pop(0)\n        if nd is None:\n            continue\n        order.append(nd)\n        q.append(nd['l']); q.append(nd['r'])\n    i, j = rng.sample(range(len(order)), 2)\n    order[i]['val'], order[j]['val'] = order[j]['val'], order[i]['val']\n    # serialize to level-order array with trailing-null trim\n    arr = []\n    q = [root]\n    while q:\n        nd = q.pop(0)\n        if nd is None:\n            arr.append(None); continue\n        arr.append(nd['val'])\n        q.append(nd['l']); q.append(nd['r'])\n    while arr and arr[-1] is None:\n        arr.pop()\n    return [arr]\n",
+      "note": "exactly two values are swapped so the unique fix is well defined"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def recoverTree(self, root):\n        # Brute force: read in-order into a list, sort the values, write them\n        # back during a second in-order pass.\n        nodes = []\n        def inorder(n):\n            if n is None:\n                return\n            inorder(n.left)\n            nodes.append(n)\n            inorder(n.right)\n        inorder(root)\n        vals = sorted(n.val for n in nodes)\n        for n, v in zip(nodes, vals):\n            n.val = v\n",
+  "solutions": {
+    "python": "class Solution:\n    def recoverTree(self, root):\n        first = second = prev = None\n        node = root\n        # Morris-free explicit in-order using a stack\n        stack = []\n        while stack or node:\n            while node:\n                stack.append(node)\n                node = node.left\n            node = stack.pop()\n            if prev and prev.val > node.val:\n                if first is None:\n                    first = prev\n                second = node\n            prev = node\n            node = node.right\n        if first and second:\n            first.val, second.val = second.val, first.val\n",
+    "javascript": "var recoverTree = function(root) {\n    let first = null, second = null, prev = null;\n    const stack = [];\n    let node = root;\n    while (stack.length || node) {\n        while (node) { stack.push(node); node = node.left; }\n        node = stack.pop();\n        if (prev && prev.val > node.val) {\n            if (first === null) first = prev;\n            second = node;\n        }\n        prev = node;\n        node = node.right;\n    }\n    if (first && second) {\n        const t = first.val; first.val = second.val; second.val = t;\n    }\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

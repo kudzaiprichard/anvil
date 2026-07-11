@@ -1,0 +1,247 @@
+{
+  "judge": "exact",
+  "pattern": "Every allowed chunk-to-chunk conversion is a directed, weighted edge between two exact strings, so the cheapest way to turn one chunk into another is a shortest-path question, and stitching whole chunks left to right across the string is a small dynamic program on top of it.",
+  "hints": [
+    "Because edits on disjoint ranges never conflict, and the same range can be reused freely, the whole conversion is really about tiling source, left to right, with non-overlapping pieces that each get turned into the matching piece of target.",
+    "Treat every distinct string appearing in original or changed as a node, add a directed edge original[j] -> changed[j] weighted cost[j] (when the same pair repeats, keep only the cheapest weight), and precompute the shortest path between every pair of those nodes -- that tells you the cheapest way to turn any one exact chunk into any other, no matter how many single-step edges it takes.",
+    "Now walk source left to right with dp[i] = cheapest cost to have already matched everything before position i: if the characters already agree, moving on one step is free; otherwise, for every chunk length that appears among the original strings, if the chunk of source and the chunk of target starting at i are both known nodes, extend dp using the precomputed shortest distance between them."
+  ],
+  "constraints": [
+    {
+      "param": "source",
+      "kind": "string",
+      "len": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "target",
+      "kind": "string",
+      "len": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "original",
+      "kind": "string[]",
+      "len": [
+        1,
+        100
+      ]
+    },
+    {
+      "param": "changed",
+      "kind": "string[]",
+      "len": [
+        1,
+        100
+      ]
+    },
+    {
+      "param": "cost",
+      "kind": "int[]",
+      "len": [
+        1,
+        100
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, several single-character conversions chained together",
+      "input": [
+        "abcd",
+        "acbe",
+        [
+          "a",
+          "b",
+          "c",
+          "c",
+          "e",
+          "d"
+        ],
+        [
+          "b",
+          "c",
+          "b",
+          "e",
+          "b",
+          "e"
+        ],
+        [
+          2,
+          5,
+          5,
+          1,
+          2,
+          20
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, multi-character chunk conversions",
+      "input": [
+        "abcdefgh",
+        "acdeeghh",
+        [
+          "bcd",
+          "fgh",
+          "thh"
+        ],
+        [
+          "cde",
+          "thh",
+          "ghh"
+        ],
+        [
+          1,
+          3,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, an impossible conversion",
+      "input": [
+        "abcdefgh",
+        "addddddd",
+        [
+          "bcd",
+          "defgh"
+        ],
+        [
+          "ddd",
+          "ddddd"
+        ],
+        [
+          100,
+          1578
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum length one, source already equals target so no operation is needed",
+      "input": [
+        "a",
+        "a",
+        [
+          "a"
+        ],
+        [
+          "b"
+        ],
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "minimum length one, no available mapping covers the required change",
+      "input": [
+        "a",
+        "b",
+        [
+          "c"
+        ],
+        [
+          "b"
+        ],
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the direct edge is missing but a two-hop chain of single-character conversions is cheaper than giving up",
+      "input": [
+        "a",
+        "c",
+        [
+          "a",
+          "b"
+        ],
+        [
+          "b",
+          "c"
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "the same original/changed pair listed twice at different costs, only the cheaper one should count",
+      "input": [
+        "a",
+        "b",
+        [
+          "a",
+          "a"
+        ],
+        [
+          "b",
+          "b"
+        ],
+        [
+          10,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single whole-string chunk conversion spanning the entire source",
+      "input": [
+        "ab",
+        "cd",
+        [
+          "ab"
+        ],
+        [
+          "cd"
+        ],
+        [
+          7
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small alphabet with a random mix of single- and double-character conversion edges, target derived by mutating a random subset of source positions",
+      "seed": 21,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    alphabet = ['a', 'b', 'c']\n    source = ''.join(rng.choice(alphabet) for _ in range(n))\n    original = [alphabet[0]]\n    changed = [alphabet[1]]\n    cost = [rng.randint(1, 1000)]\n    for a in alphabet:\n        for b in alphabet:\n            if a == b:\n                continue\n            if a == alphabet[0] and b == alphabet[1]:\n                continue\n            if rng.random() < 0.6:\n                original.append(a)\n                changed.append(b)\n                cost.append(rng.randint(1, 1000))\n    for _ in range(3):\n        a = rng.choice(alphabet)\n        b = rng.choice(alphabet)\n        if a == b:\n            continue\n        x = a + rng.choice(alphabet)\n        y = b + rng.choice(alphabet)\n        if len(original) < 100:\n            original.append(x)\n            changed.append(y)\n            cost.append(rng.randint(1, 1000))\n    target_list = list(source)\n    for i in range(n):\n        if rng.random() < 0.4:\n            target_list[i] = rng.choice(alphabet)\n    target = ''.join(target_list)\n    return [source, target, original, changed, cost]\n"
+    },
+    {
+      "description": "larger alphabet with sparser edges (more likely to be impossible), and a fixed multi-hop chain guaranteed to exist among the letters",
+      "seed": 34,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    alphabet = ['a', 'b', 'c', 'd', 'e']\n    source = ''.join(rng.choice(alphabet) for _ in range(n))\n    original = []\n    changed = []\n    cost = []\n    for i in range(len(alphabet) - 1):\n        original.append(alphabet[i])\n        changed.append(alphabet[i + 1])\n        cost.append(rng.randint(1, 1000))\n    for a in alphabet:\n        for b in alphabet:\n            if a == b:\n                continue\n            if rng.random() < 0.25 and len(original) < 100:\n                original.append(a)\n                changed.append(b)\n                cost.append(rng.randint(1, 1000))\n    target_list = list(source)\n    for i in range(n):\n        if rng.random() < 0.3:\n            target_list[i] = rng.choice(alphabet)\n    target = ''.join(target_list)\n    return [source, target, original, changed, cost]\n"
+    }
+  ],
+  "oracle_python": "import heapq\n\nclass Solution:\n    def minimumCost(self, source, target, original, changed, cost):\n        n = len(source)\n        node_id = {}\n        def get_id(x):\n            if x not in node_id:\n                node_id[x] = len(node_id)\n            return node_id[x]\n        adj = {}\n        lengths = set()\n        m = len(cost)\n        for j in range(m):\n            u = get_id(original[j])\n            v = get_id(changed[j])\n            w = cost[j]\n            adj.setdefault(u, []).append((v, w))\n            lengths.add(len(original[j]))\n        num_nodes = len(node_id)\n        INF = float('inf')\n        dist_from = []\n        for start in range(num_nodes):\n            dist = [INF] * num_nodes\n            dist[start] = 0\n            pq = [(0, start)]\n            while pq:\n                d, u = heapq.heappop(pq)\n                if d > dist[u]:\n                    continue\n                for v, w in adj.get(u, []):\n                    nd = d + w\n                    if nd < dist[v]:\n                        dist[v] = nd\n                        heapq.heappush(pq, (nd, v))\n            dist_from.append(dist)\n        lengths = sorted(lengths)\n        dp = [INF] * (n + 1)\n        dp[0] = 0\n        for i in range(n):\n            if dp[i] == INF:\n                continue\n            if source[i] == target[i] and dp[i] < dp[i + 1]:\n                dp[i + 1] = dp[i]\n            for L in lengths:\n                if i + L > n:\n                    continue\n                sub_s = source[i:i + L]\n                sub_t = target[i:i + L]\n                if sub_s in node_id and sub_t in node_id:\n                    u = node_id[sub_s]\n                    v = node_id[sub_t]\n                    d = dist_from[u][v]\n                    if d < INF and dp[i] + d < dp[i + L]:\n                        dp[i + L] = dp[i] + d\n        return dp[n] if dp[n] < INF else -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumCost(self, source: str, target: str, original: List[str], changed: List[str], cost: List[int]) -> int:\n        n = len(source)\n        node_id = {}\n        def get_id(x):\n            if x not in node_id:\n                node_id[x] = len(node_id)\n            return node_id[x]\n        m = len(cost)\n        edges = []\n        lengths = set()\n        for j in range(m):\n            u = get_id(original[j])\n            v = get_id(changed[j])\n            edges.append((u, v, cost[j]))\n            lengths.add(len(original[j]))\n        k = len(node_id)\n        INF = float('inf')\n        dist = [[INF] * k for _ in range(k)]\n        for i in range(k):\n            dist[i][i] = 0\n        for u, v, w in edges:\n            if w < dist[u][v]:\n                dist[u][v] = w\n        for mid in range(k):\n            dm = dist[mid]\n            for i in range(k):\n                dik = dist[i][mid]\n                if dik == INF:\n                    continue\n                di = dist[i]\n                for j in range(k):\n                    nd = dik + dm[j]\n                    if nd < di[j]:\n                        di[j] = nd\n        lengths = sorted(lengths)\n        dp = [INF] * (n + 1)\n        dp[0] = 0\n        for i in range(n):\n            if dp[i] == INF:\n                continue\n            if source[i] == target[i] and dp[i] < dp[i + 1]:\n                dp[i + 1] = dp[i]\n            for L in lengths:\n                if i + L > n:\n                    continue\n                sub_s = source[i:i + L]\n                sub_t = target[i:i + L]\n                if sub_s in node_id and sub_t in node_id:\n                    u = node_id[sub_s]\n                    v = node_id[sub_t]\n                    d = dist[u][v]\n                    if d < INF and dp[i] + d < dp[i + L]:\n                        dp[i + L] = dp[i] + d\n        return dp[n] if dp[n] < INF else -1\n",
+    "javascript": "var minimumCost = function(source, target, original, changed, cost) {\n    const n = source.length;\n    const nodeId = new Map();\n    function getId(x) {\n        if (!nodeId.has(x)) nodeId.set(x, nodeId.size);\n        return nodeId.get(x);\n    }\n    const m = cost.length;\n    const edges = [];\n    const lengthsSet = new Set();\n    for (let j = 0; j < m; j++) {\n        const u = getId(original[j]);\n        const v = getId(changed[j]);\n        edges.push([u, v, cost[j]]);\n        lengthsSet.add(original[j].length);\n    }\n    const k = nodeId.size;\n    const INF = Infinity;\n    const dist = [];\n    for (let i = 0; i < k; i++) {\n        dist.push(new Array(k).fill(INF));\n        dist[i][i] = 0;\n    }\n    for (const [u, v, w] of edges) {\n        if (w < dist[u][v]) dist[u][v] = w;\n    }\n    for (let mid = 0; mid < k; mid++) {\n        for (let i = 0; i < k; i++) {\n            const dik = dist[i][mid];\n            if (dik === INF) continue;\n            for (let j = 0; j < k; j++) {\n                const nd = dik + dist[mid][j];\n                if (nd < dist[i][j]) dist[i][j] = nd;\n            }\n        }\n    }\n    const lengths = Array.from(lengthsSet).sort((a, b) => a - b);\n    const dp = new Array(n + 1).fill(INF);\n    dp[0] = 0;\n    for (let i = 0; i < n; i++) {\n        if (dp[i] === INF) continue;\n        if (source[i] === target[i] && dp[i] < dp[i + 1]) {\n            dp[i + 1] = dp[i];\n        }\n        for (const L of lengths) {\n            if (i + L > n) continue;\n            const subS = source.slice(i, i + L);\n            const subT = target.slice(i, i + L);\n            if (nodeId.has(subS) && nodeId.has(subT)) {\n                const u = nodeId.get(subS);\n                const v = nodeId.get(subT);\n                const d = dist[u][v];\n                if (d < INF && dp[i] + d < dp[i + L]) {\n                    dp[i + L] = dp[i] + d;\n                }\n            }\n        }\n    }\n    return dp[n] < INF ? dp[n] : -1;\n};\n"
+  },
+  "complexity": {
+    "time": "O(k^3 + n * L) where k is the number of distinct chunk strings (at most 200) and L is the number of distinct chunk lengths",
+    "space": "O(k^2)"
+  },
+  "slug": "minimum-cost-to-convert-string-ii"
+}

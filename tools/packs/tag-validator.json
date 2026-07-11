@@ -1,0 +1,40 @@
+{
+  "slug": "tag-validator",
+  "judge": "exact",
+  "pattern": "A single left-to-right scan with a tag stack, treating CDATA spans as opaque text, validates well-formed nesting where the whole snippet must sit inside one outer tag.",
+  "hints": [
+    "Walk the string once, recognizing three token kinds at a '<': an opening tag, a closing tag, and a CDATA block.",
+    "Push opening tag names on a stack and pop-match on closing tags; CDATA content is skipped verbatim and is only legal while inside a tag.",
+    "Require the snippet to open with a valid tag (1-9 uppercase letters). Maintain a stack: on '</NAME>' the top must equal NAME. Plain '<' or text outside any open tag is invalid; the stack must be empty exactly when the scan ends at the last character."
+  ],
+  "constraints": [
+    { "param": "code", "kind": "string", "len": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "valid tag containing cdata with tag-like text", "input": ["<DIV>This is the first line <![CDATA[<div>]]></DIV>"] },
+    { "kind": "trap", "description": "tricky cdata and stray brackets that stay valid", "input": ["<DIV>>>  ![cdata[]] <![CDATA[<div>]>]]>]]>>]</DIV>"] },
+    { "kind": "trap", "description": "improperly nested tags", "input": ["<A>  <B> </A>   </B>"] },
+    { "kind": "trap", "description": "content not wrapped in any tag", "input": ["hello"] },
+    { "kind": "trap", "description": "tag name too long is invalid", "input": ["<ABCDEFGHIJ>x</ABCDEFGHIJ>"] },
+    { "kind": "trap", "description": "lowercase tag name is invalid", "input": ["<div>x</div>"] },
+    { "kind": "edge", "description": "minimal valid single-letter tag", "input": ["<A></A>"] },
+    { "kind": "trap", "description": "characters after the closing outer tag", "input": ["<A></A>x"] },
+    { "kind": "trap", "description": "empty tag name", "input": ["<></>"] },
+    { "kind": "edge", "description": "nested valid tags", "input": ["<A><B>text</B></A>"] }
+  ],
+  "stress": [
+    {
+      "description": "randomly assembled snippets from valid and corrupting fragments",
+      "seed": 17,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    import string\n    def name():\n        ln = rng.randrange(1, 10)\n        return ''.join(rng.choice(string.ascii_uppercase) for _ in range(ln))\n    def build(depth):\n        if depth <= 0 or rng.random() < 0.3:\n            return rng.choice(['', 'abc', '<![CDATA[', '<![CDATA[x]]>', ']]>', '<', '>', ' text '])\n        nm = name()\n        return '<' + nm + '>' + build(depth - 1) + '</' + nm + '>'\n    s = build(rng.randrange(0, 4))\n    if not s:\n        s = '<A></A>'\n    if rng.random() < 0.4 and len(s) < 499:\n        pos = rng.randrange(0, len(s) + 1)\n        s = s[:pos] + rng.choice(['<', '>', '/', '!', '[', ']']) + s[pos:]\n    return [s[:500]]\n",
+      "note": "mixes well-formed nesting, cdata, and random corruptions"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isValid(self, code):\n        n = len(code)\n        i = 0\n        stack = []\n        started = False\n        while i < n:\n            if not stack and started:\n                return False\n            if code[i] == '<':\n                if i + 1 < n and code[i + 1] == '!':\n                    if not stack:\n                        return False\n                    if code[i:i + 9] != '<![CDATA[':\n                        return False\n                    end = code.find(']]>', i + 9)\n                    if end == -1:\n                        return False\n                    i = end + 3\n                elif i + 1 < n and code[i + 1] == '/':\n                    j = code.find('>', i)\n                    if j == -1:\n                        return False\n                    name = code[i + 2:j]\n                    if not (1 <= len(name) <= 9 and name.isupper() and name.isalpha()):\n                        return False\n                    if not stack or stack[-1] != name:\n                        return False\n                    stack.pop()\n                    i = j + 1\n                    if not stack:\n                        if i != n:\n                            return False\n                        return True\n                else:\n                    j = code.find('>', i)\n                    if j == -1:\n                        return False\n                    name = code[i + 1:j]\n                    if not (1 <= len(name) <= 9 and name.isupper() and name.isalpha()):\n                        return False\n                    stack.append(name)\n                    started = True\n                    i = j + 1\n            else:\n                if not stack:\n                    return False\n                i += 1\n        return started and not stack\n",
+  "solutions": {
+    "python": "class Solution:\n    def isValid(self, code):\n        if not code or code[0] != '<':\n            return False\n        n = len(code)\n        stack = []\n        i = 0\n        def valid_name(s):\n            return 1 <= len(s) <= 9 and s.isalpha() and s.isupper()\n        while i < n:\n            if i > 0 and not stack:\n                return False\n            if code[i] == '<':\n                if code.startswith('<![CDATA[', i):\n                    if not stack:\n                        return False\n                    end = code.find(']]>', i + 9)\n                    if end == -1:\n                        return False\n                    i = end + 3\n                elif code.startswith('</', i):\n                    j = code.find('>', i)\n                    if j == -1:\n                        return False\n                    name = code[i + 2:j]\n                    if not valid_name(name):\n                        return False\n                    if not stack or stack.pop() != name:\n                        return False\n                    i = j + 1\n                else:\n                    j = code.find('>', i)\n                    if j == -1:\n                        return False\n                    name = code[i + 1:j]\n                    if not valid_name(name):\n                        return False\n                    stack.append(name)\n                    i = j + 1\n            else:\n                if not stack:\n                    return False\n                i += 1\n        return not stack\n",
+    "javascript": "var isValid = function(code) {\n    if (!code || code[0] !== '<') return false;\n    const n = code.length;\n    const stack = [];\n    let i = 0;\n    const validName = (s) => s.length >= 1 && s.length <= 9 && /^[A-Z]+$/.test(s);\n    while (i < n) {\n        if (i > 0 && stack.length === 0) return false;\n        if (code[i] === '<') {\n            if (code.startsWith('<![CDATA[', i)) {\n                if (stack.length === 0) return false;\n                const end = code.indexOf(']]>', i + 9);\n                if (end === -1) return false;\n                i = end + 3;\n            } else if (code.startsWith('</', i)) {\n                const j = code.indexOf('>', i);\n                if (j === -1) return false;\n                const name = code.slice(i + 2, j);\n                if (!validName(name)) return false;\n                if (stack.length === 0 || stack.pop() !== name) return false;\n                i = j + 1;\n            } else {\n                const j = code.indexOf('>', i);\n                if (j === -1) return false;\n                const name = code.slice(i + 1, j);\n                if (!validName(name)) return false;\n                stack.push(name);\n                i = j + 1;\n            }\n        } else {\n            if (stack.length === 0) return false;\n            i += 1;\n        }\n    }\n    return stack.length === 0;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

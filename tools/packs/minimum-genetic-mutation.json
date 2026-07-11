@@ -1,0 +1,39 @@
+{
+  "slug": "minimum-genetic-mutation",
+  "judge": "exact",
+  "pattern": "BFS on a small mutation graph where each node is a valid bank gene reachable by a single character change finds the shortest mutation path in linear time.",
+  "hints": [
+    "Model the gene strings as nodes in an unweighted graph and edges as single-character mutations; shortest path is the BFS level count.",
+    "At each BFS step, try all 8 positions and all 3 alternate characters (A/C/G/T) to generate neighbors; only enqueue strings that are in the bank and not yet visited.",
+    "Use a set for O(1) bank lookup and visited tracking; if the endGene is never dequeued, return -1."
+  ],
+  "constraints": [
+    { "param": "startGene", "kind": "string", "len": [8, 8] },
+    { "param": "endGene", "kind": "string", "len": [8, 8] },
+    { "param": "bank", "kind": "string[]", "len": [0, 10] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "one mutation, bank contains only the target", "input": ["AACCGGTT", "AACCGGTA", ["AACCGGTA"]] },
+    { "kind": "edge", "description": "two mutations through an intermediate", "input": ["AACCGGTT", "AAACGGTA", ["AACCGGTA", "AACCGCTA", "AAACGGTA"]] },
+    { "kind": "trap", "description": "end gene not in bank, must return -1", "input": ["AACCGGTT", "AACCGGTA", []] },
+    { "kind": "trap", "description": "end gene in bank but no path exists", "input": ["AACCGGTT", "AAACGGTA", ["AAACGGTA"]] },
+    { "kind": "edge", "description": "start already equals end (0 mutations)", "input": ["AACCGGTT", "AACCGGTT", ["AACCGGTT"]] },
+    { "kind": "boundary", "description": "maximum bank size with a longer path", "input": ["AAAAAAAA", "CCCCCCCC", ["CAAAAAAA", "CCAAAAAA", "CCCAAAAA", "CCCCAAAA", "CCCCCAAA", "CCCCCCAA", "CCCCCCA", "CCCCCCCA", "CCCCCCCC"]] },
+    { "kind": "trap", "description": "bank has mutations that lead to dead ends, detour needed", "input": ["AACCGGTT", "AACCGGTA", ["AACCGGTA", "AACCGGTC"]] }
+  ],
+  "stress": [
+    {
+      "description": "random bank of 10 genes, random start and end, some reachable some not",
+      "seed": 7,
+      "size": 10,
+      "generator_python": "def gen(rng, size):\n    bases = 'ACGT'\n    def rand_gene():\n        return ''.join(rng.choice(bases) for _ in range(8))\n    start = rand_gene()\n    bank = [rand_gene() for _ in range(min(size, 10))]\n    end = bank[rng.randrange(len(bank))]\n    return [start, end, bank]\n",
+      "note": "random genes with end always in bank to ensure valid test"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minMutation(self, startGene: str, endGene: str, bank) -> int:\n        bank_set = set(bank)\n        if endGene not in bank_set:\n            return -1\n        from collections import deque\n        q = deque([(startGene, 0)])\n        visited = {startGene}\n        while q:\n            gene, steps = q.popleft()\n            if gene == endGene:\n                return steps\n            for i in range(8):\n                for c in 'ACGT':\n                    if c != gene[i]:\n                        nb = gene[:i] + c + gene[i+1:]\n                        if nb in bank_set and nb not in visited:\n                            visited.add(nb)\n                            q.append((nb, steps + 1))\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minMutation(self, startGene: str, endGene: str, bank) -> int:\n        bank_set = set(bank)\n        if endGene not in bank_set:\n            return -1\n        from collections import deque\n        q = deque([(startGene, 0)])\n        visited = {startGene}\n        while q:\n            gene, steps = q.popleft()\n            if gene == endGene:\n                return steps\n            for i in range(8):\n                for c in 'ACGT':\n                    if c != gene[i]:\n                        nb = gene[:i] + c + gene[i+1:]\n                        if nb in bank_set and nb not in visited:\n                            visited.add(nb)\n                            q.append((nb, steps + 1))\n        return -1\n",
+    "javascript": "var minMutation = function(startGene, endGene, bank) {\n    const bankSet = new Set(bank);\n    if (!bankSet.has(endGene)) return -1;\n    const q = [[startGene, 0]];\n    const visited = new Set([startGene]);\n    let qi = 0;\n    while (qi < q.length) {\n        const [gene, steps] = q[qi++];\n        if (gene === endGene) return steps;\n        for (let i = 0; i < 8; i++) {\n            for (const c of 'ACGT') {\n                if (c !== gene[i]) {\n                    const nb = gene.slice(0, i) + c + gene.slice(i + 1);\n                    if (bankSet.has(nb) && !visited.has(nb)) {\n                        visited.add(nb);\n                        q.push([nb, steps + 1]);\n                    }\n                }\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "O(bank_size * 8 * 4)", "space": "O(bank_size)" }
+}

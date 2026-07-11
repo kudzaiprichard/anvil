@@ -1,0 +1,37 @@
+{
+  "slug": "find-the-sum-of-subsequence-powers",
+  "judge": "exact",
+  "pattern": "Sort the array, then use memoised DP over (index, count chosen, last chosen index, current minimum gap) to accumulate the sum of minimum-gap values across all length-k subsequences.",
+  "hints": [
+    "Sort nums first; this ensures the minimum absolute difference in any subsequence equals the minimum consecutive gap among sorted selected elements.",
+    "Define dp(i, remaining, prev_idx, min_gap): from index i, choosing `remaining` more elements, where the last chosen was prev_idx and current minimum inter-element gap is min_gap. When remaining==0, add min_gap to the result.",
+    "The state space is O(n^2 * k * D) where D is the number of distinct gap values. With n <= 50 and k <= 50 this is feasible. Use a dict for memoisation and work modulo 10^9+7."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 50], "value": [-100000000, 100000000] },
+    { "param": "k", "kind": "int", "value": [2, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two elements k=2, power is |a-b|", "input": [[2, 2], 2] },
+    { "kind": "edge", "description": "all same value, power is always 0", "input": [[5, 5, 5, 5], 2] },
+    { "kind": "edge", "description": "example 3: three elements k=2", "input": [[4, 3, -1], 2] },
+    { "kind": "edge", "description": "example 1: four elements k=3", "input": [[1, 2, 3, 4], 3] },
+    { "kind": "boundary", "description": "k equals n, only one subsequence", "input": [[-3, 1, 7], 3] },
+    { "kind": "trap", "description": "large values with both positive and negative to check absolute difference", "input": [[-100000000, 0, 100000000], 2] },
+    { "kind": "trap", "description": "duplicate values cause some gaps to be 0, reducing power", "input": [[1, 1, 2, 3], 3] }
+  ],
+  "stress": [
+    {
+      "description": "small arrays with k up to half length to verify DP correctness",
+      "seed": 14,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, size)\n    nums = [rng.randint(-10**6, 10**6) for _ in range(n)]\n    k = rng.randint(2, n)\n    return [nums, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sumOfPowers(self, nums, k):\n        MOD = 10**9 + 7\n        from itertools import combinations\n        total = 0\n        for combo in combinations(nums, k):\n            s = sorted(combo)\n            power = min(s[i+1]-s[i] for i in range(len(s)-1))\n            total = (total + power) % MOD\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def sumOfPowers(self, nums, k):\n        MOD = 10**9 + 7\n        nums = sorted(nums)\n        n = len(nums)\n        from functools import lru_cache\n        INF = float('inf')\n\n        @lru_cache(maxsize=None)\n        def dp(i, rem, prev, min_gap):\n            if rem == 0:\n                return min_gap % MOD\n            if i == n:\n                return 0\n            # skip nums[i]\n            res = dp(i + 1, rem, prev, min_gap)\n            # take nums[i]\n            gap = nums[i] - nums[prev] if prev >= 0 else INF\n            new_min = min(min_gap, gap)\n            res = (res + dp(i + 1, rem - 1, i, new_min)) % MOD\n            return res\n\n        return dp(0, k, -1, INF)\n",
+    "javascript": "var sumOfPowers = function(nums, k) {\n    const MOD = 1000000007n;\n    nums = [...nums].sort((a, b) => a - b);\n    const n = nums.length;\n    const INF = BigInt(2e15);\n    const memo = new Map();\n\n    function dp(i, rem, prev, minGap) {\n        if (rem === 0) return minGap % MOD;\n        if (i === n) return 0n;\n        const key = `${i},${rem},${prev},${minGap}`;\n        if (memo.has(key)) return memo.get(key);\n        // skip\n        let res = dp(i + 1, rem, prev, minGap);\n        // take\n        const gap = prev < 0 ? INF : BigInt(nums[i] - nums[prev]);\n        const newMin = minGap < gap ? minGap : gap;\n        res = (res + dp(i + 1, rem - 1, i, newMin)) % MOD;\n        memo.set(key, res);\n        return res;\n    }\n\n    return Number(dp(0, k, -1, INF));\n};\n"
+  },
+  "complexity": { "time": "O(n^2 * k * D)", "space": "O(n^2 * k * D)" }
+}

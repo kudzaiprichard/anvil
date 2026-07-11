@@ -1,0 +1,37 @@
+{
+  "slug": "maximum-good-people-based-on-statements",
+  "judge": "exact",
+  "pattern": "With so few people, every possible split of the group into good and bad can be tried directly, keeping only the splits where every good person's claims hold up.",
+  "hints": [
+    "A person is either always honest or possibly lying, so any candidate answer is really just a yes/no label for each person -- and with at most 15 people there are only a few thousand such labelings to check.",
+    "Represent a candidate labeling as a bitmask over the people; for a labeling to be valid, every person marked 'good' in that mask must have every one of their statements agree with the mask itself (a bad-marked person's statements are never checked).",
+    "Enumerate every bitmask from all-bad to all-good, discard the ones that fail the agreement check for any good person's statements, and take the one with the most set bits among the survivors."
+  ],
+  "constraints": [
+    { "param": "statements", "kind": "int[][]", "len": [2, 15], "value": [0, 2] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "smallest size, two people, mutual bad accusations", "input": [[[2, 0], [0, 2]]] },
+    { "kind": "edge", "description": "two people, mutual good statements", "input": [[[2, 1], [1, 2]]] },
+    { "kind": "edge", "description": "no one says anything about anyone", "input": [[[2, 2, 2], [2, 2, 2], [2, 2, 2]]] },
+    { "kind": "trap", "description": "everyone accuses everyone else of being bad, all could be bad and consistent", "input": [[[2, 0, 0], [0, 2, 0], [0, 0, 2]]] },
+    { "kind": "trap", "description": "a chain of good vouches that must all resolve together", "input": [[[2, 1, 2, 2], [2, 2, 1, 2], [2, 2, 2, 1], [0, 2, 2, 2]]] },
+    { "kind": "edge", "description": "one person calls everyone else good, contradicted by another", "input": [[[2, 1, 1], [0, 2, 2], [2, 2, 2]]] },
+    { "kind": "boundary", "description": "largest size, fifteen people, all statements neutral", "input": [[[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "fifteen people with a dense web of random accusations and vouches, forcing the full 2^15 subset scan",
+      "seed": 7,
+      "size": 15,
+      "generator_python": "def gen(rng, size):\n    n = 15\n    statements = [[2] * n for _ in range(n)]\n    for i in range(n):\n        for j in range(n):\n            if i == j:\n                continue\n            statements[i][j] = rng.choice([0, 1, 2, 2])\n    return [statements]\n",
+      "note": "n is pinned at the real maximum of 15 so the reference exercises the full 2^15 enumeration under time pressure"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumGood(self, statements):\n        n = len(statements)\n        best = 0\n        for mask in range(1 << n):\n            valid = True\n            for i in range(n):\n                if not (mask & (1 << i)):\n                    continue\n                for j in range(n):\n                    v = statements[i][j]\n                    if v == 2:\n                        continue\n                    j_is_good = bool(mask & (1 << j))\n                    if v == 1 and not j_is_good:\n                        valid = False\n                        break\n                    if v == 0 and j_is_good:\n                        valid = False\n                        break\n                if not valid:\n                    break\n            if valid:\n                count = bin(mask).count('1')\n                if count > best:\n                    best = count\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumGood(self, statements):\n        n = len(statements)\n        best = 0\n        for mask in range((1 << n) - 1, -1, -1):\n            count = bin(mask).count('1')\n            if count <= best:\n                continue\n            valid = True\n            for i in range(n):\n                if not (mask & (1 << i)):\n                    continue\n                row = statements[i]\n                for j in range(n):\n                    v = row[j]\n                    if v == 2:\n                        continue\n                    j_is_good = bool(mask & (1 << j))\n                    if (v == 1 and not j_is_good) or (v == 0 and j_is_good):\n                        valid = False\n                        break\n                if not valid:\n                    break\n            if valid:\n                best = count\n        return best\n",
+    "javascript": "var maximumGood = function(statements) {\n    const n = statements.length;\n    let best = 0;\n    for (let mask = (1 << n) - 1; mask >= 0; mask--) {\n        let count = 0;\n        for (let b = 0; b < n; b++) if (mask & (1 << b)) count++;\n        if (count <= best) continue;\n        let valid = true;\n        for (let i = 0; i < n && valid; i++) {\n            if (!(mask & (1 << i))) continue;\n            const row = statements[i];\n            for (let j = 0; j < n; j++) {\n                const v = row[j];\n                if (v === 2) continue;\n                const jIsGood = (mask & (1 << j)) !== 0;\n                if ((v === 1 && !jIsGood) || (v === 0 && jIsGood)) {\n                    valid = false;\n                    break;\n                }\n            }\n        }\n        if (valid) best = count;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(2^n * n^2)", "space": "O(1)" }
+}

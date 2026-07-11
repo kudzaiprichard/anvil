@@ -1,0 +1,89 @@
+{
+  "slug": "lexicographically-smallest-string-after-deleting-duplicate-characters",
+  "judge": "exact",
+  "pattern": "A monotonic stack keeps a character only while a smaller later letter still needs the spot and a spare copy remains, then a final trim drops any trailing repeat that only padded the length.",
+  "hints": [
+    "Every distinct letter must survive at least once, but a letter with duplicates can end up appearing more than once in the answer too - so this is not the classic 'exactly one of each' problem.",
+    "Build a stack left to right: pop a bigger top letter only if it still has a copy left later (or another copy already in the stack) to satisfy its 'at least once' requirement.",
+    "Watch the tail: pushing a repeat of the current top with nothing smaller left to justify it just makes the string longer for no benefit, and a shorter prefix always beats a longer extension of it - trim trailing repeats that have another copy earlier in the stack."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ],
+      "note": "lowercase English letters only"
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a duplicated letter should be fully trimmed once nothing follows it",
+      "input": [
+        "aa"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "trailing duplicate of an earlier letter, no distinct letters after it",
+      "input": [
+        "aba"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "keeping the extra duplicate changes which letter occupies the next slot",
+      "input": [
+        "aabb"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "interleaved distinct letters repeating in a cycle",
+      "input": [
+        "abcabc"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character, no operation possible",
+      "input": [
+        "m"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "every character identical, collapses to one",
+      "input": [
+        "zzzz"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly descending distinct letters: no letter repeats, nothing removable",
+      "input": [
+        "dcba"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long string over a small alphabet with heavy repetition",
+      "seed": 11,
+      "size": 5000,
+      "generator_python": "import string\ndef gen(rng, size):\n    n = max(1, size)\n    alphabet = string.ascii_lowercase[:rng.randint(2, 6)]\n    return [''.join(rng.choice(alphabet) for _ in range(n))]\n"
+    }
+  ],
+  "oracle_python": "from collections import Counter\n\nclass Solution:\n    def lexSmallestAfterDeletion(self, s):\n        n = len(s)\n        total = Counter(s)\n        best = None\n        for mask in range(1, 1 << n):\n            kept = [s[i] for i in range(n) if mask & (1 << i)]\n            cnt = Counter(kept)\n            if all(cnt[ch] >= 1 for ch in total):\n                candidate = ''.join(kept)\n                if best is None or candidate < best:\n                    best = candidate\n        return best\n",
+  "solutions": {
+    "python": "from collections import Counter\n\nclass Solution:\n    def lexSmallestAfterDeletion(self, s):\n        remaining = Counter(s)\n        stack = []\n        stack_count = Counter()\n        for ch in s:\n            remaining[ch] -= 1\n            while stack and stack[-1] > ch and (remaining[stack[-1]] > 0 or stack_count[stack[-1]] > 1):\n                popped = stack.pop()\n                stack_count[popped] -= 1\n            stack.append(ch)\n            stack_count[ch] += 1\n        while len(stack) > 1 and stack_count[stack[-1]] > 1:\n            stack_count[stack[-1]] -= 1\n            stack.pop()\n        return ''.join(stack)\n",
+    "javascript": "var lexSmallestAfterDeletion = function(s) {\n    const remaining = {};\n    for (const ch of s) remaining[ch] = (remaining[ch] || 0) + 1;\n    const stack = [];\n    const stackCount = {};\n    for (const ch of s) {\n        remaining[ch] -= 1;\n        while (stack.length) {\n            const top = stack[stack.length - 1];\n            if (!(top > ch)) break;\n            if (!((remaining[top] || 0) > 0 || (stackCount[top] || 0) > 1)) break;\n            stack.pop();\n            stackCount[top] -= 1;\n        }\n        stack.push(ch);\n        stackCount[ch] = (stackCount[ch] || 0) + 1;\n    }\n    while (stack.length > 1 && stackCount[stack[stack.length - 1]] > 1) {\n        const top = stack[stack.length - 1];\n        stackCount[top] -= 1;\n        stack.pop();\n    }\n    return stack.join('');\n};\n"
+  },
+  "complexity": {
+    "time": "O(n)",
+    "space": "O(n)"
+  }
+}

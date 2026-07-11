@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-number-of-people-to-teach",
+  "judge": "exact",
+  "pattern": "Only users in friendships that currently share no language need help, and for each candidate single language the cost is how many of those users lack it; the minimum over languages wins.",
+  "hints": [
+    "Friendships that already share a common language are fine and can be ignored.",
+    "Collect the distinct users appearing in problematic (no-shared-language) friendships.",
+    "For each language 1..n, count how many of those collected users do not already know it; the answer is the smallest such count."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 500] },
+    { "param": "languages", "kind": "int[][]", "len": [1, 500], "value": [1, 500] },
+    { "param": "friendships", "kind": "int[][]", "len": [1, 500], "value": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first sample", "input": [2, [[1], [2], [1, 2]], [[1, 2], [1, 3], [2, 3]]] },
+    { "kind": "trap", "description": "second sample needing two teaches", "input": [3, [[2], [1, 3], [1, 2], [3]], [[1, 4], [1, 2], [3, 4], [2, 3]]] },
+    { "kind": "edge", "description": "all friendships already compatible, zero needed", "input": [2, [[1, 2], [1, 2]], [[1, 2]]] },
+    { "kind": "trap", "description": "two isolated users sharing nothing", "input": [3, [[1], [2]], [[1, 2]]] },
+    { "kind": "edge", "description": "chain where one language covers all", "input": [3, [[1], [1, 2], [2, 3], [3]], [[1, 2], [2, 3], [3, 4]]] },
+    { "kind": "boundary", "description": "single friendship min n", "input": [2, [[1], [1]], [[1, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "random users, language subsets, and unique friendships",
+      "seed": 37,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, min(20, max(2, size)))\n    m = rng.randint(2, min(60, max(2, size)))\n    languages = []\n    for _ in range(m):\n        cnt = rng.randint(1, n)\n        langs = rng.sample(range(1, n + 1), cnt)\n        languages.append(sorted(langs))\n    seen = set()\n    friendships = []\n    attempts = 0\n    target = rng.randint(1, min(80, m * (m - 1) // 2))\n    while len(friendships) < target and attempts < 1000:\n        attempts += 1\n        u = rng.randint(1, m)\n        v = rng.randint(1, m)\n        if u == v:\n            continue\n        a, b = min(u, v), max(u, v)\n        if (a, b) in seen:\n            continue\n        seen.add((a, b))\n        friendships.append([a, b])\n    if not friendships:\n        friendships.append([1, 2])\n    return [n, languages, friendships]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumTeachings(self, n, languages, friendships):\n        langs = [set(l) for l in languages]\n        bad = set()\n        for u, v in friendships:\n            if langs[u - 1].isdisjoint(langs[v - 1]):\n                bad.add(u)\n                bad.add(v)\n        if not bad:\n            return 0\n        best = len(bad)\n        for lang in range(1, n + 1):\n            cnt = 0\n            for user in bad:\n                if lang not in langs[user - 1]:\n                    cnt += 1\n            best = min(best, cnt)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumTeachings(self, n, languages, friendships):\n        knows = [set(l) for l in languages]\n        need = set()\n        for u, v in friendships:\n            if not (knows[u - 1] & knows[v - 1]):\n                need.add(u)\n                need.add(v)\n        if not need:\n            return 0\n        count = [0] * (n + 1)\n        for user in need:\n            for lang in knows[user - 1]:\n                count[lang] += 1\n        return len(need) - max(count[1:])\n",
+    "javascript": "var minimumTeachings = function(n, languages, friendships) {\n    const knows = languages.map(l => new Set(l));\n    const need = new Set();\n    for (const [u, v] of friendships) {\n        let shared = false;\n        for (const lng of knows[u - 1]) if (knows[v - 1].has(lng)) { shared = true; break; }\n        if (!shared) { need.add(u); need.add(v); }\n    }\n    if (need.size === 0) return 0;\n    const count = new Array(n + 1).fill(0);\n    for (const user of need) for (const lng of knows[user - 1]) count[lng]++;\n    let mx = 0;\n    for (let i = 1; i <= n; i++) if (count[i] > mx) mx = count[i];\n    return need.size - mx;\n};\n"
+  },
+  "complexity": { "time": "O(F + N + sum|languages|)", "space": "O(N + sum|languages|)" }
+}

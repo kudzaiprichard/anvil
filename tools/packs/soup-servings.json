@@ -1,0 +1,39 @@
+{
+  "slug": "soup-servings",
+  "judge": { "type": "float", "epsilon": 1e-5 },
+  "pattern": "Scaling servings to units of 25 mL gives a small recursive probability that averages four sub-states, and because the answer rushes to one for large inputs a fixed cap keeps it tractable.",
+  "hints": [
+    "Every operation moves the soups in multiples of 25 mL, so divide by 25 and work in whole units to shrink the state space.",
+    "The probability for a state is the average of the four next states, with a half credit when both soups empty together and full credit when only A empties.",
+    "Memoize the recursion on remaining units of A and B; for very large n the probability is so close to one that you can return one once n passes a few thousand."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first statement example", "input": [50] },
+    { "kind": "edge", "description": "second statement example", "input": [100] },
+    { "kind": "boundary", "description": "zero millilitres empties both at once for half credit", "input": [0] },
+    { "kind": "boundary", "description": "smallest positive amount below one full serving", "input": [1] },
+    { "kind": "edge", "description": "exactly one serving of A in the first move", "input": [25] },
+    { "kind": "trap", "description": "non-multiple of 25 must round up to a full unit", "input": [66] },
+    { "kind": "edge", "description": "moderate amount still far from the limit", "input": [200] },
+    { "kind": "boundary", "description": "large input where the probability is effectively one", "input": [1000000000] },
+    { "kind": "trap", "description": "value near the practical cap should already be one", "input": [10000] }
+  ],
+  "stress": [
+    {
+      "description": "random small to moderate amounts where the probability genuinely varies",
+      "seed": 23,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(0, 2000)\n    return [n]\n",
+      "note": "kept under the cap so the value is a real probability rather than a saturated one"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def soupServings(self, n):\n        if n >= 4800:\n            return 1.0\n        units = (n + 24) // 25\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def f(a, b):\n            if a <= 0 and b <= 0:\n                return 0.5\n            if a <= 0:\n                return 1.0\n            if b <= 0:\n                return 0.0\n            return 0.25 * (f(a - 4, b) + f(a - 3, b - 1) + f(a - 2, b - 2) + f(a - 1, b - 3))\n        return f(units, units)\n",
+  "solutions": {
+    "python": "class Solution:\n    def soupServings(self, n):\n        if n >= 4800:\n            return 1.0\n        m = (n + 24) // 25\n        memo = {}\n        def dp(a, b):\n            if a <= 0 and b <= 0:\n                return 0.5\n            if a <= 0:\n                return 1.0\n            if b <= 0:\n                return 0.0\n            key = (a, b)\n            if key in memo:\n                return memo[key]\n            val = 0.25 * (dp(a - 4, b) + dp(a - 3, b - 1) + dp(a - 2, b - 2) + dp(a - 1, b - 3))\n            memo[key] = val\n            return val\n        return dp(m, m)\n",
+    "javascript": "var soupServings = function(n) {\n    if (n >= 4800) return 1.0;\n    const m = Math.floor((n + 24) / 25);\n    const memo = new Map();\n    function dp(a, b) {\n        if (a <= 0 && b <= 0) return 0.5;\n        if (a <= 0) return 1.0;\n        if (b <= 0) return 0.0;\n        const key = a * 100000 + b;\n        if (memo.has(key)) return memo.get(key);\n        const val = 0.25 * (dp(a - 4, b) + dp(a - 3, b - 1) + dp(a - 2, b - 2) + dp(a - 1, b - 3));\n        memo.set(key, val);\n        return val;\n    }\n    return dp(m, m);\n};\n"
+  },
+  "complexity": { "time": "O(1)", "space": "O(1)" }
+}

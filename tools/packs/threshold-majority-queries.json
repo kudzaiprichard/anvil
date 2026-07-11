@@ -1,0 +1,38 @@
+{
+  "slug": "threshold-majority-queries",
+  "judge": "exact",
+  "pattern": "Each query asks for the most frequent value in a range that clears a count threshold, breaking ties toward the smaller value, which a frequency tally over the range answers directly.",
+  "hints": [
+    "For a single query you only care about how often each value occurs inside the given window.",
+    "Among values whose count reaches the threshold, you want the largest count, and when two counts tie you want the smaller value.",
+    "Tally the window's frequencies, then scan candidates from smallest value upward keeping the running best by strictly-greater frequency, so the smallest value wins any tie; return -1 if nothing meets the threshold."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 10000], "value": [1, 1000000000] },
+    { "param": "queries", "kind": "int[][]", "len": [1, 50000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mix of met and unmet thresholds with a tie", "input": [[1, 1, 2, 2, 1, 1], [[0, 5, 4], [0, 3, 3], [2, 3, 2]]] },
+    { "kind": "edge", "description": "alternating values across several windows", "input": [[3, 2, 3, 2, 3, 2, 3], [[0, 6, 4], [1, 5, 2], [2, 4, 1], [3, 3, 1]]] },
+    { "kind": "boundary", "description": "single element window with threshold one", "input": [[7], [[0, 0, 1]]] },
+    { "kind": "trap", "description": "tie in frequency resolves to the smaller value", "input": [[5, 9, 5, 9], [[0, 3, 2]]] },
+    { "kind": "trap", "description": "threshold exactly equals the top frequency", "input": [[4, 4, 4, 1], [[0, 3, 3]]] },
+    { "kind": "trap", "description": "no value reaches the threshold", "input": [[1, 2, 3, 4], [[0, 3, 2]]] },
+    { "kind": "edge", "description": "large values and a full-range query", "input": [[1000000000, 1000000000, 1], [[0, 2, 2]]] }
+  ],
+  "stress": [
+    {
+      "description": "many short queries over a small-alphabet array so thresholds and ties trigger often",
+      "seed": 19,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randint(1, 8) for _ in range(n)]\n    q = max(1, size)\n    queries = []\n    for _ in range(q):\n        a = rng.randint(0, n - 1)\n        b = rng.randint(0, n - 1)\n        if a > b:\n            a, b = b, a\n        th = rng.randint(1, b - a + 1)\n        queries.append([a, b, th])\n    return [nums, queries]\n",
+      "note": "small alphabet keeps frequencies high so thresholds bite"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def subarrayMajority(self, nums, queries):\n        res = []\n        for l, r, th in queries:\n            freq = {}\n            for i in range(l, r + 1):\n                freq[nums[i]] = freq.get(nums[i], 0) + 1\n            best = -1\n            best_f = 0\n            for v in sorted(freq):\n                f = freq[v]\n                if f >= th and f > best_f:\n                    best_f = f\n                    best = v\n            res.append(best)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def subarrayMajority(self, nums, queries):\n        from collections import Counter\n        res = []\n        for l, r, th in queries:\n            c = Counter(nums[l:r + 1])\n            best = -1\n            best_f = 0\n            for v in sorted(c):\n                f = c[v]\n                if f >= th and f > best_f:\n                    best_f = f\n                    best = v\n            res.append(best)\n        return res\n",
+    "javascript": "var subarrayMajority = function(nums, queries) {\n    const res = [];\n    for (const [l, r, th] of queries) {\n        const c = new Map();\n        for (let i = l; i <= r; i++) c.set(nums[i], (c.get(nums[i]) || 0) + 1);\n        const keys = [...c.keys()].sort((a, b) => a - b);\n        let best = -1, bestF = 0;\n        for (const v of keys) {\n            const f = c.get(v);\n            if (f >= th && f > bestF) {\n                bestF = f;\n                best = v;\n            }\n        }\n        res.push(best);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(sum of query ranges)", "space": "O(range)" }
+}

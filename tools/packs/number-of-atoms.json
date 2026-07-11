@@ -1,0 +1,37 @@
+{
+  "slug": "number-of-atoms",
+  "judge": "exact",
+  "pattern": "A recursive-descent parse over the formula maintains a multiplier stack so parenthesised groups scale their inner atom counts, then names are emitted in sorted order.",
+  "hints": [
+    "Walk the string left to right, reading an element name as one uppercase letter followed by lowercase letters, then an optional number.",
+    "Parentheses nest, so a stack of count maps (or a multiplier stack) lets a group's trailing number scale everything inside it.",
+    "On '(' push a fresh scope, on ')' read the following number and merge the popped scope's counts times that number into the parent, then sort the final names and append counts greater than one."
+  ],
+  "constraints": [
+    { "param": "formula", "kind": "str", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single atom with explicit count", "input": ["H2O"] },
+    { "kind": "edge", "description": "nested group scaled by a trailing number", "input": ["Mg(OH)2"] },
+    { "kind": "trap", "description": "doubly nested parentheses with multipliers", "input": ["K4(ON(SO3)2)2"] },
+    { "kind": "edge", "description": "single element of count one emits no number", "input": ["He"] },
+    { "kind": "trap", "description": "two-letter element name and counts of one", "input": ["MgO"] },
+    { "kind": "boundary", "description": "long concatenation forcing sorted merge", "input": ["H2O2He3Mg4"] },
+    { "kind": "trap", "description": "same element appears in multiple groups and must accumulate", "input": ["(H2O)2H2"] }
+  ],
+  "stress": [
+    {
+      "description": "deterministically build a balanced nested formula of single-letter elements with counts",
+      "seed": 7,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    import string\n    elems = list(string.ascii_uppercase[:8])\n    def build(depth):\n        if depth <= 0 or rng.random() < 0.4:\n            e = rng.choice(elems)\n            c = rng.randrange(1, 6)\n            return e + (str(c) if c > 1 else '')\n        parts = ''.join(build(depth - 1) for _ in range(rng.randrange(1, 3)))\n        c = rng.randrange(1, 5)\n        return '(' + parts + ')' + (str(c) if c > 1 else '')\n    s = ''.join(build(3) for _ in range(rng.randrange(1, 4)))\n    if not s:\n        s = 'H'\n    return [s[:1000]]\n",
+      "note": "valid formulas only, single uppercase letters keep names unambiguous"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countOfAtoms(self, formula):\n        import re\n        from collections import Counter\n        i = 0\n        n = len(formula)\n        def parse():\n            nonlocal i\n            counts = Counter()\n            while i < n and formula[i] != ')':\n                if formula[i] == '(':\n                    i += 1\n                    inner = parse()\n                    i += 1  # skip ')'\n                    num = ''\n                    while i < n and formula[i].isdigit():\n                        num += formula[i]\n                        i += 1\n                    mult = int(num) if num else 1\n                    for k, v in inner.items():\n                        counts[k] += v * mult\n                else:\n                    name = formula[i]\n                    i += 1\n                    while i < n and formula[i].islower():\n                        name += formula[i]\n                        i += 1\n                    num = ''\n                    while i < n and formula[i].isdigit():\n                        num += formula[i]\n                        i += 1\n                    counts[name] += int(num) if num else 1\n            return counts\n        result = parse()\n        out = ''\n        for name in sorted(result):\n            out += name\n            if result[name] > 1:\n                out += str(result[name])\n        return out\n",
+  "solutions": {
+    "python": "class Solution:\n    def countOfAtoms(self, formula):\n        from collections import Counter\n        stack = [Counter()]\n        i = 0\n        n = len(formula)\n        while i < n:\n            ch = formula[i]\n            if ch == '(': \n                stack.append(Counter())\n                i += 1\n            elif ch == ')':\n                i += 1\n                num = ''\n                while i < n and formula[i].isdigit():\n                    num += formula[i]\n                    i += 1\n                mult = int(num) if num else 1\n                top = stack.pop()\n                for k, v in top.items():\n                    stack[-1][k] += v * mult\n            else:\n                name = ch\n                i += 1\n                while i < n and formula[i].islower():\n                    name += formula[i]\n                    i += 1\n                num = ''\n                while i < n and formula[i].isdigit():\n                    num += formula[i]\n                    i += 1\n                stack[-1][name] += int(num) if num else 1\n        result = stack[0]\n        out = []\n        for name in sorted(result):\n            out.append(name)\n            if result[name] > 1:\n                out.append(str(result[name]))\n        return ''.join(out)\n",
+    "javascript": "var countOfAtoms = function(formula) {\n    const stack = [new Map()];\n    let i = 0;\n    const n = formula.length;\n    const isDigit = c => c >= '0' && c <= '9';\n    const isLower = c => c >= 'a' && c <= 'z';\n    const isUpper = c => c >= 'A' && c <= 'Z';\n    const add = (m, k, v) => m.set(k, (m.get(k) || 0) + v);\n    while (i < n) {\n        const ch = formula[i];\n        if (ch === '(') {\n            stack.push(new Map());\n            i++;\n        } else if (ch === ')') {\n            i++;\n            let num = '';\n            while (i < n && isDigit(formula[i])) num += formula[i++];\n            const mult = num ? parseInt(num, 10) : 1;\n            const top = stack.pop();\n            const parent = stack[stack.length - 1];\n            for (const [k, v] of top) add(parent, k, v * mult);\n        } else {\n            let name = ch;\n            i++;\n            while (i < n && isLower(formula[i])) name += formula[i++];\n            let num = '';\n            while (i < n && isDigit(formula[i])) num += formula[i++];\n            add(stack[stack.length - 1], name, num ? parseInt(num, 10) : 1);\n        }\n    }\n    const result = stack[0];\n    const names = [...result.keys()].sort();\n    let out = '';\n    for (const name of names) {\n        out += name;\n        if (result.get(name) > 1) out += result.get(name);\n    }\n    return out;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

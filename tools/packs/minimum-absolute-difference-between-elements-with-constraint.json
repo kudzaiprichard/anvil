@@ -1,0 +1,44 @@
+{
+  "slug": "minimum-absolute-difference-between-elements-with-constraint",
+  "judge": "exact",
+  "pattern": "Sliding a sorted window of already-visited values behind the current index turns an index-gap constraint into a single binary search per step.",
+  "hints": [
+    "Only pairs that are already at least x indices apart matter, so process the array left to right and only compare the current value against values that are old enough.",
+    "Keep every value that is now old enough to be paired with in a structure you can binary search, and grow that structure by exactly one value each time you move forward.",
+    "For index j, insert nums[j - x] into a sorted list, then binary-search nums[j] in it; the closest values are the ones immediately before and after the insertion point, so only those two comparisons can matter."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "x", "kind": "int", "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "x is zero so every pair of distinct indices is eligible", "input": [[4, 3, 2, 4], 0] },
+    { "kind": "edge", "description": "the closest values sit adjacent to each other", "input": [[5, 3, 2, 10, 15], 1] },
+    { "kind": "boundary", "description": "two-element array, the smallest size with a defined pair", "input": [[9, 2], 0] },
+    { "kind": "boundary", "description": "x equal to n - 1, only the first and last index can pair", "input": [[1, 2, 3, 4], 3] },
+    { "kind": "trap", "description": "a too-close duplicate is forbidden, but a second duplicate exactly x indices away is legal", "input": [[10, 10, 1, 10], 2] },
+    { "kind": "trap", "description": "values are strictly decreasing so the closest legal pair is not the global closest pair", "input": [[100, 90, 80, 70, 60, 1], 4] },
+    { "kind": "edge", "description": "all values identical", "input": [[6, 6, 6, 6, 6], 2] },
+    { "kind": "boundary", "description": "maximum-magnitude values far apart", "input": [[1000000000, 1, 1000000000], 2] }
+  ],
+  "stress": [
+    {
+      "description": "100k random values with a mid-range x, exercising the sliding sorted structure at scale",
+      "seed": 3,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    nums = [rng.randrange(1, 10**9 + 1) for _ in range(n)]\n    x = rng.randrange(0, n)\n    return [nums, x]\n"
+    },
+    {
+      "description": "100k nearly-sorted values with a small x, so many candidate pairs are legal",
+      "seed": 9,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    base = list(range(1, n + 1))\n    for _ in range(n // 20):\n        i = rng.randrange(0, n)\n        j = rng.randrange(0, n)\n        base[i], base[j] = base[j], base[i]\n    x = rng.randrange(0, min(3, n))\n    return [base, x]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minAbsoluteDifference(self, nums, x):\n        n = len(nums)\n        best = float('inf')\n        for i in range(n):\n            for j in range(i + 1, n):\n                if j - i >= x:\n                    diff = abs(nums[i] - nums[j])\n                    if diff < best:\n                        best = diff\n        return best if best != float('inf') else 0\n",
+  "solutions": {
+    "python": "import bisect\n\nclass Solution:\n    def minAbsoluteDifference(self, nums, x):\n        n = len(nums)\n        lag = max(x, 1)\n        window = []\n        best = float('inf')\n        for j in range(n):\n            release = j - lag\n            if release >= 0:\n                bisect.insort(window, nums[release])\n            if window:\n                pos = bisect.bisect_left(window, nums[j])\n                if pos < len(window):\n                    best = min(best, abs(window[pos] - nums[j]))\n                if pos > 0:\n                    best = min(best, abs(window[pos - 1] - nums[j]))\n        return best if best != float('inf') else 0\n",
+    "javascript": "var minAbsoluteDifference = function(nums, x) {\n    const n = nums.length;\n    const lag = Math.max(x, 1);\n    const window = [];\n\n    function bisectLeft(arr, value) {\n        let lo = 0, hi = arr.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (arr[mid] < value) lo = mid + 1;\n            else hi = mid;\n        }\n        return lo;\n    }\n\n    let best = Infinity;\n    for (let j = 0; j < n; j++) {\n        const release = j - lag;\n        if (release >= 0) {\n            const insertAt = bisectLeft(window, nums[release]);\n            window.splice(insertAt, 0, nums[release]);\n        }\n        if (window.length > 0) {\n            const pos = bisectLeft(window, nums[j]);\n            if (pos < window.length) best = Math.min(best, Math.abs(window[pos] - nums[j]));\n            if (pos > 0) best = Math.min(best, Math.abs(window[pos - 1] - nums[j]));\n        }\n    }\n    return best === Infinity ? 0 : best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

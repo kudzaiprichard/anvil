@@ -1,0 +1,186 @@
+{
+  "slug": "minimum-time-to-finish-the-race",
+  "judge": "exact",
+  "pattern": "Because lap time on one tire grows geometrically, no tire is ever worth riding for more than a small, boundable number of consecutive laps before swapping is cheaper, which turns an unbounded scheduling problem into a small precomputed cost table feeding a lap-count dynamic program.",
+  "hints": [
+    "For a single tire ridden for consecutive laps without changing, the cost grows geometrically (multiplied by its rate each lap) -- past a fairly small number of laps it is always cheaper to change tires (even to the very same type) than to keep going, so only a small number of consecutive-lap counts ever need to be considered per tire.",
+    "Precompute, for each small lap count k, the cheapest cost of riding any single tire for exactly k consecutive laps without a change; that gives you a short cost table independent of numLaps.",
+    "Build a dynamic program over total laps completed so far: to reach lap count i, pick some final stretch of k consecutive laps (using the precomputed table) and add a change-time penalty unless that stretch is the very first one."
+  ],
+  "constraints": [
+    {
+      "param": "tires",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "changeTime",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "numLaps",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two tire types, one change is worthwhile",
+      "input": [
+        [
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        5,
+        4
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three tire types over more laps",
+      "input": [
+        [
+          [
+            1,
+            10
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        6,
+        5
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single lap, just pick the cheapest first-lap tire",
+      "input": [
+        [
+          [
+            5,
+            2
+          ],
+          [
+            3,
+            5
+          ]
+        ],
+        10,
+        1
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "only one tire type available",
+      "input": [
+        [
+          [
+            2,
+            2
+          ]
+        ],
+        3,
+        3
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "changing is nearly free, so swapping every lap can beat riding out a fast-growing tire",
+      "input": [
+        [
+          [
+            10,
+            2
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        1,
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a steep growth rate must be capped off quickly by the consecutive-lap bound",
+      "input": [
+        [
+          [
+            1,
+            100000
+          ]
+        ],
+        100000,
+        1000
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum lap count with several tire choices",
+      "input": [
+        [
+          [
+            4,
+            3
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            6,
+            2
+          ]
+        ],
+        50,
+        1000
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random tire types and race parameters",
+      "seed": 23,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    num_tires = rng.randint(1, 20)\n    tires = [[rng.randint(1, 100000), rng.randint(2, 100000)] for _ in range(num_tires)]\n    change_time = rng.randint(1, 100000)\n    num_laps = max(1, min(size, 1000))\n    return [tires, change_time, num_laps]\n",
+      "note": "tire count kept modest so the O(numTires * maxK) precompute and O(numLaps * maxK) dp stay fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumFinishTime(self, tires, changeTime, numLaps):\n        max_k = min(numLaps, 20)\n        max_f = max(f for f, r in tires)\n        cap = (max_f + changeTime) * numLaps + 1\n        best = [float('inf')] * (max_k + 1)\n        for f, r in tires:\n            total = 0\n            term = f\n            j = 1\n            while j <= max_k:\n                total += term\n                if total < best[j]:\n                    best[j] = total\n                if term > cap:\n                    break\n                term *= r\n                j += 1\n\n        # bottom-up over remaining laps still to run (0 = done), filled iteratively\n        # (no recursion) so it cannot blow the call stack for large numLaps.\n        memo = [float('inf')] * (numLaps + 1)\n        memo[0] = 0\n        for remaining in range(1, numLaps + 1):\n            res = float('inf')\n            for j in range(1, min(remaining, max_k) + 1):\n                stint = best[j]\n                if stint == float('inf'):\n                    continue\n                extra = changeTime if remaining - j > 0 else 0\n                cand = memo[remaining - j] + extra + stint\n                if cand < res:\n                    res = cand\n            memo[remaining] = res\n        return memo[numLaps]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumFinishTime(self, tires, changeTime, numLaps):\n        INF = float('inf')\n        max_k = min(numLaps, 20)\n        best = [INF] * (max_k + 1)\n        max_f = max(f for f, r in tires)\n        cap = (max_f + changeTime) * numLaps + 1\n        for f, r in tires:\n            total = 0\n            term = f\n            j = 1\n            while j <= max_k:\n                total += term\n                if total < best[j]:\n                    best[j] = total\n                if term > cap:\n                    break\n                term *= r\n                j += 1\n        dp = [INF] * (numLaps + 1)\n        dp[0] = 0\n        for i in range(1, numLaps + 1):\n            for j in range(1, min(i, max_k) + 1):\n                prev = dp[i - j]\n                if prev == INF:\n                    continue\n                extra = changeTime if i - j > 0 else 0\n                cand = prev + extra + best[j]\n                if cand < dp[i]:\n                    dp[i] = cand\n        return dp[numLaps]\n",
+    "javascript": "var minimumFinishTime = function(tires, changeTime, numLaps) {\n    const maxK = Math.min(numLaps, 20);\n    const best = new Array(maxK + 1).fill(Infinity);\n    let maxF = 0;\n    for (const t of tires) if (t[0] > maxF) maxF = t[0];\n    const cap = (maxF + changeTime) * numLaps + 1;\n    for (const [f, r] of tires) {\n        let total = 0;\n        let term = f;\n        let j = 1;\n        while (j <= maxK) {\n            total += term;\n            if (total < best[j]) best[j] = total;\n            if (term > cap) break;\n            term *= r;\n            j++;\n        }\n    }\n    const dp = new Array(numLaps + 1).fill(Infinity);\n    dp[0] = 0;\n    for (let i = 1; i <= numLaps; i++) {\n        for (let j = 1; j <= Math.min(i, maxK); j++) {\n            const prev = dp[i - j];\n            if (prev === Infinity) continue;\n            const extra = (i - j > 0) ? changeTime : 0;\n            const cand = prev + extra + best[j];\n            if (cand < dp[i]) dp[i] = cand;\n        }\n    }\n    return dp[numLaps];\n};\n"
+  },
+  "complexity": {
+    "time": "O(numTires * K + numLaps * K)",
+    "space": "O(numLaps)"
+  }
+}

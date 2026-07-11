@@ -1,0 +1,40 @@
+{
+  "slug": "implement-trie-prefix-tree",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Storing words as a tree of shared character edges makes prefix and exact-word queries linear in the query length, independent of how many words are stored.",
+  "hints": [
+    "Words that share a beginning should share storage for that beginning.",
+    "Model each node as a map from a single character to a child node, and mark the nodes where a complete word ends.",
+    "insert walks/creates a path of child nodes and flags the final node as a word-end; search walks the path and checks that flag; startsWith walks the path and only checks that it exists."
+  ],
+  "constraints": [
+    { "param": "word", "kind": "string", "len": [1, 2000] },
+    { "param": "prefix", "kind": "string", "len": [1, 2000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "insert a word, then exact-search and prefix-search around it",
+      "input": [["Trie", "insert", "search", "search", "startsWith", "insert", "search"], [[], ["apple"], ["apple"], ["app"], ["app"], ["app"], ["app"]]] },
+    { "kind": "trap", "description": "a stored prefix is not a stored word until inserted",
+      "input": [["Trie", "insert", "search", "startsWith"], [[], ["application"], ["app"], ["app"]]] },
+    { "kind": "trap", "description": "one word is a prefix of another; both must search true",
+      "input": [["Trie", "insert", "insert", "search", "search", "startsWith"], [[], ["car"], ["card"], ["car"], ["card"], ["ca"]]] },
+    { "kind": "edge", "description": "queries on an empty trie are all false",
+      "input": [["Trie", "search", "startsWith"], [[], ["x"], ["x"]]] }
+  ],
+  "stress": [
+    {
+      "description": "many inserts then a mix of search/startsWith over overlapping vocabulary",
+      "seed": 23,
+      "size": 800,
+      "generator_python": "import string\ndef gen(rng, size):\n    letters = 'abcde'\n    vocab = [''.join(rng.choice(letters) for _ in range(rng.randint(1, 6))) for _ in range(20)]\n    ops = ['Trie']\n    args = [[]]\n    for _ in range(max(1, size)):\n        r = rng.random()\n        w = rng.choice(vocab)\n        if r < 0.4:\n            ops.append('insert'); args.append([w])\n        elif r < 0.7:\n            ops.append('search'); args.append([w])\n        else:\n            ops.append('startsWith'); args.append([w[:rng.randint(1, len(w))]])\n    return [ops, args]\n",
+      "note": "small alphabet and shared vocab force prefix overlap and word/prefix distinctions"
+    }
+  ],
+  "oracle_python": "class Trie:\n    def __init__(self):\n        self.words = set()\n        self.prefixes = set()\n    def insert(self, word):\n        self.words.add(word)\n        for i in range(1, len(word) + 1):\n            self.prefixes.add(word[:i])\n    def search(self, word):\n        return word in self.words\n    def startsWith(self, prefix):\n        return prefix in self.prefixes\n",
+  "solutions": {
+    "python": "class Trie:\n    def __init__(self):\n        self.root = {}\n    def insert(self, word):\n        node = self.root\n        for c in word:\n            node = node.setdefault(c, {})\n        node['$'] = True\n    def search(self, word):\n        node = self.root\n        for c in word:\n            if c not in node:\n                return False\n            node = node[c]\n        return '$' in node\n    def startsWith(self, prefix):\n        node = self.root\n        for c in prefix:\n            if c not in node:\n                return False\n            node = node[c]\n        return True\n",
+    "javascript": "class Trie {\n    constructor() {\n        this.root = {};\n    }\n    insert(word) {\n        let node = this.root;\n        for (const c of word) {\n            if (!(c in node)) node[c] = {};\n            node = node[c];\n        }\n        node['$'] = true;\n    }\n    search(word) {\n        let node = this.root;\n        for (const c of word) {\n            if (!(c in node)) return false;\n            node = node[c];\n        }\n        return node['$'] === true;\n    }\n    startsWith(prefix) {\n        let node = this.root;\n        for (const c of prefix) {\n            if (!(c in node)) return false;\n            node = node[c];\n        }\n        return true;\n    }\n}\n"
+  },
+  "complexity": { "time": "O(L) per op", "space": "O(total characters)" }
+}

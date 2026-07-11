@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-removals-to-achieve-target-xor",
+  "judge": "exact",
+  "pattern": "Removing a subset R to leave XOR equal to target is the same as finding the smallest subset whose own XOR equals (XOR of everything) XOR target -- and because every value is small, the number of distinct XOR totals reachable is tiny, so that smallest subset can be tracked directly.",
+  "hints": [
+    "If you remove a set of elements R, the XOR of what remains is (XOR of the whole array) XOR (XOR of R). So you need the smallest R whose own XOR equals a fixed, easy-to-compute value: (total XOR) XOR target.",
+    "Track, for every XOR value that is reachable by some subset seen so far, the fewest elements needed to reach it -- update this by either skipping the next element or including it (which flips the reachable value).",
+    "Because every element is bounded, only a limited range of XOR totals is ever reachable, so this tracking stays small no matter how many elements there are. If the needed value never becomes reachable, no removal count works -- report -1."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 40], "value": [0, 10000] },
+    { "param": "target", "kind": "int", "value": [0, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element already matching the target, zero removals", "input": [ [7], 7 ] },
+    { "kind": "edge", "description": "single element that must be removed to reach target zero", "input": [ [5], 0 ] },
+    { "kind": "trap", "description": "target unreachable no matter what is removed", "input": [ [2, 4], 1 ] },
+    { "kind": "trap", "description": "target already achieved by the full array, but a smaller subset also works -- must still report the minimum", "input": [ [1, 2, 3], 0 ] },
+    { "kind": "edge", "description": "all zeros, any target other than zero is unreachable", "input": [ [0, 0, 0], 5 ] },
+    { "kind": "boundary", "description": "target is zero and the array is empty of any nonzero XOR contribution needed", "input": [ [0], 0 ] },
+    { "kind": "edge", "description": "repeated values that cancel under XOR", "input": [ [6, 6, 6, 6], 6 ] },
+    { "kind": "boundary", "description": "values at the maximum allowed magnitude", "input": [ [10000, 10000, 9999], 9999 ] }
+  ],
+  "stress": [
+    {
+      "description": "moderately large random arrays near the maximum length",
+      "seed": 91,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 40))\n    nums = [rng.randint(0, 10000) for _ in range(n)]\n    target = rng.randint(0, 10000)\n    return [nums, target]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def minRemovals(self, nums, target):\n        n = len(nums)\n        total = 0\n        for x in nums:\n            total ^= x\n        need = total ^ target\n        for size in range(0, n + 1):\n            for combo in combinations(nums, size):\n                x = 0\n                for v in combo:\n                    x ^= v\n                if x == need:\n                    return size\n        return -1\n",
+  "solutions": {
+    "python": "class Solution:\n    def minRemovals(self, nums, target):\n        total = 0\n        for x in nums:\n            total ^= x\n        need = total ^ target\n        dp = {0: 0}\n        for x in nums:\n            new_dp = dict(dp)\n            for xv, cnt in dp.items():\n                nx = xv ^ x\n                nc = cnt + 1\n                if nx not in new_dp or new_dp[nx] > nc:\n                    new_dp[nx] = nc\n            dp = new_dp\n        return dp.get(need, -1)\n",
+    "javascript": "var minRemovals = function(nums, target) {\n    let total = 0;\n    for (const x of nums) total ^= x;\n    const need = total ^ target;\n    let dp = new Map([[0, 0]]);\n    for (const x of nums) {\n        const newDp = new Map(dp);\n        for (const [xv, cnt] of dp) {\n            const nx = xv ^ x;\n            const nc = cnt + 1;\n            if (!newDp.has(nx) || newDp.get(nx) > nc) newDp.set(nx, nc);\n        }\n        dp = newDp;\n    }\n    return dp.has(need) ? dp.get(need) : -1;\n};\n"
+  },
+  "complexity": { "time": "O(n * maxXor)", "space": "O(maxXor)" }
+}

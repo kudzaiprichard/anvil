@@ -1,0 +1,37 @@
+{
+  "slug": "reachable-nodes-with-restrictions",
+  "judge": "exact",
+  "pattern": "A traversal from the root over the tree, refusing to enter blocked nodes, counts exactly the component still reachable.",
+  "hints": [
+    "Build an adjacency list but treat restricted nodes as if they were removed.",
+    "Start a depth-first or breadth-first search from node 0, never stepping onto a restricted node.",
+    "The answer is simply how many nodes your search visits before it is forced to stop."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 100000], "value": [0, 99999] },
+    { "param": "restricted", "kind": "int[]", "len": [1, 99999], "value": [1, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two nodes, the only neighbour is restricted", "input": [2, [[0, 1]], [1]] },
+    { "kind": "edge", "description": "two nodes both reachable", "input": [3, [[0, 1], [0, 2]], [2]] },
+    { "kind": "boundary", "description": "a star where most leaves are blocked", "input": [5, [[0, 1], [0, 2], [0, 3], [0, 4]], [2, 3, 4]] },
+    { "kind": "boundary", "description": "a path cut in the middle", "input": [5, [[0, 1], [1, 2], [2, 3], [3, 4]], [2]] },
+    { "kind": "trap", "description": "blocking a hub isolates an entire subtree", "input": [7, [[0, 1], [1, 2], [3, 1], [4, 0], [0, 5], [5, 6]], [4, 5]] },
+    { "kind": "trap", "description": "restricted node not on any reachable path is irrelevant", "input": [4, [[0, 1], [1, 2], [2, 3]], [3]] }
+  ],
+  "stress": [
+    {
+      "description": "large random tree with a random restricted subset, root always free",
+      "seed": 23,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    edges = []\n    for v in range(1, n):\n        p = rng.randint(0, v - 1)\n        edges.append([p, v])\n    rng.shuffle(edges)\n    k = rng.randint(1, n - 1)\n    restricted = rng.sample(range(1, n), k)\n    return [n, edges, restricted]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def reachableNodes(self, n, edges, restricted):\n        parent = list(range(n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        block = set(restricted)\n        for a, b in edges:\n            if a in block or b in block:\n                continue\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n        root = find(0)\n        return sum(1 for i in range(n) if i not in block and find(i) == root)\n",
+  "solutions": {
+    "python": "class Solution:\n    def reachableNodes(self, n, edges, restricted):\n        from collections import defaultdict, deque\n        block = set(restricted)\n        g = defaultdict(list)\n        for a, b in edges:\n            g[a].append(b)\n            g[b].append(a)\n        seen = {0}\n        q = deque([0])\n        while q:\n            u = q.popleft()\n            for v in g[u]:\n                if v not in seen and v not in block:\n                    seen.add(v)\n                    q.append(v)\n        return len(seen)\n",
+    "javascript": "var reachableNodes = function(n, edges, restricted) {\n    const block = new Set(restricted);\n    const g = Array.from({length: n}, () => []);\n    for (const [a, b] of edges) { g[a].push(b); g[b].push(a); }\n    const seen = new Uint8Array(n);\n    seen[0] = 1;\n    const stack = [0];\n    let count = 0;\n    while (stack.length) {\n        const u = stack.pop();\n        count++;\n        for (const v of g[u]) {\n            if (!seen[v] && !block.has(v)) { seen[v] = 1; stack.push(v); }\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

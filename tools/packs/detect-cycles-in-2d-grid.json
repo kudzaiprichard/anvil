@@ -1,0 +1,44 @@
+{
+  "slug": "detect-cycles-in-2d-grid",
+  "judge": "exact",
+  "pattern": "Walk each same-value region while remembering only the one cell you just came from; meeting an already-visited same-value cell that isn't that immediate predecessor proves a loop exists.",
+  "hints": [
+    "Explore the grid region by region, only ever moving into a neighbor that shares the current cell's value.",
+    "Track visited cells per region and remember the single cell you just stepped from, since stepping straight back to it is not a cycle.",
+    "If a same-value neighbor was already visited and it is not the cell you just came from, you have closed a loop of length four or more — report true immediately, otherwise finish exploring all regions before returning false."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "char[][]", "rows": [1, 500], "cols": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single cell, nothing to loop through", "input": [[["a"]]] },
+    { "kind": "edge", "description": "smallest possible loop, a 2x2 block of one value", "input": [[["a", "a"], ["a", "a"]]] },
+    { "kind": "boundary", "description": "single row, a straight line can never close on itself", "input": [[["a", "a", "a", "a", "a"]]] },
+    { "kind": "boundary", "description": "single column, same reasoning as a row", "input": [[["a"], ["a"], ["a"], ["a"]]] },
+    { "kind": "trap", "description": "a plus-shaped region has a branch point but is a tree, not a cycle", "input": [[[".", "m", "."], ["m", "m", "m"], [".", "m", "."]]] },
+    { "kind": "trap", "description": "same value only touches diagonally, which is never a valid move, so no path connects them at all", "input": [[["p", ".", "p"], [".", "p", "."], ["p", ".", "p"]]] },
+    { "kind": "trap", "description": "a ring surrounding a differently-valued center closes a genuine cycle", "input": [[["x", "x", "x"], ["x", "y", "x"], ["x", "x", "x"]]] },
+    { "kind": "edge", "description": "several separate regions, only one of which happens to contain a cycle", "input": [[["a", "a", "b"], ["a", "a", "b"], ["c", "c", "c"]]] }
+  ],
+  "stress": [
+    {
+      "description": "modest random grid over a 3-letter alphabet, dense enough to frequently form cycles",
+      "seed": 13,
+      "size": 900,
+      "generator_python": "def gen(rng, size):\n    import math\n    dim = max(2, min(40, math.isqrt(max(1, size))))\n    alphabet = ['a', 'b', 'c']\n    grid = [[rng.choice(alphabet) for _ in range(dim)] for _ in range(dim)]\n    return [grid]\n"
+    },
+    {
+      "description": "larger near-maximum-size grid over only 2 letters, to exercise scale without slowing the oracle",
+      "seed": 47,
+      "size": 90000,
+      "generator_python": "def gen(rng, size):\n    import math\n    dim = max(2, min(300, math.isqrt(max(1, size))))\n    alphabet = ['a', 'b']\n    grid = [[rng.choice(alphabet) for _ in range(dim)] for _ in range(dim)]\n    return [grid]\n",
+      "note": "only 2 letters keeps regions large so cycles show up often at this scale"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def containsCycle(self, grid):\n        m, n = len(grid), len(grid[0])\n        parent = list(range(m * n))\n        def find(x):\n            while parent[x] != x:\n                parent[x] = parent[parent[x]]\n                x = parent[x]\n            return x\n        def idx(r, c):\n            return r * n + c\n        for r in range(m):\n            for c in range(n):\n                cur = idx(r, c)\n                if c + 1 < n and grid[r][c + 1] == grid[r][c]:\n                    nb = idx(r, c + 1)\n                    ra, rb = find(cur), find(nb)\n                    if ra == rb:\n                        return True\n                    parent[ra] = rb\n                if r + 1 < m and grid[r + 1][c] == grid[r][c]:\n                    nb = idx(r + 1, c)\n                    ra, rb = find(cur), find(nb)\n                    if ra == rb:\n                        return True\n                    parent[ra] = rb\n        return False\n",
+  "solutions": {
+    "python": "class Solution:\n    def containsCycle(self, grid):\n        m, n = len(grid), len(grid[0])\n        visited = [[False] * n for _ in range(m)]\n        for si in range(m):\n            for sj in range(n):\n                if visited[si][sj]:\n                    continue\n                visited[si][sj] = True\n                stack = [(si, sj, -1, -1)]\n                while stack:\n                    r, c, pr, pc = stack.pop()\n                    ch = grid[r][c]\n                    for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == ch and (nr, nc) != (pr, pc):\n                            if visited[nr][nc]:\n                                return True\n                            visited[nr][nc] = True\n                            stack.append((nr, nc, r, c))\n        return False\n",
+    "javascript": "var containsCycle = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const visited = Array.from({length: m}, () => new Array(n).fill(false));\n    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n    for (let si = 0; si < m; si++) {\n        for (let sj = 0; sj < n; sj++) {\n            if (visited[si][sj]) continue;\n            visited[si][sj] = true;\n            const stack = [[si, sj, -1, -1]];\n            while (stack.length) {\n                const [r, c, pr, pc] = stack.pop();\n                const ch = grid[r][c];\n                for (const [dr, dc] of dirs) {\n                    const nr = r + dr, nc = c + dc;\n                    if (nr >= 0 && nr < m && nc >= 0 && nc < n && grid[nr][nc] === ch && !(nr === pr && nc === pc)) {\n                        if (visited[nr][nc]) return true;\n                        visited[nr][nc] = true;\n                        stack.push([nr, nc, r, c]);\n                    }\n                }\n            }\n        }\n    }\n    return false;\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "minimum-degree-of-a-connected-trio-in-a-graph",
+  "judge": "exact",
+  "pattern": "Find every triangle, then its outward degree is the sum of the three nodes' degrees minus the six internal endpoints.",
+  "hints": [
+    "A connected trio is just a triangle in the graph, so first you need a way to detect triangles.",
+    "For a triangle on nodes a, b, c, the outward degree counts edges leaving the trio, which is deg(a)+deg(b)+deg(c) minus the six endpoints used by the three internal edges.",
+    "Enumerate edges and for each pair of endpoints check shared neighbors (using an adjacency matrix); track the minimum outward degree, returning -1 if no triangle exists."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 400] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 79800], "value": [1, 400] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single triangle with pendant edges", "input": [6, [[1, 2], [1, 3], [3, 2], [4, 1], [5, 2], [3, 6]]] },
+    { "kind": "edge", "description": "multiple trios, one fully isolated", "input": [7, [[1, 3], [4, 1], [4, 3], [2, 5], [5, 6], [6, 7], [7, 5], [2, 6]]] },
+    { "kind": "trap", "description": "no triangle at all returns minus one", "input": [4, [[1, 2], [2, 3], [3, 4]]] },
+    { "kind": "boundary", "description": "two nodes cannot form a trio", "input": [2, [[1, 2]]] },
+    { "kind": "edge", "description": "complete triangle, degree zero", "input": [3, [[1, 2], [2, 3], [1, 3]]] },
+    { "kind": "trap", "description": "complete graph on four nodes, all trios have degree two", "input": [4, [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]]] },
+    { "kind": "edge", "description": "star has no triangle", "input": [5, [[1, 2], [1, 3], [1, 4], [1, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "random graph on a modest node count, guaranteed to contain at least one triangle",
+      "seed": 101,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 80))\n    edge_set = set()\n    edge_set.add((1, 2)); edge_set.add((1, 3)); edge_set.add((2, 3))\n    extra = rng.randrange(n, 3 * n)\n    for _ in range(extra):\n        u = rng.randrange(1, n + 1)\n        v = rng.randrange(1, n + 1)\n        if u == v:\n            continue\n        a, b = min(u, v), max(u, v)\n        edge_set.add((a, b))\n    edges = [[a, b] for (a, b) in edge_set]\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minTrioDegree(self, n, edges):\n        adj = [[False] * (n + 1) for _ in range(n + 1)]\n        deg = [0] * (n + 1)\n        for u, v in edges:\n            adj[u][v] = True\n            adj[v][u] = True\n            deg[u] += 1\n            deg[v] += 1\n        best = -1\n        for a in range(1, n + 1):\n            for b in range(a + 1, n + 1):\n                if not adj[a][b]:\n                    continue\n                for c in range(b + 1, n + 1):\n                    if adj[a][c] and adj[b][c]:\n                        d = deg[a] + deg[b] + deg[c] - 6\n                        if best == -1 or d < best:\n                            best = d\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minTrioDegree(self, n, edges):\n        adj = [[False] * (n + 1) for _ in range(n + 1)]\n        deg = [0] * (n + 1)\n        nbrs = [[] for _ in range(n + 1)]\n        for u, v in edges:\n            adj[u][v] = True\n            adj[v][u] = True\n            deg[u] += 1\n            deg[v] += 1\n            nbrs[min(u, v)].append(max(u, v))\n        best = float('inf')\n        for u, v in edges:\n            a, b = (u, v) if u < v else (v, u)\n            for c in nbrs[a]:\n                if c != b and adj[b][c]:\n                    d = deg[a] + deg[b] + deg[c] - 6\n                    if d < best:\n                        best = d\n        return -1 if best == float('inf') else best\n",
+    "javascript": "var minTrioDegree = function(n, edges) {\n    const adj = Array.from({length: n + 1}, () => new Array(n + 1).fill(false));\n    const deg = new Array(n + 1).fill(0);\n    const nbrs = Array.from({length: n + 1}, () => []);\n    for (const [u, v] of edges) {\n        adj[u][v] = true;\n        adj[v][u] = true;\n        deg[u]++;\n        deg[v]++;\n        nbrs[Math.min(u, v)].push(Math.max(u, v));\n    }\n    let best = Infinity;\n    for (const [u, v] of edges) {\n        const a = Math.min(u, v), b = Math.max(u, v);\n        for (const c of nbrs[a]) {\n            if (c !== b && adj[b][c]) {\n                const d = deg[a] + deg[b] + deg[c] - 6;\n                if (d < best) best = d;\n            }\n        }\n    }\n    return best === Infinity ? -1 : best;\n};\n"
+  },
+  "complexity": { "time": "O(E * maxDeg)", "space": "O(n^2)" }
+}

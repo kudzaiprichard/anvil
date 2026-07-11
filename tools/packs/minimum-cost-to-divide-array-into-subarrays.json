@@ -1,0 +1,38 @@
+{
+  "slug": "minimum-cost-to-divide-array-into-subarrays",
+  "judge": "exact",
+  "pattern": "Expanding a subarray's cost shows it is linear in the cost-prefix-sum of everything before its end, so partitioning becomes a layered dynamic program where each layer (subarray count so far) is solved with a monotonic lower-envelope of lines instead of scanning every earlier split point.",
+  "hints": [
+    "Let dp[i][j] be the minimum total cost to split the first i elements into exactly j subarrays. A transition from split point t to i pays (globalPrefixNums[i] + k*j) times (prefixCost[i] - prefixCost[t]) for the j-th piece.",
+    "Expand that product: for a fixed j, as i grows the multiplier (globalPrefixNums[i] + k*j) only grows, and each candidate predecessor t defines a line in that multiplier with slope -prefixCost[t] and intercept dp[t][j-1] -- you want the minimum line at each query point.",
+    "Since the candidate lines' slopes are added in decreasing order and the query points only increase, maintain a monotonic deque of lines (a convex hull trick) per subarray-count layer instead of testing every t, and take the best total cost over every possible final subarray count."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 1000], "value": [1, 1000] },
+    { "param": "cost", "kind": "int[]", "len": [1, 1000], "value": [1, 1000] },
+    { "param": "k", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example, best split is two subarrays", "input": [[3, 1, 4], [4, 6, 6], 1] },
+    { "kind": "edge", "description": "statement example, best split is three subarrays", "input": [[4, 8, 5, 1, 14, 2, 2, 12, 1], [7, 2, 8, 4, 2, 2, 1, 1, 2], 7] },
+    { "kind": "boundary", "description": "a single element, so only one subarray is possible", "input": [[7], [5], 1000] },
+    { "kind": "boundary", "description": "the maximum allowed order penalty k with a short array", "input": [[2, 3, 4], [1, 1, 1], 1000] },
+    { "kind": "trap", "description": "every element identical, so the split choice is driven entirely by the order penalty and cost weights", "input": [[5, 5, 5, 5], [1, 5, 1, 5], 3] },
+    { "kind": "trap", "description": "cost is concentrated on one element, rewarding a split that isolates it into its own late, cheap-multiplier subarray", "input": [[2, 2, 9, 2, 2], [1, 1, 20, 1, 1], 2] },
+    { "kind": "edge", "description": "a slightly longer array with mixed values and a moderate order penalty", "input": [[6, 1, 3, 8, 2, 5], [3, 9, 2, 4, 7, 1], 4] }
+  ],
+  "stress": [
+    {
+      "description": "random arrays up to the maximum length with random cost weights and order penalty",
+      "seed": 15,
+      "size": 1000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(1000, size))\n    nums = [rng.randint(1, 1000) for _ in range(n)]\n    cost = [rng.randint(1, 1000) for _ in range(n)]\n    k = rng.randint(1, 1000)\n    return [nums, cost, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minimumCost(self, nums, cost, k):\n        n = len(nums)\n        P = [0] * (n + 1)\n        C = [0] * (n + 1)\n        for i in range(n):\n            P[i + 1] = P[i] + nums[i]\n            C[i + 1] = C[i] + cost[i]\n        best = [float('inf')]\n        def rec(i, piece_idx, acc):\n            if acc >= best[0]:\n                return\n            if i == n:\n                if acc < best[0]:\n                    best[0] = acc\n                return\n            for j in range(i + 1, n + 1):\n                c = (P[j] + k * piece_idx) * (C[j] - C[i])\n                rec(j, piece_idx + 1, acc + c)\n        rec(0, 1, 0)\n        return best[0]\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumCost(self, nums, cost, k):\n        n = len(nums)\n        P = [0] * (n + 1)\n        C = [0] * (n + 1)\n        for i in range(n):\n            P[i + 1] = P[i] + nums[i]\n            C[i + 1] = C[i] + cost[i]\n        INF = float('inf')\n        dp_prev = [INF] * (n + 1)\n        dp_prev[0] = 0\n        best = INF\n        for j in range(1, n + 1):\n            dp_cur = [INF] * (n + 1)\n            hull_a, hull_b = [], []\n            head = 0\n            for i in range(j, n + 1):\n                t = i - 1\n                if dp_prev[t] < INF:\n                    a, b = -C[t], dp_prev[t]\n                    while len(hull_a) - head >= 2:\n                        a1, b1 = hull_a[-2], hull_b[-2]\n                        a2, b2 = hull_a[-1], hull_b[-1]\n                        if (b - b1) * (a1 - a2) <= (b2 - b1) * (a1 - a):\n                            hull_a.pop()\n                            hull_b.pop()\n                        else:\n                            break\n                    hull_a.append(a)\n                    hull_b.append(b)\n                x = P[i] + k * j\n                while len(hull_a) - head >= 2 and hull_a[head] * x + hull_b[head] >= hull_a[head + 1] * x + hull_b[head + 1]:\n                    head += 1\n                if len(hull_a) - head >= 1:\n                    val = hull_a[head] * x + hull_b[head]\n                    dp_cur[i] = x * C[i] + val\n            dp_prev = dp_cur\n            if dp_prev[n] < best:\n                best = dp_prev[n]\n        return best\n",
+    "javascript": "var minimumCost = function(nums, cost, k) {\n    const n = nums.length;\n    const P = new Array(n + 1).fill(0);\n    const C = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        P[i + 1] = P[i] + nums[i];\n        C[i + 1] = C[i] + cost[i];\n    }\n    const INF = Infinity;\n    let dpPrev = new Array(n + 1).fill(INF);\n    dpPrev[0] = 0;\n    let best = INF;\n    for (let j = 1; j <= n; j++) {\n        const dpCur = new Array(n + 1).fill(INF);\n        const hullA = [], hullB = [];\n        let head = 0;\n        for (let i = j; i <= n; i++) {\n            const t = i - 1;\n            if (dpPrev[t] < INF) {\n                const a = -C[t], b = dpPrev[t];\n                while (hullA.length - head >= 2) {\n                    const a1 = hullA[hullA.length - 2], b1 = hullB[hullB.length - 2];\n                    const a2 = hullA[hullA.length - 1], b2 = hullB[hullB.length - 1];\n                    if ((b - b1) * (a1 - a2) <= (b2 - b1) * (a1 - a)) {\n                        hullA.pop();\n                        hullB.pop();\n                    } else {\n                        break;\n                    }\n                }\n                hullA.push(a);\n                hullB.push(b);\n            }\n            const x = P[i] + k * j;\n            while (hullA.length - head >= 2 && hullA[head] * x + hullB[head] >= hullA[head + 1] * x + hullB[head + 1]) {\n                head++;\n            }\n            if (hullA.length - head >= 1) {\n                const val = hullA[head] * x + hullB[head];\n                dpCur[i] = x * C[i] + val;\n            }\n        }\n        dpPrev = dpCur;\n        if (dpPrev[n] < best) best = dpPrev[n];\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n)" }
+}

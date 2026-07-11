@@ -1,0 +1,40 @@
+{
+  "slug": "super-egg-drop",
+  "judge": "exact",
+  "pattern": "Flip the DP perspective: instead of asking how many moves suffice for n floors, ask how many floors can be certified in t moves, then binary-search for the minimum t.",
+  "hints": [
+    "Define f(t, k) as the maximum number of floors you can certify with t moves and k eggs. The recurrence is f(t, k) = f(t-1, k-1) + f(t-1, k) + 1 because the dropped floor sits between the break-branch (k-1 eggs, t-1 moves, floors below) and the survive-branch (k eggs, t-1 moves, floors above).",
+    "Increase t from 1 upward and compute f(t, k) until it reaches or exceeds n — that first t is the answer. Each round only needs O(k) work with a 1-D update.",
+    "Maintain dp[j] = floors certifiable in the current move count with j eggs. Each round: new_dp[j] = dp[j-1] + dp[j] + 1 for j in 1..k. Stop the first round where dp[k] >= n."
+  ],
+  "constraints": [
+    { "param": "k", "kind": "int", "value": [1, 100] },
+    { "param": "n", "kind": "int", "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "one egg, one floor — a single drop always suffices", "input": [1, 1] },
+    { "kind": "boundary", "description": "one egg, must probe every floor in order — linear cost", "input": [1, 10] },
+    { "kind": "edge", "description": "two eggs, six floors — classic illustration of the approach", "input": [2, 6] },
+    { "kind": "edge", "description": "three eggs, fourteen floors", "input": [3, 14] },
+    { "kind": "trap", "description": "abundant eggs but only one floor — always one move regardless of eggs", "input": [100, 1] },
+    { "kind": "trap", "description": "two eggs on two floors — one move covers both outcomes", "input": [2, 2] },
+    { "kind": "edge", "description": "two eggs, power-of-two floor count", "input": [2, 16] },
+    { "kind": "boundary", "description": "maximum eggs and large floor count", "input": [100, 10000] },
+    { "kind": "trap", "description": "one egg, two floors — linear strategy requires two moves", "input": [1, 2] }
+  ],
+  "stress": [
+    {
+      "description": "random k in [1,20] and n in [1,500] covering the interesting middle regime",
+      "seed": 17,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    k = rng.randint(1, 20)\n    n = rng.randint(1, 500)\n    return [k, n]\n",
+      "note": "n capped at 500 so the O(k*n*log(n)) oracle stays fast; the optimal O(k*log(n)) handles n=10000 easily"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def superEggDrop(self, k: int, n: int) -> int:\n        # O(k * n * log n) via standard DP with binary search over drop floor\n        # dp[eggs][floors] = min moves; build bottom-up\n        dp = list(range(n + 1))  # base: 1 egg needs j drops for j floors\n        for eggs in range(2, k + 1):\n            new_dp = [0] * (n + 1)\n            x = 1\n            for floors in range(1, n + 1):\n                # optimal drop floor x is non-decreasing as floors grows\n                while x < floors and max(dp[x - 1], new_dp[floors - x]) > max(dp[x], new_dp[floors - x - 1]):\n                    x += 1\n                new_dp[floors] = 1 + max(dp[x - 1], new_dp[floors - x])\n            dp = new_dp\n        return dp[n]\n",
+  "solutions": {
+    "python": "class Solution:\n    def superEggDrop(self, k: int, n: int) -> int:\n        # f(t, k) = max floors certifiable in t moves with k eggs\n        # recurrence: f(t,k) = f(t-1,k-1) + f(t-1,k) + 1\n        # find minimum t such that f(t, k) >= n\n        dp = [0] * (k + 1)\n        t = 0\n        while dp[k] < n:\n            t += 1\n            new_dp = [0] * (k + 1)\n            for j in range(1, k + 1):\n                new_dp[j] = dp[j - 1] + dp[j] + 1\n            dp = new_dp\n        return t\n",
+    "javascript": "var superEggDrop = function(k, n) {\n    // f(t, k) = max floors certifiable in t moves with k eggs\n    // recurrence: f(t,k) = f(t-1,k-1) + f(t-1,k) + 1\n    let dp = new Array(k + 1).fill(0);\n    let t = 0;\n    while (dp[k] < n) {\n        t++;\n        const newDp = new Array(k + 1).fill(0);\n        for (let j = 1; j <= k; j++) {\n            newDp[j] = dp[j - 1] + dp[j] + 1;\n        }\n        dp = newDp;\n    }\n    return t;\n};\n"
+  },
+  "complexity": { "time": "O(k * log n)", "space": "O(k)" }
+}

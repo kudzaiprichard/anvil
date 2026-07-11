@@ -1,0 +1,36 @@
+{
+  "slug": "stone-game",
+  "judge": "exact",
+  "pattern": "Model the turn-by-turn pile grab as an interval dynamic program on the best score difference the player to move can force, taking the max of grabbing either end minus the opponent's best on the remainder.",
+  "hints": [
+    "Track the difference between the current player's score and the opponent's, not the raw totals, so a single number captures who is ahead.",
+    "For a contiguous run of piles, the mover picks an end and then faces the opponent on the shorter run, so the value is each pile minus the best the opponent can do on what remains.",
+    "Fill a table over all sub-ranges by length; the answer is whether the first player's forced difference over the whole row is positive."
+  ],
+  "constraints": [
+    { "param": "piles", "kind": "int[]", "len": [2, 500], "value": [1, 500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "four piles, first player can force a win", "input": [[5, 3, 4, 5]] },
+    { "kind": "edge", "description": "another four-pile arrangement", "input": [[3, 7, 2, 3]] },
+    { "kind": "boundary", "description": "minimum length two piles", "input": [[1, 2]] },
+    { "kind": "trap", "description": "huge value buried in the middle still favours the first mover", "input": [[2, 1, 9, 8, 4, 1]] },
+    { "kind": "edge", "description": "ascending run", "input": [[1, 2, 3, 8]] },
+    { "kind": "edge", "description": "descending run", "input": [[10, 6, 3, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "even-length pile rows with an odd total so there is never a tie",
+      "seed": 19,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    half = rng.randint(1, max(1, size // 2))\n    n = half * 2\n    piles = [rng.randint(1, 500) for _ in range(n)]\n    if sum(piles) % 2 == 0:\n        piles[0] += 1 if piles[0] < 500 else -1\n    return [piles]\n",
+      "note": "construction keeps length even and the sum odd, matching the problem's no-tie guarantee"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def stoneGame(self, piles):\n        from functools import lru_cache\n        import sys\n        sys.setrecursionlimit(10000)\n        @lru_cache(None)\n        def best(i, j):\n            if i > j:\n                return 0\n            return max(piles[i] - best(i + 1, j), piles[j] - best(i, j - 1))\n        return best(0, len(piles) - 1) > 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def stoneGame(self, piles):\n        n = len(piles)\n        dp = [[0] * n for _ in range(n)]\n        for i in range(n):\n            dp[i][i] = piles[i]\n        for length in range(2, n + 1):\n            for i in range(0, n - length + 1):\n                j = i + length - 1\n                dp[i][j] = max(piles[i] - dp[i + 1][j], piles[j] - dp[i][j - 1])\n        return dp[0][n - 1] > 0\n",
+    "javascript": "var stoneGame = function(piles) {\n    const n = piles.length;\n    const dp = Array.from({ length: n }, () => new Array(n).fill(0));\n    for (let i = 0; i < n; i++) dp[i][i] = piles[i];\n    for (let len = 2; len <= n; len++) {\n        for (let i = 0; i + len - 1 < n; i++) {\n            const j = i + len - 1;\n            dp[i][j] = Math.max(piles[i] - dp[i + 1][j], piles[j] - dp[i][j - 1]);\n        }\n    }\n    return dp[0][n - 1] > 0;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

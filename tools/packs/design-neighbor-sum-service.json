@@ -1,0 +1,47 @@
+{
+  "slug": "design-neighbor-sum-service",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Because the grid holds distinct values in a known range, index each value to its (row, col) once at construction, then answer a query by summing the in-bounds cells offset by the four cardinal or four diagonal directions.",
+  "hints": [
+    "Each value appears exactly once, so you never need to scan the whole grid per query if you remember where each value lives.",
+    "Build a lookup from value to its row and column while reading the grid in the constructor.",
+    "Adjacent uses the four offsets (+/-1 in one axis); diagonal uses the four offsets (+/-1 in both axes); skip any neighbor that falls outside the grid bounds."
+  ],
+  "constraints": [
+    { "param": "value", "kind": "int", "value": [0, 99] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one: adjacent and diagonal queries on a 3x3 grid including a center cell and a corner",
+      "input": [["NeighborSum", "adjacentSum", "adjacentSum", "diagonalSum", "diagonalSum"], [[[[0, 1, 2], [3, 4, 5], [6, 7, 8]]], [1], [4], [4], [8]]] },
+    { "kind": "edge", "description": "statement example two: adjacent and diagonal queries on a 4x4 grid",
+      "input": [["NeighborSum", "adjacentSum", "diagonalSum"], [[[[1, 2, 0, 3], [4, 7, 15, 6], [8, 9, 10, 11], [12, 13, 14, 5]]], [15], [9]]] },
+    { "kind": "boundary", "description": "top-left corner has only one adjacent and one diagonal neighbor",
+      "input": [["NeighborSum", "adjacentSum", "diagonalSum"], [[[[0, 1, 2], [3, 4, 5], [6, 7, 8]]], [0], [0]]] },
+    { "kind": "boundary", "description": "top-right corner: adjacent neighbors only to left and below, diagonal only bottom-left",
+      "input": [["NeighborSum", "adjacentSum", "diagonalSum"], [[[[0, 1, 2], [3, 4, 5], [6, 7, 8]]], [2], [2]]] },
+    { "kind": "trap", "description": "an edge (non-corner) cell on the top row has three adjacent and two diagonal neighbors, not four",
+      "input": [["NeighborSum", "adjacentSum", "diagonalSum"], [[[[0, 1, 2], [3, 4, 5], [6, 7, 8]]], [1], [1]]] },
+    { "kind": "trap", "description": "diagonalSum must ignore the cardinal neighbors entirely for an interior cell",
+      "input": [["NeighborSum", "diagonalSum", "adjacentSum"], [[[[5, 1, 2, 9], [3, 0, 8, 4], [6, 7, 11, 10], [12, 13, 14, 15]]], [0], [0]]] },
+    { "kind": "edge", "description": "repeated queries on the same value return the same sum, exercising the lookup cache",
+      "input": [["NeighborSum", "adjacentSum", "adjacentSum", "diagonalSum", "diagonalSum"], [[[[0, 1, 2], [3, 4, 5], [6, 7, 8]]], [4], [4], [4], [4]]] },
+    { "kind": "boundary", "description": "bottom-right corner of a 3x3 grid: single adjacent-up/left and single diagonal neighbor",
+      "input": [["NeighborSum", "adjacentSum", "diagonalSum"], [[[[0, 1, 2], [3, 4, 5], [6, 7, 8]]], [8], [8]]] }
+  ],
+  "stress": [
+    {
+      "description": "random n x n grid (3<=n<=10) of a shuffled permutation of [0, n*n-1], with interleaved adjacent/diagonal queries over every value",
+      "seed": 41,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(3, 10)\n    perm = list(range(n * n))\n    rng.shuffle(perm)\n    grid = [perm[r * n:(r + 1) * n] for r in range(n)]\n    ops = ['NeighborSum']\n    args = [[grid]]\n    for _ in range(max(1, size)):\n        v = rng.randint(0, n * n - 1)\n        if rng.random() < 0.5:\n            ops.append('adjacentSum')\n        else:\n            ops.append('diagonalSum')\n        args.append([v])\n    return [ops, args]\n",
+      "note": "distinct values guaranteed by permutation; query space covers corners, edges, and interior cells"
+    }
+  ],
+  "oracle_python": "class NeighborSum:\n    def __init__(self, grid):\n        self.grid = grid\n        self.n = len(grid)\n    def _pos(self, value):\n        for r in range(self.n):\n            for c in range(self.n):\n                if self.grid[r][c] == value:\n                    return r, c\n        return -1, -1\n    def _sum(self, value, dirs):\n        r, c = self._pos(value)\n        total = 0\n        for dr, dc in dirs:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < self.n and 0 <= nc < self.n:\n                total += self.grid[nr][nc]\n        return total\n    def adjacentSum(self, value):\n        return self._sum(value, [(-1, 0), (1, 0), (0, -1), (0, 1)])\n    def diagonalSum(self, value):\n        return self._sum(value, [(-1, -1), (-1, 1), (1, -1), (1, 1)])\n",
+  "solutions": {
+    "python": "class NeighborSum:\n    def __init__(self, grid):\n        self.grid = grid\n        self.n = len(grid)\n        self.loc = {}\n        for r in range(self.n):\n            for c in range(self.n):\n                self.loc[grid[r][c]] = (r, c)\n    def _sum(self, value, dirs):\n        r, c = self.loc[value]\n        total = 0\n        for dr, dc in dirs:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < self.n and 0 <= nc < self.n:\n                total += self.grid[nr][nc]\n        return total\n    def adjacentSum(self, value):\n        return self._sum(value, [(-1, 0), (1, 0), (0, -1), (0, 1)])\n    def diagonalSum(self, value):\n        return self._sum(value, [(-1, -1), (-1, 1), (1, -1), (1, 1)])\n",
+    "javascript": "class NeighborSum {\n    constructor(grid) {\n        this.grid = grid;\n        this.n = grid.length;\n        this.loc = new Map();\n        for (let r = 0; r < this.n; r++) {\n            for (let c = 0; c < this.n; c++) {\n                this.loc.set(grid[r][c], [r, c]);\n            }\n        }\n    }\n    _sum(value, dirs) {\n        const [r, c] = this.loc.get(value);\n        let total = 0;\n        for (const [dr, dc] of dirs) {\n            const nr = r + dr, nc = c + dc;\n            if (nr >= 0 && nr < this.n && nc >= 0 && nc < this.n) {\n                total += this.grid[nr][nc];\n            }\n        }\n        return total;\n    }\n    adjacentSum(value) {\n        return this._sum(value, [[-1, 0], [1, 0], [0, -1], [0, 1]]);\n    }\n    diagonalSum(value) {\n        return this._sum(value, [[-1, -1], [-1, 1], [1, -1], [1, 1]]);\n    }\n}\n"
+  },
+  "complexity": { "time": "O(n^2) build, O(1) per query", "space": "O(n^2)" }
+}

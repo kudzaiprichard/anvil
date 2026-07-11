@@ -1,0 +1,38 @@
+{
+  "slug": "paths-in-matrix-whose-sum-is-divisible-by-k",
+  "judge": "exact",
+  "pattern": "Dynamic programming that tracks, at every cell, how many down-right paths arrive with each possible running-sum remainder modulo k.",
+  "hints": [
+    "Only the path sum's remainder modulo k matters, so carry a count for each of the k remainders into every cell.",
+    "A cell inherits path-remainder counts from the cell above and to the left, then shifts every remainder by the cell's own value.",
+    "Let dp[i][j][r] be the number of paths reaching (i,j) whose sum mod k is r; combine the two predecessors, rotate by grid[i][j], and read dp[m-1][n-1][0] modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "grid", "kind": "int[][]", "len": [1, 200], "value": [0, 100] },
+    { "param": "k", "kind": "int", "value": [1, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two divisible paths", "input": [[[5, 2, 4], [3, 0, 5], [0, 7, 2]], 3] },
+    { "kind": "boundary", "description": "single-row single-cell pair with zero sum", "input": [[[0, 0]], 5] },
+    { "kind": "trap", "description": "k equals one so every path counts", "input": [[[7, 3, 4, 9], [2, 3, 6, 2], [2, 3, 7, 0]], 1] },
+    { "kind": "boundary", "description": "single cell grid", "input": [[[6]], 3] },
+    { "kind": "edge", "description": "single column", "input": [[[2], [4], [6]], 4] },
+    { "kind": "trap", "description": "no path is divisible", "input": [[[1, 1], [1, 1]], 5] },
+    { "kind": "edge", "description": "all zeros, every path divisible", "input": [[[0, 0, 0], [0, 0, 0]], 7] }
+  ],
+  "stress": [
+    {
+      "description": "random small rectangular grid so the exponential oracle stays fast while many paths overlap",
+      "seed": 17,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, max(1, min(size, 6)))\n    n = rng.randint(1, max(1, min(size, 6)))\n    grid = [[rng.randint(0, 100) for _ in range(n)] for _ in range(m)]\n    k = rng.randint(1, 50)\n    return [grid, k]\n",
+      "note": "bounded to <=6x6 so the brute-force path enumeration terminates quickly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfPaths(self, grid, k):\n        MOD = 10**9 + 7\n        m, n = len(grid), len(grid[0])\n        count = 0\n        # enumerate every down/right path explicitly (feasible only for small grids)\n        def walk(i, j, s):\n            nonlocal count\n            s += grid[i][j]\n            if i == m - 1 and j == n - 1:\n                if s % k == 0:\n                    count += 1\n                return\n            if i + 1 < m:\n                walk(i + 1, j, s)\n            if j + 1 < n:\n                walk(i, j + 1, s)\n        walk(0, 0, 0)\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfPaths(self, grid, k):\n        MOD = 10**9 + 7\n        m, n = len(grid), len(grid[0])\n        dp = [[[0] * k for _ in range(n)] for _ in range(m)]\n        dp[0][0][grid[0][0] % k] = 1\n        for i in range(m):\n            for j in range(n):\n                if i == 0 and j == 0:\n                    continue\n                v = grid[i][j] % k\n                cur = dp[i][j]\n                for r in range(k):\n                    total = 0\n                    pr = (r - v) % k\n                    if i > 0:\n                        total += dp[i - 1][j][pr]\n                    if j > 0:\n                        total += dp[i][j - 1][pr]\n                    cur[r] = total % MOD\n        return dp[m - 1][n - 1][0] % MOD\n",
+    "javascript": "var numberOfPaths = function(grid, k) {\n    const MOD = 1000000007n;\n    const m = grid.length, n = grid[0].length;\n    const dp = Array.from({ length: m }, () =>\n        Array.from({ length: n }, () => new Array(k).fill(0n)));\n    dp[0][0][grid[0][0] % k] = 1n;\n    for (let i = 0; i < m; i++) {\n        for (let j = 0; j < n; j++) {\n            if (i === 0 && j === 0) continue;\n            const v = grid[i][j] % k;\n            for (let r = 0; r < k; r++) {\n                let total = 0n;\n                const pr = ((r - v) % k + k) % k;\n                if (i > 0) total += dp[i - 1][j][pr];\n                if (j > 0) total += dp[i][j - 1][pr];\n                dp[i][j][r] = total % MOD;\n            }\n        }\n    }\n    return Number(dp[m - 1][n - 1][0] % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(m*n*k)", "space": "O(m*n*k)" }
+}

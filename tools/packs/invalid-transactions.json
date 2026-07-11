@@ -1,0 +1,38 @@
+{
+  "slug": "invalid-transactions",
+  "judge": "unordered",
+  "pattern": "Grouping transactions by name turns the cross-city time-proximity check into a localized pairwise scan, while the amount rule is a simple per-transaction filter.",
+  "hints": [
+    "Two independent reasons make a transaction suspect: a large amount, or a same-name transaction in another city close in time. Handle them separately then union the flagged ones.",
+    "Only transactions sharing a name can trigger the proximity rule, so bucket by name first; within a bucket compare times across differing cities.",
+    "Parse each record into name/time/amount/city, flag any amount over 1000, and flag both members of any same-name pair within 60 minutes whose cities differ."
+  ],
+  "constraints": [
+    { "param": "transactions", "kind": "string[]", "len": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two same-name records in different cities within window", "input": [["alice,20,800,mtv", "alice,50,100,beijing"]] },
+    { "kind": "edge", "description": "only the over-amount one is invalid", "input": [["alice,20,800,mtv", "alice,50,1200,mtv"]] },
+    { "kind": "trap", "description": "different names so proximity never applies", "input": [["alice,20,800,mtv", "bob,50,1200,mtv"]] },
+    { "kind": "trap", "description": "same city within window stays valid on amount alone", "input": [["x,10,500,nyc", "x,30,500,nyc"]] },
+    { "kind": "boundary", "description": "exactly 60 minutes apart, different cities, both flagged", "input": [["y,100,10,la", "y,160,10,sf"]] },
+    { "kind": "trap", "description": "61 minutes apart is outside the window", "input": [["z,100,10,la", "z,161,10,sf"]] },
+    { "kind": "edge", "description": "everything valid yields empty list", "input": [["a,1,1,p", "b,2,2,q"]] },
+    { "kind": "trap", "description": "amount exactly 1000 is not over the limit", "input": [["m,5,1000,c"]] }
+  ],
+  "stress": [
+    {
+      "description": "many records over a small name and city pool to force collisions",
+      "seed": 41,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1000))\n    names = ['al', 'bo', 'cy', 'da']\n    cities = ['mtv', 'nyc', 'sf', 'la']\n    txs = []\n    for _ in range(n):\n        nm = rng.choice(names)\n        t = rng.randint(0, 200)\n        amt = rng.randint(0, 2000)\n        ct = rng.choice(cities)\n        txs.append('%s,%d,%d,%s' % (nm, t, amt, ct))\n    return [txs]\n",
+      "note": "tiny pools maximise same-name cross-city proximity collisions"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def invalidTransactions(self, transactions):\n        parsed = []\n        for t in transactions:\n            name, time, amount, city = t.split(',')\n            parsed.append((name, int(time), int(amount), city, t))\n        bad = [False] * len(parsed)\n        for i in range(len(parsed)):\n            if parsed[i][2] > 1000:\n                bad[i] = True\n            for j in range(len(parsed)):\n                if i == j:\n                    continue\n                ni, ti, _, ci, _ = parsed[i]\n                nj, tj, _, cj, _ = parsed[j]\n                if ni == nj and ci != cj and abs(ti - tj) <= 60:\n                    bad[i] = True\n        return [parsed[i][4] for i in range(len(parsed)) if bad[i]]\n",
+  "solutions": {
+    "python": "class Solution:\n    def invalidTransactions(self, transactions):\n        from collections import defaultdict\n        recs = []\n        by_name = defaultdict(list)\n        for idx, t in enumerate(transactions):\n            name, time, amount, city = t.split(',')\n            recs.append((name, int(time), int(amount), city))\n            by_name[name].append(idx)\n        invalid = set()\n        for idx, (name, time, amount, city) in enumerate(recs):\n            if amount > 1000:\n                invalid.add(idx)\n            for jdx in by_name[name]:\n                if jdx == idx:\n                    continue\n                _, tj, _, cj = recs[jdx]\n                if cj != city and abs(tj - time) <= 60:\n                    invalid.add(idx)\n                    invalid.add(jdx)\n        return [transactions[i] for i in sorted(invalid)]\n",
+    "javascript": "var invalidTransactions = function(transactions) {\n    const recs = transactions.map(t => {\n        const [name, time, amount, city] = t.split(',');\n        return { name, time: +time, amount: +amount, city };\n    });\n    const byName = new Map();\n    recs.forEach((r, i) => {\n        if (!byName.has(r.name)) byName.set(r.name, []);\n        byName.get(r.name).push(i);\n    });\n    const invalid = new Set();\n    recs.forEach((r, i) => {\n        if (r.amount > 1000) invalid.add(i);\n        for (const j of byName.get(r.name)) {\n            if (j === i) continue;\n            const o = recs[j];\n            if (o.city !== r.city && Math.abs(o.time - r.time) <= 60) {\n                invalid.add(i);\n                invalid.add(j);\n            }\n        }\n    });\n    const idxs = [...invalid].sort((a, b) => a - b);\n    return idxs.map(i => transactions[i]);\n};\n"
+  },
+  "complexity": { "time": "O(n^2) worst case", "space": "O(n)" }
+}

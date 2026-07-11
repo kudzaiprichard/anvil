@@ -1,0 +1,91 @@
+{
+  "slug": "kth-ancestor-of-a-tree-node",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Precomputing each node's 2nd, 4th, 8th, ... ancestor up front turns any single ancestor query into a handful of table lookups picked out by the binary digits of k.",
+  "hints": [
+    "Walking up one parent link at a time per query is too slow when there can be tens of thousands of queries on a tree with tens of thousands of nodes.",
+    "Precompute, for every node, its ancestor 2^0, 2^1, 2^2, ... steps up (each row built from the previous one, since the 2^j-th ancestor is the 2^(j-1)-th ancestor of the 2^(j-1)-th ancestor).",
+    "To answer getKthAncestor, consume k one bit at a time: whenever a bit is set, jump using that power-of-two row; stop early and return -1 the moment you jump off the top of the tree."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 50000] },
+    { "param": "parent", "kind": "int[]", "len": [1, 50000], "value": [-1, 50000] },
+    { "param": "node", "kind": "int", "value": [0, 50000] },
+    { "param": "k", "kind": "int", "value": [0, 50000] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "a small branching tree with several ancestor depths, including one query past the root",
+      "input": [
+        ["TreeAncestor", "getKthAncestor", "getKthAncestor", "getKthAncestor", "getKthAncestor"],
+        [[8, [-1, 0, 0, 1, 1, 3, 3, 5]], [4, 1], [6, 2], [7, 3], [7, 10]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a straight chain, walking multiple steps up including exactly to the root",
+      "input": [
+        ["TreeAncestor", "getKthAncestor", "getKthAncestor", "getKthAncestor", "getKthAncestor"],
+        [[6, [-1, 0, 1, 2, 3, 4]], [5, 1], [5, 5], [5, 6], [0, 0]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a star topology where every non-root node is a direct child of the root",
+      "input": [
+        ["TreeAncestor", "getKthAncestor", "getKthAncestor", "getKthAncestor"],
+        [[5, [-1, 0, 0, 0, 0]], [3, 1], [3, 2], [0, 0]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single-node tree: k=0 returns the node itself, k=1 has no ancestor",
+      "input": [
+        ["TreeAncestor", "getKthAncestor", "getKthAncestor"],
+        [[1, [-1]], [0, 0], [0, 1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "k=0 must return the queried node itself, not its parent",
+      "input": [
+        ["TreeAncestor", "getKthAncestor", "getKthAncestor"],
+        [[4, [-1, 0, 1, 2]], [3, 0], [2, 0]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "requesting an ancestor exactly one step beyond the root must give -1, not wrap around",
+      "input": [
+        ["TreeAncestor", "getKthAncestor", "getKthAncestor"],
+        [[3, [-1, 0, 1]], [2, 2], [2, 3]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random tree near the max node count with a long stream of random ancestor queries",
+      "seed": 60,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 50000))\n    parent = [-1] + [rng.randint(0, i) for i in range(n - 1)]\n    ops = ['TreeAncestor']\n    args = [[n, parent]]\n    for _ in range(min(50000, max(1, n))):\n        ops.append('getKthAncestor')\n        args.append([rng.randint(0, n - 1), rng.randint(0, n)])\n    return [ops, args]\n",
+      "note": "parent[i] < i for i > 0 keeps it a valid tree rooted at 0"
+    },
+    {
+      "description": "a single long chain, stressing deep ancestor jumps",
+      "seed": 61,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 50000))\n    parent = [-1] + list(range(n - 1))\n    ops = ['TreeAncestor']\n    args = [[n, parent]]\n    for _ in range(2000):\n        ops.append('getKthAncestor')\n        args.append([rng.randint(0, n - 1), rng.randint(0, n)])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "class TreeAncestor:\n    def __init__(self, n, parent):\n        self.parent = parent\n    def getKthAncestor(self, node, k):\n        for _ in range(k):\n            node = self.parent[node]\n            if node == -1:\n                return -1\n        return node\n",
+  "solutions": {
+    "python": "class TreeAncestor:\n    def __init__(self, n, parent):\n        log = max(1, n.bit_length() + 1)\n        self.up = [[-1] * n for _ in range(log)]\n        self.up[0] = parent[:]\n        for j in range(1, log):\n            for v in range(n):\n                mid = self.up[j - 1][v]\n                self.up[j][v] = -1 if mid == -1 else self.up[j - 1][mid]\n\n    def getKthAncestor(self, node, k):\n        j = 0\n        while k > 0 and node != -1:\n            if k & 1:\n                node = self.up[j][node]\n            k >>= 1\n            j += 1\n        return node\n",
+    "javascript": "var TreeAncestor = function(n, parent) {\n    let log = 1;\n    while ((1 << log) < n) log++;\n    log += 1;\n    this.up = [];\n    this.up.push(parent.slice());\n    for (let j = 1; j < log; j++) {\n        const prev = this.up[j - 1];\n        const cur = new Array(n).fill(-1);\n        for (let v = 0; v < n; v++) {\n            const mid = prev[v];\n            cur[v] = mid === -1 ? -1 : prev[mid];\n        }\n        this.up.push(cur);\n    }\n};\n\nTreeAncestor.prototype.getKthAncestor = function(node, k) {\n    let j = 0;\n    while (k > 0 && node !== -1) {\n        if (k & 1) node = this.up[j][node];\n        k >>= 1;\n        j += 1;\n    }\n    return node;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n) build, O(log n) per query",
+    "space": "O(n log n)"
+  }
+}

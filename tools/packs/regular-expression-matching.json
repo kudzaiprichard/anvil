@@ -1,0 +1,39 @@
+{
+  "slug": "regular-expression-matching",
+  "judge": "exact",
+  "pattern": "Matching with '.' and '*' is a classic two-dimensional DP where each '*' branches into using zero copies or consuming one more character.",
+  "hints": [
+    "Ask whether the first characters match, but treat a following '*' specially because it governs the character before it.",
+    "A '*' gives two choices: ignore the starred element entirely, or consume one matching character and stay on the same pattern position.",
+    "Let dp[i][j] mean s[i:] matches p[j:]. When p[j+1] is '*', dp[i][j] is true if dp[i][j+2] (zero copies) holds, or the first char matches and dp[i+1][j] holds. Otherwise it needs a single-character match plus dp[i+1][j+1]."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 20] },
+    { "param": "p", "kind": "string", "len": [1, 20] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "literal mismatch", "input": ["aa", "a"] },
+    { "kind": "edge", "description": "star repeats the previous letter", "input": ["aa", "a*"] },
+    { "kind": "edge", "description": "dot-star matches anything", "input": ["ab", ".*"] },
+    { "kind": "trap", "description": "star must be allowed to match zero copies", "input": ["aab", "c*a*b"] },
+    { "kind": "trap", "description": "pattern longer than the string via zeroing stars", "input": ["a", "ab*"] },
+    { "kind": "trap", "description": "interleaved stars where greedy matching fails", "input": ["mississippi", "mis*is*p*."] },
+    { "kind": "edge", "description": "dot matches a single arbitrary character", "input": ["ab", "a."] },
+    { "kind": "trap", "description": "star of dot consuming the whole string then needing more", "input": ["aaa", ".*a"] }
+  ],
+  "stress": [
+    {
+      "description": "short strings and patterns over a tiny alphabet with frequent dots and stars",
+      "seed": 37,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    sn = rng.randrange(1, min(20, max(2, size)) + 1)\n    s = ''.join(rng.choice('ab') for _ in range(sn))\n    pchars = []\n    while len(''.join(pchars)) < rng.randrange(1, min(20, max(2, size)) + 1):\n        tok = rng.choice(['a', 'b', '.'])\n        pchars.append(tok)\n        if rng.random() < 0.4:\n            pchars.append('*')\n    p = ''.join(pchars)[:20]\n    if not p:\n        p = 'a'\n    if p[0] == '*':\n        p = 'a' + p[1:]\n    return [s, p]\n",
+      "note": "tiny alphabet and frequent stars stress the zero-copy branch; lengths capped at 20"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def isMatch(self, s, p):\n        from functools import lru_cache\n        @lru_cache(maxsize=None)\n        def dp(i, j):\n            if j == len(p):\n                return i == len(s)\n            first = i < len(s) and (p[j] == s[i] or p[j] == '.')\n            if j + 1 < len(p) and p[j + 1] == '*':\n                return dp(i, j + 2) or (first and dp(i + 1, j))\n            return first and dp(i + 1, j + 1)\n        return dp(0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def isMatch(self, s, p):\n        m, n = len(s), len(p)\n        dp = [[False] * (n + 1) for _ in range(m + 1)]\n        dp[m][n] = True\n        for i in range(m, -1, -1):\n            for j in range(n - 1, -1, -1):\n                first = i < m and (p[j] == s[i] or p[j] == '.')\n                if j + 1 < n and p[j + 1] == '*':\n                    dp[i][j] = dp[i][j + 2] or (first and dp[i + 1][j])\n                else:\n                    dp[i][j] = first and dp[i + 1][j + 1]\n        return dp[0][0]\n",
+    "javascript": "var isMatch = function(s, p) {\n    const m = s.length, n = p.length;\n    const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(false));\n    dp[m][n] = true;\n    for (let i = m; i >= 0; i--) {\n        for (let j = n - 1; j >= 0; j--) {\n            const first = i < m && (p[j] === s[i] || p[j] === '.');\n            if (j + 1 < n && p[j + 1] === '*') {\n                dp[i][j] = dp[i][j + 2] || (first && dp[i + 1][j]);\n            } else {\n                dp[i][j] = first && dp[i + 1][j + 1];\n            }\n        }\n    }\n    return dp[0][0];\n};\n"
+  },
+  "complexity": { "time": "O(m*n)", "space": "O(m*n)" }
+}

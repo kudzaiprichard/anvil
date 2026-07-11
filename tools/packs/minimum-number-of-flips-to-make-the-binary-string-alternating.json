@@ -1,0 +1,45 @@
+{
+  "slug": "minimum-number-of-flips-to-make-the-binary-string-alternating",
+  "judge": "exact",
+  "pattern": "Since the rotation operation lets any cyclic shift be the starting point, double the string and slide a window of the original length, tracking flips needed to match each of the two alternating templates with a sliding-window count.",
+  "hints": [
+    "The type-1 operation just cycles the string, so the answer is the best over all rotations of the flips needed to make it alternating.",
+    "For a fixed string the flips needed equal mismatches against '0101...' (and the complement is length minus that), so concatenate s with itself and slide.",
+    "Maintain mismatch counts for both templates over a window of length n in the doubled string, taking the minimum as the window moves."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "needs two flips after rotation", "input": ["111000"] },
+    { "kind": "edge", "description": "already alternating", "input": ["010"] },
+    { "kind": "trap", "description": "one flip on a short string", "input": ["1110"] },
+    { "kind": "boundary", "description": "single character", "input": ["0"] },
+    { "kind": "edge", "description": "all ones", "input": ["1111"] },
+    { "kind": "trap", "description": "even length where rotation does not help", "input": ["1100"] },
+    { "kind": "edge", "description": "odd length where rotation matters", "input": ["00011"] },
+    { "kind": "boundary", "description": "two characters equal", "input": ["11"] }
+  ],
+  "stress": [
+    {
+      "description": "random binary strings of varying length",
+      "seed": 41,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 3000)\n    return [''.join(rng.choice('01') for _ in range(n))]\n",
+      "note": "general structure"
+    },
+    {
+      "description": "odd-length strings where cyclic rotation can reduce flips",
+      "seed": 42,
+      "size": 4000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 1500) * 2 + 1\n    return [''.join(rng.choice('01') for _ in range(n))]\n",
+      "note": "exercises the rotation benefit"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minFlips(self, s):\n        # Independent: try every rotation explicitly (capped use only on small inputs at runtime,\n        # but stress sizes here are large so use the doubled-string accumulation per rotation start).\n        n = len(s)\n        t = s + s\n        # prefix mismatches against template starting with '0' at absolute position parity.\n        # cost0[i] = 1 if t[i] should be '0' (i even) but is '1', etc.; we compute per window by reset.\n        best = n\n        # Use sliding window to stay fast.\n        cost0 = 0\n        cost1 = 0\n        for i in range(n):\n            exp0 = '0' if i % 2 == 0 else '1'\n            if t[i] != exp0:\n                cost0 += 1\n            else:\n                cost1 += 1\n        best = min(cost0, cost1)\n        for i in range(n, 2 * n):\n            # remove leftmost of previous window at index i-n\n            l = i - n\n            expL = '0' if l % 2 == 0 else '1'\n            if t[l] != expL:\n                cost0 -= 1\n            else:\n                cost1 -= 1\n            expR = '0' if i % 2 == 0 else '1'\n            if t[i] != expR:\n                cost0 += 1\n            else:\n                cost1 += 1\n            best = min(best, cost0, cost1)\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def minFlips(self, s):\n        n = len(s)\n        t = s + s\n        cost0 = cost1 = 0\n        best = n\n        for i in range(n):\n            exp = i % 2\n            if int(t[i]) != exp:\n                cost0 += 1\n            else:\n                cost1 += 1\n        best = min(cost0, cost1)\n        for i in range(n, 2 * n):\n            l = i - n\n            expL = l % 2\n            if int(t[l]) != expL:\n                cost0 -= 1\n            else:\n                cost1 -= 1\n            expR = i % 2\n            if int(t[i]) != expR:\n                cost0 += 1\n            else:\n                cost1 += 1\n            best = min(best, cost0, cost1)\n        return best\n",
+    "javascript": "var minFlips = function(s) {\n    const n = s.length;\n    const t = s + s;\n    let cost0 = 0, cost1 = 0;\n    for (let i = 0; i < n; i++) {\n        const exp = i % 2;\n        if ((t.charCodeAt(i) - 48) !== exp) cost0++; else cost1++;\n    }\n    let best = Math.min(cost0, cost1);\n    for (let i = n; i < 2 * n; i++) {\n        const l = i - n;\n        const expL = l % 2;\n        if ((t.charCodeAt(l) - 48) !== expL) cost0--; else cost1--;\n        const expR = i % 2;\n        if ((t.charCodeAt(i) - 48) !== expR) cost0++; else cost1++;\n        best = Math.min(best, cost0, cost1);\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

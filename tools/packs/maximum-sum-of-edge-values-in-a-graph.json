@@ -1,0 +1,43 @@
+{
+  "slug": "maximum-sum-of-edge-values-in-a-graph",
+  "judge": "exact",
+  "pattern": "With every node having degree at most two and the graph connected, the whole thing is a single path or single cycle, and the largest labels should cluster in the middle (or around the ring) so big values multiply big values.",
+  "hints": [
+    "A connected graph where each node touches at most two others is just one long chain, or one loop.",
+    "To maximize a sum of products of adjacent labels, the biggest numbers should sit next to each other; place the largest in the center and add the next ones alternately to each side.",
+    "Detect path versus cycle by comparing edge count to node count; lay out values n, n-1, ... outward from the middle, and for a cycle close the ring so the two smallest end up adjacent."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 50000] },
+    { "param": "edges", "kind": "int[][]", "len": [1, 50000], "value": [0, 49999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "simple 4-node path", "input": [4, [[0, 1], [1, 2], [2, 3]]] },
+    { "kind": "edge", "description": "6-node cycle given out of order", "input": [6, [[0, 3], [4, 5], [2, 0], [1, 3], [2, 4], [1, 5]]] },
+    { "kind": "boundary", "description": "smallest path, single edge", "input": [2, [[0, 1]]] },
+    { "kind": "edge", "description": "triangle is the smallest cycle", "input": [3, [[0, 1], [1, 2], [2, 0]]] },
+    { "kind": "trap", "description": "path labelled so endpoints are the largest indices", "input": [5, [[4, 0], [0, 2], [2, 1], [1, 3]]] },
+    { "kind": "edge", "description": "four-node cycle", "input": [4, [[0, 1], [1, 2], [2, 3], [3, 0]]] }
+  ],
+  "stress": [
+    {
+      "description": "random single path with shuffled node labels",
+      "seed": 4,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 8))\n    perm = list(range(n))\n    rng.shuffle(perm)\n    edges = [[perm[i], perm[i + 1]] for i in range(n - 1)]\n    return [n, edges]\n",
+      "note": "kept small so the permutation-brute oracle stays fast"
+    },
+    {
+      "description": "random single cycle with shuffled node labels",
+      "seed": 44,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 8))\n    perm = list(range(n))\n    rng.shuffle(perm)\n    edges = [[perm[i], perm[(i + 1) % n]] for i in range(n)]\n    return [n, edges]\n"
+    }
+  ],
+  "oracle_python": "import itertools\nclass Solution:\n    def maxScore(self, n, edges):\n        if n == 1:\n            return 0\n        best = 0\n        for perm in itertools.permutations(range(1, n + 1)):\n            s = 0\n            for a, b in edges:\n                s += perm[a] * perm[b]\n            if s > best:\n                best = s\n        return best\n",
+  "solutions": {
+    "python": "from collections import deque\nclass Solution:\n    def maxScore(self, n, edges):\n        if n == 1:\n            return 0\n        m = len(edges)\n        vals = list(range(1, n + 1))\n        is_cycle = (m == n)\n        if not is_cycle:\n            dq = deque()\n            left = True\n            for v in reversed(vals):\n                if left:\n                    dq.appendleft(v)\n                else:\n                    dq.append(v)\n                left = not left\n            seq = list(dq)\n            return sum(seq[i] * seq[i + 1] for i in range(len(seq) - 1))\n        else:\n            dq = deque([vals[-1]])\n            left = True\n            for v in reversed(vals[:-1]):\n                if left:\n                    dq.appendleft(v)\n                else:\n                    dq.append(v)\n                left = not left\n            arr = list(dq)\n            return sum(arr[i] * arr[(i + 1) % n] for i in range(n))\n",
+    "javascript": "var maxScore = function(n, edges) {\n    if (n === 1) return 0;\n    const m = edges.length;\n    const vals = [];\n    for (let i = 1; i <= n; i++) vals.push(i);\n    const isCycle = (m === n);\n    const dq = [];\n    let left = true;\n    if (!isCycle) {\n        for (let i = vals.length - 1; i >= 0; i--) {\n            if (left) dq.unshift(vals[i]); else dq.push(vals[i]);\n            left = !left;\n        }\n        let s = 0;\n        for (let i = 0; i + 1 < dq.length; i++) s += dq[i] * dq[i + 1];\n        return s;\n    } else {\n        dq.push(vals[vals.length - 1]);\n        for (let i = vals.length - 2; i >= 0; i--) {\n            if (left) dq.unshift(vals[i]); else dq.push(vals[i]);\n            left = !left;\n        }\n        let s = 0;\n        for (let i = 0; i < n; i++) s += dq[i] * dq[(i + 1) % n];\n        return s;\n    }\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

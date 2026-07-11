@@ -1,0 +1,40 @@
+{
+  "slug": "string-to-integer-atoi",
+  "judge": "exact",
+  "pattern": "A small state machine - skip spaces, read an optional sign, consume digits - parses the prefix, and a 32-bit clamp keeps the result in range.",
+  "hints": [
+    "Parse strictly left to right and stop the moment you hit a character that is not part of a valid number.",
+    "The order matters: optional leading spaces, then at most one sign, then digits; anything after the digits is ignored.",
+    "Skip leading whitespace, read a single optional '+'/'-', accumulate consecutive digits, stop at the first non-digit, then clamp the signed value to [-2^31, 2^31 - 1]."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [0, 200] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "plain positive number", "input": ["42"] },
+    { "kind": "trap", "description": "leading spaces, sign, and a leading zero", "input": ["   -042"] },
+    { "kind": "trap", "description": "digits followed by letters stop at the letters", "input": ["1337c0d3"] },
+    { "kind": "trap", "description": "a sign that does not immediately follow the digit yields the leading zero", "input": ["0-1"] },
+    { "kind": "trap", "description": "leading letters mean no number is read", "input": ["words and 987"] },
+    { "kind": "boundary", "description": "value above the 32-bit ceiling clamps to the max", "input": ["91283472332"] },
+    { "kind": "boundary", "description": "value below the 32-bit floor clamps to the min", "input": ["-91283472332"] },
+    { "kind": "edge", "description": "empty string yields zero", "input": [""] },
+    { "kind": "trap", "description": "a lone plus sign with no digits is zero", "input": ["+"] },
+    { "kind": "trap", "description": "internal sign and dot stop parsing", "input": ["  +0 123"] }
+  ],
+  "stress": [
+    {
+      "description": "random strings from the allowed alphabet, often a valid numeric prefix",
+      "seed": 23,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randrange(0, max(1, size) + 1)\n    alphabet = list('0123456789') + [' ', '+', '-', '.', 'a', 'b', 'z']\n    chars = []\n    if rng.random() < 0.5:\n        chars.extend([' '] * rng.randrange(0, 4))\n        if rng.random() < 0.5:\n            chars.append(rng.choice('+-'))\n        chars.extend(rng.choice('0123456789') for _ in range(rng.randrange(1, 14)))\n    chars.extend(rng.choice(alphabet) for _ in range(rng.randrange(0, 6)))\n    s = ''.join(chars)[:200]\n    return [s]\n",
+      "note": "mixes deliberately-valid prefixes with noise; clamp range is exercised"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def myAtoi(self, s):\n        i = 0\n        n = len(s)\n        while i < n and s[i] == ' ':\n            i += 1\n        sign = 1\n        if i < n and s[i] in '+-':\n            if s[i] == '-':\n                sign = -1\n            i += 1\n        digits = ''\n        while i < n and s[i].isdigit():\n            digits += s[i]\n            i += 1\n        if not digits:\n            return 0\n        val = sign * int(digits)\n        if val < -2147483648:\n            return -2147483648\n        if val > 2147483647:\n            return 2147483647\n        return val\n",
+  "solutions": {
+    "python": "class Solution:\n    def myAtoi(self, s):\n        INT_MIN, INT_MAX = -2147483648, 2147483647\n        i, n = 0, len(s)\n        while i < n and s[i] == ' ':\n            i += 1\n        sign = 1\n        if i < n and (s[i] == '+' or s[i] == '-'):\n            sign = -1 if s[i] == '-' else 1\n            i += 1\n        num = 0\n        started = False\n        while i < n and '0' <= s[i] <= '9':\n            started = True\n            num = num * 10 + (ord(s[i]) - 48)\n            i += 1\n        if not started:\n            return 0\n        num *= sign\n        if num < INT_MIN:\n            return INT_MIN\n        if num > INT_MAX:\n            return INT_MAX\n        return num\n",
+    "javascript": "var myAtoi = function(s) {\n    const INT_MIN = -2147483648, INT_MAX = 2147483647;\n    let i = 0;\n    const n = s.length;\n    while (i < n && s[i] === ' ') i++;\n    let sign = 1;\n    if (i < n && (s[i] === '+' || s[i] === '-')) {\n        sign = s[i] === '-' ? -1 : 1;\n        i++;\n    }\n    let num = 0;\n    let started = false;\n    while (i < n && s[i] >= '0' && s[i] <= '9') {\n        started = true;\n        num = num * 10 + (s.charCodeAt(i) - 48);\n        i++;\n    }\n    if (!started) return 0;\n    num *= sign;\n    if (num < INT_MIN) return INT_MIN;\n    if (num > INT_MAX) return INT_MAX;\n    return num;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(1)" }
+}

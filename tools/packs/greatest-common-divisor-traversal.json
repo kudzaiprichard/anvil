@@ -1,0 +1,37 @@
+{
+  "slug": "greatest-common-divisor-traversal",
+  "judge": "exact",
+  "pattern": "Two entries can only shake hands through a shared prime factor, so give every prime its own hub node and union each index with the hubs of its own prime factors -- the whole array is one traversable group exactly when a single union-find pass collapses everyone into one root.",
+  "hints": [
+    "Two elements are directly connectable only when they share some prime factor greater than 1 -- comparing every pair's gcd directly is far too slow to be the real approach.",
+    "Give each distinct prime its own 'hub' node and union every array index with the hubs of its own prime factors using a disjoint-set structure -- elements sharing a prime automatically land in the same set.",
+    "After processing all the numbers, check whether every index shares the same root as index 0. Also watch for the value 1: it has no prime factors at all, so it can never connect to anything else."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a short chain that fully connects through shared factors", "input": [[2, 3, 6]] },
+    { "kind": "edge", "description": "one element shares no prime with the rest", "input": [[3, 9, 5]] },
+    { "kind": "edge", "description": "a slightly longer fully connected group", "input": [[4, 3, 12, 8]] },
+    { "kind": "boundary", "description": "single element is trivially traversable", "input": [[7]] },
+    { "kind": "boundary", "description": "two large values near the constraint ceiling that share no factor", "input": [[100000, 99999]] },
+    { "kind": "trap", "description": "the value 1 is isolated even though the rest of the array is connected", "input": [[1, 2, 4]] },
+    { "kind": "trap", "description": "a chain of powers of the same prime", "input": [[2, 4, 8, 16]] },
+    { "kind": "trap", "description": "two internally-connected groups that never touch each other", "input": [[2, 4, 3, 9]] }
+  ],
+  "stress": [
+    {
+      "description": "random values across the full range, large enough to exercise the sieve and union-find at scale",
+      "seed": 11,
+      "size": 15000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 15000))\n    nums = [rng.randint(1, 100000) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canTraverseAllPairs(self, nums) -> bool:\n        n = len(nums)\n        if n == 1:\n            return True\n        from collections import defaultdict\n        maxv = max(nums)\n        spf = list(range(maxv + 1))\n        i = 2\n        while i * i <= maxv:\n            if spf[i] == i:\n                for j in range(i * i, maxv + 1, i):\n                    if spf[j] == j:\n                        spf[j] = i\n            i += 1\n        prime_groups = defaultdict(list)\n        adj = defaultdict(set)\n        for idx, v in enumerate(nums):\n            x = v\n            primes = set()\n            while x > 1:\n                p = spf[x]\n                primes.add(p)\n                while x % p == 0:\n                    x //= p\n            for p in primes:\n                prime_groups[p].append(idx)\n        for p, idxs in prime_groups.items():\n            for k in range(1, len(idxs)):\n                a, b = idxs[k - 1], idxs[k]\n                adj[a].add(b)\n                adj[b].add(a)\n        visited = {0}\n        stack = [0]\n        while stack:\n            u = stack.pop()\n            for w in adj[u]:\n                if w not in visited:\n                    visited.add(w)\n                    stack.append(w)\n        return len(visited) == n\n",
+  "solutions": {
+    "python": "class Solution:\n    def canTraverseAllPairs(self, nums) -> bool:\n        n = len(nums)\n        if n == 1:\n            return True\n        maxv = max(nums)\n        spf = list(range(maxv + 1))\n        i = 2\n        while i * i <= maxv:\n            if spf[i] == i:\n                for j in range(i * i, maxv + 1, i):\n                    if spf[j] == j:\n                        spf[j] = i\n            i += 1\n        parent = {}\n\n        def find(x):\n            if x not in parent:\n                parent[x] = x\n            root = x\n            while parent[root] != root:\n                root = parent[root]\n            while parent[x] != root:\n                parent[x], x = root, parent[x]\n            return root\n\n        def union(a, b):\n            ra, rb = find(a), find(b)\n            if ra != rb:\n                parent[ra] = rb\n\n        for idx, v in enumerate(nums):\n            if v == 1:\n                find(idx)\n                continue\n            x = v\n            while x > 1:\n                p = spf[x]\n                union(idx, ('p', p))\n                while x % p == 0:\n                    x //= p\n\n        roots = {find(idx) for idx in range(n)}\n        return len(roots) == 1\n",
+    "javascript": "var canTraverseAllPairs = function(nums) {\n    const n = nums.length;\n    if (n === 1) return true;\n    const maxv = Math.max(...nums);\n    const spf = new Int32Array(maxv + 1);\n    for (let i = 0; i <= maxv; i++) spf[i] = i;\n    for (let i = 2; i * i <= maxv; i++) {\n        if (spf[i] === i) {\n            for (let j = i * i; j <= maxv; j += i) {\n                if (spf[j] === j) spf[j] = i;\n            }\n        }\n    }\n    const parent = new Map();\n    function find(x) {\n        if (!parent.has(x)) parent.set(x, x);\n        let root = x;\n        while (parent.get(root) !== root) root = parent.get(root);\n        while (parent.get(x) !== root) {\n            const next = parent.get(x);\n            parent.set(x, root);\n            x = next;\n        }\n        return root;\n    }\n    function union(a, b) {\n        const ra = find(a);\n        const rb = find(b);\n        if (ra !== rb) parent.set(ra, rb);\n    }\n    for (let idx = 0; idx < n; idx++) {\n        let v = nums[idx];\n        if (v === 1) {\n            find(idx);\n            continue;\n        }\n        let x = v;\n        while (x > 1) {\n            const p = spf[x];\n            union(idx, 'p:' + p);\n            while (x % p === 0) x = Math.floor(x / p);\n        }\n    }\n    const roots = new Set();\n    for (let idx = 0; idx < n; idx++) roots.add(find(idx));\n    return roots.size === 1;\n};\n"
+  },
+  "complexity": { "time": "O(n log(max(nums)))", "space": "O(n + max(nums))" }
+}

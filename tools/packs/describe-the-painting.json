@@ -1,0 +1,37 @@
+{
+  "slug": "describe-the-painting",
+  "judge": "unordered",
+  "pattern": "A sweep-line over segment endpoints accumulates color-sum deltas; every endpoint is a real boundary, so each gap with positive sum becomes its own output piece.",
+  "hints": [
+    "Think of each painted segment as adding its color at the start point and removing it at the end point.",
+    "Record a +color delta at every start and a -color delta at every end, then walk the sorted distinct coordinates accumulating the current mixed sum.",
+    "Between two adjacent coordinates the mixed sum is constant; emit a segment for each gap with positive sum. Do not merge neighbors with equal sums — distinct endpoints mark a change in the actual color set."
+  ],
+  "constraints": [
+    { "param": "segments", "kind": "int[][]", "len": [1, 20000], "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three overlapping segments mix in two regions", "input": [[[1, 4, 5], [4, 7, 7], [1, 7, 9]]] },
+    { "kind": "edge", "description": "gap and partial overlaps create four pieces", "input": [[[1, 7, 9], [6, 8, 15], [8, 10, 7]]] },
+    { "kind": "trap", "description": "equal sums on different regions must stay separate", "input": [[[1, 4, 5], [1, 4, 7], [4, 7, 1], [4, 7, 11]]] },
+    { "kind": "boundary", "description": "single segment, no mixing", "input": [[[1, 100000, 1000000000]]] },
+    { "kind": "trap", "description": "two identical-range segments combine into one sum", "input": [[[2, 5, 3], [2, 5, 8]]] },
+    { "kind": "edge", "description": "adjacent touching segments do not overlap", "input": [[[1, 3, 4], [3, 5, 6]]] },
+    { "kind": "trap", "description": "nested segment produces three regions, outer ones share endpoints", "input": [[[1, 10, 2], [3, 6, 5]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random segments over a compact coordinate range with distinct colors",
+      "seed": 7,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    colors = rng.sample(range(1, 1000000000), n)\n    segs = []\n    for i in range(n):\n        a = rng.randrange(1, 100000)\n        b = rng.randrange(a + 1, 100001)\n        segs.append([a, b, colors[i]])\n    return [segs]\n",
+      "note": "distinct colors as required"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def splitPainting(self, segments):\n        # Independent: enumerate every elementary interval and sum covering colors directly.\n        coords = sorted({x for s, e, c in segments for x in (s, e)})\n        res = []\n        for i in range(len(coords) - 1):\n            a, b = coords[i], coords[i + 1]\n            total = 0\n            for s, e, c in segments:\n                if s <= a and b <= e:\n                    total += c\n            if total > 0:\n                res.append([a, b, total])\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def splitPainting(self, segments):\n        from collections import defaultdict\n        diff = defaultdict(int)\n        for start, end, color in segments:\n            diff[start] += color\n            diff[end] -= color\n        points = sorted(diff.keys())\n        result = []\n        running = 0\n        prev = None\n        for p in points:\n            if prev is not None and running > 0:\n                result.append([prev, p, running])\n            running += diff[p]\n            prev = p\n        return result\n",
+    "javascript": "var splitPainting = function(segments) {\n    const diff = new Map();\n    for (const [start, end, color] of segments) {\n        diff.set(start, (diff.get(start) || 0) + color);\n        diff.set(end, (diff.get(end) || 0) - color);\n    }\n    const points = [...diff.keys()].sort((a, b) => a - b);\n    const result = [];\n    let running = 0;\n    let prev = null;\n    for (const p of points) {\n        if (prev !== null && running > 0) {\n            result.push([prev, p, running]);\n        }\n        running += diff.get(p);\n        prev = p;\n    }\n    return result;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

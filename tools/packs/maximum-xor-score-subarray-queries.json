@@ -1,0 +1,211 @@
+{
+  "slug": "maximum-xor-score-subarray-queries",
+  "judge": "exact",
+  "pattern": "The reduction score of a subarray obeys the same recurrence as Pascal's triangle but with XOR in place of addition, so every subarray's score can be built once from smaller ones, and the best score over any sub-range follows the same incremental widening.",
+  "hints": [
+    "The repeated 'XOR each adjacent pair, drop the last' process on a subarray has a closed recurrence: the score of range [i, j] is the score of [i, j-1] XORed with the score of [i+1, j].",
+    "Fill a table of every subarray's score by increasing length, using that recurrence, starting from single elements as the base case.",
+    "For each query, track the best score over any sub-range within it using another table built the same way: the best for [l, r] is the max of its own score and the best sub-ranges [l+1, r] and [l, r-1]."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        2000
+      ],
+      "value": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        1999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "three overlapping queries over the same array",
+      "input": [
+        [
+          2,
+          8,
+          4,
+          32,
+          16,
+          1
+        ],
+        [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            0,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "five queries of varying width",
+      "input": [
+        [
+          0,
+          7,
+          3,
+          2,
+          8,
+          5,
+          1
+        ],
+        [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            5,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single element array, single element query",
+      "input": [
+        [
+          9
+        ],
+        [
+          [
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a query spanning the whole array",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        [
+          [
+            0,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "every element is identical, so every XOR score collapses toward zero or the element itself",
+      "input": [
+        [
+          5,
+          5,
+          5,
+          5
+        ],
+        [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a two-element query where the whole range beats either single element",
+      "input": [
+        [
+          3,
+          12
+        ],
+        [
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "zero values mixed in should never break the recurrence",
+      "input": [
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          [
+            0,
+            3
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "moderate arrays with many random queries",
+      "seed": 111,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 400))\n    nums = [rng.randint(0, 2**31 - 1) for _ in range(n)]\n    q = min(2000, n * n)\n    queries = []\n    for _ in range(q):\n        l = rng.randint(0, n - 1)\n        r = rng.randint(l, n - 1)\n        queries.append([l, r])\n    return [nums, queries]\n",
+      "note": "kept under the full 2000-length boundary to stay fast in the shipped sandbox"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumSubarrayXor(self, nums, queries):\n        # Independent implementation: literally simulate the fold-and-drop\n        # process on every candidate subarray instead of using the recurrence.\n        def xor_score(arr):\n            a = list(arr)\n            while len(a) > 1:\n                a = [a[i] ^ a[i + 1] for i in range(len(a) - 1)]\n            return a[0]\n\n        res = []\n        for l, r in queries:\n            best = 0\n            for i in range(l, r + 1):\n                for j in range(i, r + 1):\n                    best = max(best, xor_score(nums[i:j + 1]))\n            res.append(best)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumSubarrayXor(self, nums, queries):\n        n = len(nums)\n        score = [[0] * n for _ in range(n)]\n        best = [[0] * n for _ in range(n)]\n        for i in range(n):\n            score[i][i] = nums[i]\n            best[i][i] = nums[i]\n        for length in range(2, n + 1):\n            for l in range(0, n - length + 1):\n                r = l + length - 1\n                score[l][r] = score[l][r - 1] ^ score[l + 1][r]\n                best[l][r] = max(score[l][r], best[l + 1][r], best[l][r - 1])\n        return [best[l][r] for l, r in queries]\n",
+    "javascript": "var maximumSubarrayXor = function(nums, queries) {\n    const n = nums.length;\n    const score = Array.from({length: n}, () => new Array(n).fill(0));\n    const best = Array.from({length: n}, () => new Array(n).fill(0));\n    for (let i = 0; i < n; i++) { score[i][i] = nums[i]; best[i][i] = nums[i]; }\n    for (let len = 2; len <= n; len++) {\n        for (let l = 0; l + len - 1 < n; l++) {\n            const r = l + len - 1;\n            score[l][r] = score[l][r - 1] ^ score[l + 1][r];\n            best[l][r] = Math.max(score[l][r], best[l + 1][r], best[l][r - 1]);\n        }\n    }\n    return queries.map(([l, r]) => best[l][r]);\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2 + q)",
+    "space": "O(n^2)"
+  }
+}

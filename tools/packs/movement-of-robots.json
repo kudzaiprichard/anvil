@@ -1,0 +1,45 @@
+{
+  "slug": "movement-of-robots",
+  "judge": "exact",
+  "pattern": "When two moving points bounce off each other and swap direction, the resulting set of positions is identical to if they had passed straight through - so the whole collision story can be ignored and every position advanced independently.",
+  "hints": [
+    "Try imagining that colliding robots simply pass through each other instead of bouncing - does the final arrangement of occupied positions actually change?",
+    "Because the robots are otherwise interchangeable, only the multiset of final positions matters for a sum over all pairs, not which physical robot ended up where - so move every robot for the full duration as if nothing ever blocked it.",
+    "Sort the n independently-advanced final positions, then sweep once with a running prefix sum so the total of every pairwise absolute difference is built in linear time instead of comparing every pair directly; take the result modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [2, 100000], "value": [-2000000000, 2000000000], "note": "all values distinct" },
+    { "param": "s", "kind": "string", "len": [2, 100000], "note": "matches nums.length; each character is 'L' or 'R'" },
+    { "param": "d", "kind": "int", "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two robots moving toward each other collide and bounce back", "input": [[0, 4], "RL", 10] },
+    { "kind": "edge", "description": "two robots moving apart never interact", "input": [[-5, 5], "LR", 1] },
+    { "kind": "edge", "description": "all robots move the same direction, keeping their spacing fixed", "input": [[-3, 0, 6], "RRR", 4] },
+    { "kind": "boundary", "description": "minimum length input with zero elapsed time leaves positions untouched", "input": [[7, -7], "RL", 0] },
+    { "kind": "boundary", "description": "extreme coordinate magnitudes with the maximum elapsed time", "input": [[-2000000000, 2000000000], "RL", 1000000000] },
+    { "kind": "trap", "description": "two robots land on the exact same final coordinate, contributing zero to that pair", "input": [[0, 4], "RL", 2] },
+    { "kind": "trap", "description": "five robots with mixed directions create several potential meeting points", "input": [[-6, -2, 1, 5, 9], "RLRLR", 3] },
+    { "kind": "trap", "description": "a robot moving left from a negative start crosses several others heading right", "input": [[-10, -1, 0, 2, 8], "LRRLR", 5] }
+  ],
+  "stress": [
+    {
+      "description": "near-maximum robot count with unique coordinates spread across the full range and random directions",
+      "seed": 4001,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    nums = rng.sample(range(-2000000000, 2000000001), n)\n    s = ''.join(rng.choice('LR') for _ in range(n))\n    d = rng.randint(0, 1000000000)\n    return [nums, s, d]\n"
+    },
+    {
+      "description": "many robots packed into a narrow coordinate band, forcing frequent overlaps at the same final position",
+      "seed": 4002,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 40000))\n    pool = rng.sample(range(-100000, 100000), n)\n    s = ''.join(rng.choice('LR') for _ in range(n))\n    d = rng.randint(0, 50000)\n    return [pool, s, d]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sumDistance(self, nums, s, d):\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        finals = [nums[i] + d if s[i] == 'R' else nums[i] - d for i in range(n)]\n        total = 0\n        for i in range(n):\n            for j in range(i + 1, n):\n                total += abs(finals[i] - finals[j])\n        return total % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def sumDistance(self, nums: List[int], s: str, d: int) -> int:\n        MOD = 10 ** 9 + 7\n        n = len(nums)\n        finals = [nums[i] + d if s[i] == 'R' else nums[i] - d for i in range(n)]\n        finals.sort()\n        total = 0\n        prefix = 0\n        for i, x in enumerate(finals):\n            total += i * x - prefix\n            prefix += x\n        return total % MOD\n",
+    "javascript": "var sumDistance = function(nums, s, d) {\n    const n = nums.length;\n    const bd = BigInt(d);\n    const finals = new Array(n);\n    for (let i = 0; i < n; i++) {\n        const base = BigInt(nums[i]);\n        finals[i] = s[i] === 'R' ? base + bd : base - bd;\n    }\n    finals.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));\n    let total = 0n;\n    let prefix = 0n;\n    for (let i = 0; i < n; i++) {\n        total += BigInt(i) * finals[i] - prefix;\n        prefix += finals[i];\n    }\n    const MOD = 1000000007n;\n    let result = total % MOD;\n    if (result < 0n) result += MOD;\n    return Number(result);\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

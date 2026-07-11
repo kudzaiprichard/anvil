@@ -1,0 +1,96 @@
+{
+  "slug": "design-a-text-editor",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Represent text as two stacks split at the cursor: the left stack holds characters before the cursor and the right stack holds characters after, giving O(k) cursor movement and O(k) text operations.",
+  "hints": [
+    "addText, deleteText, cursorLeft, and cursorRight all touch only the characters near the cursor position, not the whole text.",
+    "Model the cursor as a split between two halves of the text; moving left transfers one character from the left half to the right, and moving right does the reverse.",
+    "Two stacks (or deques) back-to-back at the cursor make every operation O(k) by popping from one and pushing to the other; the last-10-chars result is just the top 10 of the left stack."
+  ],
+  "constraints": [
+    { "param": "text", "kind": "string", "len": [1, 40] },
+    { "param": "k", "kind": "int", "value": [1, 40] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "add text, delete some, add more, then move cursor both ways",
+      "input": [
+        ["TextEditor", "addText", "deleteText", "addText", "cursorRight", "cursorLeft", "deleteText", "cursorLeft", "cursorRight"],
+        [[], ["leetcode"], [4], ["practice"], [3], [8], [10], [2], [6]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "cursor starts at leftmost; cursorLeft does nothing, returns empty string",
+      "input": [
+        ["TextEditor", "addText", "cursorLeft", "cursorLeft"],
+        [[], ["abc"], [10], [1]]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "cursor at right end; cursorRight does nothing",
+      "input": [
+        ["TextEditor", "addText", "cursorRight", "cursorRight"],
+        [[], ["xyz"], [5], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "deleteText when fewer than k characters to the left; returns actual count deleted",
+      "input": [
+        ["TextEditor", "addText", "deleteText"],
+        [[], ["hi"], [10]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "cursorLeft returns min(10, chars-left); here text is shorter than 10",
+      "input": [
+        ["TextEditor", "addText", "cursorLeft"],
+        [[], ["short"], [0]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character text; delete removes it; subsequent operations on empty editor",
+      "input": [
+        ["TextEditor", "addText", "deleteText", "cursorLeft", "cursorRight"],
+        [[], ["a"], [1], [1], [1]]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "addText inserts at current cursor position (middle of text), not at end",
+      "input": [
+        ["TextEditor", "addText", "cursorLeft", "addText", "cursorRight"],
+        [[], ["ac"], [1], ["b"], [5]]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "cursorLeft partial move: fewer than k chars on left, cursor stops at 0",
+      "input": [
+        ["TextEditor", "addText", "cursorLeft", "cursorRight"],
+        [[], ["hello"], [3], [1]]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random mix of addText, deleteText, cursorLeft, cursorRight on small alphabet text",
+      "seed": 13,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    import string\n    ops = ['TextEditor']\n    args = [[]]\n    text_len = 0  # approximate left-side chars at cursor\n    for _ in range(max(1, size)):\n        r = rng.random()\n        if r < 0.3:\n            t = ''.join(rng.choice('abcde') for _ in range(rng.randint(1, 5)))\n            ops.append('addText'); args.append([t]); text_len += len(t)\n        elif r < 0.5:\n            k = rng.randint(1, 5)\n            ops.append('deleteText'); args.append([k])\n            text_len = max(0, text_len - k)\n        elif r < 0.75:\n            k = rng.randint(1, 5)\n            ops.append('cursorLeft'); args.append([k])\n            text_len = max(0, text_len - k)\n        else:\n            k = rng.randint(1, 5)\n            ops.append('cursorRight'); args.append([k])\n            text_len += k  # approximate only, capped internally\n    return [ops, args]\n",
+      "note": "small alphabet and short operations; checks cursor clamping and split-text consistency"
+    }
+  ],
+  "oracle_python": "class TextEditor:\n    def __init__(self):\n        self.text = ''\n        self.pos = 0  # cursor position in text\n    def addText(self, text):\n        self.text = self.text[:self.pos] + text + self.text[self.pos:]\n        self.pos += len(text)\n    def deleteText(self, k):\n        actual = min(k, self.pos)\n        self.text = self.text[:self.pos - actual] + self.text[self.pos:]\n        self.pos -= actual\n        return actual\n    def cursorLeft(self, k):\n        self.pos = max(0, self.pos - k)\n        start = max(0, self.pos - 10)\n        return self.text[start:self.pos]\n    def cursorRight(self, k):\n        self.pos = min(len(self.text), self.pos + k)\n        start = max(0, self.pos - 10)\n        return self.text[start:self.pos]\n",
+  "solutions": {
+    "python": "class TextEditor:\n    def __init__(self):\n        self.left = []   # chars before cursor, top = adjacent to cursor\n        self.right = []  # chars after cursor, top = adjacent to cursor\n\n    def addText(self, text: str) -> None:\n        for c in text:\n            self.left.append(c)\n\n    def deleteText(self, k: int) -> int:\n        actual = min(k, len(self.left))\n        for _ in range(actual):\n            self.left.pop()\n        return actual\n\n    def _left_str(self):\n        n = min(10, len(self.left))\n        return ''.join(self.left[-n:]) if n else ''\n\n    def cursorLeft(self, k: int) -> str:\n        for _ in range(min(k, len(self.left))):\n            self.right.append(self.left.pop())\n        return self._left_str()\n\n    def cursorRight(self, k: int) -> str:\n        for _ in range(min(k, len(self.right))):\n            self.left.append(self.right.pop())\n        return self._left_str()\n",
+    "javascript": "class TextEditor {\n    constructor() {\n        this.left = [];   // chars before cursor\n        this.right = [];  // chars after cursor (reversed)\n    }\n    addText(text) {\n        for (const c of text) this.left.push(c);\n    }\n    deleteText(k) {\n        const actual = Math.min(k, this.left.length);\n        for (let i = 0; i < actual; i++) this.left.pop();\n        return actual;\n    }\n    _leftStr() {\n        const n = Math.min(10, this.left.length);\n        return this.left.slice(this.left.length - n).join('');\n    }\n    cursorLeft(k) {\n        const moves = Math.min(k, this.left.length);\n        for (let i = 0; i < moves; i++) this.right.push(this.left.pop());\n        return this._leftStr();\n    }\n    cursorRight(k) {\n        const moves = Math.min(k, this.right.length);\n        for (let i = 0; i < moves; i++) this.left.push(this.right.pop());\n        return this._leftStr();\n    }\n}\n"
+  },
+  "complexity": { "time": "O(k) per op", "space": "O(total text length)" }
+}

@@ -1,0 +1,72 @@
+{
+  "slug": "count-beautiful-splits-in-an-array",
+  "judge": "exact",
+  "pattern": "A three-way split is beautiful exactly when one of its middle boundaries is forced to repeat the run of values that came just before it, which turns into a longest-common-prefix question between two suffixes of the same array.",
+  "hints": [
+    "Fix the first cut point i; whether the first piece is a prefix of the second piece only depends on i and the length of the second piece, not on where the second cut lands, as long as the second piece is long enough.",
+    "Whether the second piece is a prefix of the third piece is really asking how many positions the suffix starting right after the first cut and the suffix starting right after the second cut agree on -- a longest-common-prefix-between-two-suffixes question.",
+    "You can answer 'how far do two suffixes agree' for every possible second cut in one pass per first cut by running a Z-function on the suffix that starts at the first cut, then reading off the shared-prefix length at the offset where the second cut would begin."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 5000], "value": [0, 50] }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two beautiful splits from the same first cut",
+      "input": [[1, 1, 2, 1]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, strictly increasing values give zero splits",
+      "input": [[1, 2, 3, 4]]
+    },
+    {
+      "kind": "boundary",
+      "description": "shortest possible array, too small for any split",
+      "input": [[5]]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest length that admits a split, all values equal",
+      "input": [[2, 2, 2]]
+    },
+    {
+      "kind": "trap",
+      "description": "every value identical, so almost every split qualifies and the counting formula must not double count",
+      "input": [[3, 3, 3, 3, 3, 3]]
+    },
+    {
+      "kind": "trap",
+      "description": "strictly increasing, longer than the anchor example, still zero splits",
+      "input": [[1, 2, 3, 4, 5, 6]]
+    },
+    {
+      "kind": "edge",
+      "description": "an alternating pattern that only partially repeats",
+      "input": [[5, 1, 5, 1, 5, 1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "a longer uniform array using the minimum allowed value, to exercise the performance-sensitive path at scale",
+      "input": [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "arrays biased toward repeated values (small alphabet) so beautiful splits are common, up to the maximum length",
+      "seed": 3,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 5000))\n    nums = [rng.randint(0, 50) for _ in range(n)]\n    return [nums]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def beautifulSplits(self, nums):\n        n = len(nums)\n        count = 0\n        for i in range(1, n - 1):\n            for j in range(i + 1, n):\n                nums1 = nums[0:i]\n                nums2 = nums[i:j]\n                nums3 = nums[j:n]\n                condA = len(nums1) <= len(nums2) and nums2[:len(nums1)] == nums1\n                condB = len(nums2) <= len(nums3) and nums3[:len(nums2)] == nums2\n                if condA or condB:\n                    count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def beautifulSplits(self, nums):\n        n = len(nums)\n        count = 0\n        for i in range(1, n - 1):\n            condA_ok = False\n            if 2 * i <= n:\n                condA_ok = nums[0:i] == nums[i:2 * i]\n            if condA_ok:\n                count += (n - 1) - (2 * i) + 1\n\n            suf = nums[i:]\n            m = len(suf)\n            z = [0] * m\n            l, r = 0, 0\n            for k in range(1, m):\n                if k < r:\n                    z[k] = min(r - k, z[k - l])\n                while k + z[k] < m and suf[z[k]] == suf[k + z[k]]:\n                    z[k] += 1\n                if k + z[k] > r:\n                    l, r = k, k + z[k]\n\n            for j in range(i + 1, n):\n                offset = j - i\n                if offset >= m:\n                    continue\n                if 2 * j - i > n:\n                    continue\n                if condA_ok and j >= 2 * i:\n                    continue\n                length_needed = j - i\n                if z[offset] >= length_needed:\n                    count += 1\n        return count\n",
+    "javascript": "var beautifulSplits = function(nums) {\n    const n = nums.length;\n    let count = 0;\n    for (let i = 1; i < n - 1; i++) {\n        let condAOk = false;\n        if (2 * i <= n) {\n            condAOk = true;\n            for (let t = 0; t < i; t++) {\n                if (nums[t] !== nums[i + t]) { condAOk = false; break; }\n            }\n        }\n        if (condAOk) {\n            count += (n - 1) - (2 * i) + 1;\n        }\n\n        const suf = nums.slice(i);\n        const m = suf.length;\n        const z = new Array(m).fill(0);\n        let l = 0, r = 0;\n        for (let k = 1; k < m; k++) {\n            if (k < r) {\n                z[k] = Math.min(r - k, z[k - l]);\n            }\n            while (k + z[k] < m && suf[z[k]] === suf[k + z[k]]) {\n                z[k]++;\n            }\n            if (k + z[k] > r) {\n                l = k; r = k + z[k];\n            }\n        }\n\n        for (let j = i + 1; j < n; j++) {\n            const offset = j - i;\n            if (offset >= m) continue;\n            if (2 * j - i > n) continue;\n            if (condAOk && j >= 2 * i) continue;\n            const lengthNeeded = j - i;\n            if (z[offset] >= lengthNeeded) count++;\n        }\n    }\n    return count;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n^2) -- an O(n) Z-function pass for each of the n possible first cuts",
+    "space": "O(n) for the Z-function array reused per first cut"
+  }
+}

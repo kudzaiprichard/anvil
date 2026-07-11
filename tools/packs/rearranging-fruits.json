@@ -1,0 +1,74 @@
+{
+  "slug": "rearranging-fruits",
+  "judge": "exact",
+  "pattern": "Balancing two multisets by pairwise swaps reduces to matching each surplus value against a deficit value, where every match can either be paid for directly or bounced through the single cheapest fruit anywhere for a possibly cheaper detour.",
+  "hints": [
+    "First check feasibility: for every distinct cost value, its total count across both baskets combined must be even, otherwise no swap sequence can ever equalize the baskets.",
+    "For each value with an imbalance between the two baskets, collect half the imbalance count into one shared list -- these represent the fruits that must end up on the other side.",
+    "Sort that list; pair its smaller half against its larger half, and for each pair spend either that pair's own cheaper cost or twice the single cheapest fruit in either basket, whichever is less."
+  ],
+  "constraints": [
+    {
+      "param": "basket1",
+      "kind": "int[]",
+      "len": [1, 100000],
+      "value": [1, 1000000000],
+      "note": "basket1.length == basket2.length"
+    },
+    {
+      "param": "basket2",
+      "kind": "int[]",
+      "len": [1, 100000],
+      "value": [1, 1000000000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "already equal multisets in a different order need zero cost",
+      "input": [[1, 2, 3], [3, 2, 1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element baskets already matching",
+      "input": [[7], [7]]
+    },
+    {
+      "kind": "trap",
+      "description": "single-element baskets that can never match, odd imbalance",
+      "input": [[2], [5]]
+    },
+    {
+      "kind": "trap",
+      "description": "a cheap fruit elsewhere makes bouncing through the global minimum cheaper than a direct swap of the two surplus values",
+      "input": [[10, 10, 1, 1], [8, 8, 1, 1]]
+    },
+    {
+      "kind": "trap",
+      "description": "an odd total count for one value makes the whole rearrangement impossible even though other values balance fine",
+      "input": [[4, 4, 2], [4, 2, 2]]
+    },
+    {
+      "kind": "boundary",
+      "description": "small basket at the constraint's minimum value throughout",
+      "input": [[1, 1, 1, 1], [1, 1, 1, 1]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random baskets of equal length and random costs, sometimes feasible and sometimes not",
+      "seed": 71,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    basket1 = [rng.randint(1, 1000000000) for _ in range(n)]\n    basket2 = [rng.randint(1, 1000000000) for _ in range(n)]\n    return [basket1, basket2]\n"
+    }
+  ],
+  "oracle_python": "import heapq\nfrom collections import Counter\nclass Solution:\n    def minCost(self, basket1, basket2):\n        n = len(basket1)\n        total = basket1 + basket2\n        c1 = Counter(basket1)\n        c2 = Counter(basket2)\n        for key in set(c1) | set(c2):\n            if (c1.get(key, 0) - c2.get(key, 0)) % 2 != 0:\n                return -1\n        total_counter = Counter(total)\n        def complement(b1):\n            rem = Counter(total_counter)\n            rem.subtract(Counter(b1))\n            out = []\n            for v, c in rem.items():\n                out.extend([v] * c)\n            return tuple(sorted(out))\n        start = tuple(sorted(basket1))\n        dist = {start: 0}\n        pq = [(0, start)]\n        while pq:\n            d, b1 = heapq.heappop(pq)\n            if d > dist.get(b1, float('inf')):\n                continue\n            b2 = complement(b1)\n            if b1 == b2:\n                return d\n            b1_list = list(b1)\n            for i in range(n):\n                for j in range(n):\n                    cost = min(b1_list[i], b2[j])\n                    nb1 = b1_list[:]\n                    nb1[i] = b2[j]\n                    nb1_t = tuple(sorted(nb1))\n                    nd = d + cost\n                    if nd < dist.get(nb1_t, float('inf')):\n                        dist[nb1_t] = nd\n                        heapq.heappush(pq, (nd, nb1_t))\n        return -1\n",
+  "solutions": {
+    "python": "from collections import Counter\nclass Solution:\n    def minCost(self, basket1, basket2):\n        c1 = Counter(basket1)\n        c2 = Counter(basket2)\n        diff = []\n        for key in set(c1) | set(c2):\n            d = c1.get(key, 0) - c2.get(key, 0)\n            if d % 2 != 0:\n                return -1\n            half = abs(d) // 2\n            if half:\n                diff.extend([key] * half)\n        if not diff:\n            return 0\n        diff.sort()\n        g = min(min(basket1), min(basket2))\n        total = 0\n        for i in range(len(diff) // 2):\n            total += min(diff[i], 2 * g)\n        return total\n",
+    "javascript": "var minCost = function(basket1, basket2) {\n    const count = new Map();\n    for (const x of basket1) count.set(x, (count.get(x) || 0) + 1);\n    for (const x of basket2) count.set(x, (count.get(x) || 0) - 1);\n    const diff = [];\n    for (const [key, d] of count) {\n        if (d % 2 !== 0) return -1;\n        const half = Math.abs(d) / 2;\n        for (let i = 0; i < half; i++) diff.push(key);\n    }\n    if (diff.length === 0) return 0;\n    diff.sort((a, b) => a - b);\n    let g = Infinity;\n    for (const x of basket1) if (x < g) g = x;\n    for (const x of basket2) if (x < g) g = x;\n    let total = 0;\n    for (let i = 0; i < Math.floor(diff.length / 2); i++) {\n        total += Math.min(diff[i], 2 * g);\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

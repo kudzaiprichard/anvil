@@ -1,0 +1,38 @@
+{
+  "slug": "count-no-zero-pairs-that-sum-to-n",
+  "judge": "exact",
+  "pattern": "A digit dynamic program over the digits of n with a carry tracks, position by position, the no-zero digits chosen for both addends and whether each addend has run out of digits.",
+  "hints": [
+    "Brute force adds every a from 1 to n-1, but n can be huge. Think about building a and b one decimal digit at a time from the least significant end, with a carry between positions.",
+    "Each addend's digit at a live position must be 1..9 (never 0). The two chosen digits plus the incoming carry must match the corresponding digit of n.",
+    "The two numbers may have different lengths, so track for each addend whether it still has digits left; an addend that has ended contributes 0. Memoize on (position, carry, a-active, b-active)."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 1000000000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "smallest n has the single pair (1,1)", "input": [2] },
+    { "kind": "edge", "description": "n=3 gives two ordered pairs", "input": [3] },
+    { "kind": "trap", "description": "pairs using 10 are excluded for n=11", "input": [11] },
+    { "kind": "edge", "description": "all small one-digit splits", "input": [9] },
+    { "kind": "trap", "description": "n containing a zero digit constrains carries", "input": [101] },
+    { "kind": "boundary", "description": "round number forces carries throughout", "input": [100] },
+    { "kind": "edge", "description": "two-digit n with no zeros", "input": [54] },
+    { "kind": "trap", "description": "n that is a repdigit", "input": [99] }
+  ],
+  "stress": [
+    {
+      "description": "moderate n so the O(n) oracle stays fast while exercising multi-digit carries",
+      "seed": 41,
+      "size": 50000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(2, max(2, size))\n    return [n]\n",
+      "note": "kept within range the brute oracle can enumerate quickly"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def countNoZeroPairs(self, n):\n        cnt = 0\n        for a in range(1, n):\n            b = n - a\n            if '0' not in str(a) and '0' not in str(b):\n                cnt += 1\n        return cnt\n",
+  "solutions": {
+    "python": "import sys\nfrom functools import lru_cache\n\nclass Solution:\n    def countNoZeroPairs(self, n):\n        digits = [int(c) for c in str(n)][::-1]\n        L = len(digits)\n        sys.setrecursionlimit(100000)\n\n        @lru_cache(maxsize=None)\n        def dp(pos, carry, a_active, b_active):\n            if pos == L + 1:\n                return 1 if carry == 0 and not a_active and not b_active else 0\n            target = digits[pos] if pos < L else 0\n            total = 0\n            da_opts = range(1, 10) if a_active else (0,)\n            db_opts = range(1, 10) if b_active else (0,)\n            for da in da_opts:\n                for db in db_opts:\n                    s = da + db + carry\n                    if s % 10 != target:\n                        continue\n                    nc = s // 10\n                    na_choices = (True, False) if a_active else (False,)\n                    nb_choices = (True, False) if b_active else (False,)\n                    for na in na_choices:\n                        for nb in nb_choices:\n                            total += dp(pos + 1, nc, na, nb)\n            return total\n\n        res = dp(0, 0, True, True)\n        dp.cache_clear()\n        return res\n",
+    "javascript": "var countNoZeroPairs = function(n) {\n    const digits = String(n).split('').map(Number).reverse();\n    const L = digits.length;\n    const memo = new Map();\n    function dp(pos, carry, aActive, bActive) {\n        if (pos === L + 1) {\n            return (carry === 0 && !aActive && !bActive) ? 1 : 0;\n        }\n        const key = pos + ',' + carry + ',' + (aActive ? 1 : 0) + ',' + (bActive ? 1 : 0);\n        if (memo.has(key)) return memo.get(key);\n        const target = pos < L ? digits[pos] : 0;\n        let total = 0;\n        const daOpts = aActive ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [0];\n        const dbOpts = bActive ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [0];\n        for (const da of daOpts) {\n            for (const db of dbOpts) {\n                const s = da + db + carry;\n                if (s % 10 !== target) continue;\n                const nc = Math.floor(s / 10);\n                const naChoices = aActive ? [true, false] : [false];\n                const nbChoices = bActive ? [true, false] : [false];\n                for (const na of naChoices) {\n                    for (const nb of nbChoices) {\n                        total += dp(pos + 1, nc, na, nb);\n                    }\n                }\n            }\n        }\n        memo.set(key, total);\n        return total;\n    }\n    return dp(0, 0, true, true);\n};\n"
+  },
+  "complexity": { "time": "O(log n)", "space": "O(log n)" }
+}

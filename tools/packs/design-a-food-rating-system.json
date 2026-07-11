@@ -1,0 +1,46 @@
+{
+  "slug": "design-a-food-rating-system",
+  "judge": "design",
+  "no_anchor_ok": true,
+  "pattern": "Group items by category and keep each group in a structure ordered by (rating desc, name asc) so the best item is found without rescanning the whole group.",
+  "hints": [
+    "A linear scan of every food in a cuisine on each query is too slow when there are many queries; you want the best item for a cuisine to be cheap to retrieve.",
+    "The ordering you need is by rating descending and, on a tie, by name ascending — store that ordering per cuisine so the front of it is always the answer.",
+    "Track each food's current rating and cuisine; for each cuisine keep a heap or sorted set keyed by (-rating, name), and lazily skip stale entries left behind after a rating change."
+  ],
+  "constraints": [
+    { "param": "ratings", "kind": "int[]", "len": [1, 20000], "value": [1, 100000000] },
+    { "param": "newRating", "kind": "int", "value": [1, 100000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example: rating changes shift which food is highest, with a tie broken lexicographically",
+      "input": [["FoodRatings", "highestRated", "highestRated", "changeRating", "highestRated", "changeRating", "highestRated"], [[["kimchi", "miso", "sushi", "moussaka", "ramen", "bulgogi"], ["korean", "japanese", "japanese", "greek", "japanese", "korean"], [9, 12, 8, 15, 14, 7]], ["korean"], ["japanese"], ["sushi", 16], ["japanese"], ["ramen", 16], ["japanese"]]] },
+    { "kind": "edge", "description": "single food in its cuisine is always the answer",
+      "input": [["FoodRatings", "highestRated", "changeRating", "highestRated"], [[["a"], ["x"], [5]], ["x"], ["a", 99], ["x"]]] },
+    { "kind": "trap", "description": "tie on rating must pick the lexicographically smaller name, not insertion order",
+      "input": [["FoodRatings", "highestRated", "highestRated"], [[["banana", "apple", "cherry"], ["fruit", "fruit", "fruit"], [10, 10, 10]], ["fruit"], ["fruit"]]] },
+    { "kind": "trap", "description": "lowering the current best can hand the lead to a lexicographically smaller name on a fresh tie",
+      "input": [["FoodRatings", "highestRated", "changeRating", "highestRated", "changeRating", "highestRated"], [[["zeta", "alpha"], ["c", "c"], [8, 5]], ["c"], ["alpha", 8], ["c"], ["zeta", 3], ["c"]]] },
+    { "kind": "trap", "description": "raising then lowering the same food across multiple changes; stale entries must not win",
+      "input": [["FoodRatings", "changeRating", "highestRated", "changeRating", "highestRated", "changeRating", "highestRated"], [[["m", "n"], ["k", "k"], [4, 6]], ["m", 20], ["k"], ["m", 1], ["k"], ["m", 50], ["k"]]] },
+    { "kind": "boundary", "description": "multiple cuisines kept independent; a change in one does not affect the other",
+      "input": [["FoodRatings", "highestRated", "highestRated", "changeRating", "highestRated", "highestRated"], [[["p", "q", "r", "s"], ["a", "a", "b", "b"], [3, 7, 9, 9]], ["a"], ["b"], ["s", 1], ["a"], ["b"]]] },
+    { "kind": "boundary", "description": "ratings at the constraint extremes",
+      "input": [["FoodRatings", "highestRated", "changeRating", "highestRated"], [[["lo", "hi"], ["z", "z"], [1, 100000000]], ["z"], ["hi", 1], ["z"]]] }
+  ],
+  "stress": [
+    {
+      "description": "many foods spread over a few cuisines with frequent rating changes and queries",
+      "seed": 23,
+      "size": 1200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 60)\n    names = []\n    seen = set()\n    while len(names) < n:\n        L = rng.randint(1, 6)\n        s = ''.join(rng.choice('abcdefg') for _ in range(L))\n        if s not in seen:\n            seen.add(s)\n            names.append(s)\n    cuisines = [rng.choice(['c0', 'c1', 'c2', 'c3']) for _ in range(n)]\n    ratings = [rng.randint(1, 40) for _ in range(n)]\n    ops = ['FoodRatings']\n    args = [[list(names), list(cuisines), list(ratings)]]\n    present = sorted(set(cuisines))\n    for _ in range(max(1, size)):\n        if rng.random() < 0.5:\n            ops.append('changeRating')\n            args.append([rng.choice(names), rng.randint(1, 40)])\n        else:\n            ops.append('highestRated')\n            args.append([rng.choice(present)])\n    return [ops, args]\n",
+      "note": "ratings drawn from a small range so ties (lexicographic tie-break) happen often"
+    }
+  ],
+  "oracle_python": "class FoodRatings:\n    def __init__(self, foods, cuisines, ratings):\n        self.rating = {}\n        self.cuisine = {}\n        self.by_cuisine = {}\n        for f, c, r in zip(foods, cuisines, ratings):\n            self.rating[f] = r\n            self.cuisine[f] = c\n            self.by_cuisine.setdefault(c, []).append(f)\n    def changeRating(self, food, newRating):\n        self.rating[food] = newRating\n        return None\n    def highestRated(self, cuisine):\n        best = None\n        for f in self.by_cuisine[cuisine]:\n            r = self.rating[f]\n            if best is None or r > best[0] or (r == best[0] and f < best[1]):\n                best = (r, f)\n        return best[1]\n",
+  "solutions": {
+    "python": "import heapq\n\n\nclass FoodRatings:\n    def __init__(self, foods, cuisines, ratings):\n        self.rating = {}\n        self.cuisine = {}\n        self.heaps = {}\n        for f, c, r in zip(foods, cuisines, ratings):\n            self.rating[f] = r\n            self.cuisine[f] = c\n            self.heaps.setdefault(c, []).append((-r, f))\n        for c in self.heaps:\n            heapq.heapify(self.heaps[c])\n    def changeRating(self, food, newRating):\n        self.rating[food] = newRating\n        heapq.heappush(self.heaps[self.cuisine[food]], (-newRating, food))\n        return None\n    def highestRated(self, cuisine):\n        h = self.heaps[cuisine]\n        while h:\n            negr, f = h[0]\n            if -negr == self.rating[f]:\n                return f\n            heapq.heappop(h)\n        return None\n",
+    "javascript": "class FoodRatings {\n    constructor(foods, cuisines, ratings) {\n        this.rating = new Map();\n        this.cuisine = new Map();\n        this.groups = new Map();\n        for (let i = 0; i < foods.length; i++) {\n            this.rating.set(foods[i], ratings[i]);\n            this.cuisine.set(foods[i], cuisines[i]);\n            if (!this.groups.has(cuisines[i])) this.groups.set(cuisines[i], []);\n            this.groups.get(cuisines[i]).push(foods[i]);\n        }\n    }\n    changeRating(food, newRating) {\n        this.rating.set(food, newRating);\n        return null;\n    }\n    highestRated(cuisine) {\n        let best = null;\n        for (const f of this.groups.get(cuisine)) {\n            const r = this.rating.get(f);\n            if (best === null || r > best[0] || (r === best[0] && f < best[1])) {\n                best = [r, f];\n            }\n        }\n        return best[1];\n    }\n}\n"
+  },
+  "complexity": { "time": "O(log n) per change, amortized for queries", "space": "O(n)" }
+}

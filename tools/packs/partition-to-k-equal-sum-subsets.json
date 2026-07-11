@@ -1,0 +1,38 @@
+{
+  "slug": "partition-to-k-equal-sum-subsets",
+  "judge": "exact",
+  "pattern": "Backtracking fills k buckets to a fixed target sum, pruning by sorting descending, skipping over-target placements, and abandoning a bucket that fails to start with the largest remaining item.",
+  "hints": [
+    "The target per subset is the total sum divided by k; if that is not an integer or any element exceeds it, it is impossible.",
+    "Try to fill one bucket at a time up to the target, recursing to the next bucket when one is complete.",
+    "Sort descending and place items into the current bucket; prune by skipping items that overflow the target, and if the first item of a fresh bucket cannot lead to a solution, fail fast."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 16], "value": [1, 10000] },
+    { "param": "k", "kind": "int", "value": [1, 16] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic four-way partition", "input": [[4, 3, 2, 3, 5, 2, 1], 4] },
+    { "kind": "trap", "description": "sum not divisible by k", "input": [[1, 2, 3, 4], 3] },
+    { "kind": "boundary", "description": "k equals one always succeeds", "input": [[7, 7, 7], 1] },
+    { "kind": "boundary", "description": "k equals length needs every element equal", "input": [[2, 2, 2, 2], 4] },
+    { "kind": "trap", "description": "one large element exceeds the target", "input": [[5, 1, 1, 1, 1], 2] },
+    { "kind": "edge", "description": "two equal halves", "input": [[3, 3, 3, 3], 2] },
+    { "kind": "trap", "description": "divisible sum but no valid grouping", "input": [[2, 2, 2, 2, 3, 4, 5], 4] }
+  ],
+  "stress": [
+    {
+      "description": "construct k buckets of random items then shuffle, guaranteeing a valid partition exists",
+      "seed": 23,
+      "size": 16,
+      "generator_python": "def gen(rng, size):\n    k = rng.randrange(2, 5)\n    n_per = max(1, 16 // k)\n    target = rng.randrange(3, 12)\n    nums = []\n    for _ in range(k):\n        remaining = target\n        cnt = rng.randrange(1, n_per + 1)\n        for j in range(cnt - 1):\n            slots_left = cnt - 1 - j\n            if remaining <= slots_left:\n                break\n            x = rng.randrange(1, remaining - slots_left + 1)\n            nums.append(x)\n            remaining -= x\n        nums.append(remaining)\n    rng.shuffle(nums)\n    return [nums, k]\n",
+      "note": "every generated array partitions into k equal-sum subsets by construction"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def canPartitionKSubsets(self, nums, k):\n        total = sum(nums)\n        if total % k != 0:\n            return False\n        target = total // k\n        if any(x > target for x in nums):\n            return False\n        n = len(nums)\n        used = [False] * n\n        nums_sorted = sorted(nums, reverse=True)\n        def backtrack(groups_done, cur_sum, start):\n            if groups_done == k:\n                return True\n            if cur_sum == target:\n                return backtrack(groups_done + 1, 0, 0)\n            for i in range(start, n):\n                if not used[i] and cur_sum + nums_sorted[i] <= target:\n                    used[i] = True\n                    if backtrack(groups_done, cur_sum + nums_sorted[i], i + 1):\n                        return True\n                    used[i] = False\n            return False\n        return backtrack(0, 0, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def canPartitionKSubsets(self, nums, k):\n        total = sum(nums)\n        if total % k != 0:\n            return False\n        target = total // k\n        nums = sorted(nums, reverse=True)\n        if nums[0] > target:\n            return False\n        n = len(nums)\n        used = [False] * n\n        def backtrack(count, cur, start):\n            if count == k - 1:\n                return True\n            if cur == target:\n                return backtrack(count + 1, 0, 0)\n            for i in range(start, n):\n                if used[i] or cur + nums[i] > target:\n                    continue\n                used[i] = True\n                if backtrack(count, cur + nums[i], i + 1):\n                    return True\n                used[i] = False\n                if cur == 0:\n                    break\n            return False\n        return backtrack(0, 0, 0)\n",
+    "javascript": "var canPartitionKSubsets = function(nums, k) {\n    const total = nums.reduce((a, b) => a + b, 0);\n    if (total % k !== 0) return false;\n    const target = total / k;\n    nums = nums.slice().sort((a, b) => b - a);\n    if (nums[0] > target) return false;\n    const n = nums.length;\n    const used = new Array(n).fill(false);\n    function backtrack(count, cur, start) {\n        if (count === k - 1) return true;\n        if (cur === target) return backtrack(count + 1, 0, 0);\n        for (let i = start; i < n; i++) {\n            if (used[i] || cur + nums[i] > target) continue;\n            used[i] = true;\n            if (backtrack(count, cur + nums[i], i + 1)) return true;\n            used[i] = false;\n            if (cur === 0) break;\n        }\n        return false;\n    }\n    return backtrack(0, 0, 0);\n};\n"
+  },
+  "complexity": { "time": "O(k*2^n)", "space": "O(n)" }
+}

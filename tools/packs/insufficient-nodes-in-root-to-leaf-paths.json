@@ -1,0 +1,38 @@
+{
+  "slug": "insufficient-nodes-in-root-to-leaf-paths",
+  "judge": "exact",
+  "io_types": { "params": ["tree", "json"], "returns": "tree" },
+  "pattern": "A node survives only if some root-to-leaf path through it reaches the limit, which a post-order recursion decides by pruning children first and dropping any node left with no children that was not itself a qualifying leaf.",
+  "hints": [
+    "A leaf should stay only if the running sum from the root down to it is at least the limit.",
+    "For an internal node, prune each subtree against the remaining limit; if both children get pruned away, this node is on no sufficient path and goes too.",
+    "Recurse carrying limit minus the node's value; at a leaf keep it iff that remaining limit is non-positive, otherwise return None after pruning both children and dropping the node if both became None."
+  ],
+  "constraints": [
+    { "param": "root", "kind": "tree", "len": [0, 5000], "value": [-100000, 100000] },
+    { "param": "limit", "kind": "int", "value": [-1000000000, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "mixed prune of deep branches", "input": [[1, 2, 3, 4, -99, -99, 7, 8, 9, -99, -99, 12, 13, -99, 14], 1] },
+    { "kind": "edge", "description": "limit prunes a whole subtree", "input": [[5, 4, 8, 11, null, 17, 4, 7, 1, null, null, 5, 3], 22] },
+    { "kind": "trap", "description": "negative limit keeps almost everything", "input": [[1, 2, -3, -5, null, 4, null], -1] },
+    { "kind": "boundary", "description": "single root meeting the limit survives", "input": [[5], 5] },
+    { "kind": "trap", "description": "single root below the limit is pruned to empty", "input": [[3], 10] },
+    { "kind": "edge", "description": "straight chain where the tail fails the limit", "input": [[1, 2, null, 3, null, 4], 100] }
+  ],
+  "stress": [
+    {
+      "description": "random small binary trees serialized level-order with a random limit",
+      "seed": 1313,
+      "size": 40,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 40)))\n    vals = [rng.randint(-20, 20) for _ in range(n)]\n    tree = [vals[0]]\n    i = 1\n    pos = 0\n    while pos < len(tree) and i < n:\n        if tree[pos] is not None:\n            for _ in range(2):\n                if i < n and rng.random() < 0.8:\n                    tree.append(vals[i]); i += 1\n                else:\n                    tree.append(None)\n        else:\n            tree.append(None)\n            tree.append(None)\n        pos += 1\n    while tree and tree[-1] is None:\n        tree.pop()\n    limit = rng.randint(-30, 60)\n    return [tree, limit]\n",
+      "note": "level-order serialization with random missing children; trailing nulls trimmed"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def sufficientSubset(self, root, limit):\n        def collect(node, acc, path, keep):\n            if node is None:\n                return\n            path.append(node)\n            if node.left is None and node.right is None:\n                if acc + node.val >= limit:\n                    for p in path:\n                        keep.add(id(p))\n            else:\n                collect(node.left, acc + node.val, path, keep)\n                collect(node.right, acc + node.val, path, keep)\n            path.pop()\n        keep = set()\n        collect(root, 0, [], keep)\n        def rebuild(node):\n            if node is None or id(node) not in keep:\n                return None\n            node.left = rebuild(node.left)\n            node.right = rebuild(node.right)\n            return node\n        return rebuild(root)\n",
+  "solutions": {
+    "python": "class Solution:\n    def sufficientSubset(self, root, limit):\n        def dfs(node, rem):\n            if node is None:\n                return None\n            if node.left is None and node.right is None:\n                return None if node.val < rem else node\n            node.left = dfs(node.left, rem - node.val)\n            node.right = dfs(node.right, rem - node.val)\n            if node.left is None and node.right is None:\n                return None\n            return node\n        return dfs(root, limit)\n",
+    "javascript": "var sufficientSubset = function(root, limit) {\n    function dfs(node, rem) {\n        if (node === null) return null;\n        if (node.left === null && node.right === null) {\n            return node.val < rem ? null : node;\n        }\n        node.left = dfs(node.left, rem - node.val);\n        node.right = dfs(node.right, rem - node.val);\n        if (node.left === null && node.right === null) return null;\n        return node;\n    }\n    return dfs(root, limit);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

@@ -1,0 +1,38 @@
+{
+  "slug": "split-array-largest-sum",
+  "judge": "exact",
+  "pattern": "The smallest achievable maximum-subarray-sum is monotonic, so binary searching the candidate cap and greedily counting the segments it forces turns optimization into a feasibility test.",
+  "hints": [
+    "If you guess a ceiling for the largest allowed segment sum, you can greedily walk the array and count how many segments that ceiling requires.",
+    "A higher ceiling never needs more segments, so the feasibility of 'split into at most k parts' is monotonic in the ceiling.",
+    "Binary search the ceiling between the largest single element and the total sum; the smallest ceiling that needs at most k segments is the answer."
+  ],
+  "constraints": [
+    { "param": "nums", "kind": "int[]", "len": [1, 1000], "value": [0, 1000000] },
+    { "param": "k", "kind": "int", "value": [1, 50] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic split into two parts", "input": [[7,2,5,10,8], 2] },
+    { "kind": "edge", "description": "ascending values split into two", "input": [[1,2,3,4,5], 2] },
+    { "kind": "boundary", "description": "single segment forces the full sum", "input": [[1,4,4], 1] },
+    { "kind": "boundary", "description": "as many parts as elements isolates the maximum", "input": [[1,2,3,4,5], 5] },
+    { "kind": "trap", "description": "a single large element dominates the answer", "input": [[2,3,1,100,2,3], 3] },
+    { "kind": "edge", "description": "zeros mixed in do not change the cap", "input": [[0,0,0,10,0], 2] },
+    { "kind": "boundary", "description": "single element single part", "input": [[42], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random nonnegative array with k in a valid range",
+      "seed": 37,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(800, size))\n    nums = [rng.randint(0, 1000) for _ in range(n)]\n    k = rng.randint(1, min(50, n))\n    return [nums, k]\n",
+      "note": "k bounded by n so a valid split always exists"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def splitArray(self, nums, k):\n        # independent: dynamic programming over prefix sums.\n        n = len(nums)\n        pre = [0] * (n + 1)\n        for i in range(n):\n            pre[i + 1] = pre[i] + nums[i]\n        INF = float('inf')\n        # dp[i][j] = min over splits of first i elements into j parts of the max part\n        dp = [[INF] * (k + 1) for _ in range(n + 1)]\n        dp[0][0] = 0\n        for i in range(1, n + 1):\n            for j in range(1, min(i, k) + 1):\n                for p in range(j - 1, i):\n                    seg = pre[i] - pre[p]\n                    cand = max(dp[p][j - 1], seg)\n                    if cand < dp[i][j]:\n                        dp[i][j] = cand\n        return dp[n][k]\n",
+  "solutions": {
+    "python": "class Solution:\n    def splitArray(self, nums, k):\n        def segments(cap):\n            count = 1\n            cur = 0\n            for x in nums:\n                if cur + x > cap:\n                    count += 1\n                    cur = x\n                else:\n                    cur += x\n            return count\n        lo, hi = max(nums), sum(nums)\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if segments(mid) <= k:\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n",
+    "javascript": "var splitArray = function(nums, k) {\n    const segments = (cap) => {\n        let count = 1, cur = 0;\n        for (const x of nums) {\n            if (cur + x > cap) { count++; cur = x; }\n            else cur += x;\n        }\n        return count;\n    };\n    let lo = Math.max(...nums);\n    let hi = nums.reduce((a, b) => a + b, 0);\n    while (lo < hi) {\n        const mid = Math.floor((lo + hi) / 2);\n        if (segments(mid) <= k) hi = mid;\n        else lo = mid + 1;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": { "time": "O(n log(sum))", "space": "O(1)" }
+}

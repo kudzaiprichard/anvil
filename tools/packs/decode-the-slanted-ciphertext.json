@@ -1,0 +1,39 @@
+{
+  "slug": "decode-the-slanted-ciphertext",
+  "judge": "exact",
+  "pattern": "Rebuild the row-major grid from the flat string, then read it back off along every downward-right diagonal in column-start order to undo the slant, trimming the trailing padding at the end.",
+  "hints": [
+    "The number of columns is fixed by the total length divided by the row count, since the matrix the text was written into is always fully rectangular, padding included.",
+    "For each starting column, walk one cell down and one cell right at a time — row 0 of that column, row 1 of the next column, and so on — collecting characters until you run off the bottom or the right edge.",
+    "Do that walk once per starting column in left-to-right order and concatenate everything collected; only the very end can carry leftover padding, so a single trailing trim recovers the original text exactly."
+  ],
+  "constraints": [
+    { "param": "encodedText", "kind": "string", "len": [0, 1000000] },
+    { "param": "rows", "kind": "int", "value": [1, 1000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "three-row grid mixing a reversed-diagonal read across four columns", "input": ["ch   ie   pr", 3] },
+    { "kind": "edge", "description": "a four-row grid decoding a short multi-word phrase", "input": ["iveo    eed   l te   olc", 4] },
+    { "kind": "boundary", "description": "a single row is the identity case: every diagonal is exactly one cell long", "input": ["coding", 1] },
+    { "kind": "trap", "description": "an empty ciphertext with an arbitrary row count must decode to an empty string", "input": ["", 5] },
+    { "kind": "trap", "description": "only one column exists, so every row past the first is entirely unreachable padding", "input": ["z      ", 7] },
+    { "kind": "trap", "description": "the original text itself contains a space, which is indistinguishable in the grid from padding but still decodes correctly", "input": ["a d bc", 2] },
+    { "kind": "edge", "description": "a longer phrase spanning several rows and columns with padding scattered through the middle and the end", "input": ["h lfo ewdo  lo    lr    o", 5] },
+    { "kind": "boundary", "description": "the grid is packed edge to edge with no padding at all, so trimming removes nothing", "input": ["aglpsu bhmqt  cinr   djo    ek     f", 6] }
+  ],
+  "stress": [
+    {
+      "description": "random valid encodings built from a random lowercase phrase (with occasional internal spaces) and a random row count",
+      "seed": 31,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(0, max(1, min(size, 2000)))\n    rows = rng.randint(1, 50)\n    letters = 'abcdefghijklmnopqrstuvwxyz'\n    if n == 0:\n        original = ''\n    else:\n        chars = []\n        for i in range(n):\n            if 0 < i < n - 1 and rng.random() < 0.1:\n                chars.append(' ')\n            else:\n                chars.append(rng.choice(letters))\n        while chars and chars[-1] == ' ':\n            chars[-1] = rng.choice(letters)\n        original = ''.join(chars)\n    m = len(original)\n    cols = 0\n    capacity = 0\n    while capacity < m:\n        cols += 1\n        capacity += min(rows, cols)\n    cols = max(cols, 1)\n    grid = [[' '] * cols for _ in range(rows)]\n    idx = 0\n    for d in range(cols):\n        r, c = 0, d\n        while r < rows and c < cols and idx < m:\n            grid[r][c] = original[idx]\n            idx += 1\n            r += 1\n            c += 1\n    encoded = ''.join(''.join(row) for row in grid)\n    return [encoded, rows]\n",
+      "note": "builds a valid encoding directly (minimal column count, diagonal fill) rather than relying on the solution under test"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def decodeCiphertext(self, encodedText, rows):\n        n = len(encodedText)\n        cols = n // rows if rows else 0\n        if cols == 0:\n            return ''\n        grid = [list(encodedText[r * cols:(r + 1) * cols]) for r in range(rows)]\n        buckets = [[] for _ in range(cols)]\n        for r in range(rows):\n            for c in range(cols):\n                d = c - r\n                if d >= 0:\n                    buckets[d].append(grid[r][c])\n        chars = []\n        for d in range(cols):\n            chars.extend(buckets[d])\n        return ''.join(chars).rstrip()\n",
+  "solutions": {
+    "python": "class Solution:\n    def decodeCiphertext(self, encodedText: str, rows: int) -> str:\n        n = len(encodedText)\n        cols = n // rows if rows else 0\n        if cols == 0:\n            return ''\n        res = []\n        for d in range(cols):\n            row, col = 0, d\n            while row < rows and col < cols:\n                res.append(encodedText[row * cols + col])\n                row += 1\n                col += 1\n        return ''.join(res).rstrip()\n",
+    "javascript": "var decodeCiphertext = function(encodedText, rows) {\n    const n = encodedText.length;\n    const cols = rows > 0 ? Math.floor(n / rows) : 0;\n    if (cols === 0) return '';\n    const res = [];\n    for (let d = 0; d < cols; d++) {\n        let row = 0, col = d;\n        while (row < rows && col < cols) {\n            res.push(encodedText[row * cols + col]);\n            row += 1;\n            col += 1;\n        }\n    }\n    return res.join('').replace(/\\s+$/, '');\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

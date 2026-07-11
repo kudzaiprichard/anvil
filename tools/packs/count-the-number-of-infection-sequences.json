@@ -1,0 +1,46 @@
+{
+  "slug": "count-the-number-of-infection-sequences",
+  "judge": "exact",
+  "pattern": "Combinatorics: the uninfected people split into independent runs bounded by infected neighbors, and the answer is how many internal orders each run allows times how many ways to interleave all the runs into one timeline, under a prime modulus.",
+  "hints": [
+    "Group the uninfected people into separate runs, each bounded by infected neighbors on one or both sides — a run that only touches infection on one side behaves differently from a run pinned between two infected groups.",
+    "A run pinned between two infected boundaries can grow inward from either end at every step, so work out, in isolation, how many distinct growth orders a single such run of length k can produce.",
+    "The final count is the product of every run's own internal-order count, times the number of ways to shuffle the runs' elements together into one combined sequence (a multinomial coefficient over the run lengths) — compute the multinomial with factorials and modular inverses, all reduced modulo 1e9+7."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [2, 100000] },
+    { "param": "sick", "kind": "int[]", "len": [1, 99999], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "smallest possible n with the single infected person at the leftmost position", "input": [2, [0]] },
+    { "kind": "boundary", "description": "smallest possible n with the single infected person at the rightmost position", "input": [2, [1]] },
+    { "kind": "edge", "description": "one infected person in the middle creates two independent one-sided boundary runs", "input": [6, [3]] },
+    { "kind": "trap", "description": "two infected people sit next to each other, leaving zero-length gap between them", "input": [6, [2, 3]] },
+    { "kind": "trap", "description": "exactly one uninfected person is pinned between two infected neighbors on both sides", "input": [5, [0, 1, 3, 4]] },
+    { "kind": "boundary", "description": "infected people occupy the maximum allowed count (n-1), leaving only the very last position uninfected", "input": [5, [0, 1, 2, 3]] },
+    { "kind": "edge", "description": "two differently sized boundary runs plus one internal run, to check the runs multiply independently", "input": [9, [2, 6]] },
+    { "kind": "trap", "description": "three separate single-person internal runs, to check equal-sized runs are each counted and combined correctly", "input": [7, [1, 3, 5]] }
+  ],
+  "stress": [
+    {
+      "description": "random sick subset scaling with n, exercising a broad mix of boundary and internal run shapes",
+      "seed": 7,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    max_m = n - 1\n    m = max(1, min(max_m, n // 3))\n    sick = sorted(rng.sample(range(n), m))\n    return [n, sick]\n",
+      "note": "moderate density keeps most runs small-to-medium"
+    },
+    {
+      "description": "very sparse sick positions creating a few large internal runs, stressing large exponents and factorials",
+      "seed": 13,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    m = max(1, n // 50)\n    sick = sorted(rng.sample(range(n), m))\n    return [n, sick]\n",
+      "note": "few, large gaps push the pow(2, gap-1) and factorial terms harder"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numberOfSequence(self, n: int, sick: List[int]) -> int:\n        from itertools import permutations\n        MOD = 10**9 + 7\n        sick_set = set(sick)\n        uninfected = [i for i in range(n) if i not in sick_set]\n        count = 0\n        for perm in permutations(uninfected):\n            infected = set(sick_set)\n            ok = True\n            for pos in perm:\n                if (pos - 1 in infected) or (pos + 1 in infected):\n                    infected.add(pos)\n                else:\n                    ok = False\n                    break\n            if ok:\n                count += 1\n        return count % MOD\n",
+  "solutions": {
+    "python": "class Solution:\n    def numberOfSequence(self, n: int, sick: List[int]) -> int:\n        MOD = 10**9 + 7\n        m = len(sick)\n        total_free = n - m\n        fact = [1] * (total_free + 1)\n        for i in range(1, total_free + 1):\n            fact[i] = fact[i - 1] * i % MOD\n        inv_fact = [1] * (total_free + 1)\n        inv_fact[total_free] = pow(fact[total_free], MOD - 2, MOD)\n        for i in range(total_free, 0, -1):\n            inv_fact[i - 1] = inv_fact[i] * i % MOD\n\n        result = fact[total_free]\n        left_gap = sick[0]\n        right_gap = n - 1 - sick[-1]\n        if left_gap > 0:\n            result = result * inv_fact[left_gap] % MOD\n        if right_gap > 0:\n            result = result * inv_fact[right_gap] % MOD\n        for i in range(1, m):\n            gap = sick[i] - sick[i - 1] - 1\n            if gap > 0:\n                result = result * inv_fact[gap] % MOD\n                result = result * pow(2, gap - 1, MOD) % MOD\n        return result % MOD\n",
+    "javascript": "var numberOfSequence = function(n, sick) {\n    const MOD = 1000000007n;\n    const m = sick.length;\n    const totalFree = n - m;\n\n    function power(base, exp, mod) {\n        base %= mod;\n        let result = 1n;\n        while (exp > 0n) {\n            if (exp & 1n) result = (result * base) % mod;\n            base = (base * base) % mod;\n            exp >>= 1n;\n        }\n        return result;\n    }\n\n    const fact = new Array(totalFree + 1);\n    fact[0] = 1n;\n    for (let i = 1; i <= totalFree; i++) {\n        fact[i] = (fact[i - 1] * BigInt(i)) % MOD;\n    }\n    const invFact = new Array(totalFree + 1);\n    invFact[totalFree] = power(fact[totalFree], MOD - 2n, MOD);\n    for (let i = totalFree; i > 0; i--) {\n        invFact[i - 1] = (invFact[i] * BigInt(i)) % MOD;\n    }\n\n    let result = fact[totalFree];\n    const leftGap = sick[0];\n    const rightGap = n - 1 - sick[m - 1];\n    if (leftGap > 0) result = (result * invFact[leftGap]) % MOD;\n    if (rightGap > 0) result = (result * invFact[rightGap]) % MOD;\n    for (let i = 1; i < m; i++) {\n        const gap = sick[i] - sick[i - 1] - 1;\n        if (gap > 0) {\n            result = (result * invFact[gap]) % MOD;\n            result = (result * power(2n, BigInt(gap - 1), MOD)) % MOD;\n        }\n    }\n    return Number(result % MOD);\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

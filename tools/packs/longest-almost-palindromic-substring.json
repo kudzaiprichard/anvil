@@ -1,0 +1,46 @@
+{
+  "slug": "longest-almost-palindromic-substring",
+  "judge": "exact",
+  "pattern": "Whether a run of text can be turned into a mirror image by dropping exactly one character comes down to finding where its two outer ends first fail to agree, then checking whether either side of that failure is already a mirror on its own.",
+  "hints": [
+    "Checking 'is this substring already a palindrome' is only half the picture -- you also need a way to test whether dropping exactly one character from anywhere inside it can repair a near-miss, and doing that fresh for every one of the O(n^2) substrings from scratch is too slow.",
+    "Scan a candidate substring from its two outer ends inward, one step at a time; as long as the characters agree keep moving in, but the instant they disagree, the only two characters worth removing are the two that just failed to match each other -- try dropping each one in turn and see if what remains, read the same way, agrees all the way to the middle.",
+    "Precompute, for every pair of positions, whether the text between them already reads the same forwards and backwards, and separately how many outer layers agree before the first disagreement; with both tables built once (smallest ranges first), every substring can then be judged in constant time by looking up whether either side of its own first disagreement is already a mirror."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "str", "len": [2, 2500] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single mismatch fixable by dropping the character between the two ends", "input": ["abca"] },
+    { "kind": "edge", "description": "already a full palindrome of even length", "input": ["abba"] },
+    { "kind": "trap", "description": "the whole string fails, but dropping the leading extra character rescues a shorter run", "input": ["zzabba"] },
+    { "kind": "boundary", "description": "minimum length, two identical characters", "input": ["aa"] },
+    { "kind": "boundary", "description": "minimum length, two distinct characters", "input": ["yz"] },
+    { "kind": "edge", "description": "uniform run of one repeated letter", "input": ["aaaaa"] },
+    { "kind": "trap", "description": "all distinct letters -- no single removal can rescue anything longer than two characters", "input": ["abcde"] },
+    { "kind": "trap", "description": "near-palindrome broken by one interior character", "input": ["abcda"] },
+    { "kind": "trap", "description": "an inner mirrored block sits off to one side of the string rather than centered", "input": ["xyzzyxab"] },
+    { "kind": "edge", "description": "longer mixed string with several nested near-matches", "input": ["aabcbaaxbaabcbaa"] }
+  ],
+  "stress": [
+    {
+      "description": "fully random lowercase text near the maximum length, exercising the general case at scale",
+      "seed": 5,
+      "size": 2500,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 2500))\n    letters = 'abcdefghijklmnopqrstuvwxyz'\n    s = ''.join(rng.choice(letters) for _ in range(n))\n    return [s]\n"
+    },
+    {
+      "description": "text drawn from a two-letter alphabet, producing dense overlapping near-palindromes to stress the layered mismatch bookkeeping",
+      "seed": 21,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 2500))\n    letters = 'ab'\n    s = ''.join(rng.choice(letters) for _ in range(n))\n    return [s]\n",
+      "note": "a tiny alphabet maximizes the number of substrings that are palindromes or one edit away, exercising the busiest cases for the mismatch-depth table"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def almostPalindromic(self, s):\n        # Direct definition check: for every substring and every possible\n        # single removal position inside it, test the literal remainder for\n        # being a palindrome. Cubic-ish and only used on small inputs, but\n        # independent of the table-based optimal approach.\n        n = len(s)\n        best = 0\n        for i in range(n):\n            for j in range(i, n):\n                sub = s[i:j + 1]\n                length = len(sub)\n                for p in range(length):\n                    remainder = sub[:p] + sub[p + 1:]\n                    if remainder == remainder[::-1]:\n                        if length > best:\n                            best = length\n                        break\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def almostPalindromic(self, s: str) -> int:\n        n = len(s)\n        if n <= 1:\n            return n\n        NEG = -1\n        # state[i][j] for i < j: -1 means s[i..j] is already a palindrome;\n        # otherwise the number of matching outer layers before the first\n        # mismatch when scanning from the ends of [i, j] inward.\n        state = [[NEG] * n for _ in range(n)]\n        for length in range(2, n + 1):\n            for i in range(n - length + 1):\n                j = i + length - 1\n                if s[i] != s[j]:\n                    state[i][j] = 0\n                elif length == 2:\n                    state[i][j] = NEG\n                else:\n                    inner = state[i + 1][j - 1]\n                    state[i][j] = NEG if inner == NEG else inner + 1\n\n        def is_pal(a, b):\n            if a >= b:\n                return True\n            return state[a][b] == NEG\n\n        best = 1\n        for i in range(n):\n            for j in range(i + 1, n):\n                st = state[i][j]\n                length = j - i + 1\n                if st == NEG:\n                    if length > best:\n                        best = length\n                    continue\n                k = st\n                li, lj = i + k, j - k\n                if is_pal(li + 1, lj) or is_pal(li, lj - 1):\n                    if length > best:\n                        best = length\n        return best\n",
+    "javascript": "var almostPalindromic = function(s) {\n    const n = s.length;\n    if (n <= 1) return n;\n    const NEG = -1;\n    const state = new Int32Array(n * n).fill(NEG);\n    for (let length = 2; length <= n; length++) {\n        for (let i = 0; i <= n - length; i++) {\n            const j = i + length - 1;\n            if (s[i] !== s[j]) {\n                state[i * n + j] = 0;\n            } else if (length === 2) {\n                state[i * n + j] = NEG;\n            } else {\n                const inner = state[(i + 1) * n + (j - 1)];\n                state[i * n + j] = inner === NEG ? NEG : inner + 1;\n            }\n        }\n    }\n    const isPal = (a, b) => {\n        if (a >= b) return true;\n        return state[a * n + b] === NEG;\n    };\n    let best = 1;\n    for (let i = 0; i < n; i++) {\n        for (let j = i + 1; j < n; j++) {\n            const st = state[i * n + j];\n            const length = j - i + 1;\n            if (st === NEG) {\n                if (length > best) best = length;\n                continue;\n            }\n            const k = st;\n            const li = i + k, lj = j - k;\n            if (isPal(li + 1, lj) || isPal(li, lj - 1)) {\n                if (length > best) best = length;\n            }\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n^2)", "space": "O(n^2)" }
+}

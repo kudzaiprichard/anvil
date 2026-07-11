@@ -1,0 +1,39 @@
+{
+  "slug": "expressive-words",
+  "judge": "exact",
+  "pattern": "Run-length encoding both the target and each candidate reduces stretchiness to a per-group comparison: same letter, and the target group is either equal or at least three while being no smaller.",
+  "hints": [
+    "Comparing letter by letter is awkward; compress each string into runs of (letter, count) and compare run lists instead.",
+    "Two strings can match only if their run sequences have the same letters in the same order and the same number of runs.",
+    "For each aligned run the target count must equal the word count, or the target count must be at least three and at least the word count."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 100] },
+    { "param": "words", "kind": "string[]", "len": [1, 100] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "first statement example with one stretchy word", "input": ["heeellooo", ["hello", "hi", "helo"]] },
+    { "kind": "edge", "description": "second statement example where all words stretch", "input": ["zzzzzyyyyy", ["zzyy", "zy", "zyy"]] },
+    { "kind": "trap", "description": "a group of size two cannot be stretched to match", "input": ["aa", ["a"]] },
+    { "kind": "trap", "description": "extending requires size three or more, so size two target rejects", "input": ["abb", ["ab"]] },
+    { "kind": "edge", "description": "identical word always matches", "input": ["abc", ["abc"]] },
+    { "kind": "trap", "description": "different letters never match even with right counts", "input": ["aaa", ["bbb"]] },
+    { "kind": "boundary", "description": "single character target and word", "input": ["a", ["a"]] },
+    { "kind": "trap", "description": "word longer in a run than the target fails", "input": ["aaa", ["aaaa"]] }
+  ],
+  "stress": [
+    {
+      "description": "random target and words over a tiny alphabet so runs frequently align",
+      "seed": 31,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    alpha = 'abc'\n    def make():\n        n = rng.randint(1, 12)\n        return ''.join(rng.choice(alpha) for _ in range(n))\n    s = make()\n    w = [make() for _ in range(rng.randint(1, min(size, 50)))]\n    return [s, w]\n",
+      "note": "small alphabet keeps letters matching so the count rules get exercised"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def expressiveWords(self, s, words):\n        def rle(t):\n            res = []\n            i = 0\n            while i < len(t):\n                j = i\n                while j < len(t) and t[j] == t[i]:\n                    j += 1\n                res.append((t[i], j - i))\n                i = j\n            return res\n        target = rle(s)\n        count = 0\n        for w in words:\n            wr = rle(w)\n            if len(wr) != len(target):\n                continue\n            ok = True\n            for (tc, tn), (wc, wn) in zip(target, wr):\n                if tc != wc:\n                    ok = False\n                    break\n                if tn == wn:\n                    continue\n                if tn >= 3 and tn >= wn:\n                    continue\n                ok = False\n                break\n            if ok:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def expressiveWords(self, s, words):\n        def groups(t):\n            out = []\n            prev = None\n            cnt = 0\n            for ch in t:\n                if ch == prev:\n                    cnt += 1\n                else:\n                    if prev is not None:\n                        out.append((prev, cnt))\n                    prev = ch\n                    cnt = 1\n            if prev is not None:\n                out.append((prev, cnt))\n            return out\n        g = groups(s)\n        total = 0\n        for w in words:\n            gw = groups(w)\n            if len(gw) != len(g):\n                continue\n            good = True\n            for (c1, n1), (c2, n2) in zip(g, gw):\n                if c1 != c2 or n1 < n2 or (n1 < 3 and n1 != n2):\n                    good = False\n                    break\n            if good:\n                total += 1\n        return total\n",
+    "javascript": "var expressiveWords = function(s, words) {\n    function groups(t) {\n        const out = [];\n        let prev = null, cnt = 0;\n        for (const ch of t) {\n            if (ch === prev) cnt++;\n            else {\n                if (prev !== null) out.push([prev, cnt]);\n                prev = ch;\n                cnt = 1;\n            }\n        }\n        if (prev !== null) out.push([prev, cnt]);\n        return out;\n    }\n    const g = groups(s);\n    let total = 0;\n    for (const w of words) {\n        const gw = groups(w);\n        if (gw.length !== g.length) continue;\n        let good = true;\n        for (let i = 0; i < g.length; i++) {\n            const [c1, n1] = g[i];\n            const [c2, n2] = gw[i];\n            if (c1 !== c2 || n1 < n2 || (n1 < 3 && n1 !== n2)) {\n                good = false;\n                break;\n            }\n        }\n        if (good) total++;\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(s + total word length)", "space": "O(s)" }
+}

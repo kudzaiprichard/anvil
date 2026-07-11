@@ -1,0 +1,37 @@
+{
+  "slug": "zuma-game",
+  "judge": "exact",
+  "pattern": "A shortest-sequence search over board states, where each move inserts a hand ball and cascades removals of runs of three or more.",
+  "hints": [
+    "The state is the current board plus the remaining multiset of hand balls; explore inserting each available color at each gap.",
+    "After every insertion, repeatedly collapse any run of three or more same-colored balls until none remain.",
+    "Search states (BFS or memoized DFS) for the fewest insertions that empty the board; return -1 if no sequence clears it."
+  ],
+  "constraints": [
+    { "param": "board", "kind": "str", "len": [1, 16] },
+    { "param": "hand", "kind": "str", "len": [1, 5] }
+  ],
+  "edge_inputs": [
+    { "kind": "trap", "description": "cannot be cleared with given hand", "input": ["WRRBBW", "RB"] },
+    { "kind": "edge", "description": "two insertions clear with cascading", "input": ["WWRRBBWW", "WRBRW"] },
+    { "kind": "edge", "description": "single ball needs two of the same", "input": ["G", "GGGGG"] },
+    { "kind": "boundary", "description": "single insertion completes a pair into a triple", "input": ["RR", "R"] },
+    { "kind": "trap", "description": "one ball cannot clear a lone ball", "input": ["R", "R"] },
+    { "kind": "edge", "description": "already a pair on each side cleared in two", "input": ["RRGGRR", "GR"] },
+    { "kind": "trap", "description": "wrong colors in hand, impossible", "input": ["RRYYRR", "BBBBB"] }
+  ],
+  "stress": [
+    {
+      "description": "small random boards (no initial triples) with small hands",
+      "seed": 23,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    colors = 'RYBGW'\n    while True:\n        bn = rng.randint(1, 7)\n        board = []\n        for _ in range(bn):\n            c = rng.choice(colors)\n            board.append(c)\n        # ensure no initial run of 3+\n        ok = True\n        for i in range(len(board) - 2):\n            if board[i] == board[i+1] == board[i+2]:\n                ok = False\n                break\n        if ok:\n            break\n    hn = rng.randint(1, 4)\n    hand = ''.join(rng.choice(colors) for _ in range(hn))\n    return [''.join(board), hand]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def findMinStep(self, board, hand):\n        from functools import lru_cache\n        def collapse(s):\n            i = 0\n            while i < len(s):\n                j = i\n                while j < len(s) and s[j] == s[i]:\n                    j += 1\n                if j - i >= 3:\n                    s = s[:i] + s[j:]\n                    i = 0\n                else:\n                    i = j\n            return s\n        hand_key = ''.join(sorted(hand))\n        @lru_cache(maxsize=None)\n        def solve(b, h):\n            if b == '':\n                return 0\n            if h == '':\n                return -1\n            best = -1\n            for hi in range(len(h)):\n                if hi > 0 and h[hi] == h[hi-1]:\n                    continue\n                ball = h[hi]\n                rest = h[:hi] + h[hi+1:]\n                for pos in range(len(b) + 1):\n                    nb = collapse(b[:pos] + ball + b[pos:])\n                    r = solve(nb, rest)\n                    if r >= 0:\n                        if best == -1 or r + 1 < best:\n                            best = r + 1\n            return best\n        return solve(board, hand_key)\n",
+  "solutions": {
+    "python": "class Solution:\n    def findMinStep(self, board, hand):\n        from collections import deque\n        def collapse(s):\n            i = 0\n            while i < len(s):\n                j = i\n                while j < len(s) and s[j] == s[i]:\n                    j += 1\n                if j - i >= 3:\n                    s = s[:i] + s[j:]\n                    i = 0\n                else:\n                    i = j\n            return s\n        start_hand = ''.join(sorted(hand))\n        start = (board, start_hand)\n        seen = {start}\n        dq = deque([(board, start_hand, 0)])\n        while dq:\n            b, h, steps = dq.popleft()\n            if b == '':\n                return steps\n            for hi in range(len(h)):\n                if hi > 0 and h[hi] == h[hi-1]:\n                    continue\n                ball = h[hi]\n                rest = h[:hi] + h[hi+1:]\n                for pos in range(len(b) + 1):\n                    nb = collapse(b[:pos] + ball + b[pos:])\n                    state = (nb, rest)\n                    if state not in seen:\n                        seen.add(state)\n                        dq.append((nb, rest, steps + 1))\n        return -1\n",
+    "javascript": "var findMinStep = function(board, hand) {\n    const collapse = (s) => {\n        let i = 0;\n        while (i < s.length) {\n            let j = i;\n            while (j < s.length && s[j] === s[i]) j++;\n            if (j - i >= 3) {\n                s = s.slice(0, i) + s.slice(j);\n                i = 0;\n            } else {\n                i = j;\n            }\n        }\n        return s;\n    };\n    const startHand = hand.split('').sort().join('');\n    const seen = new Set([board + '#' + startHand]);\n    const dq = [[board, startHand, 0]];\n    let head = 0;\n    while (head < dq.length) {\n        const [b, h, steps] = dq[head++];\n        if (b === '') return steps;\n        for (let hi = 0; hi < h.length; hi++) {\n            if (hi > 0 && h[hi] === h[hi-1]) continue;\n            const ball = h[hi];\n            const rest = h.slice(0, hi) + h.slice(hi+1);\n            for (let pos = 0; pos <= b.length; pos++) {\n                const nb = collapse(b.slice(0, pos) + ball + b.slice(pos));\n                const key = nb + '#' + rest;\n                if (!seen.has(key)) {\n                    seen.add(key);\n                    dq.push([nb, rest, steps + 1]);\n                }\n            }\n        }\n    }\n    return -1;\n};\n"
+  },
+  "complexity": { "time": "exponential in board+hand size", "space": "O(states)" }
+}

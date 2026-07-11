@@ -1,0 +1,37 @@
+{
+  "slug": "russian-doll-envelopes",
+  "judge": "exact",
+  "pattern": "Sorting by width ascending and breaking width ties by descending height collapses the two-dimensional nesting into a one-dimensional longest strictly increasing subsequence on the heights.",
+  "hints": [
+    "Nesting needs both width and height to strictly increase, so first impose an order on width and then worry only about height.",
+    "If two envelopes share a width, neither can contain the other, so on equal widths sort heights in decreasing order to stop them being chosen together.",
+    "After that sort, the answer is the length of the longest strictly increasing subsequence of the height sequence, computable in n log n with patience sorting."
+  ],
+  "constraints": [
+    { "param": "envelopes", "kind": "int[][]", "len": [1, 100000], "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "classic chain of three nesting envelopes", "input": [[[5, 4], [6, 4], [6, 7], [2, 3]]] },
+    { "kind": "trap", "description": "all identical, none can nest, answer is one", "input": [[[1, 1], [1, 1], [1, 1]]] },
+    { "kind": "trap", "description": "equal widths with increasing heights must not chain", "input": [[[2, 3], [2, 4], [2, 5]]] },
+    { "kind": "trap", "description": "equal heights with increasing widths must not chain", "input": [[[1, 5], [2, 5], [3, 5]]] },
+    { "kind": "edge", "description": "strictly increasing in both dimensions all nest", "input": [[[1, 1], [2, 2], [3, 3], [4, 4]]] },
+    { "kind": "boundary", "description": "single envelope", "input": [[[10, 10]]] },
+    { "kind": "trap", "description": "reverse order chain still found after sorting", "input": [[[6, 7], [5, 4], [2, 3]]] }
+  ],
+  "stress": [
+    {
+      "description": "many random envelopes with frequent width ties to exercise the tie-breaking rule",
+      "seed": 27,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    env = [[rng.randint(1, 60), rng.randint(1, 200)] for _ in range(n)]\n    return [env]\n",
+      "note": "narrow width range guarantees many ties so the descending-height rule is tested"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxEnvelopes(self, envelopes):\n        n = len(envelopes)\n        env = sorted(envelopes)\n        best = 0\n        dp = [1] * n\n        for i in range(n):\n            for j in range(i):\n                if env[j][0] < env[i][0] and env[j][1] < env[i][1]:\n                    if dp[j] + 1 > dp[i]:\n                        dp[i] = dp[j] + 1\n            if dp[i] > best:\n                best = dp[i]\n        return best if n else 0\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxEnvelopes(self, envelopes):\n        import bisect\n        envelopes.sort(key=lambda e: (e[0], -e[1]))\n        tails = []\n        for _, h in envelopes:\n            i = bisect.bisect_left(tails, h)\n            if i == len(tails):\n                tails.append(h)\n            else:\n                tails[i] = h\n        return len(tails)\n",
+    "javascript": "var maxEnvelopes = function(envelopes) {\n    envelopes.sort((a, b) => a[0] - b[0] || b[1] - a[1]);\n    const tails = [];\n    for (const e of envelopes) {\n        const h = e[1];\n        let lo = 0, hi = tails.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (tails[mid] < h) lo = mid + 1; else hi = mid;\n        }\n        if (lo === tails.length) tails.push(h); else tails[lo] = h;\n    }\n    return tails.length;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

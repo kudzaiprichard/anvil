@@ -1,0 +1,44 @@
+{
+  "slug": "minimum-energy-to-maintain-brightness",
+  "judge": "exact",
+  "pattern": "One bulb lights at most three positions (fewer only at the very ends of the line), so the fewest bulbs needed for a brightness target is a simple ceiling division, and that count only has to run during the total time actually covered by some interval, which a standard interval merge reduces to a single number.",
+  "hints": [
+    "A single lit bulb illuminates itself and up to two neighbors, so it can cover at most 3 positions -- the minimum number of bulbs needed to reach a given brightness is the ceiling of brightness divided by 3, independent of how long the intervals last.",
+    "Only the time actually covered by at least one interval matters for the energy cost; overlapping intervals should not be double counted, so merge them first to get one total covered duration.",
+    "The final answer is simply the minimum bulb count multiplied by the total merged interval duration, since every bulb that's on during a covered second costs exactly one unit of energy for that second."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000000] },
+    { "param": "brightness", "kind": "int", "value": [1, 1000000] },
+    { "param": "intervals", "kind": "int[][]", "len": [1, 100000], "value": [0, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "a single interval requiring two bulbs to reach the target brightness", "input": [5, 5, [[6, 12]]] },
+    { "kind": "edge", "description": "two disjoint single-second intervals", "input": [2, 1, [[0, 0], [2, 2]]] },
+    { "kind": "edge", "description": "two overlapping intervals that merge into one longer covered duration", "input": [4, 2, [[1, 3], [2, 4]]] },
+    { "kind": "boundary", "description": "brightness equal to n requires covering every position", "input": [7, 7, [[0, 9]]] },
+    { "kind": "boundary", "description": "brightness of 1 needs only a single bulb", "input": [3, 1, [[100, 200]]] },
+    { "kind": "trap", "description": "intervals that only touch at a shared endpoint must not be double counted nor left with a gap", "input": [3, 2, [[0, 5], [5, 10]]] },
+    { "kind": "trap", "description": "many small disjoint intervals scattered far apart each add their own duration independently", "input": [3, 3, [[0, 0], [10, 10], [20, 21], [50, 50]]] }
+  ],
+  "stress": [
+    {
+      "description": "random overlapping and disjoint intervals with a random brightness target",
+      "seed": 25,
+      "size": 5000,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 1000000)\n    brightness = rng.randint(1, n)\n    m = max(1, min(size, 5000))\n    intervals = []\n    for _ in range(m):\n        a = rng.randint(0, 1000000000)\n        b = a + rng.randint(0, 1000)\n        intervals.append([a, b])\n    return [n, brightness, intervals]\n"
+    },
+    {
+      "description": "large number of intervals near the upper bound with brightness near n",
+      "seed": 26,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = 1000000\n    brightness = rng.randint(n - 100, n)\n    m = max(1, min(size, 100000))\n    intervals = []\n    for _ in range(m):\n        a = rng.randint(0, 1000000000)\n        b = a + rng.randint(0, 50)\n        intervals.append([a, b])\n    return [n, brightness, intervals]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minEnergy(self, n, brightness, intervals):\n        minBulbs = (brightness + 2) // 3\n        events = []\n        for a, b in intervals:\n            events.append((a, 1))\n            events.append((b + 1, -1))\n        events.sort()\n        total = 0\n        active = 0\n        prev = None\n        for pos, delta in events:\n            if prev is not None and active > 0:\n                total += pos - prev\n            active += delta\n            prev = pos\n        return minBulbs * total\n",
+  "solutions": {
+    "python": "class Solution:\n    def minEnergy(self, n: int, brightness: int, intervals) -> int:\n        minBulbs = (brightness + 2) // 3\n        ivs = sorted(intervals)\n        total = 0\n        curS, curE = ivs[0]\n        for s, e in ivs[1:]:\n            if s <= curE:\n                if e > curE:\n                    curE = e\n            else:\n                total += curE - curS + 1\n                curS, curE = s, e\n        total += curE - curS + 1\n        return minBulbs * total\n",
+    "javascript": "var minEnergy = function(n, brightness, intervals) {\n    const minBulbs = Math.floor((brightness + 2) / 3);\n    const ivs = intervals.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);\n    let total = 0;\n    let curS = ivs[0][0], curE = ivs[0][1];\n    for (let i = 1; i < ivs.length; i++) {\n        const s = ivs[i][0], e = ivs[i][1];\n        if (s <= curE) {\n            if (e > curE) curE = e;\n        } else {\n            total += curE - curS + 1;\n            curS = s; curE = e;\n        }\n    }\n    total += curE - curS + 1;\n    return minBulbs * total;\n};\n"
+  },
+  "complexity": { "time": "O(m log m)", "space": "O(m)" }
+}

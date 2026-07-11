@@ -1,0 +1,37 @@
+{
+  "slug": "swap-for-longest-repeated-character-substring",
+  "judge": "exact",
+  "pattern": "Grouping equal-letter runs lets a single swap either extend one run by an adjacent same-letter block across a one-gap, capped by how many copies of that letter exist overall.",
+  "hints": [
+    "Think in runs of identical letters; a swap can borrow at most one extra copy of a letter from elsewhere.",
+    "A run can grow by one if a copy of its letter exists somewhere outside it; two runs of the same letter separated by exactly one different character can merge if a spare copy exists.",
+    "Compress the string into (char, length) runs, track total counts per character, and for each run consider extending it and bridging a single-character gap to the next same-letter run, bounded by the available count."
+  ],
+  "constraints": [
+    { "param": "text", "kind": "string", "len": [1, 20000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "swap creates a triple", "input": ["ababa"] },
+    { "kind": "edge", "description": "bridge two runs across a gap", "input": ["aaabaaa"] },
+    { "kind": "trap", "description": "already all same, no swap needed", "input": ["aaaaa"] },
+    { "kind": "boundary", "description": "single character", "input": ["a"] },
+    { "kind": "trap", "description": "only one copy of the letter cannot grow", "input": ["abcde"] },
+    { "kind": "trap", "description": "gap with no spare copy elsewhere", "input": ["aabaa"] },
+    { "kind": "edge", "description": "long run plus a far spare", "input": ["aaaaabaaaaaa"] }
+  ],
+  "stress": [
+    {
+      "description": "random small-alphabet strings for brute comparison",
+      "seed": 37,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 60)))\n    return [''.join(rng.choice('abc') for _ in range(n))]\n",
+      "note": "length capped because the swap oracle is O(n^3)"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxRepOpt1(self, text):\n        def longest_run(s):\n            best = cur = 1\n            for i in range(1, len(s)):\n                if s[i] == s[i - 1]:\n                    cur += 1\n                    best = max(best, cur)\n                else:\n                    cur = 1\n            return best if s else 0\n        chars = list(text)\n        best = longest_run(text)\n        n = len(chars)\n        for i in range(n):\n            for j in range(i + 1, n):\n                if chars[i] == chars[j]:\n                    continue\n                chars[i], chars[j] = chars[j], chars[i]\n                best = max(best, longest_run(''.join(chars)))\n                chars[i], chars[j] = chars[j], chars[i]\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxRepOpt1(self, text):\n        from collections import Counter\n        total = Counter(text)\n        runs = []\n        i = 0\n        n = len(text)\n        while i < n:\n            j = i\n            while j < n and text[j] == text[i]:\n                j += 1\n            runs.append((text[i], j - i))\n            i = j\n        best = 0\n        for idx, (ch, length) in enumerate(runs):\n            # extend this run by one if a spare copy exists\n            cand = min(length + 1, total[ch])\n            best = max(best, cand)\n            # bridge to next same-letter run across a single-char gap\n            if idx + 2 < len(runs) and runs[idx + 1][1] == 1 and runs[idx + 2][0] == ch:\n                merged = length + runs[idx + 2][1]\n                cand = min(merged + 1, total[ch])\n                best = max(best, cand)\n        return best\n",
+    "javascript": "var maxRepOpt1 = function(text) {\n    const total = {};\n    for (const c of text) total[c] = (total[c] || 0) + 1;\n    const runs = [];\n    let i = 0;\n    const n = text.length;\n    while (i < n) {\n        let j = i;\n        while (j < n && text[j] === text[i]) j++;\n        runs.push([text[i], j - i]);\n        i = j;\n    }\n    let best = 0;\n    for (let idx = 0; idx < runs.length; idx++) {\n        const ch = runs[idx][0], length = runs[idx][1];\n        best = Math.max(best, Math.min(length + 1, total[ch]));\n        if (idx + 2 < runs.length && runs[idx + 1][1] === 1 && runs[idx + 2][0] === ch) {\n            const merged = length + runs[idx + 2][1];\n            best = Math.max(best, Math.min(merged + 1, total[ch]));\n        }\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}

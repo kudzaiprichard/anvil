@@ -1,0 +1,249 @@
+{
+  "slug": "all-ancestors-of-a-node-in-a-directed-acyclic-graph",
+  "judge": "exact",
+  "pattern": "Every node reachable from a source is a descendant that should record the source as one of its ancestors, so exploring forward from each node once and marking every node it reaches builds the whole ancestor table directly.",
+  "hints": [
+    "Think about the problem from each source node's point of view: every node it can reach via a directed path should count that source as an ancestor.",
+    "Build a forward adjacency list from the edges, then for each node run a graph traversal (DFS or BFS) and record that starting node as an ancestor of everything it visits.",
+    "Because the graph is acyclic, a visited-set per traversal keeps each ancestor recorded at most once even when multiple paths reach the same descendant; sort each node's ancestor list before returning it."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "edges",
+      "kind": "int[][]",
+      "len": [
+        0,
+        2000
+      ],
+      "value": [
+        0,
+        999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "eight-node DAG with several shared ancestors",
+      "input": [
+        8,
+        [
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            6
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "complete forward DAG on five nodes",
+      "input": [
+        5,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node, no edges",
+      "input": [
+        1,
+        []
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "several nodes with no edges at all",
+      "input": [
+        4,
+        []
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "disconnected components must not leak ancestors across them",
+      "input": [
+        6,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a diamond shape where a node is reachable via two different paths but must appear only once",
+      "input": [
+        4,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a simple linear chain",
+      "input": [
+        10,
+        [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            9
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random DAG built by only allowing edges from a lower-numbered node to a higher-numbered one, which guarantees acyclicity",
+      "seed": 37,
+      "size": 500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 500))\n    max_edges = min(2000, n * (n - 1) // 2)\n    possible = []\n    for u in range(n):\n        for v in range(u + 1, n):\n            possible.append((u, v))\n    rng.shuffle(possible)\n    k = rng.randint(0, min(max_edges, len(possible)))\n    edges = [list(e) for e in possible[:k]]\n    return [n, edges]\n",
+      "note": "ordering edges from lower to higher index by construction guarantees the graph stays acyclic"
+    }
+  ],
+  "oracle_python": "from collections import deque\n\nclass Solution:\n    def getAncestors(self, n, edges):\n        adj = [[] for _ in range(n)]\n        indeg = [0] * n\n        for u, v in edges:\n            adj[u].append(v)\n            indeg[v] += 1\n        q = deque(i for i in range(n) if indeg[i] == 0)\n        remaining = indeg[:]\n        order = []\n        while q:\n            u = q.popleft()\n            order.append(u)\n            for v in adj[u]:\n                remaining[v] -= 1\n                if remaining[v] == 0:\n                    q.append(v)\n        anc = [set() for _ in range(n)]\n        for u in order:\n            for v in adj[u]:\n                anc[v].add(u)\n                anc[v] |= anc[u]\n        return [sorted(s) for s in anc]\n",
+  "solutions": {
+    "python": "class Solution:\n    def getAncestors(self, n, edges):\n        adj = [[] for _ in range(n)]\n        for u, v in edges:\n            adj[u].append(v)\n        ancestors = [set() for _ in range(n)]\n        for start in range(n):\n            visited = set()\n            stack = list(adj[start])\n            while stack:\n                node = stack.pop()\n                if node in visited:\n                    continue\n                visited.add(node)\n                ancestors[node].add(start)\n                stack.extend(adj[node])\n        return [sorted(s) for s in ancestors]\n",
+    "javascript": "var getAncestors = function(n, edges) {\n    const adj = Array.from({ length: n }, () => []);\n    for (const [u, v] of edges) adj[u].push(v);\n    const ancestors = Array.from({ length: n }, () => new Set());\n    for (let start = 0; start < n; start++) {\n        const visited = new Set();\n        const stack = [...adj[start]];\n        while (stack.length) {\n            const node = stack.pop();\n            if (visited.has(node)) continue;\n            visited.add(node);\n            ancestors[node].add(start);\n            for (const nxt of adj[node]) stack.push(nxt);\n        }\n    }\n    return ancestors.map(s => Array.from(s).sort((a, b) => a - b));\n};\n"
+  },
+  "complexity": {
+    "time": "O(n * (n + e))",
+    "space": "O(n^2)"
+  }
+}

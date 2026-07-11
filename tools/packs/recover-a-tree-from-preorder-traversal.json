@@ -1,0 +1,38 @@
+{
+  "slug": "recover-a-tree-from-preorder-traversal",
+  "judge": "exact",
+  "io_types": { "params": ["json"], "returns": "tree" },
+  "pattern": "The dash count before each value is exactly the node's depth, so a stack of the current ancestor chain tells you precisely where to attach the next node.",
+  "hints": [
+    "Parse the string into (depth, value) pairs by counting leading dashes before each number.",
+    "Maintain a stack representing the path from the root to the most recently placed node; its size equals the current depth + 1.",
+    "Pop the stack until its size matches the new node's depth, then attach the new node as the left child if that slot is free, otherwise the right child, and push it."
+  ],
+  "constraints": [
+    { "param": "traversal", "kind": "string", "len": [1, 7000] }
+  ],
+  "no_anchor_ok": false,
+  "edge_inputs": [
+    { "kind": "edge", "description": "full binary tree across three depths", "input": ["1-2--3--4-5--6--7"] },
+    { "kind": "trap", "description": "single-child chains force left-only attachment", "input": ["1-2--3---4-5--6---7"] },
+    { "kind": "trap", "description": "multi-digit values and uneven branches", "input": ["1-401--349---90--88"] },
+    { "kind": "boundary", "description": "single node, no dashes", "input": ["5"] },
+    { "kind": "trap", "description": "left-only spine", "input": ["1-2--3---4"] },
+    { "kind": "edge", "description": "root with two leaf children", "input": ["1-2-3"] }
+  ],
+  "stress": [
+    {
+      "description": "build a random tree obeying the left-child-first rule, then serialize to the dash format",
+      "seed": 44,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 400))\n    # build node list with random structure honoring 'single child must be left'\n    val_pool = list(range(1, 10**9))\n    rng.shuffle(val_pool)\n    nodes = []  # each: [val, left_idx, right_idx]\n    nodes.append([val_pool[0], None, None])\n    for k in range(1, n):\n        # attach as child of a random existing node with a free slot\n        candidates = []\n        for idx, nd in enumerate(nodes):\n            if nd[1] is None or nd[2] is None:\n                candidates.append(idx)\n        p = rng.choice(candidates)\n        new_idx = len(nodes)\n        nodes.append([val_pool[k], None, None])\n        if nodes[p][1] is None:\n            nodes[p][1] = new_idx\n        else:\n            nodes[p][2] = new_idx\n    parts = []\n    def serialize(idx, depth):\n        parts.append('-' * depth + str(nodes[idx][0]))\n        if nodes[idx][1] is not None:\n            serialize(nodes[idx][1], depth + 1)\n        if nodes[idx][2] is not None:\n            serialize(nodes[idx][2], depth + 1)\n    serialize(0, 0)\n    return [''.join(parts)]\n",
+      "note": "serialization preserves the left-before-right preorder format the problem expects"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def recoverFromPreorder(self, traversal):\n        # Brute force recursive parse: split into (depth, val) tokens, then\n        # recursively carve out the left and right subtree spans.\n        tokens = []\n        i = 0\n        s = traversal\n        while i < len(s):\n            d = 0\n            while i < len(s) and s[i] == '-':\n                d += 1\n                i += 1\n            j = i\n            while j < len(s) and s[j] != '-':\n                j += 1\n            tokens.append((d, int(s[i:j])))\n            i = j\n        def build(items, depth):\n            if not items:\n                return None\n            node = TreeNode(items[0][1])\n            # find boundaries of children at depth+1\n            rest = items[1:]\n            # split rest into segments each starting at depth+1\n            children = []\n            cur = []\n            for tok in rest:\n                if tok[0] == depth + 1:\n                    if cur:\n                        children.append(cur)\n                    cur = [tok]\n                else:\n                    cur.append(tok)\n            if cur:\n                children.append(cur)\n            if len(children) >= 1:\n                node.left = build(children[0], depth + 1)\n            if len(children) >= 2:\n                node.right = build(children[1], depth + 1)\n            return node\n        return build(tokens, 0)\n",
+  "solutions": {
+    "python": "class Solution:\n    def recoverFromPreorder(self, traversal):\n        stack = []\n        i = 0\n        s = traversal\n        while i < len(s):\n            depth = 0\n            while i < len(s) and s[i] == '-':\n                depth += 1\n                i += 1\n            j = i\n            while j < len(s) and s[j] != '-':\n                j += 1\n            val = int(s[i:j])\n            i = j\n            node = TreeNode(val)\n            while len(stack) > depth:\n                stack.pop()\n            if stack:\n                parent = stack[-1]\n                if parent.left is None:\n                    parent.left = node\n                else:\n                    parent.right = node\n            stack.append(node)\n        return stack[0] if stack else None\n",
+    "javascript": "var recoverFromPreorder = function(traversal) {\n    const stack = [];\n    let i = 0;\n    const s = traversal;\n    while (i < s.length) {\n        let depth = 0;\n        while (i < s.length && s[i] === '-') { depth += 1; i += 1; }\n        let j = i;\n        while (j < s.length && s[j] !== '-') j += 1;\n        const val = parseInt(s.slice(i, j), 10);\n        i = j;\n        const node = new TreeNode(val);\n        while (stack.length > depth) stack.pop();\n        if (stack.length) {\n            const parent = stack[stack.length - 1];\n            if (parent.left === null) parent.left = node;\n            else parent.right = node;\n        }\n        stack.push(node);\n    }\n    return stack.length ? stack[0] : null;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(h)" }
+}

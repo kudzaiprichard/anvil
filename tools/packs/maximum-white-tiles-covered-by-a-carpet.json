@@ -1,0 +1,38 @@
+{
+  "slug": "maximum-white-tiles-covered-by-a-carpet",
+  "judge": "exact",
+  "pattern": "An optimal carpet always starts flush with the left edge of some tile range, so a two-pointer sweep over sorted ranges with prefix sums evaluates every candidate start.",
+  "hints": [
+    "Sliding the carpet left until its left edge hits a tile's start never loses coverage, so only those starts matter.",
+    "Sort the ranges and keep prefix sums of their lengths so you can total fully-covered ranges in O(1).",
+    "For each range as the start, advance a right pointer over ranges that finish within reach, add the prefix-summed full coverage, then add the partial overlap of the boundary range."
+  ],
+  "constraints": [
+    { "param": "tiles", "kind": "int[][]", "len": [1, 50000], "value": [1, 1000000000] },
+    { "param": "carpetLen", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "carpet spans several ranges plus a partial one", "input": [[[1, 5], [10, 11], [12, 18], [20, 25], [30, 32]], 10] },
+    { "kind": "edge", "description": "carpet covers a far range fully", "input": [[[10, 11], [1, 1]], 2] },
+    { "kind": "boundary", "description": "single range fully covered by a long carpet", "input": [[[1, 100]], 1000] },
+    { "kind": "boundary", "description": "carpet shorter than a single range covers only part", "input": [[[1, 100]], 10] },
+    { "kind": "edge", "description": "carpet length one covers a single tile", "input": [[[5, 5], [9, 9]], 1] },
+    { "kind": "trap", "description": "best start is not the first range", "input": [[[1, 2], [100, 200]], 50] },
+    { "kind": "trap", "description": "carpet boundary cuts through a range partially", "input": [[[1, 10], [12, 30]], 15] }
+  ],
+  "stress": [
+    {
+      "description": "many non-overlapping ranges with a moderate carpet length",
+      "seed": 22,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, size)\n    tiles = []\n    cur = rng.randint(1, 100)\n    for _ in range(n):\n        ln = rng.randint(0, 20)\n        l = cur\n        r = cur + ln\n        tiles.append([l, r])\n        cur = r + rng.randint(1, 20)\n    carpet = rng.randint(1, 200)\n    return [tiles, carpet]\n",
+      "note": "non-overlapping ranges built by always advancing past the previous end"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maximumWhiteTiles(self, tiles, carpetLen):\n        best = 0\n        for l, r in tiles:\n            for start in (l, max(l, r - carpetLen + 1)):\n                end = start + carpetLen - 1\n                covered = 0\n                for a, b in tiles:\n                    lo = max(a, start)\n                    hi = min(b, end)\n                    if hi >= lo:\n                        covered += hi - lo + 1\n                if covered > best:\n                    best = covered\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maximumWhiteTiles(self, tiles, carpetLen):\n        tiles.sort()\n        n = len(tiles)\n        prefix = [0] * (n + 1)\n        for i in range(n):\n            prefix[i + 1] = prefix[i] + (tiles[i][1] - tiles[i][0] + 1)\n        best = 0\n        j = 0\n        for i in range(n):\n            start = tiles[i][0]\n            end = start + carpetLen - 1\n            while j < n and tiles[j][1] <= end:\n                j += 1\n            covered = prefix[j] - prefix[i]\n            if j < n and tiles[j][0] <= end:\n                covered += end - tiles[j][0] + 1\n            if covered > best:\n                best = covered\n        return best\n",
+    "javascript": "var maximumWhiteTiles = function(tiles, carpetLen) {\n    tiles.sort((a, b) => a[0] - b[0]);\n    const n = tiles.length;\n    const prefix = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) {\n        prefix[i + 1] = prefix[i] + (tiles[i][1] - tiles[i][0] + 1);\n    }\n    let best = 0;\n    let j = 0;\n    for (let i = 0; i < n; i++) {\n        const start = tiles[i][0];\n        const end = start + carpetLen - 1;\n        while (j < n && tiles[j][1] <= end) j++;\n        let covered = prefix[j] - prefix[i];\n        if (j < n && tiles[j][0] <= end) {\n            covered += end - tiles[j][0] + 1;\n        }\n        if (covered > best) best = covered;\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

@@ -1,0 +1,183 @@
+{
+  "judge": "exact",
+  "pattern": "Whether a query works comes down to comparing small per-letter tallies -- what each half's shuffle-able piece can supply versus what the untouched positions demand -- rather than ever building an actual rearrangement.",
+  "hints": [
+    "Picture each half of the string split into the piece you are allowed to shuffle and the piece you are not; a position whose mirrored partner sits in the untouched piece still needs one specific fixed letter to land there, so track what the shuffle-able piece must supply against what it actually holds.",
+    "Any mirrored pair that is untouched on both sides can never change, so if even one such pair is already mismatched the whole query fails immediately -- check that first, using a running count of mismatches so it costs nothing extra per query.",
+    "For everything else, split each side's shuffle-able letters into 'must supply this exact fixed letter to the other side's untouched partner' (needs at least that many of each letter available, not just any count) and 'left over, paired freely against the other side's left-over letters' (needs the two left-over tallies to match exactly, letter for letter) -- one running count per letter over the whole string makes every one of these checks O(1)."
+  ],
+  "constraints": [
+    {
+      "param": "s",
+      "kind": "string",
+      "len": [
+        2,
+        100000
+      ]
+    },
+    {
+      "param": "queries",
+      "kind": "int[][]",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        99999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two independent queries on the same string",
+      "input": [
+        "abcabc",
+        [
+          [
+            1,
+            1,
+            3,
+            5
+          ],
+          [
+            0,
+            2,
+            5,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, a query that cannot fix an untouched mismatched pair",
+      "input": [
+        "abbcdecbba",
+        [
+          [
+            0,
+            2,
+            7,
+            9
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, overlapping freedom that still works out",
+      "input": [
+        "acbcab",
+        [
+          [
+            1,
+            2,
+            4,
+            5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible string, both halves are single untouched-equivalent positions that already mismatch",
+      "input": [
+        "ba",
+        [
+          [
+            0,
+            0,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "smallest possible string, both halves are single positions that already match",
+      "input": [
+        "aa",
+        [
+          [
+            0,
+            0,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "both halves fully free but their letter tallies can never be made to agree",
+      "input": [
+        "aabb",
+        [
+          [
+            0,
+            1,
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "both halves fully free and their letter tallies already agree",
+      "input": [
+        "abab",
+        [
+          [
+            0,
+            1,
+            2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "partial overlap where the shuffle-able piece is asked to supply a letter it does not contain at all",
+      "input": [
+        "aabcab",
+        [
+          [
+            0,
+            1,
+            3,
+            4
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a large string over a 3-letter alphabet with several thousand random valid queries",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 100000))\n    if n % 2 == 1:\n        n -= 1\n    if n < 2:\n        n = 2\n    alphabet = 'abc'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    half = n // 2\n    num_q = max(1, min(n, 3000))\n    queries = []\n    for _ in range(num_q):\n        a = rng.randint(0, half - 1)\n        b = rng.randint(a, half - 1)\n        c = rng.randint(half, n - 1)\n        d = rng.randint(c, n - 1)\n        queries.append([a, b, c, d])\n    return [s, queries]\n"
+    },
+    {
+      "description": "a moderate-size string over a 2-letter alphabet with a very large number of queries, stressing the per-query check itself",
+      "seed": 11,
+      "size": 20000,
+      "generator_python": "def gen(rng, size):\n    n = 2000\n    alphabet = 'ab'\n    s = ''.join(rng.choice(alphabet) for _ in range(n))\n    half = n // 2\n    num_q = max(1, min(size, 20000))\n    queries = []\n    for _ in range(num_q):\n        a = rng.randint(0, half - 1)\n        b = rng.randint(a, half - 1)\n        c = rng.randint(half, n - 1)\n        d = rng.randint(c, n - 1)\n        queries.append([a, b, c, d])\n    return [s, queries]\n"
+    }
+  ],
+  "oracle_python": "from itertools import permutations\n\nclass Solution:\n    def canMakePalindromeQueries(self, s, queries):\n        n = len(s)\n        res = []\n        for a, b, c, d in queries:\n            left_idx = list(range(a, b + 1))\n            right_idx = list(range(c, d + 1))\n            left_chars = [s[i] for i in left_idx]\n            right_chars = [s[i] for i in right_idx]\n            left_opts = set(permutations(left_chars))\n            right_opts = set(permutations(right_chars))\n            found = False\n            for lp in left_opts:\n                trial = list(s)\n                for pos, ch in zip(left_idx, lp):\n                    trial[pos] = ch\n                for rp in right_opts:\n                    for pos, ch in zip(right_idx, rp):\n                        trial[pos] = ch\n                    ok = True\n                    for i in range(n // 2):\n                        if trial[i] != trial[n - 1 - i]:\n                            ok = False\n                            break\n                    if ok:\n                        found = True\n                        break\n                if found:\n                    break\n            res.append(found)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def canMakePalindromeQueries(self, s: str, queries: List[List[int]]) -> List[bool]:\n        n = len(s)\n        half = n // 2\n        pref = []\n        for c in range(26):\n            ch = chr(97 + c)\n            arr = [0] * (n + 1)\n            run = 0\n            for i in range(n):\n                if s[i] == ch:\n                    run += 1\n                arr[i + 1] = run\n            pref.append(arr)\n        mism_pref = [0] * (half + 1)\n        for i in range(half):\n            mism_pref[i + 1] = mism_pref[i] + (1 if s[i] != s[n - 1 - i] else 0)\n        total_mismatch = mism_pref[half]\n\n        def cnt(arr, l, r):\n            if l > r:\n                return 0\n            return arr[r + 1] - arr[l]\n\n        res = []\n        for a, b, c, d in queries:\n            lo = max(a, n - 1 - d)\n            hi = min(b, n - 1 - c)\n            inter_empty = lo > hi\n\n            mismatch_lr = cnt(mism_pref, a, b)\n            mismatch_rr = cnt(mism_pref, n - 1 - d, n - 1 - c)\n            mismatch_inter = 0 if inter_empty else cnt(mism_pref, lo, hi)\n            mismatch_outside = total_mismatch - (mismatch_lr + mismatch_rr - mismatch_inter)\n            if mismatch_outside != 0:\n                res.append(False)\n                continue\n\n            ok = True\n            for ch_idx in range(26):\n                arr = pref[ch_idx]\n                cl = cnt(arr, a, b)\n                cr = cnt(arr, c, d)\n                f_full = cnt(arr, n - 1 - b, n - 1 - a)\n                f_inter = 0 if inter_empty else cnt(arr, n - 1 - hi, n - 1 - lo)\n                f_target = f_full - f_inter\n                g_full = cnt(arr, n - 1 - d, n - 1 - c)\n                g_inter = 0 if inter_empty else cnt(arr, lo, hi)\n                g_target = g_full - g_inter\n                if f_target > cl or g_target > cr or (cl - f_target) != (cr - g_target):\n                    ok = False\n                    break\n            res.append(ok)\n        return res\n",
+    "javascript": "var canMakePalindromeQueries = function(s, queries) {\n    const n = s.length;\n    const half = Math.floor(n / 2);\n    const A = 97;\n    const pref = [];\n    for (let c = 0; c < 26; c++) {\n        const ch = String.fromCharCode(A + c);\n        const arr = new Int32Array(n + 1);\n        let run = 0;\n        for (let i = 0; i < n; i++) {\n            if (s[i] === ch) run++;\n            arr[i + 1] = run;\n        }\n        pref.push(arr);\n    }\n    const mismPref = new Int32Array(half + 1);\n    for (let i = 0; i < half; i++) {\n        mismPref[i + 1] = mismPref[i] + (s[i] !== s[n - 1 - i] ? 1 : 0);\n    }\n    const totalMismatch = mismPref[half];\n\n    function cnt(arr, l, r) {\n        if (l > r) return 0;\n        return arr[r + 1] - arr[l];\n    }\n\n    const res = [];\n    for (const [a, b, c, d] of queries) {\n        const lo = Math.max(a, n - 1 - d);\n        const hi = Math.min(b, n - 1 - c);\n        const interEmpty = lo > hi;\n\n        const mismatchLr = cnt(mismPref, a, b);\n        const mismatchRr = cnt(mismPref, n - 1 - d, n - 1 - c);\n        const mismatchInter = interEmpty ? 0 : cnt(mismPref, lo, hi);\n        const mismatchOutside = totalMismatch - (mismatchLr + mismatchRr - mismatchInter);\n        if (mismatchOutside !== 0) {\n            res.push(false);\n            continue;\n        }\n\n        let ok = true;\n        for (let chIdx = 0; chIdx < 26; chIdx++) {\n            const arr = pref[chIdx];\n            const cl = cnt(arr, a, b);\n            const cr = cnt(arr, c, d);\n            const fFull = cnt(arr, n - 1 - b, n - 1 - a);\n            const fInter = interEmpty ? 0 : cnt(arr, n - 1 - hi, n - 1 - lo);\n            const fTarget = fFull - fInter;\n            const gFull = cnt(arr, n - 1 - d, n - 1 - c);\n            const gInter = interEmpty ? 0 : cnt(arr, lo, hi);\n            const gTarget = gFull - gInter;\n            if (fTarget > cl || gTarget > cr || (cl - fTarget) !== (cr - gTarget)) {\n                ok = false;\n                break;\n            }\n        }\n        res.push(ok);\n    }\n    return res;\n};\n"
+  },
+  "complexity": {
+    "time": "O(26 * (n + q)) for n = s.length and q = queries.length",
+    "space": "O(26 * n)"
+  },
+  "slug": "palindrome-rearrangement-queries"
+}

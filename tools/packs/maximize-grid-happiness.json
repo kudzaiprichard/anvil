@@ -1,0 +1,41 @@
+{
+  "slug": "maximize-grid-happiness",
+  "judge": "exact",
+  "no_anchor_ok": true,
+  "pattern": "Fill a small grid one cell at a time with introverts, extroverts, or empty seats, where seating someone next to an already-seated neighbor changes both people's happiness at once, and search for the arrangement that maximizes total happiness.",
+  "hints": [
+    "Placing a person changes the happiness of that person and of every neighbor already seated directly above or to its left, so process cells in reading order and only ever look backward.",
+    "Only the previous row and the current row's filled-so-far cells can still affect future decisions, so compress the last n placements into a small base-3 fingerprint instead of storing the whole grid.",
+    "Memoize on (cell index, introverts left to place, extroverts left to place, recent-placements fingerprint) and at each cell try leaving it empty, seating an introvert, or seating an extrovert, keeping whichever total is best."
+  ],
+  "constraints": [
+    { "param": "m", "kind": "int", "value": [1, 5] },
+    { "param": "n", "kind": "int", "value": [1, 5] },
+    { "param": "introvertsCount", "kind": "int", "value": [0, 6] },
+    { "param": "extrovertsCount", "kind": "int", "value": [0, 6] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "1x1 grid holding a single introvert", "input": [1, 1, 1, 0] },
+    { "kind": "edge", "description": "1x1 grid holding a single extrovert", "input": [1, 1, 0, 1] },
+    { "kind": "edge", "description": "nobody is placed when both counts are zero", "input": [3, 3, 0, 0] },
+    { "kind": "boundary", "description": "a single row forces every neighbor relationship to be horizontal", "input": [1, 4, 2, 2] },
+    { "kind": "boundary", "description": "a single column forces every neighbor relationship to be vertical", "input": [4, 1, 2, 1] },
+    { "kind": "trap", "description": "only introverts are available, so the optimum still spreads them apart rather than clustering", "input": [3, 2, 4, 0] },
+    { "kind": "boundary", "description": "every cell of a small grid is filled by a mix of both types", "input": [3, 3, 3, 3] }
+  ],
+  "stress": [
+    {
+      "description": "small random grids with a random introvert/extrovert split up to the seat count",
+      "seed": 7,
+      "size": 9,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 3)\n    n = rng.randint(1, 3)\n    cells = m * n\n    total_people = rng.randint(0, min(cells, 6))\n    intro = rng.randint(0, total_people)\n    extro = total_people - intro\n    return [m, n, intro, extro]\n",
+      "note": "grid capped at 3x3 so an exhaustive-search oracle stays fast"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def getMaxGridHappiness(self, m: int, n: int, introvertsCount: int, extrovertsCount: int) -> int:\n        total_cells = m * n\n        best = [-1]\n\n        def score(grid):\n            total = 0\n            for r in range(m):\n                for c in range(n):\n                    person = grid[r][c]\n                    if person == 0:\n                        continue\n                    total += 120 if person == 1 else 40\n                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] != 0:\n                            total += -30 if person == 1 else 20\n            return total\n\n        grid = [[0] * n for _ in range(m)]\n\n        def backtrack(idx, intro, extro):\n            if idx == total_cells:\n                cand = score(grid)\n                if cand > best[0]:\n                    best[0] = cand\n                return\n            r, c = divmod(idx, n)\n            grid[r][c] = 0\n            backtrack(idx + 1, intro, extro)\n            if intro > 0:\n                grid[r][c] = 1\n                backtrack(idx + 1, intro - 1, extro)\n            if extro > 0:\n                grid[r][c] = 2\n                backtrack(idx + 1, intro, extro - 1)\n            grid[r][c] = 0\n\n        backtrack(0, introvertsCount, extrovertsCount)\n        return best[0]\n",
+  "solutions": {
+    "python": "from functools import lru_cache\n\n\nclass Solution:\n    def getMaxGridHappiness(self, m: int, n: int, introvertsCount: int, extrovertsCount: int) -> int:\n        total_cells = m * n\n        pow_n = 3 ** n\n\n        def contrib(person, other):\n            if other == 0:\n                return 0\n            delta = -30 if person == 1 else 20\n            delta += -30 if other == 1 else 20\n            return delta\n\n        @lru_cache(maxsize=None)\n        def dp(idx, intro, extro, mask):\n            if idx == total_cells:\n                return 0\n            row, col = divmod(idx, n)\n            up = (mask // (pow_n // 3)) if row > 0 else 0\n            left = (mask % 3) if col > 0 else 0\n            best = dp(idx + 1, intro, extro, (mask * 3) % pow_n)\n            if intro > 0:\n                gain = 120\n                if row > 0:\n                    gain += contrib(1, up)\n                if col > 0:\n                    gain += contrib(1, left)\n                cand = gain + dp(idx + 1, intro - 1, extro, (mask * 3 + 1) % pow_n)\n                if cand > best:\n                    best = cand\n            if extro > 0:\n                gain = 40\n                if row > 0:\n                    gain += contrib(2, up)\n                if col > 0:\n                    gain += contrib(2, left)\n                cand = gain + dp(idx + 1, intro, extro - 1, (mask * 3 + 2) % pow_n)\n                if cand > best:\n                    best = cand\n            return best\n\n        return dp(0, introvertsCount, extrovertsCount, 0)\n",
+    "javascript": "var getMaxGridHappiness = function(m, n, introvertsCount, extrovertsCount) {\n    const totalCells = m * n;\n    const powN = Math.pow(3, n);\n\n    function contrib(person, other) {\n        if (other === 0) return 0;\n        let delta = person === 1 ? -30 : 20;\n        delta += other === 1 ? -30 : 20;\n        return delta;\n    }\n\n    const memo = new Map();\n\n    function dp(idx, intro, extro, mask) {\n        if (idx === totalCells) return 0;\n        const key = idx + ',' + intro + ',' + extro + ',' + mask;\n        const cached = memo.get(key);\n        if (cached !== undefined) return cached;\n        const row = Math.floor(idx / n);\n        const col = idx % n;\n        const up = row > 0 ? Math.floor(mask / (powN / 3)) : 0;\n        const left = col > 0 ? mask % 3 : 0;\n        let best = dp(idx + 1, intro, extro, (mask * 3) % powN);\n        if (intro > 0) {\n            let gain = 120;\n            if (row > 0) gain += contrib(1, up);\n            if (col > 0) gain += contrib(1, left);\n            const cand = gain + dp(idx + 1, intro - 1, extro, (mask * 3 + 1) % powN);\n            if (cand > best) best = cand;\n        }\n        if (extro > 0) {\n            let gain = 40;\n            if (row > 0) gain += contrib(2, up);\n            if (col > 0) gain += contrib(2, left);\n            const cand = gain + dp(idx + 1, intro, extro - 1, (mask * 3 + 2) % powN);\n            if (cand > best) best = cand;\n        }\n        memo.set(key, best);\n        return best;\n    }\n\n    return dp(0, introvertsCount, extrovertsCount, 0);\n};\n"
+  },
+  "complexity": { "time": "O(m*n*3^n*introvertsCount*extrovertsCount)", "space": "O(m*n*3^n*introvertsCount*extrovertsCount)" }
+}

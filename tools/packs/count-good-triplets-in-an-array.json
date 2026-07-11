@@ -1,0 +1,43 @@
+{
+  "slug": "count-good-triplets-in-an-array",
+  "judge": "exact",
+  "pattern": "Re-expressing every value by where it lands in the second array turns the two-array ordering condition into a single-array question of counting increasing triplets, which a pair of Fenwick trees can answer in one left-to-right and one right-to-left sweep.",
+  "hints": [
+    "Record, for every value, its position in the second array; then walk the first array and replace each value with that recorded position, giving one combined sequence to reason about.",
+    "A triplet is good exactly when three positions in that combined sequence, taken in the order the first array visits them, come out strictly increasing.",
+    "For every position, count how many earlier entries in the combined sequence are smaller and how many later entries are larger using a Fenwick tree in each direction, then multiply and sum those two counts across all positions."
+  ],
+  "constraints": [
+    { "param": "nums1", "kind": "int[]", "len": [3, 100000], "value": [0, 99999] },
+    { "param": "nums2", "kind": "int[]", "len": [3, 100000], "value": [0, 99999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "minimum size, both already the identity permutation", "input": [[0, 1, 2], [0, 1, 2]] },
+    { "kind": "trap", "description": "minimum size, second array fully reversed so nothing can be good", "input": [[0, 1, 2], [2, 1, 0]] },
+    { "kind": "edge", "description": "both arrays identical and fully increasing", "input": [[0, 1, 2, 3], [0, 1, 2, 3]] },
+    { "kind": "trap", "description": "first array fully reversed relative to the second", "input": [[3, 2, 1, 0], [0, 1, 2, 3]] },
+    { "kind": "trap", "description": "both arrays fully reversed, so every position still disagrees", "input": [[4, 3, 2, 1, 0], [4, 3, 2, 1, 0]] },
+    { "kind": "trap", "description": "a single adjacent swap in the second array breaks some triplets but not all", "input": [[0, 1, 2, 3, 4], [1, 0, 2, 3, 4]] },
+    { "kind": "boundary", "description": "minimum size with exactly one good triplet possible", "input": [[1, 0, 2], [0, 1, 2]] }
+  ],
+  "stress": [
+    {
+      "description": "random permutation pairs up to the maximum length",
+      "seed": 19,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 100000))\n    nums1 = list(range(n))\n    rng.shuffle(nums1)\n    nums2 = list(range(n))\n    rng.shuffle(nums2)\n    return [nums1, nums2]\n"
+    },
+    {
+      "description": "nums2 is a small number of swaps away from matching nums1 exactly",
+      "seed": 20,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(3, min(size, 100000))\n    nums1 = list(range(n))\n    rng.shuffle(nums1)\n    nums2 = list(nums1)\n    swaps = max(1, n // 20)\n    for _ in range(swaps):\n        i = rng.randint(0, n - 1)\n        j = rng.randint(0, n - 1)\n        nums2[i], nums2[j] = nums2[j], nums2[i]\n    return [nums1, nums2]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def goodTriplets(self, nums1, nums2):\n        n = len(nums1)\n        pos1 = [0] * n\n        pos2 = [0] * n\n        for i, v in enumerate(nums1):\n            pos1[v] = i\n        for i, v in enumerate(nums2):\n            pos2[v] = i\n        count = 0\n        for a, b, c in combinations(range(n), 3):\n            x, y, z = sorted((a, b, c), key=lambda v: pos1[v])\n            if pos2[x] < pos2[y] < pos2[z]:\n                count += 1\n        return count\n",
+  "solutions": {
+    "python": "class Solution:\n    def goodTriplets(self, nums1, nums2):\n        n = len(nums1)\n        pos2 = [0] * n\n        for idx, v in enumerate(nums2):\n            pos2[v] = idx\n        seq = [pos2[v] for v in nums1]\n\n        def bit_update(tree, i, size):\n            i += 1\n            while i <= size:\n                tree[i] += 1\n                i += i & (-i)\n\n        def bit_query(tree, i):\n            if i < 0:\n                return 0\n            i += 1\n            s = 0\n            while i > 0:\n                s += tree[i]\n                i -= i & (-i)\n            return s\n\n        left = [0] * n\n        tree1 = [0] * (n + 1)\n        for j in range(n):\n            left[j] = bit_query(tree1, seq[j] - 1)\n            bit_update(tree1, seq[j], n)\n\n        right = [0] * n\n        tree2 = [0] * (n + 1)\n        inserted = 0\n        for j in range(n - 1, -1, -1):\n            right[j] = inserted - bit_query(tree2, seq[j])\n            bit_update(tree2, seq[j], n)\n            inserted += 1\n\n        return sum(left[j] * right[j] for j in range(n))\n",
+    "javascript": "var goodTriplets = function(nums1, nums2) {\n    const n = nums1.length;\n    const pos2 = new Array(n);\n    for (let i = 0; i < n; i++) pos2[nums2[i]] = i;\n    const seq = nums1.map(v => pos2[v]);\n\n    const bitUpdate = (tree, i, size) => {\n        i += 1;\n        while (i <= size) {\n            tree[i] += 1;\n            i += i & (-i);\n        }\n    };\n    const bitQuery = (tree, i) => {\n        if (i < 0) return 0;\n        i += 1;\n        let s = 0;\n        while (i > 0) {\n            s += tree[i];\n            i -= i & (-i);\n        }\n        return s;\n    };\n\n    const left = new Array(n).fill(0);\n    const tree1 = new Array(n + 1).fill(0);\n    for (let j = 0; j < n; j++) {\n        left[j] = bitQuery(tree1, seq[j] - 1);\n        bitUpdate(tree1, seq[j], n);\n    }\n\n    const right = new Array(n).fill(0);\n    const tree2 = new Array(n + 1).fill(0);\n    let inserted = 0;\n    for (let j = n - 1; j >= 0; j--) {\n        right[j] = inserted - bitQuery(tree2, seq[j]);\n        bitUpdate(tree2, seq[j], n);\n        inserted++;\n    }\n\n    let total = 0;\n    for (let j = 0; j < n; j++) total += left[j] * right[j];\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

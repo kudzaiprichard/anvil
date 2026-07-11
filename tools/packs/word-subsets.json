@@ -1,0 +1,39 @@
+{
+  "slug": "word-subsets",
+  "judge": "unordered",
+  "no_anchor_ok": true,
+  "pattern": "Collapsing the second word list into a single per-letter maximum requirement lets each candidate be checked against one combined frequency profile instead of every word individually.",
+  "hints": [
+    "A candidate must cover the heaviest demand for each letter across the second list, not each word separately.",
+    "Merge the second list into one requirement by taking, for every letter, the largest count any single word needs.",
+    "Build that merged letter-count once, then keep each first-list word whose own letter counts meet or exceed every entry of the merged requirement."
+  ],
+  "constraints": [
+    { "param": "words1", "kind": "string[]", "len": [1, 10000] },
+    { "param": "words2", "kind": "string[]", "len": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single-letter demands keep words containing both letters", "input": [["amazon", "apple", "facebook", "google", "leetcode"], ["e", "o"]] },
+    { "kind": "edge", "description": "doubled-letter demand narrows to one survivor", "input": [["amazon", "apple", "facebook", "google", "leetcode"], ["lc", "eo"]] },
+    { "kind": "edge", "description": "merged requirement needs two of one letter", "input": [["acaac", "cccbb", "aacbb", "caacc", "bcbbb"], ["c", "cc", "b"]] },
+    { "kind": "trap", "description": "no candidate satisfies the combined demand", "input": [["ab", "cd"], ["abc"]] },
+    { "kind": "edge", "description": "every candidate is universal when demand is trivial", "input": [["xa", "xb", "xc"], ["x"]] },
+    { "kind": "boundary", "description": "single candidate exactly meeting a multiplicity demand", "input": [["aabb"], ["ab", "ba", "aa"]] },
+    { "kind": "trap", "description": "multiplicity matters, a word with one copy fails a two-copy demand", "input": [["abc", "aabc"], ["aa"]] }
+  ],
+  "stress": [
+    {
+      "description": "random short lowercase words on both sides over a tiny alphabet so survivors vary",
+      "seed": 31,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    alpha = 'abcde'\n    def word():\n        ln = rng.randint(1, 10)\n        return ''.join(rng.choice(alpha) for _ in range(ln))\n    seen = set()\n    w1 = []\n    while len(w1) < max(1, size):\n        w = word()\n        if w not in seen:\n            seen.add(w)\n            w1.append(w)\n    w2 = [word() for _ in range(rng.randint(1, 6))]\n    return [w1, w2]\n",
+      "note": "words1 entries are unique per the constraints; tiny alphabet makes universality non-trivial"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def wordSubsets(self, words1, words2):\n        from collections import Counter\n        res = []\n        reqs = [Counter(b) for b in words2]\n        for a in words1:\n            ca = Counter(a)\n            ok = True\n            for r in reqs:\n                for ch, k in r.items():\n                    if ca[ch] < k:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if ok:\n                res.append(a)\n        return res\n",
+  "solutions": {
+    "python": "class Solution:\n    def wordSubsets(self, words1, words2):\n        from collections import Counter\n        need = Counter()\n        for b in words2:\n            cb = Counter(b)\n            for ch, k in cb.items():\n                if k > need[ch]:\n                    need[ch] = k\n        res = []\n        for a in words1:\n            ca = Counter(a)\n            if all(ca[ch] >= k for ch, k in need.items()):\n                res.append(a)\n        return res\n",
+    "javascript": "var wordSubsets = function(words1, words2) {\n    const need = new Array(26).fill(0);\n    const cnt = (w) => {\n        const c = new Array(26).fill(0);\n        for (const ch of w) c[ch.charCodeAt(0) - 97]++;\n        return c;\n    };\n    for (const b of words2) {\n        const cb = cnt(b);\n        for (let i = 0; i < 26; i++) if (cb[i] > need[i]) need[i] = cb[i];\n    }\n    const res = [];\n    for (const a of words1) {\n        const ca = cnt(a);\n        let ok = true;\n        for (let i = 0; i < 26; i++) if (ca[i] < need[i]) { ok = false; break; }\n        if (ok) res.push(a);\n    }\n    return res;\n};\n"
+  },
+  "complexity": { "time": "O(A + B)", "space": "O(1)" }
+}

@@ -1,0 +1,39 @@
+{
+  "slug": "two-letter-card-game",
+  "judge": "exact",
+  "pattern": "Only cards holding the key letter matter, and they split into two clean families whose pairings reduce to a max-matching where same-letter cards cannot pair, solved by a simple counting formula plus a split of the doubled-letter cards.",
+  "hints": [
+    "Discard every card that does not contain the key letter; the rest are exactly the ones in play.",
+    "Cards with the key letter in the first slot can only pair with each other (and with the doubled-letter card), and likewise for the second slot. Two cards sharing the same other letter are identical and cannot pair.",
+    "In each family the max number of pairs is min(total // 2, total - largest_group). The doubled-letter cards are a wildcard group you can assign to either family, so try every split of them and keep the best total."
+  ],
+  "constraints": [
+    { "param": "cards", "kind": "string[]", "len": [2, 100000] },
+    { "param": "x", "kind": "string", "len": [1, 1] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two pairs achievable", "input": [["aa", "ab", "ba", "ac"], "a"] },
+    { "kind": "edge", "description": "one pair only", "input": [["aa", "ab", "ba"], "a"] },
+    { "kind": "edge", "description": "key letter never yields a compatible pair", "input": [["aa", "ab", "ba", "ac"], "b"] },
+    { "kind": "trap", "description": "identical doubled cards cannot pair with each other", "input": [["bb", "bb", "bb"], "b"] },
+    { "kind": "trap", "description": "wildcard split decides the answer", "input": [["aa", "ab", "ca", "ad"], "a"] },
+    { "kind": "boundary", "description": "no card contains the key letter", "input": [["bc", "cd"], "a"] },
+    { "kind": "trap", "description": "first-slot family with one dominating letter", "input": [["ab", "ab", "ab", "ac"], "a"] },
+    { "kind": "edge", "description": "both families plus a wildcard", "input": [["ab", "cb", "bb", "db", "eb"], "b"] }
+  ],
+  "stress": [
+    {
+      "description": "many two-letter cards over a small alphabet so both families and wildcards are dense",
+      "seed": 16,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, size)\n    letters = 'abcdef'\n    cards = [rng.choice(letters) + rng.choice(letters) for _ in range(n)]\n    x = rng.choice(letters)\n    return [cards, x]\n",
+      "note": "small alphabet packs the matching groups"
+    }
+  ],
+  "oracle_python": "import heapq\nclass Solution:\n    def score(self, cards, x):\n        from collections import Counter\n        cnt = Counter(cards)\n        xx = cnt.get(x + x, 0)\n        A = Counter()\n        B = Counter()\n        for c, n in cnt.items():\n            if x not in c or c == x + x:\n                continue\n            if c[0] == x:\n                A[c[1]] += n\n            elif c[1] == x:\n                B[c[0]] += n\n        def greedy(groups):\n            h = [-g for g in groups if g > 0]\n            heapq.heapify(h)\n            pairs = 0\n            while len(h) >= 2:\n                a = -heapq.heappop(h)\n                b = -heapq.heappop(h)\n                pairs += 1\n                a -= 1\n                b -= 1\n                if a > 0:\n                    heapq.heappush(h, -a)\n                if b > 0:\n                    heapq.heappush(h, -b)\n            return pairs\n        va = list(A.values())\n        vb = list(B.values())\n        best = 0\n        for split in range(xx + 1):\n            ga = va + ([split] if split > 0 else [])\n            gb = vb + ([xx - split] if xx - split > 0 else [])\n            best = max(best, greedy(ga) + greedy(gb))\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def score(self, cards, x):\n        from collections import Counter\n        cnt = Counter(cards)\n        xx = cnt.get(x + x, 0)\n        A = {}\n        B = {}\n        for c, n in cnt.items():\n            if x not in c or c == x + x:\n                continue\n            if c[0] == x:\n                A[c[1]] = A.get(c[1], 0) + n\n            elif c[1] == x:\n                B[c[0]] = B.get(c[0], 0) + n\n        va = list(A.values())\n        vb = list(B.values())\n        def pair_group(vals, wild):\n            groups = [v for v in vals if v > 0]\n            if wild > 0:\n                groups.append(wild)\n            total = sum(groups)\n            mx = max(groups) if groups else 0\n            return min(total // 2, total - mx)\n        best = 0\n        for split in range(xx + 1):\n            best = max(best, pair_group(va, split) + pair_group(vb, xx - split))\n        return best\n",
+    "javascript": "var score = function(cards, x) {\n    const cnt = new Map();\n    for (const c of cards) cnt.set(c, (cnt.get(c) || 0) + 1);\n    const xx = cnt.get(x + x) || 0;\n    const A = new Map();\n    const B = new Map();\n    for (const [c, n] of cnt) {\n        if (!c.includes(x) || c === x + x) continue;\n        if (c[0] === x) A.set(c[1], (A.get(c[1]) || 0) + n);\n        else if (c[1] === x) B.set(c[0], (B.get(c[0]) || 0) + n);\n    }\n    const va = [...A.values()];\n    const vb = [...B.values()];\n    const pairGroup = (vals, wild) => {\n        const groups = vals.filter(v => v > 0);\n        if (wild > 0) groups.push(wild);\n        const total = groups.reduce((a, b) => a + b, 0);\n        const mx = groups.length ? Math.max(...groups) : 0;\n        return Math.min(Math.floor(total / 2), total - mx);\n    };\n    let best = 0;\n    for (let split = 0; split <= xx; split++) {\n        best = Math.max(best, pairGroup(va, split) + pairGroup(vb, xx - split));\n    }\n    return best;\n};\n"
+  },
+  "complexity": { "time": "O(n + 26 * x)", "space": "O(n)" }
+}

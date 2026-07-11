@@ -1,0 +1,241 @@
+{
+  "judge": "exact",
+  "pattern": "Single-character conversions are just weighted edges on a 26-letter graph, so the cheapest way to turn one letter into another anywhere in the string is an all-pairs shortest path computed once and reused for every position.",
+  "hints": [
+    "Treat the 26 lowercase letters as nodes and every (original[i], changed[i], cost[i]) triple as a directed edge; if a pair repeats, only the cheapest edge between those two letters ever matters.",
+    "Since the letters form a tiny fixed set, precompute the shortest path between every pair of letters once (Floyd-Warshall on a 26x26 table works nicely here) instead of searching per character.",
+    "Walk source and target together position by position: matching characters cost nothing, and every mismatch costs exactly the precomputed shortest distance between those two letters -- if any position's distance is infinite, the whole conversion is impossible."
+  ],
+  "constraints": [
+    {
+      "param": "source",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "target",
+      "kind": "string",
+      "len": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "original",
+      "kind": "string[]",
+      "len": [
+        1,
+        2000
+      ]
+    },
+    {
+      "param": "changed",
+      "kind": "string[]",
+      "len": [
+        1,
+        2000
+      ]
+    },
+    {
+      "param": "cost",
+      "kind": "int[]",
+      "len": [
+        1,
+        2000
+      ],
+      "value": [
+        1,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, several single-character conversions chained together",
+      "input": [
+        "abcd",
+        "acbe",
+        [
+          "a",
+          "b",
+          "c",
+          "c",
+          "e",
+          "d"
+        ],
+        [
+          "b",
+          "c",
+          "b",
+          "e",
+          "b",
+          "e"
+        ],
+        [
+          2,
+          5,
+          5,
+          1,
+          2,
+          20
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, cheaper to route through an intermediate letter",
+      "input": [
+        "aaaa",
+        "bbbb",
+        [
+          "a",
+          "c"
+        ],
+        [
+          "c",
+          "b"
+        ],
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, an impossible conversion",
+      "input": [
+        "abcd",
+        "abce",
+        [
+          "a"
+        ],
+        [
+          "e"
+        ],
+        [
+          10000
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "source already equals target, zero cost",
+      "input": [
+        "abc",
+        "abc",
+        [
+          "a"
+        ],
+        [
+          "b"
+        ],
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single character strings with a direct edge",
+      "input": [
+        "a",
+        "b",
+        [
+          "a"
+        ],
+        [
+          "b"
+        ],
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two competing edges between the same pair, only the cheaper one should be used",
+      "input": [
+        "a",
+        "b",
+        [
+          "a",
+          "a"
+        ],
+        [
+          "b",
+          "b"
+        ],
+        [
+          100,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a conversion that requires going through two intermediate letters",
+      "input": [
+        "a",
+        "d",
+        [
+          "a",
+          "b",
+          "c"
+        ],
+        [
+          "b",
+          "c",
+          "d"
+        ],
+        [
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a cycle exists in the graph but the needed direction is unreachable",
+      "input": [
+        "a",
+        "z",
+        [
+          "a",
+          "b"
+        ],
+        [
+          "b",
+          "a"
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "long strings with a random dense set of single-character conversion edges",
+      "seed": 53,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 100000))\n    alphabet = 'abcde'\n    source = ''.join(rng.choice(alphabet) for _ in range(n))\n    original = []\n    changed = []\n    cost = []\n    for a in alphabet:\n        for b in alphabet:\n            if a != b and rng.random() < 0.5:\n                original.append(a)\n                changed.append(b)\n                cost.append(rng.randint(1, 1000))\n    if not original:\n        original = ['a']\n        changed = ['b']\n        cost = [1]\n    target_list = list(source)\n    for i in range(n):\n        if rng.random() < 0.4:\n            target_list[i] = rng.choice(alphabet)\n    target = ''.join(target_list)\n    return [source, target, original, changed, cost]\n"
+    }
+  ],
+  "oracle_python": "import heapq\n\n\nclass Solution:\n    def minimumCost(self, source, target, original, changed, cost):\n        adj = [[] for _ in range(26)]\n        for o, c, w in zip(original, changed, cost):\n            adj[ord(o) - 97].append((ord(c) - 97, w))\n\n        def dijkstra(start):\n            dist = [float('inf')] * 26\n            dist[start] = 0\n            pq = [(0, start)]\n            while pq:\n                d, u = heapq.heappop(pq)\n                if d > dist[u]:\n                    continue\n                for v, w in adj[u]:\n                    nd = d + w\n                    if nd < dist[v]:\n                        dist[v] = nd\n                        heapq.heappush(pq, (nd, v))\n            return dist\n\n        dists = [dijkstra(i) for i in range(26)]\n        total = 0\n        for a, b in zip(source, target):\n            if a == b:\n                continue\n            d = dists[ord(a) - 97][ord(b) - 97]\n            if d == float('inf'):\n                return -1\n            total += d\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def minimumCost(self, source: str, target: str, original: List[str], changed: List[str], cost: List[int]) -> int:\n        INF = float('inf')\n        dist = [[INF] * 26 for _ in range(26)]\n        for i in range(26):\n            dist[i][i] = 0\n        for o, c, w in zip(original, changed, cost):\n            u = ord(o) - 97\n            v = ord(c) - 97\n            if w < dist[u][v]:\n                dist[u][v] = w\n        for k in range(26):\n            dk = dist[k]\n            for i in range(26):\n                dik = dist[i][k]\n                if dik == INF:\n                    continue\n                di = dist[i]\n                for j in range(26):\n                    nd = dik + dk[j]\n                    if nd < di[j]:\n                        di[j] = nd\n        total = 0\n        for a, b in zip(source, target):\n            if a == b:\n                continue\n            u = ord(a) - 97\n            v = ord(b) - 97\n            if dist[u][v] == INF:\n                return -1\n            total += dist[u][v]\n        return total\n",
+    "javascript": "var minimumCost = function(source, target, original, changed, cost) {\n    const INF = Infinity;\n    const dist = Array.from({ length: 26 }, () => new Array(26).fill(INF));\n    for (let i = 0; i < 26; i++) dist[i][i] = 0;\n    for (let i = 0; i < original.length; i++) {\n        const u = original[i].charCodeAt(0) - 97;\n        const v = changed[i].charCodeAt(0) - 97;\n        if (cost[i] < dist[u][v]) dist[u][v] = cost[i];\n    }\n    for (let k = 0; k < 26; k++) {\n        for (let i = 0; i < 26; i++) {\n            if (dist[i][k] === INF) continue;\n            for (let j = 0; j < 26; j++) {\n                const nd = dist[i][k] + dist[k][j];\n                if (nd < dist[i][j]) dist[i][j] = nd;\n            }\n        }\n    }\n    let total = 0;\n    for (let i = 0; i < source.length; i++) {\n        if (source[i] === target[i]) continue;\n        const u = source.charCodeAt(i) - 97;\n        const v = target.charCodeAt(i) - 97;\n        if (dist[u][v] === INF) return -1;\n        total += dist[u][v];\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(26^3 + n)",
+    "space": "O(26^2)"
+  },
+  "slug": "minimum-cost-to-convert-string-i"
+}

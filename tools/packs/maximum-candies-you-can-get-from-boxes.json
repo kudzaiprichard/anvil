@@ -1,0 +1,40 @@
+{
+  "slug": "maximum-candies-you-can-get-from-boxes",
+  "judge": "exact",
+  "pattern": "BFS simulation: open reachable boxes whenever you have them and hold a key, collecting candies and chaining newly discovered boxes and keys.",
+  "hints": [
+    "Use a queue of boxes you currently hold but haven't opened; process a box only if its status is open or you've found its key.",
+    "When you open a box, collect its candies, add contained boxes to your held set, and mark newly discovered keys; those keys may unblock previously held but locked boxes.",
+    "Keep a set of boxes you hold and a set of keys you own; re-enqueue a held box the moment you acquire its key."
+  ],
+  "constraints": [
+    { "param": "status", "kind": "int[]", "len": [1, 1000], "value": [0, 1] },
+    { "param": "candies", "kind": "int[]", "len": [1, 1000], "value": [1, 1000] },
+    { "param": "keys", "kind": "int[][]", "len": [0, 1000] },
+    { "param": "containedBoxes", "kind": "int[][]", "len": [0, 1000] },
+    { "param": "initialBoxes", "kind": "int[]", "len": [0, 1000], "value": [0, 999] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "example 1: chain of openings yields 16", "input": [[1,0,1,0],[7,5,4,100],[[],[],[1],[]],[[1,2],[3],[],[]],[0]] },
+    { "kind": "edge", "description": "example 2: one box unlocks all others", "input": [[1,0,0,0,0,0],[1,1,1,1,1,1],[[1,2,3,4,5],[],[],[],[],[]],[[1,2,3,4,5],[],[],[],[],[]],[0]] },
+    { "kind": "edge", "description": "no initial boxes gives 0", "input": [[1,0],[5,3],[[], []],[[], []],[]] },
+    { "kind": "trap", "description": "all boxes closed with no keys reachable", "input": [[0,0],[3,7],[[], []],[[], []],[0,1]] },
+    { "kind": "trap", "description": "key discovered inside a closed box, need the key to get the key", "input": [[0,1],[5,10],[[],[0]],[[], []],[1]] },
+    { "kind": "boundary", "description": "single open box with all candies", "input": [[1],[1000],[[]],[[]], [0]] },
+    { "kind": "trap", "description": "cycle: box 0 contains box 1, box 1 contains key 0, but box 0 starts open", "input": [[1,0],[10,20],[[],[0]],[[1],[]],[0]] }
+  ],
+  "stress": [
+    {
+      "description": "Random n=100 scenario constructed to be fully reachable",
+      "seed": 23,
+      "size": 100,
+      "generator_python": "def gen(rng, size):\n    n = size\n    status = [1] * n\n    candies = [rng.randint(1, 1000) for _ in range(n)]\n    keys = [[] for _ in range(n)]\n    containedBoxes = [[] for _ in range(n)]\n    return [status, candies, keys, containedBoxes, list(range(n))]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def maxCandies(self, status, candies, keys, containedBoxes, initialBoxes) -> int:\n        from collections import deque\n        has_key = set(i for i, s in enumerate(status) if s == 1)\n        has_box = set(initialBoxes)\n        queue = deque(b for b in initialBoxes if b in has_key)\n        opened = set(queue)\n        total = 0\n        while queue:\n            box = queue.popleft()\n            total += candies[box]\n            for k in keys[box]:\n                if k not in has_key:\n                    has_key.add(k)\n                    if k in has_box and k not in opened:\n                        opened.add(k)\n                        queue.append(k)\n            for b in containedBoxes[box]:\n                has_box.add(b)\n                if b in has_key and b not in opened:\n                    opened.add(b)\n                    queue.append(b)\n        return total\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxCandies(self, status, candies, keys, containedBoxes, initialBoxes) -> int:\n        from collections import deque\n        has_key = set(i for i, s in enumerate(status) if s == 1)\n        has_box = set(initialBoxes)\n        queue = deque(b for b in initialBoxes if b in has_key)\n        opened = set(queue)\n        total = 0\n        while queue:\n            box = queue.popleft()\n            total += candies[box]\n            for k in keys[box]:\n                if k not in has_key:\n                    has_key.add(k)\n                    if k in has_box and k not in opened:\n                        opened.add(k)\n                        queue.append(k)\n            for b in containedBoxes[box]:\n                has_box.add(b)\n                if b in has_key and b not in opened:\n                    opened.add(b)\n                    queue.append(b)\n        return total\n",
+    "javascript": "var maxCandies = function(status, candies, keys, containedBoxes, initialBoxes) {\n    const hasKey = new Set(status.map((s, i) => s === 1 ? i : -1).filter(x => x >= 0));\n    const hasBox = new Set(initialBoxes);\n    const opened = new Set();\n    const queue = [];\n    let qi = 0;\n    for (const b of initialBoxes) {\n        if (hasKey.has(b)) { opened.add(b); queue.push(b); }\n    }\n    let total = 0;\n    while (qi < queue.length) {\n        const box = queue[qi++];\n        total += candies[box];\n        for (const k of keys[box]) {\n            if (!hasKey.has(k)) {\n                hasKey.add(k);\n                if (hasBox.has(k) && !opened.has(k)) {\n                    opened.add(k); queue.push(k);\n                }\n            }\n        }\n        for (const b of containedBoxes[box]) {\n            hasBox.add(b);\n            if (hasKey.has(b) && !opened.has(b)) {\n                opened.add(b); queue.push(b);\n            }\n        }\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n + total keys/boxes)", "space": "O(n)" }
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "decode-string",
+  "judge": "exact",
+  "pattern": "A stack remembers the partial string and repeat count outside each bracket, so a closing bracket multiplies the enclosed text and appends it back to the parent.",
+  "hints": [
+    "Nesting suggests a stack: when you open a bracket you need to remember what you had built so far and how many times the upcoming chunk repeats.",
+    "Parse digits into a full number, push the current string and that number on entering a bracket, and reset to build the inner string.",
+    "On a closing bracket, pop the saved count and prefix, then set the current string to prefix plus the inner string repeated count times."
+  ],
+  "constraints": [
+    { "param": "s", "kind": "string", "len": [1, 30] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "two independent repeated blocks", "input": ["3[a]2[bc]"] },
+    { "kind": "edge", "description": "nested repetition", "input": ["3[a2[c]]"] },
+    { "kind": "edge", "description": "literals around repeated blocks", "input": ["2[abc]3[cd]ef"] },
+    { "kind": "boundary", "description": "single literal letter with no encoding", "input": ["a"] },
+    { "kind": "trap", "description": "multi-digit repeat count", "input": ["10[a]"] },
+    { "kind": "trap", "description": "deep nesting multiplies counts", "input": ["2[2[2[a]]]"] },
+    { "kind": "edge", "description": "leading literals before a block", "input": ["abc3[xy]"] }
+  ],
+  "stress": [
+    {
+      "description": "random valid encoded strings with bounded nesting and output size",
+      "seed": 71,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    import string\n    letters = string.ascii_lowercase\n    cap = max(2, min(size, 30))\n    # build a valid string whose decoded length stays small\n    def build(depth, budget):\n        # returns (encoded, max_decoded_len) staying within budget chars of source\n        parts = []\n        src_len = 0\n        while src_len < budget:\n            choice = rng.random()\n            if choice < 0.5 or depth >= 2:\n                ch = rng.choice(letters)\n                parts.append(ch)\n                src_len += 1\n            else:\n                k = rng.randrange(1, 4)\n                inner, used = build(depth + 1, max(1, (budget - src_len) // 2))\n                seg = str(k) + '[' + inner + ']'\n                if src_len + len(seg) > budget:\n                    ch = rng.choice(letters)\n                    parts.append(ch)\n                    src_len += 1\n                else:\n                    parts.append(seg)\n                    src_len += len(seg)\n        return ''.join(parts), src_len\n    enc, _ = build(0, cap)\n    if not enc:\n        enc = 'a'\n    return [enc[:30] if not enc.endswith(']') else enc]\n",
+      "note": "bounded source length keeps decoded output small and well-formed"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def decodeString(self, s):\n        # recursive-descent parser as an independent construction\n        self.i = 0\n        def parse():\n            result = ''\n            num = 0\n            while self.i < len(s):\n                ch = s[self.i]\n                if ch.isdigit():\n                    num = num * 10 + int(ch)\n                    self.i += 1\n                elif ch == '[':\n                    self.i += 1\n                    inner = parse()\n                    result += inner * num\n                    num = 0\n                elif ch == ']':\n                    self.i += 1\n                    return result\n                else:\n                    result += ch\n                    self.i += 1\n            return result\n        return parse()\n",
+  "solutions": {
+    "python": "class Solution:\n    def decodeString(self, s):\n        stack = []\n        cur = ''\n        num = 0\n        for ch in s:\n            if ch.isdigit():\n                num = num * 10 + int(ch)\n            elif ch == '[':\n                stack.append((cur, num))\n                cur = ''\n                num = 0\n            elif ch == ']':\n                prev, k = stack.pop()\n                cur = prev + cur * k\n            else:\n                cur += ch\n        return cur\n",
+    "javascript": "var decodeString = function(s) {\n    const stack = [];\n    let cur = '';\n    let num = 0;\n    for (const ch of s) {\n        if (ch >= '0' && ch <= '9') {\n            num = num * 10 + (ch.charCodeAt(0) - 48);\n        } else if (ch === '[') {\n            stack.push([cur, num]);\n            cur = '';\n            num = 0;\n        } else if (ch === ']') {\n            const [prev, k] = stack.pop();\n            cur = prev + cur.repeat(k);\n        } else {\n            cur += ch;\n        }\n    }\n    return cur;\n};\n"
+  },
+  "complexity": { "time": "O(output length)", "space": "O(output length)" }
+}

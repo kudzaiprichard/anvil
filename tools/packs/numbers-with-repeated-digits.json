@@ -1,0 +1,38 @@
+{
+  "slug": "numbers-with-repeated-digits",
+  "judge": "exact",
+  "pattern": "It is far easier to count the numbers whose digits are all distinct and subtract from n, using combinatorics over digit positions to count distinct-digit numbers below the bound.",
+  "hints": [
+    "Counting numbers with a repeated digit directly is awkward; count the complement instead — numbers in the range with all distinct digits — and subtract from n.",
+    "Numbers with fewer digits than n are easy: for a d-digit number the first digit has nine choices and each later digit one fewer remaining choice, so multiply those falling factorials.",
+    "For numbers with exactly as many digits as n, fix each prefix digit equal to n's digits and count the distinct-digit completions for smaller choices at each position, stopping early if n itself repeats a digit."
+  ],
+  "constraints": [
+    { "param": "n", "kind": "int", "value": [1, 1000000000] }
+  ],
+  "edge_inputs": [
+    { "kind": "boundary", "description": "smallest input has no repeats", "input": [1] },
+    { "kind": "edge", "description": "first repeated-digit number is eleven", "input": [10] },
+    { "kind": "edge", "description": "exactly one repeated-digit number up to twenty", "input": [20] },
+    { "kind": "edge", "description": "crossing into three digits", "input": [100] },
+    { "kind": "trap", "description": "value whose own digits repeat", "input": [110] },
+    { "kind": "edge", "description": "larger sample", "input": [1000] },
+    { "kind": "boundary", "description": "near the upper bound", "input": [999999999] },
+    { "kind": "trap", "description": "bound with a repeat in the middle", "input": [123451] }
+  ],
+  "stress": [
+    {
+      "description": "random bounds small enough for the brute-force oracle to enumerate",
+      "seed": 31,
+      "size": 1,
+      "generator_python": "def gen(rng, size):\n    return [rng.randint(1, 20000)]\n",
+      "note": "kept small so the digit-by-digit brute force finishes well under the timeout"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def numDupDigitsAtMostN(self, n):\n        s = str(n)\n        L = len(s)\n        from functools import lru_cache\n        # count integers in [0, n] whose digits are all distinct, via digit DP\n        # state: position, bitmask of used digits, tight, started\n        @lru_cache(maxsize=None)\n        def dp(pos, mask, tight, started):\n            if pos == L:\n                return 1\n            total = 0\n            hi = int(s[pos]) if tight else 9\n            for d in range(0, hi + 1):\n                ns = started or d > 0\n                if ns and (mask >> d) & 1:\n                    continue\n                nmask = mask | (1 << d) if ns else mask\n                total += dp(pos + 1, nmask, tight and d == hi, ns)\n            return total\n        distinct_including_zero = dp(0, 0, True, False)\n        distinct_positive = distinct_including_zero - 1\n        return n - distinct_positive\n",
+  "solutions": {
+    "python": "class Solution:\n    def numDupDigitsAtMostN(self, n):\n        digits = [int(c) for c in str(n)]\n        L = len(digits)\n        def perm(m, k):\n            r = 1\n            for i in range(k):\n                r *= (m - i)\n            return r\n        distinct = 0\n        for length in range(1, L):\n            distinct += 9 * perm(9, length - 1)\n        used = set()\n        for i, d in enumerate(digits):\n            start = 1 if i == 0 else 0\n            for x in range(start, d):\n                if x in used:\n                    continue\n                distinct += perm(9 - i, L - i - 1)\n            if d in used:\n                break\n            used.add(d)\n        else:\n            distinct += 1\n        return n - distinct\n",
+    "javascript": "var numDupDigitsAtMostN = function(n) {\n    const digits = String(n).split('').map(Number);\n    const L = digits.length;\n    const perm = (m, k) => {\n        let r = 1;\n        for (let i = 0; i < k; i++) r *= (m - i);\n        return r;\n    };\n    let distinct = 0;\n    for (let length = 1; length < L; length++) {\n        distinct += 9 * perm(9, length - 1);\n    }\n    const used = new Set();\n    let broke = false;\n    for (let i = 0; i < L; i++) {\n        const d = digits[i];\n        const start = i === 0 ? 1 : 0;\n        for (let x = start; x < d; x++) {\n            if (used.has(x)) continue;\n            distinct += perm(9 - i, L - i - 1);\n        }\n        if (used.has(d)) { broke = true; break; }\n        used.add(d);\n    }\n    if (!broke) distinct += 1;\n    return n - distinct;\n};\n"
+  },
+  "complexity": { "time": "O(d^2)", "space": "O(d)" }
+}

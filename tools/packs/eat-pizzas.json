@@ -1,0 +1,72 @@
+{
+  "slug": "eat-pizzas",
+  "judge": "exact",
+  "pattern": "Since the two smallest pizzas in any group of four never contribute anything, the smallest half of all pizzas should be spent purely as filler while the largest half is split between odd-day maximums and even-day second-maximums.",
+  "hints": [
+    "In any group of four, the two lightest pizzas never add to your gained weight -- only the heaviest (odd days) or second heaviest (even days) matters, so the lightest half of all pizzas overall should just be used as disposable filler.",
+    "Sort the pizzas from heaviest to lightest. The very top slice, one pizza per odd-numbered day, should be taken directly as pure gains -- each one alone maximizes what an odd day can contribute.",
+    "For the even-numbered days, pair up the next-heaviest pizzas two at a time (in sorted order) and take the lighter one of each pair as that day's gain -- pairing large values together protects the 'second heaviest' from being pulled down by a small filler."
+  ],
+  "constraints": [
+    {
+      "param": "pizzas",
+      "kind": "int[]",
+      "len": [4, 200000],
+      "value": [1, 100000]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "statement example, two days",
+      "input": [[1, 2, 3, 4, 5, 6, 7, 8]]
+    },
+    {
+      "kind": "edge",
+      "description": "statement example, mostly identical weights",
+      "input": [[2, 1, 1, 1, 1, 1, 1, 1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "minimum size, a single odd day only",
+      "input": [[1, 2, 3, 4]]
+    },
+    {
+      "kind": "edge",
+      "description": "all pizzas identical weight",
+      "input": [[5, 5, 5, 5, 5, 5, 5, 5]]
+    },
+    {
+      "kind": "trap",
+      "description": "an odd number of days forces one more odd day than even day",
+      "input": [[1,2,3,4,5,6,7,8,9,10,11,12]]
+    },
+    {
+      "kind": "trap",
+      "description": "one huge outlier weight tempts a naive per-group max grab",
+      "input": [[1, 1, 1, 100000, 1, 1, 1, 1]]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum weight on every pizza",
+      "input": [[100000, 100000, 100000, 100000, 100000, 100000, 100000, 100000]]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random weights with size a multiple of four",
+      "seed": 25,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(4, min(200, size))\n    n -= n % 4\n    n = max(4, n)\n    pizzas = [rng.randint(1, 100000) for _ in range(n)]\n    return [pizzas]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\nclass Solution:\n    def maxWeight(self, pizzas):\n        n = len(pizzas)\n        pizzas = tuple(pizzas)\n        full_mask = (1 << n) - 1\n        memo = {}\n\n        def solve(mask):\n            if mask == 0:\n                return 0\n            if mask in memo:\n                return memo[mask]\n            remaining = bin(mask).count('1')\n            used = n - remaining\n            day = used // 4 + 1\n            indices = [i for i in range(n) if mask & (1 << i)]\n            best = float('-inf')\n            for combo in combinations(indices, 4):\n                vals = sorted(pizzas[i] for i in combo)\n                gain = vals[3] if day % 2 == 1 else vals[2]\n                new_mask = mask\n                for i in combo:\n                    new_mask &= ~(1 << i)\n                cand = gain + solve(new_mask)\n                if cand > best:\n                    best = cand\n            memo[mask] = best\n            return best\n\n        return solve(full_mask)\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxWeight(self, pizzas):\n        n = len(pizzas)\n        arr = sorted(pizzas, reverse=True)\n        num_days = n // 4\n        odd_days = (num_days + 1) // 2\n        even_days = num_days // 2\n        total = sum(arr[:odd_days])\n        for i in range(even_days):\n            total += arr[odd_days + 2 * i + 1]\n        return total\n",
+    "javascript": "var maxWeight = function(pizzas) {\n    const n = pizzas.length;\n    const arr = [...pizzas].sort((a, b) => b - a);\n    const numDays = Math.floor(n / 4);\n    const oddDays = Math.ceil(numDays / 2);\n    const evenDays = Math.floor(numDays / 2);\n    let total = 0;\n    for (let i = 0; i < oddDays; i++) total += arr[i];\n    for (let i = 0; i < evenDays; i++) total += arr[oddDays + 2 * i + 1];\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

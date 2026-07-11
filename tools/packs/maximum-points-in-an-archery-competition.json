@@ -1,0 +1,202 @@
+{
+  "slug": "maximum-points-in-an-archery-competition",
+  "judge": {
+    "type": "any_valid",
+    "validator_python": "def validate(args, output):\n    num_arrows, alice = args[0], args[1]\n    if not isinstance(output, list) or len(output) != 12:\n        return False\n    for x in output:\n        if not isinstance(x, int) or isinstance(x, bool) or x < 0:\n            return False\n    if sum(output) != num_arrows:\n        return False\n    score = sum(k for k in range(12) if output[k] > alice[k])\n    best = -1\n    for mask in range(1 << 12):\n        cost = sum(alice[k] + 1 for k in range(12) if (mask >> k) & 1)\n        if cost <= num_arrows:\n            s = sum(k for k in range(12) if (mask >> k) & 1)\n            if s > best:\n                best = s\n    return score == best\n",
+    "validator_javascript": "function validate(args, output) {\n    const numArrows = args[0], alice = args[1];\n    if (!Array.isArray(output) || output.length !== 12) return false;\n    for (const x of output) {\n        if (!Number.isInteger(x) || x < 0) return false;\n    }\n    if (output.reduce((a, b) => a + b, 0) !== numArrows) return false;\n    let score = 0;\n    for (let k = 0; k < 12; k++) if (output[k] > alice[k]) score += k;\n    let best = -1;\n    for (let mask = 0; mask < (1 << 12); mask++) {\n        let cost = 0;\n        for (let k = 0; k < 12; k++) if ((mask >> k) & 1) cost += alice[k] + 1;\n        if (cost <= numArrows) {\n            let s = 0;\n            for (let k = 0; k < 12; k++) if ((mask >> k) & 1) s += k;\n            if (s > best) best = s;\n        }\n    }\n    return score === best;\n}\n"
+  },
+  "pattern": "Bob only ever wins a section by shooting exactly one more arrow than Alice used there, so choosing which sections to contest reduces to a bounded knapsack over 12 items.",
+  "hints": [
+    "For each scoring section, Bob either gives up on it completely, or spends the smallest number of arrows that guarantees a win there -- one more than however many Alice placed.",
+    "With only 12 sections, every possible subset of 'sections to contest' can be considered, since 2^12 is small; for each subset check whether the arrows it costs fit within the budget.",
+    "Track the subset of sections that gives the highest total score among all affordable subsets, then build Bob's arrow counts from it: the winning sections get Alice's count plus one, and any arrows left over can be dumped anywhere without hurting the score."
+  ],
+  "constraints": [
+    {
+      "param": "numArrows",
+      "kind": "int",
+      "value": [
+        1,
+        100000
+      ]
+    },
+    {
+      "param": "aliceArrows",
+      "kind": "int[]",
+      "len": [
+        12,
+        12
+      ],
+      "value": [
+        0,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "minimum numArrows, Alice spent her only arrow on the top section",
+      "input": [
+        1,
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a modest spread across several sections",
+      "input": [
+        10,
+        [
+          2,
+          0,
+          1,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "Alice dumped everything on the top section, leaving every lower section free to win cheaply",
+      "input": [
+        12,
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          12
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "a wider, fairly even spread across the sections",
+      "input": [
+        50,
+        [
+          5,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "Alice concentrated on the zero-point section, which is never worth contesting",
+      "input": [
+        20,
+        [
+          20,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "exactly enough arrows to win half the sections at uniform cost, testing the knapsack tradeoff",
+      "input": [
+        12,
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "one arrow is not enough to beat the only contested section, so it must be spent on an uncontested one instead",
+      "input": [
+        1,
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random split of numArrows across the 12 sections at the constraint maximum",
+      "seed": 5,
+      "size": 100000,
+      "generator_python": "def gen(rng, size):\n    num_arrows = max(1, min(size, 100000))\n    alice = [0] * 12\n    remaining = num_arrows\n    for i in range(11):\n        take = rng.randint(0, remaining)\n        alice[i] = take\n        remaining -= take\n    alice[11] = remaining\n    return [num_arrows, alice]\n"
+    }
+  ],
+  "solutions": {
+    "python": "class Solution:\n    def maximumBobPoints(self, numArrows, aliceArrows):\n        best_score = -1\n        best_mask = 0\n        for mask in range(1 << 12):\n            cost = 0\n            score = 0\n            for k in range(12):\n                if mask & (1 << k):\n                    cost += aliceArrows[k] + 1\n                    score += k\n            if cost <= numArrows and score > best_score:\n                best_score = score\n                best_mask = mask\n        bob = [0] * 12\n        used = 0\n        for k in range(12):\n            if best_mask & (1 << k):\n                bob[k] = aliceArrows[k] + 1\n                used += bob[k]\n        bob[0] += numArrows - used\n        return bob\n",
+    "javascript": "var maximumBobPoints = function(numArrows, aliceArrows) {\n    let bestScore = -1;\n    let bestMask = 0;\n    for (let mask = 0; mask < (1 << 12); mask++) {\n        let cost = 0;\n        let score = 0;\n        for (let k = 0; k < 12; k++) {\n            if (mask & (1 << k)) {\n                cost += aliceArrows[k] + 1;\n                score += k;\n            }\n        }\n        if (cost <= numArrows && score > bestScore) {\n            bestScore = score;\n            bestMask = mask;\n        }\n    }\n    const bob = new Array(12).fill(0);\n    let used = 0;\n    for (let k = 0; k < 12; k++) {\n        if (bestMask & (1 << k)) {\n            bob[k] = aliceArrows[k] + 1;\n            used += bob[k];\n        }\n    }\n    bob[0] += numArrows - used;\n    return bob;\n};\n"
+  },
+  "complexity": {
+    "time": "O(2^12 * 12)",
+    "space": "O(1)"
+  },
+  "no_anchor_ok": true
+}

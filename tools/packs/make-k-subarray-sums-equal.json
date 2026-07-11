@@ -1,0 +1,37 @@
+{
+  "slug": "make-k-subarray-sums-equal",
+  "judge": "exact",
+  "pattern": "Forcing every length-k circular window to share the same sum collapses into forcing arr[i] to equal arr[i+k] (wrapping) for every i, which splits the array into gcd(n,k) independent groups that each must become one constant value chosen to minimize total absolute movement -- the group's median, not its mean.",
+  "hints": [
+    "Write out what 'every length-k subarray sums the same' actually implies about arr[i] versus arr[i+k] (with wraparound) for a single step i -> i+1, then follow that chain forward from any starting index.",
+    "That chain of forced equalities loops back on itself after n / gcd(n, k) steps, so it partitions all indices into exactly gcd(n, k) independent groups, each of which must collapse to one shared value.",
+    "For one group, the total number of +1/-1 operations needed to make every element equal is minimized by picking the group's median as the shared value, not its average."
+  ],
+  "constraints": [
+    { "param": "arr", "kind": "int[]", "len": [1, 100000], "value": [1, 1000000000] },
+    { "param": "k", "kind": "int", "value": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "single element, k equal to the array length", "input": [[7], 1] },
+    { "kind": "edge", "description": "k does not evenly divide n, so gcd(n,k) is 1 and every element joins one group", "input": [[1, 2, 3, 4, 5], 2] },
+    { "kind": "boundary", "description": "k equal to n, so every element is already its own group", "input": [[10, 20, 30, 40], 4] },
+    { "kind": "edge", "description": "all elements already identical, zero operations needed", "input": [[9, 9, 9, 9, 9, 9], 3] },
+    { "kind": "trap", "description": "k = 1 forces the entire circular array into a single group, not just neighboring pairs", "input": [[1, 100, 1, 100, 1, 100, 1], 1] },
+    { "kind": "trap", "description": "gcd(n,k) greater than 1, so the array splits into interleaved groups rather than one block per k elements", "input": [[5, 1, 5, 9, 1, 9], 4] },
+    { "kind": "boundary", "description": "two elements at opposite ends of the value range, forced into one group", "input": [[1, 1000000000], 1] }
+  ],
+  "stress": [
+    {
+      "description": "random array sizes with a random k, exercising many different gcd(n,k) group structures",
+      "seed": 7,
+      "size": 3000,
+      "generator_python": "def gen(rng, size):\n    n = max(2, min(size, 4000))\n    k = rng.randint(1, n)\n    arr = [rng.randint(1, 10**9) for _ in range(n)]\n    return [arr, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def makeSubKSumEqual(self, arr, k):\n        n = len(arr)\n        visited = [False] * n\n        total = 0\n        for start in range(n):\n            if visited[start]:\n                continue\n            group = []\n            i = start\n            while not visited[i]:\n                visited[i] = True\n                group.append(arr[i])\n                i = (i + k) % n\n            best = None\n            for cand in group:\n                cost = sum(abs(x - cand) for x in group)\n                if best is None or cost < best:\n                    best = cost\n            total += best\n        return total\n",
+  "solutions": {
+    "python": "import math\nclass Solution:\n    def makeSubKSumEqual(self, arr, k):\n        n = len(arr)\n        g = math.gcd(n, k)\n        total = 0\n        for r in range(g):\n            group = sorted(arr[r::g])\n            median = group[len(group) // 2]\n            total += sum(abs(x - median) for x in group)\n        return total\n",
+    "javascript": "function _gcd(a, b) {\n    while (b) {\n        const t = a % b;\n        a = b;\n        b = t;\n    }\n    return a;\n}\nvar makeSubKSumEqual = function(arr, k) {\n    const n = arr.length;\n    const g = _gcd(n, k);\n    let total = 0;\n    for (let r = 0; r < g; r++) {\n        const group = [];\n        for (let i = r; i < n; i += g) group.push(arr[i]);\n        group.sort((a, b) => a - b);\n        const median = group[Math.floor(group.length / 2)];\n        for (const x of group) total += Math.abs(x - median);\n    }\n    return total;\n};\n"
+  },
+  "complexity": { "time": "O(n log n)", "space": "O(n)" }
+}

@@ -1,0 +1,48 @@
+{
+  "slug": "total-score-of-dungeon-runs",
+  "judge": "exact",
+  "pattern": "Writing the health after entering room i starting from room j as hp plus a prefix-sum difference turns \"does this room award a point\" into a comparison between a prefix sum and a threshold that depends only on the room, and prefix sums of positive damages are already sorted, so counting qualifying starts becomes a binary search.",
+  "hints": [
+    "Precompute prefix sums of damage; the health remaining after entering room i, having started at room j, can be written purely in terms of those two prefix sums and hp.",
+    "For a fixed room i, rearrange the \"you get a point\" condition so that everything depending on the starting room j is isolated on one side and everything depending only on i is on the other -- this turns each room into a threshold on the starting prefix sum.",
+    "Because every damage value is positive, the prefix sums are strictly increasing, so counting how many valid starting rooms clear a room's threshold is a single binary search rather than a scan; sum those counts over every room."
+  ],
+  "constraints": [
+    { "param": "hp", "kind": "int", "value": [1, 1000000000] },
+    { "param": "damage", "kind": "int[]", "len": [1, 100000], "value": [1, 10000] },
+    { "param": "requirement", "kind": "int[]", "len": [1, 100000], "value": [1, 10000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "statement example one", "input": [11, [3, 6, 7], [4, 2, 5]] },
+    { "kind": "edge", "description": "statement example two, health goes deeply negative but the journey still completes", "input": [2, [10000, 1], [1, 1]] },
+    { "kind": "edge", "description": "single room that is always cleared", "input": [5, [1], [1]] },
+    { "kind": "edge", "description": "single room that is never cleared", "input": [1, [5], [1]] },
+    { "kind": "trap", "description": "remaining health lands exactly on the requirement, which must still count as a pass", "input": [5, [5], [0]] },
+    { "kind": "trap", "description": "an unreachable requirement means every starting room scores zero", "input": [5, [1, 1, 1], [10000, 10000, 10000]] },
+    { "kind": "boundary", "description": "single room at the maximum allowed values", "input": [1000000000, [10000], [10000]] },
+    { "kind": "boundary", "description": "minimum hp with minimum damage and requirement", "input": [1, [1], [1]] }
+  ],
+  "stress": [
+    {
+      "description": "random moderate-length runs with varied hp",
+      "seed": 5511,
+      "size": 2000,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 2000))\n    hp = rng.randint(1, 1000000000)\n    damage = [rng.randint(1, 10000) for _ in range(n)]\n    requirement = [rng.randint(1, 10000) for _ in range(n)]\n    return [hp, damage, requirement]\n"
+    },
+    {
+      "description": "small hp against large damage values, so most rooms fail",
+      "seed": 5512,
+      "size": 1500,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 1500))\n    hp = rng.randint(1, 1000)\n    damage = [rng.randint(5000, 10000) for _ in range(n)]\n    requirement = [rng.randint(1, 10000) for _ in range(n)]\n    return [hp, damage, requirement]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def totalScore(self, hp, damage, requirement):\n        n = len(damage)\n        total = 0\n        for j in range(n):\n            cur = hp\n            for i in range(j, n):\n                cur -= damage[i]\n                if cur >= requirement[i]:\n                    total += 1\n        return total\n",
+  "solutions": {
+    "python": "import bisect\nclass Solution:\n    def totalScore(self, hp: int, damage, requirement) -> int:\n        n = len(damage)\n        D = [0] * (n + 1)\n        for i in range(n):\n            D[i + 1] = D[i] + damage[i]\n        total = 0\n        for i in range(n):\n            R = requirement[i] + D[i + 1] - hp\n            idx = bisect.bisect_left(D, R)\n            cnt = (i + 1) - idx\n            if cnt > 0:\n                total += cnt\n        return total\n",
+    "javascript": "var totalScore = function(hp, damage, requirement) {\n    const n = damage.length;\n    const D = new Array(n + 1).fill(0);\n    for (let i = 0; i < n; i++) D[i + 1] = D[i] + damage[i];\n    function bisectLeft(target) {\n        let lo = 0, hi = D.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (D[mid] < target) lo = mid + 1; else hi = mid;\n        }\n        return lo;\n    }\n    let total = 0;\n    for (let i = 0; i < n; i++) {\n        const R = requirement[i] + D[i + 1] - hp;\n        const idx = bisectLeft(R);\n        const cnt = (i + 1) - idx;\n        if (cnt > 0) total += cnt;\n    }\n    return total;\n};\n"
+  },
+  "complexity": {
+    "time": "O(n log n)",
+    "space": "O(n)"
+  }
+}

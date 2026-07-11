@@ -1,0 +1,45 @@
+{
+  "slug": "minimum-cost-to-change-the-final-value-of-expression",
+  "judge": "exact",
+  "pattern": "For every sub-expression track the minimum cost to force it to 0 and to 1; combine two operands across an operator (also allowing the operator to be flipped at cost one) with a stack that respects parentheses and strict left-to-right evaluation.",
+  "hints": [
+    "Represent each evaluated piece by a pair: the cheapest way to make it evaluate to 0 and the cheapest way to make it evaluate to 1.",
+    "A literal '0' costs 0 to be 0 and 1 to be 1; a literal '1' is the mirror. Combining two pieces over an operator considers both that operator and its flipped form.",
+    "Use two stacks (operands and operators) and reduce on ')' and at the end, handling '&' and '|' with equal precedence left to right since the answer is the larger of the two final costs minus matching."
+  ],
+  "constraints": [
+    { "param": "expression", "kind": "string", "len": [1, 100000] }
+  ],
+  "edge_inputs": [
+    { "kind": "edge", "description": "flip one operator", "input": ["1&(0|1)"] },
+    { "kind": "edge", "description": "three operations needed", "input": ["(0&0)&(0&0&0)"] },
+    { "kind": "edge", "description": "nested ors, single change", "input": ["(0|(1|0&1))"] },
+    { "kind": "boundary", "description": "single literal zero", "input": ["0"] },
+    { "kind": "boundary", "description": "single literal one", "input": ["1"] },
+    { "kind": "trap", "description": "deeply parenthesized single value", "input": ["(((1)|(0)))"] },
+    { "kind": "trap", "description": "left to right without precedence", "input": ["1|0&0"] },
+    { "kind": "edge", "description": "all ones and operators", "input": ["1&1&1"] }
+  ],
+  "stress": [
+    {
+      "description": "random valid expressions built recursively with bounded depth",
+      "seed": 19,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    def build(depth):\n        if depth <= 0 or rng.random() < 0.4:\n            return rng.choice('01')\n        left = build(depth - 1)\n        right = build(depth - 1)\n        op = rng.choice('&|')\n        expr = left + op + right\n        if rng.random() < 0.6:\n            expr = '(' + expr + ')'\n        return expr\n    return [build(rng.randint(1, 6))]\n",
+      "note": "valid by construction, varied nesting"
+    },
+    {
+      "description": "flat chains of literals and operators without parentheses",
+      "seed": 20,
+      "size": 800,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 12)\n    parts = [rng.choice('01')]\n    for _ in range(n):\n        parts.append(rng.choice('&|'))\n        parts.append(rng.choice('01'))\n    return [''.join(parts)]\n",
+      "note": "stresses left-to-right reduction"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def minOperationsToFlip(self, expression):\n        # Independent: recursive-descent parse into a tree, then DP costs bottom up (iterative parse to avoid recursion).\n        # Parse with shunting-yard into postfix, then evaluate cost pairs on a stack.\n        # operators &,| equal precedence, left-associative, parens.\n        output = []\n        ops = []\n        prec = {'&': 1, '|': 1}\n        for ch in expression:\n            if ch in '01':\n                output.append(ch)\n            elif ch in '&|':\n                while ops and ops[-1] != '(' and prec[ops[-1]] >= prec[ch]:\n                    output.append(ops.pop())\n                ops.append(ch)\n            elif ch == '(': \n                ops.append(ch)\n            elif ch == ')':\n                while ops and ops[-1] != '(':\n                    output.append(ops.pop())\n                ops.pop()\n        while ops:\n            output.append(ops.pop())\n        INF = float('inf')\n        st = []\n        for tok in output:\n            if tok == '0':\n                st.append((0, 1))\n            elif tok == '1':\n                st.append((1, 0))\n            else:\n                c0_b, c1_b = st.pop()\n                c0_a, c1_a = st.pop()\n                # for each desired result and each operator (orig or flipped, +1 if flipped)\n                def combine(want):\n                    best = INF\n                    for opc, oper in ((0, tok), (1, '&' if tok == '|' else '|')):\n                        # oper applied to a,b\n                        for a in (0, 1):\n                            for b in (0, 1):\n                                if oper == '&':\n                                    res = a & b\n                                else:\n                                    res = a | b\n                                if res == want:\n                                    ca = c0_a if a == 0 else c1_a\n                                    cb = c0_b if b == 0 else c1_b\n                                    best = min(best, opc + ca + cb)\n                    return best\n                st.append((combine(0), combine(1)))\n        c0, c1 = st[0]\n        # current value is whichever of c0/c1 is 0; answer is the other (cost to flip)\n        return c1 if c0 == 0 else c0\n",
+  "solutions": {
+    "python": "class Solution:\n    def minOperationsToFlip(self, expression):\n        INF = float('inf')\n        operands = []\n        operators = []\n        def apply():\n            op = operators.pop()\n            b0, b1 = operands.pop()\n            a0, a1 = operands.pop()\n            if op == '&':\n                r0 = min(a0 + b0, a0 + b1, a1 + b0)\n                r1 = a1 + b1\n            else:\n                r0 = a0 + b0\n                r1 = min(a1 + b1, a1 + b0, a0 + b1)\n            # allow flipping this operator at cost 1\n            if op == '&':\n                f0 = a0 + b0\n                f1 = min(a1 + b1, a1 + b0, a0 + b1)\n            else:\n                f0 = min(a0 + b0, a0 + b1, a1 + b0)\n                f1 = a1 + b1\n            r0 = min(r0, f0 + 1)\n            r1 = min(r1, f1 + 1)\n            operands.append((r0, r1))\n        for ch in expression:\n            if ch == '0':\n                operands.append((0, 1))\n            elif ch == '1':\n                operands.append((1, 0))\n            elif ch == '(': \n                operators.append('(')\n            elif ch == ')':\n                while operators[-1] != '(': \n                    apply()\n                operators.pop()\n            else:\n                while operators and operators[-1] != '(': \n                    apply()\n                operators.append(ch)\n        while operators:\n            apply()\n        c0, c1 = operands[0]\n        return c1 if c0 == 0 else c0\n",
+    "javascript": "var minOperationsToFlip = function(expression) {\n    const operands = [];\n    const operators = [];\n    const apply = () => {\n        const op = operators.pop();\n        const [b0, b1] = operands.pop();\n        const [a0, a1] = operands.pop();\n        let r0, r1;\n        if (op === '&') {\n            r0 = Math.min(a0 + b0, a0 + b1, a1 + b0);\n            r1 = a1 + b1;\n        } else {\n            r0 = a0 + b0;\n            r1 = Math.min(a1 + b1, a1 + b0, a0 + b1);\n        }\n        let f0, f1;\n        if (op === '&') {\n            f0 = a0 + b0;\n            f1 = Math.min(a1 + b1, a1 + b0, a0 + b1);\n        } else {\n            f0 = Math.min(a0 + b0, a0 + b1, a1 + b0);\n            f1 = a1 + b1;\n        }\n        r0 = Math.min(r0, f0 + 1);\n        r1 = Math.min(r1, f1 + 1);\n        operands.push([r0, r1]);\n    };\n    for (const ch of expression) {\n        if (ch === '0') operands.push([0, 1]);\n        else if (ch === '1') operands.push([1, 0]);\n        else if (ch === '(') operators.push('(');\n        else if (ch === ')') {\n            while (operators[operators.length - 1] !== '(') apply();\n            operators.pop();\n        } else {\n            while (operators.length && operators[operators.length - 1] !== '(') apply();\n            operators.push(ch);\n        }\n    }\n    while (operators.length) apply();\n    const [c0, c1] = operands[0];\n    return c0 === 0 ? c1 : c0;\n};\n"
+  },
+  "complexity": { "time": "O(n)", "space": "O(n)" }
+}
