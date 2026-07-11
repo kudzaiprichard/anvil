@@ -39,6 +39,9 @@ fn javascript_var_function_stub_runs_unmodified() {
     require_runtime!("node");
     let code = "/**\n * @param {number} a\n * @param {number} b\n * @return {number}\n */\nvar addTwo = function(a, b) {\n    return a + b;\n};";
     let result = runner::execute(&entry_point_problem(), Language::Javascript, code, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
     assert_eq!(result.passed, 3);
 }
@@ -53,6 +56,9 @@ fn javascript_const_arrow_and_function_decl_forms_resolve() {
     ] {
         let result =
             runner::execute(&entry_point_problem(), Language::Javascript, code, true).unwrap();
+        let Some(result) = common::skip_if_node_unavailable(result) else {
+            continue;
+        };
         assert_eq!(result.status, RunStatus::Pass, "{code}: {:?}", result.error);
     }
 }
@@ -121,6 +127,9 @@ fn missing_javascript_entry_point_reports_what_was_looked_for() {
         true,
     )
     .unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
     assert_eq!(result.status, RunStatus::Error);
     let err = result.error.unwrap();
     assert!(err.contains("addTwo"), "error was: {err}");

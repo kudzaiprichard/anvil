@@ -1,10 +1,27 @@
 "use client";
 
-import { Check, CircleAlert, Star, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Activity,
+  Check,
+  CircleAlert,
+  Gauge,
+  Info,
+  Star,
+  TrendingUp,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Spinner } from "@/src/components/anvil/spinner";
+import { Markdown } from "@/src/components/anvil/markdown";
 import { cn } from "@/src/lib/utils";
 import { paramNames } from "@/src/lib/api";
-import type { CaseResult, Problem, RunResult } from "@/src/lib/types";
+import type {
+  CaseResult,
+  ComplexityReport,
+  Problem,
+  RunResult,
+} from "@/src/lib/types";
 
 export type RunState = "idle" | "running" | RunResult;
 
@@ -177,6 +194,167 @@ function ResultBody({
   );
 }
 
+/* --------------------------------------------------------------------- */
+/* Deterministic complexity feedback (Phase 5, COURSE_BLUEPRINT.md §7)    */
+/* --------------------------------------------------------------------- */
+
+const VERDICT_META: Record<
+  ComplexityReport["verdict"],
+  { className: string; icon: typeof Check }
+> = {
+  slower: { className: "text-medium", icon: TrendingUp },
+  optimal: { className: "text-pass", icon: Check },
+  faster: { className: "text-primary", icon: Activity },
+  unknown: { className: "text-muted-foreground", icon: Info },
+};
+
+/** Mini (n → ops) bars — the measured growth, drawn from the op-count trace. */
+function GrowthBars({ report }: { report: ComplexityReport }) {
+  const max = Math.max(1, ...report.samples.map((s) => s.ops));
+  return (
+    <div className="mt-3 flex flex-col gap-1">
+      {report.samples.map((s) => (
+        <div key={s.n} className="flex items-center gap-2">
+          <span className="w-12 shrink-0 text-right font-mono text-[11px] text-muted-foreground">
+            n={s.n}
+          </span>
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary/60"
+              style={{ width: `${(s.ops / max) * 100}%` }}
+            />
+          </div>
+          <span className="w-16 shrink-0 font-mono text-[11px] text-muted-foreground">
+            {s.ops.toLocaleString()}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The "you wrote O(n²), optimal is O(n)" card, shown after a passing
+ *  non-gate run. It profiles the learner's own solution deterministically —
+ *  no AI — via the runner's op-count trace. */
+function ComplexityCard({
+  onAnalyze,
+}: {
+  onAnalyze: () => Promise<ComplexityReport>;
+}) {
+  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
+  const [report, setReport] = useState<ComplexityReport | null>(null);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  const analyze = useCallback(async () => {
+    setStatus("loading");
+    try {
+      const r = await onAnalyze();
+      if (!alive.current) return;
+      setReport(r);
+      setStatus("done");
+    } catch (err) {
+      if (!alive.current) return;
+      setStatus("idle");
+      toast.error(
+        err instanceof Error ? err.message : "Could not analyze complexity"
+      );
+    }
+  }, [onAnalyze]);
+
+  if (status === "idle") {
+    return (
+      <div className="mt-3 rounded-[10px] border bg-surface-2 px-[13px] py-3">
+        <div className="flex items-center gap-2.5">
+          <Gauge className="size-[16px] text-primary" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold">Passed — but is it optimal?</div>
+            <div className="mt-px text-[11.5px] text-muted-foreground">
+              Profile your solution on growing inputs. Deterministic, on-device,
+              no AI.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={analyze}
+            className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground transition-[filter] hover:brightness-110"
+          >
+            Analyze complexity
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "loading") {
+    return (
+      <div className="mt-3 flex items-center gap-2.5 rounded-[10px] border bg-surface-2 px-[13px] py-3 text-[12.5px] text-muted-foreground">
+        <Spinner className="size-[13px]" />
+        Measuring growth on increasing input sizes…
+      </div>
+    );
+  }
+
+  if (!report) return null;
+
+  if (!report.available) {
+    return (
+      <div className="mt-3 flex items-start gap-2.5 rounded-[10px] border bg-surface-2 px-[13px] py-3">
+        <Info className="mt-px size-[15px] shrink-0 text-muted-foreground" />
+        <div className="text-[12.5px] text-muted-foreground">{report.note}</div>
+      </div>
+    );
+  }
+
+  const meta = VERDICT_META[report.verdict];
+  const Icon = meta.icon;
+  return (
+    <div className="mt-3 rounded-[10px] border bg-surface-2 px-[13px] py-3">
+      <div className="flex items-center gap-2">
+        <Gauge className="size-[15px] text-primary" />
+        <span className="microlabel text-foreground">Complexity</span>
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={analyze}
+          className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Re-run
+        </button>
+      </div>
+
+      <div className="mt-2.5 flex items-center gap-2">
+        <Icon className={cn("size-[17px]", meta.className)} />
+        <span className="font-mono text-[15px] font-semibold">
+          {report.measured}
+        </span>
+        {report.optimal && (
+          <span className="font-mono text-[12.5px] text-muted-foreground">
+            · optimal {report.optimal}
+          </span>
+        )}
+      </div>
+
+      <Markdown className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground [&_p]:!my-0">
+        {report.note}
+      </Markdown>
+
+      {report.samples.length > 0 && <GrowthBars report={report} />}
+
+      <p className="mt-2.5 text-[10.5px] leading-snug text-muted-foreground">
+        Counts operations as input grows — your Python plus the size-weighted
+        cost of built-ins like sorted / sum / min / max. A few container ops
+        (.sort(), <code>x in list</code>) still read a little light.
+      </p>
+    </div>
+  );
+}
+
 /** Bottom-right results panel: Testcase | Test Result (UI_SPEC §6.2). */
 export function ResultsPanel({
   problem,
@@ -186,6 +364,8 @@ export function ResultsPanel({
   selectedCase,
   onSelectCase,
   onMarkMastered,
+  complexityEnabled = false,
+  onAnalyzeComplexity,
 }: {
   problem: Problem;
   runState: RunState;
@@ -194,6 +374,10 @@ export function ResultsPanel({
   selectedCase: number;
   onSelectCase: (index: number) => void;
   onMarkMastered: () => void;
+  /** Off in a mastery gate (COURSE_BLUEPRINT.md §6); on for practice. */
+  complexityEnabled?: boolean;
+  /** Profiles the current code — closure supplied by the workspace. */
+  onAnalyzeComplexity?: () => Promise<ComplexityReport>;
 }) {
   const visibleCases = problem.test_cases.filter((tc) => !tc.hidden);
   const params = paramNames(problem);
@@ -309,6 +493,17 @@ export function ResultsPanel({
         {tab === "result" && result && (
           <ResultBody result={result} onMarkMastered={onMarkMastered} />
         )}
+        {/* Complexity feedback: after a passing practice run (off on gates).
+            Keyed to the problem so switching problems resets it. */}
+        {tab === "result" &&
+          result?.status === "pass" &&
+          complexityEnabled &&
+          onAnalyzeComplexity && (
+            <ComplexityCard
+              key={problem.id}
+              onAnalyze={onAnalyzeComplexity}
+            />
+          )}
       </div>
     </div>
   );

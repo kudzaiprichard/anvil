@@ -1134,7 +1134,7 @@ def self_test() -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--scrape", default=str(ROOT / "src-tauri" / "resources" / "catalog_leetcode.json"),
+    p.add_argument("--scrape", default=str(ROOT / "src-tauri" / "resources" / "catalog" / "catalog_leetcode.json"),
                    help="path to the catalog_leetcode.json scrape (dev input)")
     p.add_argument("--out", default=str(ROOT / "tools" / "test-packs.json"),
                    help="output pack file (uncompressed; build_fixture_bundle.py gzips it)")

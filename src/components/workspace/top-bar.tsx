@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, List, Play, Shuffle } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, List, Play, Shuffle } from "lucide-react";
+import Link from "next/link";
 import { Spinner } from "@/src/components/anvil/spinner";
 
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,7 @@ export function TopBar({
   onShuffle,
   onRun,
   timer,
+  back,
 }: {
   running: boolean;
   onOpenList: () => void;
@@ -34,6 +36,9 @@ export function TopBar({
   onRun: () => void;
   /** Optional practice-timer chip, rendered left of Run. */
   timer?: React.ReactNode;
+  /** Where the far-left back button returns to (the lesson/unit/capstone the
+   *  learner launched this problem from). Omit for a standalone workspace. */
+  back?: { href: string; label: string };
 }) {
   const iconBtn =
     "flex size-[28px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground";
@@ -42,6 +47,16 @@ export function TopBar({
     <div className="flex h-[42px] shrink-0 items-center gap-2 border-b bg-card px-2.5">
       {/* left zone */}
       <div className="flex items-center gap-1">
+        {back && (
+          <Link
+            href={back.href}
+            title={back.label}
+            className="mr-0.5 flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-[5px] text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <ArrowLeft className="size-[15px]" />
+            <span className="max-[560px]:hidden">{back.label}</span>
+          </Link>
+        )}
         <button
           type="button"
           onClick={onOpenList}
