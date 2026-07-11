@@ -26,12 +26,36 @@ pub fn stress_skipped_by_sandbox(skipped: &[String]) -> bool {
 }
 
 /// True when an error message is the CI sandbox's thread/process cap
-/// surfacing as a Python `RuntimeError: can't start new thread` — the same
+/// surfacing as either a Python `RuntimeError: can't start new thread` (the
+/// harness's own big-stack worker thread) or a Node process that fails to
+/// even start under the same starvation (`uv_thread_create` assertion in
+/// libuv's internal thread pool, before any of our JS runs at all) — the same
 /// environment limit as [`stress_skipped_by_sandbox`], but matched directly
-/// against one error string (e.g. a `ProbeOutcome::Failed` payload) rather
-/// than a skip list.
+/// against one error string (e.g. a `ProbeOutcome::Failed` payload or a
+/// `RunResult::error`) rather than a skip list.
 pub fn is_sandbox_thread_limit(msg: &str) -> bool {
-    msg.contains("can't start new thread")
+    msg.contains("can't start new thread") || msg.contains("uv_thread_create")
+}
+
+/// Wraps a completed run: `None` when Node itself failed to start under the
+/// sandbox's thread cap (a CI environment limit we don't control, since it
+/// happens inside libuv's own startup, before any of our JS runs) — the
+/// caller should skip (`return`/`continue`) rather than assert. `Some(result)`
+/// otherwise, for the caller's normal assertions. The Python harness instead
+/// falls back to a direct call on this same limit (see `harness.py`), so no
+/// equivalent wrapping is needed for Python runs.
+pub fn skip_if_node_unavailable(
+    result: app_lib::domain::run::RunResult,
+) -> Option<app_lib::domain::run::RunResult> {
+    if result.error.as_deref().is_some_and(is_sandbox_thread_limit) {
+        eprintln!(
+            "SKIPPED: sandbox could not start node here: {:?}",
+            result.error
+        );
+        None
+    } else {
+        Some(result)
+    }
 }
 
 #[macro_export]

@@ -420,7 +420,9 @@ def _run_with_big_stack():
     # Run on a thread with a large stack so deep recursion (DFS on 1e4–1e5
     # inputs) reaches the raised recursion limit instead of overflowing the C
     # stack (a segfault). Falls back to a direct call if the platform rejects
-    # the requested stack size.
+    # the requested stack size, or if the OS refuses to actually spawn the
+    # thread (e.g. a thread/process-capped sandbox) — a solve must never
+    # hard-fail just because the big-stack trick isn't available here.
     import threading
 
     try:
@@ -436,8 +438,12 @@ def _run_with_big_stack():
         except BaseException:
             captured["tb"] = traceback.format_exc()
 
-    t = threading.Thread(target=target)
-    t.start()
+    try:
+        t = threading.Thread(target=target)
+        t.start()
+    except RuntimeError:
+        main()
+        return
     t.join()
     if "tb" in captured:
         fail(0, clean_traceback(captured["tb"]))

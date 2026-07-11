@@ -163,14 +163,20 @@ def run():
 def _run_with_big_stack():
     # Deep recursion (DFS on the larger sizes) needs a big C stack, same as the
     # main harness. settrace applies to the calling thread, so setting it inside
-    # run() on this worker thread is correct.
+    # run() on this worker thread is correct. Falls back to a direct call if
+    # the platform rejects the requested stack size, or if the OS refuses to
+    # actually spawn the thread (e.g. a thread/process-capped sandbox).
     try:
         threading.stack_size(256 * 1024 * 1024)
     except (ValueError, OverflowError, RuntimeError):
         run()
         return
-    t = threading.Thread(target=run)
-    t.start()
+    try:
+        t = threading.Thread(target=run)
+        t.start()
+    except RuntimeError:
+        run()
+        return
     t.join()
 
 
