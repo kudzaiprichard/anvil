@@ -46,7 +46,8 @@ const NODE_PRELUDE =
 // (closing-the-48 Phase B). Signatures match leetcode.com's stubs.
 const VARIANT_NODE_PRELUDES = {
   graph:
-    "function Node(val, neighbors){ this.val = (val===undefined?0:val); this.neighbors = (neighbors===undefined?[]:neighbors); }\n",
+    // LeetCode's JS stub comments call this class `_Node`; expose both names.
+    "function Node(val, neighbors){ this.val = (val===undefined?0:val); this.neighbors = (neighbors===undefined?[]:neighbors); }\nvar _Node = Node;\n",
   n_ary_tree:
     "function Node(val, children){ this.val = (val===undefined?null:val); this.children = (children===undefined?[]:children); }\n",
   quad_tree:
