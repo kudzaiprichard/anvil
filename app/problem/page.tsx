@@ -322,13 +322,13 @@ function Workspace() {
       }
       // Single-language problems (e.g. the concurrency set is Python-only —
       // no JS threads) ship an empty stub for the missing language; never
-      // leave the editor parked on one.
-      if (!p.function_signature[s.lastLanguage ?? "python"]?.trim()) {
-        const fallback = LANGUAGES.find((l) =>
-          p.function_signature[l]?.trim()
-        );
-        if (fallback) setLanguage(fallback);
-      }
+      // leave the editor parked on one. Checked against whatever language is
+      // actually active (the restored one or the carried-over selection).
+      setLanguage((prev) => {
+        const active = s.lastLanguage ?? prev;
+        if (p.function_signature[active]?.trim()) return active;
+        return LANGUAGES.find((l) => p.function_signature[l]?.trim()) ?? active;
+      });
       setCodeByLang(next);
       setBookmarked(s.bookmarked);
       setRunState("idle");
