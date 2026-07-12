@@ -94,6 +94,25 @@ fn harness_meta(problem: &Problem, language: Language, judge: &Judge) -> Option<
             };
             meta.insert("validator_file".into(), serde_json::json!(file));
         }
+        Judge::RoundTrip { io, encode, decode } => {
+            meta.insert("mode".into(), serde_json::json!("round_trip"));
+            meta.insert(
+                "round_trip".into(),
+                serde_json::json!({ "io": io, "encode": encode, "decode": decode }),
+            );
+        }
+        Judge::Property { exec, design_io, .. } => {
+            meta.insert("mode".into(), serde_json::json!("property"));
+            meta.insert("exec".into(), serde_json::json!(exec));
+            if let Some(io) = design_io {
+                meta.insert("design_io".into(), serde_json::json!(io));
+            }
+            let file = match language {
+                Language::Python => "validator.py",
+                Language::Javascript => "validator.js",
+            };
+            meta.insert("validator_file".into(), serde_json::json!(file));
+        }
         Judge::Exact | Judge::Unordered | Judge::Float { .. } => {}
     }
     if meta.is_empty() {
@@ -141,11 +160,19 @@ pub fn execute_with_program(
     if let Some(meta) = harness_meta(problem, language, &judge) {
         std::fs::write(dir.path().join("meta.json"), meta.to_string())?;
     }
-    if let Judge::AnyValid {
-        validator_python,
-        validator_javascript,
-    } = &judge
-    {
+    let validator_pair = match &judge {
+        Judge::AnyValid {
+            validator_python,
+            validator_javascript,
+        }
+        | Judge::Property {
+            validator_python,
+            validator_javascript,
+            ..
+        } => Some((validator_python, validator_javascript)),
+        _ => None,
+    };
+    if let Some((validator_python, validator_javascript)) = validator_pair {
         // Pack-shipped validator — our code, never anything from the
         // imported file (CONTENT_DESIGN.md §4).
         let (file, mut source) = match language {
@@ -338,6 +365,24 @@ pub fn compute_outputs(
             if let Some(io) = design_io {
                 meta.insert("design_io".into(), serde_json::json!(io));
             }
+        }
+        // Reference-output computation never involves a validator: a
+        // property pack executes as a plain design/call so its (randomized)
+        // outputs can be produced; validity is judged elsewhere.
+        Judge::Property { exec, design_io, .. } => {
+            if exec.is_design() {
+                meta.insert("mode".into(), serde_json::json!("design"));
+                if let Some(io) = design_io {
+                    meta.insert("design_io".into(), serde_json::json!(io));
+                }
+            }
+        }
+        Judge::RoundTrip { io, encode, decode } => {
+            meta.insert("mode".into(), serde_json::json!("round_trip"));
+            meta.insert(
+                "round_trip".into(),
+                serde_json::json!({ "io": io, "encode": encode, "decode": decode }),
+            );
         }
         _ => {}
     }
@@ -552,7 +597,12 @@ fn memory_limit_message(guards: &Guards) -> String {
 /// `any_valid` trusts the pack validator's verdict from the harness line.
 fn case_passes(judge: &Judge, line: &HarnessLine, expected: &serde_json::Value) -> bool {
     match judge {
-        Judge::Exact | Judge::InPlace { .. } | Judge::Design { .. } => line.output == *expected,
+        Judge::Exact | Judge::InPlace { .. } | Judge::Design { .. } | Judge::RoundTrip { .. } => {
+            line.output == *expected
+        }
+        // The validator's per-case verdict is the whole judgment — outputs
+        // are legitimately different run to run.
+        Judge::Property { .. } => line.valid == Some(true),
         Judge::Unordered => unordered_match(&line.output, expected),
         Judge::Float { epsilon } => float_match(&line.output, expected, *epsilon),
         Judge::AnyValid { .. } => line.valid == Some(true),

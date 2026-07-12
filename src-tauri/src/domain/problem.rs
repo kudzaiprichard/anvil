@@ -95,6 +95,46 @@ pub enum Judge {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         design_io: Option<DesignIo>,
     },
+    /// Codec problems (serialize-and-deserialize-*): the solver invents the
+    /// format, so the harness judges `decode(encode(x))` — it emits the
+    /// canonical serialization of the round-tripped structure, which the
+    /// existing exact compare then checks. `encode`/`decode` name the codec
+    /// methods (python: on the entry-point class; javascript: class methods
+    /// or top-level functions).
+    RoundTrip {
+        io: IoType,
+        encode: String,
+        decode: String,
+    },
+    /// Randomized problems (getRandom/shuffle/pick): no single correct
+    /// output exists, so a pack-shipped validator replays the op sequence
+    /// and checks each output is a member of the legal set. `exec` picks the
+    /// execution shape (ops sequence vs plain call); `design_io` node-types
+    /// the constructor when `exec` is design (linked-list-random-node).
+    Property {
+        validator_python: String,
+        validator_javascript: String,
+        #[serde(default, skip_serializing_if = "PropertyExec::is_design")]
+        exec: PropertyExec,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        design_io: Option<DesignIo>,
+    },
+}
+
+/// How a `property` pack executes: as a design ops sequence (the default —
+/// RandomizedSet, Solution.shuffle, …) or as a single plain call (rand10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PropertyExec {
+    #[default]
+    Design,
+    Call,
+}
+
+impl PropertyExec {
+    pub fn is_design(&self) -> bool {
+        matches!(self, PropertyExec::Design)
+    }
 }
 
 /// Node I/O for one `design` method: param types positionally, plus the

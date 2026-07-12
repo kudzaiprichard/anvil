@@ -368,6 +368,102 @@ fn any_valid_javascript_runs_the_pack_validator() {
     assert_eq!(result.status, RunStatus::Fail);
 }
 
+// ---------- round_trip + property (closing-the-48 Phase C) ----------
+
+fn tree_codec_problem() -> app_lib::domain::problem::Problem {
+    problem_with(
+        Judge::RoundTrip {
+            io: IoType::Tree,
+            encode: "serialize".into(),
+            decode: "deserialize".into(),
+        },
+        Some(EntryPoint {
+            python: "Codec.serialize".into(),
+            javascript: "serialize".into(),
+            arity: 1,
+            io_types: None,
+        }),
+        vec![case(
+            json!([[1, 2, 3, null, null, 4, 5]]),
+            json!([1, 2, 3, null, null, 4, 5]),
+        )],
+    )
+}
+
+const CODEC_PY: &str = "class Codec:\n    def serialize(self, root):\n        vals = []\n        def dfs(n):\n            if not n:\n                vals.append('#')\n                return\n            vals.append(str(n.val))\n            dfs(n.left)\n            dfs(n.right)\n        dfs(root)\n        return ','.join(vals)\n    def deserialize(self, data):\n        it = iter(data.split(','))\n        def build():\n            v = next(it)\n            if v == '#':\n                return None\n            n = TreeNode(int(v))\n            n.left = build()\n            n.right = build()\n            return n\n        return build()\n";
+
+#[test]
+fn round_trip_judge_accepts_any_working_codec_and_rejects_a_broken_one() {
+    require_runtime!("python");
+    let result = runner::execute(&tree_codec_problem(), Language::Python, CODEC_PY, true).unwrap();
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+
+    // Encode preorder but decode as if it were mirrored — halves disagree.
+    let broken = CODEC_PY.replacen(
+        "vals.append(str(n.val))\n            dfs(n.left)\n            dfs(n.right)",
+        "vals.append(str(n.val))\n            dfs(n.right)\n            dfs(n.left)",
+        1,
+    );
+    let result = runner::execute(&tree_codec_problem(), Language::Python, &broken, true).unwrap();
+    assert_eq!(result.status, RunStatus::Fail);
+}
+
+fn randomized_set_problem() -> app_lib::domain::problem::Problem {
+    let validator_py = "def validate(args, outputs):\n    ops, arg_lists = args\n    present = set()\n    for i in range(1, len(ops)):\n        op, a, out = ops[i], arg_lists[i], outputs[i]\n        if op == 'insert':\n            ok = a[0] not in present\n            present.add(a[0])\n            if out != ok: return False\n        elif op == 'remove':\n            ok = a[0] in present\n            present.discard(a[0])\n            if out != ok: return False\n        elif op == 'getRandom':\n            if out not in present: return False\n    return True\n";
+    let validator_js = "function validate(args, outputs) {\n  const [ops, argLists] = args;\n  const present = new Set();\n  for (let i = 1; i < ops.length; i++) {\n    const op = ops[i], a = argLists[i], out = outputs[i];\n    if (op === 'insert') {\n      const ok = !present.has(a[0]);\n      present.add(a[0]);\n      if (out !== ok) return false;\n    } else if (op === 'remove') {\n      const ok = present.has(a[0]);\n      present.delete(a[0]);\n      if (out !== ok) return false;\n    } else if (op === 'getRandom') {\n      if (!present.has(out)) return false;\n    }\n  }\n  return true;\n}";
+    problem_with(
+        Judge::Property {
+            validator_python: validator_py.into(),
+            validator_javascript: validator_js.into(),
+            exec: app_lib::domain::problem::PropertyExec::Design,
+            design_io: None,
+        },
+        Some(EntryPoint {
+            python: "RandomizedSet".into(),
+            javascript: "RandomizedSet".into(),
+            arity: 0,
+            io_types: None,
+        }),
+        vec![case(
+            json!([
+                ["RandomizedSet", "insert", "insert", "getRandom", "remove", "getRandom"],
+                [[], [1], [2], [], [1], []]
+            ]),
+            // A sample run's outputs — display only; the validator judges.
+            json!([null, true, true, 1, true, 2]),
+        )],
+    )
+}
+
+const RSET_PY: &str = "import random\nclass RandomizedSet:\n    def __init__(self):\n        self.items = []\n        self.pos = {}\n    def insert(self, v):\n        if v in self.pos: return False\n        self.pos[v] = len(self.items)\n        self.items.append(v)\n        return True\n    def remove(self, v):\n        if v not in self.pos: return False\n        i = self.pos.pop(v)\n        last = self.items.pop()\n        if i < len(self.items):\n            self.items[i] = last\n            self.pos[last] = i\n        return True\n    def getRandom(self):\n        return random.choice(self.items)\n";
+
+#[test]
+fn property_judge_validates_random_outputs_per_call() {
+    require_runtime!("python");
+    let result =
+        runner::execute(&randomized_set_problem(), Language::Python, RSET_PY, true).unwrap();
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+
+    // getRandom returning something not in the set must fail even though
+    // every run's outputs legitimately differ.
+    let bad = RSET_PY.replace("return random.choice(self.items)", "return -999999");
+    let result =
+        runner::execute(&randomized_set_problem(), Language::Python, &bad, true).unwrap();
+    assert_eq!(result.status, RunStatus::Fail);
+}
+
+#[test]
+fn property_judge_runs_the_javascript_validator() {
+    require_runtime!("node");
+    let sol = "class RandomizedSet {\n  constructor() { this.items = []; this.pos = new Map(); }\n  insert(v) {\n    if (this.pos.has(v)) return false;\n    this.pos.set(v, this.items.length);\n    this.items.push(v);\n    return true;\n  }\n  remove(v) {\n    if (!this.pos.has(v)) return false;\n    const i = this.pos.get(v);\n    this.pos.delete(v);\n    const last = this.items.pop();\n    if (i < this.items.length) { this.items[i] = last; this.pos.set(last, i); }\n    return true;\n  }\n  getRandom() { return this.items[Math.floor(Math.random() * this.items.length)]; }\n}";
+    let result =
+        runner::execute(&randomized_set_problem(), Language::Javascript, sol, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+}
+
 // ---------- regression: legacy judges byte-identical ----------
 
 #[test]

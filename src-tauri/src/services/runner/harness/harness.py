@@ -112,6 +112,63 @@ def resolve_entry(module, entry):
     raise LookupError("Invalid entry point %r." % entry)
 
 
+def resolve_codec(module, entry, cfg):
+    # Round-trip codecs come in two shapes: a class (entry names it; LeetCode's
+    # `Codec`) whose instance carries the encode/decode methods, or two
+    # top-level functions. A fresh instance is made per case so no state leaks.
+    enc_name = cfg.get("encode", "encode")
+    dec_name = cfg.get("decode", "decode")
+    # The pack's entry point may be "Codec" or the derived "Codec.serialize" —
+    # only the class part matters here.
+    entry = (entry or "").split(".")[0]
+    cls = getattr(module, entry, None) if entry and re.fullmatch(IDENT, entry) else None
+    if inspect.isclass(cls):
+        def make():
+            inst = cls()
+            return getattr(inst, enc_name), getattr(inst, dec_name)
+        # Validate the methods exist up front for a friendly message.
+        probe = cls()
+        for name in (enc_name, dec_name):
+            if not callable(getattr(probe, name, None)):
+                raise LookupError("Class '%s' has no method '%s'." % (entry, name))
+        return make
+    enc = getattr(module, enc_name, None)
+    dec = getattr(module, dec_name, None)
+    if callable(enc) and callable(dec):
+        return lambda: (enc, dec)
+    raise LookupError(
+        "Codec not found — define a class '%s' with %s/%s methods, or top-level "
+        "functions named '%s' and '%s'." % (entry, enc_name, dec_name, enc_name, dec_name)
+    )
+
+
+def run_round_trip(index, args, cfg, make_codec):
+    # The solver invents the format, so the only checkable contract is
+    # decode(encode(x)) == x: emit the canonical serialization of the
+    # round-tripped structure and let the exact compare do the rest. The
+    # intermediate encoding never leaves this process.
+    io = cfg.get("io", "json")
+    try:
+        x = deserialize(args[0] if args else None, io)
+    except BaseException:
+        fail(index, "Failed to build node input:\n" + clean_traceback(traceback.format_exc()))
+        return None
+    encode_fn, decode_fn = make_codec()
+    start = time.perf_counter()
+    try:
+        decoded = decode_fn(encode_fn(x))
+    except BaseException:
+        fail(index, clean_traceback(traceback.format_exc()))
+        return None
+    elapsed_ms = (time.perf_counter() - start) * 1000.0
+    try:
+        result = serialize(decoded, io)
+    except BaseException:
+        fail(index, "Failed to serialize node output:\n" + clean_traceback(traceback.format_exc()))
+        return None
+    return result, elapsed_ms
+
+
 def _apply_param_types(values, types):
     # Positional deserialization; params beyond the declared list stay JSON.
     return [
@@ -308,6 +365,9 @@ def variant_prelude(meta):
         for t in mio.get("params") or []:
             _leaf_types(t, leaves)
         _leaf_types(mio.get("returns", "json"), leaves)
+    rt = meta.get("round_trip") or {}
+    if "io" in rt:
+        _leaf_types(rt["io"], leaves)
     picks = [k for k in VARIANT_NODE_PRELUDES if k in leaves]
     if len(picks) > 1:
         raise RuntimeError("conflicting Node class variants declared: %s" % ", ".join(sorted(picks)))
@@ -814,7 +874,7 @@ def main():
         return
 
     validate = None
-    if mode == "any_valid":
+    if mode in ("any_valid", "property"):
         # Pack-shipped validator (our code, written by the Rust side —
         # never from the imported file). Must define validate(args, output).
         import importlib.util
@@ -830,8 +890,26 @@ def main():
             fail(0, "Validator failed to load:\n" + clean_traceback(traceback.format_exc()))
             return
 
+    # property packs execute either as an ops sequence ("design", the
+    # default) or as a plain call — the validator judges either shape.
+    design_like = mode == "design" or (
+        mode == "property" and meta.get("exec", "design") == "design"
+    )
+
+    make_codec = None
     get_callable = None
-    if mode != "design":
+    if mode == "round_trip":
+        try:
+            make_codec = resolve_codec(
+                solution, meta.get("entry_point"), meta.get("round_trip") or {}
+            )
+        except LookupError as e:
+            fail(0, str(e))
+            return
+        except BaseException:
+            fail(0, clean_traceback(traceback.format_exc()))
+            return
+    elif not design_like:
         try:
             get_callable = resolve_entry(solution, meta.get("entry_point"))
         except LookupError as e:
@@ -842,13 +920,27 @@ def main():
         index = case["index"]
         args = case["args"]
 
-        if mode == "design":
+        if design_like:
             start = time.perf_counter()
             outputs = run_design(solution, index, args, meta.get("design_io"))
             if outputs is None:
                 return
             elapsed_ms = (time.perf_counter() - start) * 1000.0
             payload = {"index": index, "ok": True, "output": outputs, "timeMs": elapsed_ms}
+            if mode == "property":
+                try:
+                    payload["valid"] = bool(validate(args, outputs))
+                except BaseException:
+                    fail(index, "Validator raised:\n" + clean_traceback(traceback.format_exc()))
+                    return
+        elif mode == "round_trip":
+            round_tripped = run_round_trip(
+                index, args, meta.get("round_trip") or {}, make_codec
+            )
+            if round_tripped is None:
+                return
+            result, elapsed_ms = round_tripped
+            payload = {"index": index, "ok": True, "output": result, "timeMs": elapsed_ms}
         else:
             fn = get_callable()
             # any_valid: the validator judges against the ORIGINAL input, so
@@ -899,7 +991,7 @@ def main():
                     fail(index, "Failed to serialize node output:\n" + clean_traceback(traceback.format_exc()))
                     return
             payload = {"index": index, "ok": True, "output": result, "timeMs": elapsed_ms}
-            if mode == "any_valid":
+            if mode in ("any_valid", "property"):
                 try:
                     payload["valid"] = bool(validate(args, result))
                 except BaseException:

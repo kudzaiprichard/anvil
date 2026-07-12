@@ -141,7 +141,25 @@ def validate_source(slug: str, src: dict) -> None:
                      f"io_types entries must be one of {_NODE_TYPES} or a "
                      f"{{list_of|ctx_only: <type>}} / {{node_ref|clone_of|tail_of|node_index_of: {{param: i}}}} form, got {t!r}")
 
-    if judge_type == "design":
+    if judge_type == "round_trip":
+        _, extra = _judge_fields(src.get("judge"))
+        _require(_ok_io_type(extra.get("io", "json")),
+                 f"`round_trip` judge `io` must be a valid io type, got {extra.get('io')!r}")
+        for name in ("encode", "decode"):
+            v = extra.get(name, name)
+            _require(isinstance(v, str) and v.strip(),
+                     f"`round_trip` judge `{name}` must be a non-empty method/function name")
+
+    if judge_type == "property":
+        _, extra = _judge_fields(src.get("judge"))
+        _require(
+            bool(extra.get("validator_python")) and bool(extra.get("validator_javascript")),
+            "`property` judge needs `validator_python` and `validator_javascript`",
+        )
+        _require(extra.get("exec", "design") in ("design", "call"),
+                 "`property` judge `exec` must be design|call")
+
+    if judge_type in ("design", "property"):
         _, extra = _judge_fields(src.get("judge"))
         design_io = extra.get("design_io")
         if design_io is not None:
@@ -314,8 +332,18 @@ def to_gen(src: dict) -> dict:
     if judge_type == "any_valid":
         gen["validator_python"] = extra.get("validator_python", "")
         gen["validator_javascript"] = extra.get("validator_javascript", "")
-    if judge_type == "design" and extra.get("design_io"):
+    if judge_type in ("design", "property") and extra.get("design_io"):
         gen["design_io"] = extra["design_io"]
+    if judge_type == "round_trip":
+        gen["round_trip"] = {
+            "io": extra.get("io", "json"),
+            "encode": extra.get("encode", "encode"),
+            "decode": extra.get("decode", "decode"),
+        }
+    if judge_type == "property":
+        gen["validator_python"] = extra.get("validator_python", "")
+        gen["validator_javascript"] = extra.get("validator_javascript", "")
+        gen["property_exec"] = extra.get("exec", "design")
     return gen
 
 

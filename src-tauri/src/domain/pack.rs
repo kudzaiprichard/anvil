@@ -122,6 +122,25 @@ mod tests {
                 "methods": { "next": { "returns": "json" }, "insert": { "params": ["tree"] } }
             }
         }));
+        // Phase C judges: codec round-trip and property (randomized) packs.
+        round_trip::<Judge>(json!({
+            "type": "round_trip",
+            "io": "tree",
+            "encode": "serialize",
+            "decode": "deserialize"
+        }));
+        round_trip::<Judge>(json!({
+            "type": "property",
+            "validator_python": "def validate(args, outputs): return True",
+            "validator_javascript": "function validate(args, outputs) { return true; }"
+        }));
+        round_trip::<Judge>(json!({
+            "type": "property",
+            "validator_python": "def validate(args, out): return True",
+            "validator_javascript": "function validate(args, out) { return true; }",
+            "exec": "call",
+            "design_io": { "ctor": ["linked_list"] }
+        }));
     }
 
     #[test]

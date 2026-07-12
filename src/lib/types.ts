@@ -92,7 +92,23 @@ export type Judge =
    * node-types the constructor/method call boundary (e.g. a real TreeNode
    * into a BSTIterator constructor); absent ⇒ raw JSON args.
    */
-  | { type: "design"; design_io?: DesignIo };
+  | { type: "design"; design_io?: DesignIo }
+  /**
+   * Codec problems: the harness judges decode(encode(x)) by emitting the
+   * canonical serialization of the round-tripped structure.
+   */
+  | { type: "round_trip"; io: IoType; encode: string; decode: string }
+  /**
+   * Randomized problems: a pack-shipped validator replays the op sequence
+   * and checks each output is a member of the legal set.
+   */
+  | {
+      type: "property";
+      validator_python: string;
+      validator_javascript: string;
+      exec?: "design" | "call";
+      design_io?: DesignIo;
+    };
 
 /** Node I/O for one design method; absent fields mean plain JSON. */
 export interface MethodIo {

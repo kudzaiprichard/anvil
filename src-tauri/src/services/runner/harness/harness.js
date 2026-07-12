@@ -82,6 +82,9 @@ function variantPrelude(meta) {
     for (const t of mio.params || []) leafTypes(t, leaves);
     if (mio.returns !== undefined) leafTypes(mio.returns, leaves);
   }
+  if (meta.round_trip && meta.round_trip.io !== undefined) {
+    leafTypes(meta.round_trip.io, leaves);
+  }
   const picks = Object.keys(VARIANT_NODE_PRELUDES).filter((k) => leaves.has(k));
   if (picks.length > 1) {
     throw new Error("conflicting Node class variants declared: " + picks.sort().join(", "));
@@ -619,6 +622,71 @@ function resolveEntry(scope, entry) {
 // LeetCode wire format: args = [ops, argLists]. ops[0] names the class;
 // instantiate with argLists[0], apply remaining ops, collect outputs
 // (null for the constructor and void methods). Returns null after fail().
+// Round-trip codecs come in two shapes: a class (entry names it; LeetCode's
+// `Codec`) whose instance carries the encode/decode methods, or two top-level
+// functions (the JS tree-codec stubs). Fresh instance per case.
+function resolveCodec(scope, entry, cfg) {
+  const encName = cfg.encode || "encode";
+  const decName = cfg.decode || "decode";
+  // The pack's entry point may be "Codec" or the derived "Codec.serialize" —
+  // only the class part matters here.
+  entry = String(entry || "").split(".")[0];
+  const cls = entry && IDENT.test(entry) ? scope.lookup(entry) : undefined;
+  if (
+    typeof cls === "function" &&
+    typeof cls.prototype === "object" &&
+    typeof cls.prototype[encName] === "function" &&
+    typeof cls.prototype[decName] === "function"
+  ) {
+    return () => {
+      const inst = new cls();
+      return [inst[encName].bind(inst), inst[decName].bind(inst)];
+    };
+  }
+  const enc = scope.lookup(encName);
+  const dec = scope.lookup(decName);
+  if (typeof enc === "function" && typeof dec === "function") {
+    return () => [enc, dec];
+  }
+  throw new Error(
+    "Codec not found — define a class '" + entry + "' with " + encName + "/" +
+      decName + " methods, or top-level functions named '" + encName +
+      "' and '" + decName + "'."
+  );
+}
+
+function runRoundTrip(index, args, cfg, makeCodec) {
+  // decode(encode(x)) is the only checkable contract; emit the canonical
+  // serialization of the round-tripped structure. The intermediate encoding
+  // never leaves this process.
+  const io = cfg.io === undefined ? "json" : cfg.io;
+  let x;
+  try {
+    x = deserialize(args && args.length ? args[0] : null, io);
+  } catch (err) {
+    fail(index, "Failed to build node input:\n" + cleanStack(err));
+    return null;
+  }
+  const [encodeFn, decodeFn] = makeCodec();
+  const start = process.hrtime.bigint();
+  let decoded;
+  try {
+    decoded = decodeFn(encodeFn(x));
+  } catch (err) {
+    fail(index, cleanStack(err));
+    return null;
+  }
+  const timeMs = Number(process.hrtime.bigint() - start) / 1e6;
+  let result;
+  try {
+    result = serialize(decoded, io);
+  } catch (err) {
+    fail(index, "Failed to serialize node output:\n" + cleanStack(err));
+    return null;
+  }
+  return [result, timeMs];
+}
+
 function applyParamTypes(values, types) {
   // Positional deserialization; params beyond the declared list stay JSON.
   return values.map((v, i) => deserialize(v, i < types.length ? types[i] : "json"));
@@ -717,7 +785,9 @@ function main() {
     // including design packs whose only io declaration is `design_io`. The
     // per-problem `Node` variant (graph, n-ary, …) rides along when declared.
     scope = loadSolutionScope(
-      ioTypes || meta.design_io ? NODE_PRELUDE + variantPrelude(meta) : ""
+      ioTypes || meta.design_io || meta.round_trip
+        ? NODE_PRELUDE + variantPrelude(meta)
+        : ""
     );
   } catch (err) {
     fail(0, cleanStack(err));
@@ -725,7 +795,7 @@ function main() {
   }
 
   let validate = null;
-  if (mode === "any_valid") {
+  if (mode === "any_valid" || mode === "property") {
     // Pack-shipped validator (our code, written by the Rust side — never
     // from the imported file). Must define validate(args, output).
     try {
@@ -740,8 +810,22 @@ function main() {
     }
   }
 
+  // property packs execute either as an ops sequence ("design", the
+  // default) or as a plain call — the validator judges either shape.
+  const designLike =
+    mode === "design" ||
+    (mode === "property" && (meta.exec === undefined || meta.exec === "design"));
+
+  let makeCodec = null;
   let getCallable = null;
-  if (mode !== "design") {
+  if (mode === "round_trip") {
+    try {
+      makeCodec = resolveCodec(scope, meta.entry_point, meta.round_trip || {});
+    } catch (err) {
+      fail(0, err.message);
+      return;
+    }
+  } else if (!designLike) {
     try {
       getCallable = resolveEntry(scope, meta.entry_point);
     } catch (err) {
@@ -752,12 +836,24 @@ function main() {
 
   for (const { index, args } of cases) {
     let payload;
-    if (mode === "design") {
+    if (designLike) {
       const start = process.hrtime.bigint();
       const outputs = runDesign(scope, index, args, meta.design_io || null);
       if (outputs === null) return;
       const timeMs = Number(process.hrtime.bigint() - start) / 1e6;
       payload = { index, ok: true, output: outputs, timeMs };
+      if (mode === "property") {
+        try {
+          payload.valid = Boolean(validate(args, outputs));
+        } catch (err) {
+          fail(index, "Validator raised:\n" + cleanStack(err));
+          return;
+        }
+      }
+    } else if (mode === "round_trip") {
+      const roundTripped = runRoundTrip(index, args, meta.round_trip || {}, makeCodec);
+      if (roundTripped === null) return;
+      payload = { index, ok: true, output: roundTripped[0], timeMs: roundTripped[1] };
     } else {
       const fn = getCallable();
       // any_valid: the validator judges against the ORIGINAL input, so the
@@ -819,7 +915,7 @@ function main() {
         }
       }
       payload = { index, ok: true, output: result, timeMs };
-      if (mode === "any_valid") {
+      if (mode === "any_valid" || mode === "property") {
         try {
           payload.valid = Boolean(validate(args, result));
         } catch (err) {
