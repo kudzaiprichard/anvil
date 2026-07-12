@@ -5,12 +5,51 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # ready_for_review is not in the default set — it's what fires CI when a
+    # draft PR (which the rust/web jobs skip) is marked ready.
+    types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Detects which areas the change touches so the expensive jobs below only
+  # run when their inputs could have changed (a docs-only PR finishes CI in
+  # seconds). IMPORTANT: this must stay JOB-level filtering (`needs` + `if`),
+  # never workflow-level `paths:` — a skipped job still reports a check run,
+  # and GitHub treats skipped required checks as satisfied, so the "main
+  # protection" ruleset keeps working; a workflow that never triggers leaves
+  # its required checks stuck on "Expected" and the PR unmergeable.
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'src-tauri/**'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'app/**'
+              - 'src/**'
+              - 'public/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'next.config.*'
+              - 'eslint.config.*'
+              - 'postcss.config.*'
+              - '.github/workflows/ci.yml'
+
+  # Always runs (≈10s) — the shipping boundary is the project's one
+  # inviolable safety rule, and curriculum validity is cheap to assert.
   content:
     name: Content & shipping boundary
     runs-on: ubuntu-latest
@@ -30,8 +69,14 @@ jobs:
       - name: Installer boundary check
         run: python tools/check_release_boundary.py
 
+  # Skipped when the change can't affect the frontend, and on draft PRs
+  # (mark "Ready for review" to fire CI — the merge gate still requires it).
   web:
     name: Lint & build (web)
+    needs: changes
+    if: >-
+      needs.changes.outputs.web == 'true' &&
+      (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -43,8 +88,13 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
+  # Skipped when nothing under src-tauri/ changed, and on draft PRs.
   rust:
     name: Rust (fmt, clippy, test)
+    needs: changes
+    if: >-
+      needs.changes.outputs.rust == 'true' &&
+      (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     strategy:
       fail-fast: false
       matrix:
