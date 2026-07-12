@@ -88,8 +88,27 @@ pub struct TestPack {
     pub tests: Vec<PackTest>,
     pub stress: Vec<StressSpec>,
     pub solutions: PackSolutions,
+    /// Whether the statement's own examples are usable as visible test cases
+    /// under this pack's wire format (closing-the-48). True exactly when the
+    /// build anchored the pack against the statement examples; false for
+    /// `no_anchor_ok` packs whose wire encoding differs from the statement
+    /// (cyclic lists, multilevel lists, shim args, …) — the import then shows
+    /// the pack's own tests instead. Absent on pre-existing packs ⇒ true,
+    /// which is correct: they were all anchor-verified or their examples
+    /// never parsed in the first place.
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    pub examples_ok: bool,
     pub verified: bool,
     pub generated_at: String,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_true(v: &bool) -> bool {
+    *v
 }
 
 #[cfg(test)]

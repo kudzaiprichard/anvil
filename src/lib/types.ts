@@ -268,6 +268,11 @@ export interface TestPack {
   schema_version: number;
   entry_point: EntryPoint;
   judge: Judge;
+  /**
+   * Whether the statement's own examples are usable as visible cases under
+   * this pack's wire format; absent ⇒ true (anchored or never-parsed).
+   */
+  examples_ok?: boolean;
   /** One-sentence pattern explanation (what this problem teaches). */
   pattern: string;
   /** Three progressive hints: nudge → approach → near-answer. */

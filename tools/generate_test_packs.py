@@ -846,6 +846,11 @@ def verify_and_build(
             **({"brute_force_python": brute} if brute else {}),
             **({"complexity": gen["complexity"]} if gen.get("complexity") else {}),
         },
+        # Statement examples are only usable as runtime visible cases when the
+        # build actually anchored against them — anchoring proves the wire
+        # format and the statement encoding agree. Property packs never anchor
+        # (randomized outputs). Absent ⇒ true (old packs).
+        **({"examples_ok": False} if (not anchors or judge == "property") else {}),
         "verified": True,
         "generated_at": _now_iso(),
     }

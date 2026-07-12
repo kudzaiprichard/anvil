@@ -199,12 +199,31 @@ pub fn merge_question(
     let (tier, judge, entry_point, hints, reference_solution, explanation_md) = match verified_pack
     {
         Some(pack) => {
-            // Pack tests + materialized stress become the hidden judge.
-            for t in &pack.tests {
+            // Packs whose wire format differs from the statement's example
+            // encoding (closing-the-48: cyclic lists, multilevel lists, shim
+            // args, …) can't use the parsed examples — the inputs wouldn't
+            // deserialize and the expected values wouldn't compare. The build
+            // recorded this as `examples_ok = false`; drop them here.
+            if !pack.examples_ok && !visible.is_empty() {
+                notes.push(format!(
+                    "'{}': statement examples replaced by pack cases (wire format differs)",
+                    q.slug
+                ));
+                visible.clear();
+            }
+            // If no statement example survived parsing (design-shaped
+            // statements, multi-variable inputs) promote the pack's leading
+            // tests instead, so Run always has real, wire-correct cases.
+            let promote = if visible.is_empty() {
+                pack.tests.len().min(2)
+            } else {
+                0
+            };
+            for (i, t) in pack.tests.iter().enumerate() {
                 visible.push(TestCase {
                     input: t.input.clone(),
                     expected: t.expected.clone(),
-                    hidden: true,
+                    hidden: i >= promote,
                 });
             }
             visible.extend(materialized_stress);
@@ -415,6 +434,7 @@ mod tests {
                 brute_force_python: None,
                 complexity: None,
             },
+            examples_ok: true,
             verified: true,
             generated_at: "2026-06-12T00:00:00Z".into(),
         }
@@ -455,6 +475,30 @@ mod tests {
             derive_entry_point("def reverse(s):\n    pass", "const reverse = (s) => s;").unwrap();
         assert_eq!(ep.python, "reverse");
         assert_eq!(ep.javascript, "reverse");
+    }
+
+    #[test]
+    fn incompatible_statement_examples_are_replaced_by_pack_cases() {
+        // closing-the-48: a pack whose wire format differs from the statement
+        // encoding drops the parsed examples and promotes its own leading
+        // tests to visible, so Run always has wire-correct cases.
+        let mut p = pack();
+        p.examples_ok = false;
+        let merged = merge_question(&question(), Some(&p), vec![], &[], 5000);
+        assert_eq!(merged.tier, ImportTier::Full);
+        let visible: Vec<_> = merged
+            .problem
+            .test_cases
+            .iter()
+            .filter(|c| !c.hidden)
+            .collect();
+        // The statement example is gone; the pack's (single) test is visible.
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].input, pack().tests[0].input);
+        assert!(merged
+            .notes
+            .iter()
+            .any(|n| n.contains("statement examples replaced")));
     }
 
     #[test]
