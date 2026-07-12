@@ -1,0 +1,136 @@
+{
+  "slug": "serialize-and-deserialize-bst",
+  "judge": {
+    "type": "round_trip",
+    "io": "tree",
+    "encode": "serialize",
+    "decode": "deserialize"
+  },
+  "no_anchor_ok": true,
+  "pattern": "A binary search tree's ordering is itself information: a plain preorder walk of the values, with no null markers at all, carries enough evidence to rebuild the exact same shape by tightening a lower/upper bound as you go.",
+  "hints": [
+    "The general binary-tree codec needs an explicit marker for every missing child; a BST gives you a second source of structure for free — where would you look for it?",
+    "Emit only the values in preorder; when rebuilding, feed each subtree an open interval of values it is allowed to contain instead of an explicit shape.",
+    "Consume the preorder values one at a time: a value only becomes the next node if it still falls inside the current (lower, upper) bound, otherwise that subtree is done — recurse with (lower, val) on the left and (val, upper) on the right."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        0,
+        10000
+      ],
+      "value": [
+        -1000000,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "empty tree",
+      "input": [
+        []
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node",
+      "input": [
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two-node tree with only a right child",
+      "input": [
+        [
+          1,
+          null,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "mixed-shape tree with branching on both sides",
+      "input": [
+        [
+          8,
+          3,
+          10,
+          1,
+          6,
+          null,
+          14,
+          null,
+          null,
+          4,
+          7,
+          13
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "left-skewed decreasing chain — no right children anywhere",
+      "input": [
+        [
+          4,
+          3,
+          null,
+          2,
+          null,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "right-skewed increasing chain — no left children anywhere",
+      "input": [
+        [
+          1,
+          null,
+          2,
+          null,
+          3,
+          null,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "negative and six-digit magnitude values mixed in the same tree",
+      "input": [
+        [
+          0,
+          -500,
+          500,
+          -1000,
+          -100,
+          250,
+          999999
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "a random-size BST built by inserting distinct sampled values one at a time, then read back as level order",
+      "seed": 619,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(0, max(1, min(size, 200)))\n    vals = rng.sample(range(-1000000, 1000000), n) if n else []\n\n    class N:\n        __slots__ = (\"v\", \"l\", \"r\")\n\n        def __init__(self, v):\n            self.v = v\n            self.l = None\n            self.r = None\n\n    root = None\n    for v in vals:\n        if root is None:\n            root = N(v)\n            continue\n        cur = root\n        while True:\n            if v < cur.v:\n                if cur.l is None:\n                    cur.l = N(v)\n                    break\n                cur = cur.l\n            else:\n                if cur.r is None:\n                    cur.r = N(v)\n                    break\n                cur = cur.r\n\n    out = []\n    if root is not None:\n        queue = [root]\n        while queue:\n            node = queue.pop(0)\n            if node is None:\n                out.append(None)\n                continue\n            out.append(node.v)\n            queue.append(node.l)\n            queue.append(node.r)\n        while out and out[-1] is None:\n            out.pop()\n    return [out]\n"
+    }
+  ],
+  "oracle_python": "class Codec:\n    def serialize(self, root):\n        tokens = []\n\n        def walk(node):\n            if node is None:\n                tokens.append('#')\n                return\n            tokens.append(str(node.val))\n            walk(node.left)\n            walk(node.right)\n\n        walk(root)\n        return ','.join(tokens)\n\n    def deserialize(self, data):\n        stream = iter(data.split(','))\n\n        def rebuild():\n            token = next(stream)\n            if token == '#':\n                return None\n            node = TreeNode(int(token))\n            node.left = rebuild()\n            node.right = rebuild()\n            return node\n\n        return rebuild()\n",
+  "solutions": {
+    "python": "class Codec:\n    def serialize(self, root):\n        vals = []\n\n        def preorder(node):\n            if node:\n                vals.append(node.val)\n                preorder(node.left)\n                preorder(node.right)\n\n        preorder(root)\n        return ' '.join(map(str, vals))\n\n    def deserialize(self, data):\n        if not data:\n            return None\n        vals = list(map(int, data.split()))\n        self._i = 0\n\n        def build(lower, upper):\n            if self._i == len(vals) or not (lower < vals[self._i] < upper):\n                return None\n            val = vals[self._i]\n            self._i += 1\n            node = TreeNode(val)\n            node.left = build(lower, val)\n            node.right = build(val, upper)\n            return node\n\n        return build(float('-inf'), float('inf'))\n",
+    "javascript": "var serialize = function(root) {\n    const vals = [];\n    const preorder = (node) => {\n        if (!node) return;\n        vals.push(node.val);\n        preorder(node.left);\n        preorder(node.right);\n    };\n    preorder(root);\n    return vals.join(' ');\n};\n\nvar deserialize = function(data) {\n    if (!data) return null;\n    const vals = data.split(' ').map(Number);\n    let i = 0;\n    const build = (lower, upper) => {\n        if (i === vals.length || !(vals[i] > lower && vals[i] < upper)) return null;\n        const val = vals[i];\n        i += 1;\n        const node = new TreeNode(val);\n        node.left = build(lower, val);\n        node.right = build(val, upper);\n        return node;\n    };\n    return build(-Infinity, Infinity);\n};\n"
+  }
+}

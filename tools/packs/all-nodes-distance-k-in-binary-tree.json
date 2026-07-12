@@ -1,0 +1,197 @@
+{
+  "slug": "all-nodes-distance-k-in-binary-tree",
+  "judge": "unordered",
+  "io_types": {
+    "params": [
+      "tree",
+      {
+        "node_ref": {
+          "param": 0
+        }
+      },
+      "json"
+    ],
+    "returns": "json"
+  },
+  "pattern": "A tree only offers downward edges, so reaching nodes that are 'behind' the target requires first turning it into an undirected graph via parent pointers, then a plain breadth-first search out to radius k.",
+  "hints": [
+    "A recursive walk only reaches descendants; you also need a way to step from a node back to its parent.",
+    "Do one pass to record each node's parent, then treat left child, right child and parent as three equal neighbors.",
+    "Breadth-first search outward from the target for exactly k layers, marking visited nodes so you never step back the way you came."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        1,
+        500
+      ],
+      "value": [
+        0,
+        500
+      ]
+    },
+    {
+      "param": "target",
+      "kind": "int",
+      "value": [
+        0,
+        500
+      ]
+    },
+    {
+      "param": "k",
+      "kind": "int",
+      "value": [
+        0,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "target in the middle of the tree, answer spans both subtrees and the parent side",
+      "input": [
+        [
+          3,
+          5,
+          1,
+          6,
+          2,
+          0,
+          8,
+          null,
+          null,
+          7,
+          4
+        ],
+        5,
+        2
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-node tree, k larger than any possible distance",
+      "input": [
+        [
+          1
+        ],
+        1,
+        3
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "k = 0 returns just the target itself",
+      "input": [
+        [
+          3,
+          5,
+          1,
+          6,
+          2,
+          0,
+          8,
+          null,
+          null,
+          7,
+          4
+        ],
+        1,
+        0
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "target is the root, distance measured purely downward",
+      "input": [
+        [
+          3,
+          5,
+          1,
+          6,
+          2,
+          0,
+          8,
+          null,
+          null,
+          7,
+          4
+        ],
+        3,
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "target at a leaf; k walks back up past the root without an index error",
+      "input": [
+        [
+          3,
+          5,
+          1,
+          6,
+          2,
+          0,
+          8,
+          null,
+          null,
+          7,
+          4
+        ],
+        7,
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "straight chain (no branching) so the BFS must not revisit the node it came from",
+      "input": [
+        [
+          1,
+          2,
+          null,
+          3,
+          null,
+          4,
+          null,
+          5
+        ],
+        3,
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "value 0 present at the target itself, guards against falsy-value bugs",
+      "input": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        0,
+        1
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random tree shape with a random target node and radius",
+      "seed": 218,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = max(1, min(size, 200))\n    vals = rng.sample(range(0, 501), n)\n    def build(items):\n        if not items:\n            return None\n        if len(items) == 1:\n            return [items[0], None, None]\n        i = rng.randrange(len(items))\n        root_val = items[i]\n        rest = items[:i] + items[i + 1:]\n        rng.shuffle(rest)\n        split = rng.randint(0, len(rest))\n        return [root_val, build(rest[:split]), build(rest[split:])]\n    tree = build(vals)\n    out = []\n    queue = [tree]\n    while queue:\n        node = queue.pop(0)\n        if node is None:\n            out.append(None)\n            continue\n        out.append(node[0])\n        queue.append(node[1])\n        queue.append(node[2])\n    while out and out[-1] is None:\n        out.pop()\n    target = rng.choice(vals)\n    k = rng.randint(0, 10)\n    return [out, target, k]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def distanceK(self, root, target, k):\n        path = []\n        def find(node):\n            if node is None:\n                return False\n            path.append(node)\n            if node is target:\n                return True\n            if find(node.left) or find(node.right):\n                return True\n            path.pop()\n            return False\n        find(root)\n        result = []\n        def collect(node, d):\n            if node is None:\n                return\n            if d == 0:\n                result.append(node.val)\n                return\n            collect(node.left, d - 1)\n            collect(node.right, d - 1)\n        n = len(path)\n        for i in range(n):\n            anc = path[n - 1 - i]\n            if i == k:\n                result.append(anc.val)\n                continue\n            if i > k:\n                break\n            remaining = k - i\n            if i == 0:\n                collect(anc.left, remaining - 1)\n                collect(anc.right, remaining - 1)\n            else:\n                skip_child = path[n - i]\n                for child in (anc.left, anc.right):\n                    if child is not None and child is not skip_child:\n                        collect(child, remaining - 1)\n        return result\n",
+  "solutions": {
+    "python": "class Solution:\n    def distanceK(self, root, target, k):\n        parent = {}\n        def link(node, par):\n            if node is None:\n                return\n            parent[node] = par\n            link(node.left, node)\n            link(node.right, node)\n        link(root, None)\n        visited = {target}\n        queue = [target]\n        dist = 0\n        while queue and dist < k:\n            nxt = []\n            for node in queue:\n                for nb in (node.left, node.right, parent.get(node)):\n                    if nb is not None and nb not in visited:\n                        visited.add(nb)\n                        nxt.append(nb)\n            queue = nxt\n            dist += 1\n        return [node.val for node in queue]\n",
+    "javascript": "var distanceK = function(root, target, k) {\n    const parent = new Map();\n    (function link(node, par) {\n        if (node === null) return;\n        parent.set(node, par);\n        link(node.left, node);\n        link(node.right, node);\n    })(root, null);\n    let visited = new Set([target]);\n    let queue = [target];\n    let dist = 0;\n    while (queue.length && dist < k) {\n        const nxt = [];\n        for (const node of queue) {\n            for (const nb of [node.left, node.right, parent.get(node) || null]) {\n                if (nb !== null && nb !== undefined && !visited.has(nb)) {\n                    visited.add(nb);\n                    nxt.push(nb);\n                }\n            }\n        }\n        queue = nxt;\n        dist++;\n    }\n    return queue.map(node => node.val);\n};\n"
+  }
+}
