@@ -1,0 +1,239 @@
+{
+  "slug": "peeking-iterator",
+  "judge": {
+    "type": "design",
+    "design_io": {
+      "ctor": [
+        {
+          "shim": {
+            "kind": "iterator"
+          }
+        }
+      ]
+    }
+  },
+  "no_anchor_ok": true,
+  "pattern": "A one-slot buffer between you and a consume-only stream lets you look at the upcoming element as often as you like: peek fills the slot from the stream, and next drains the slot before touching the stream again.",
+  "hints": [
+    "The wrapped object can only move forward — once you call its next you cannot un-see the value, so store it somewhere.",
+    "Hold at most one element in a cache: peek fills the cache if empty and returns it without clearing it.",
+    "next returns and clears the cache when it is full, otherwise pulls straight from the wrapped iterator; hasNext is true when the cache is full or the wrapped iterator still has elements."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        1000
+      ],
+      "value": [
+        1,
+        1000
+      ]
+    },
+    {
+      "param": "calls",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "peek before and after next on a three-element stream",
+      "input": [
+        [
+          "PeekingIterator",
+          "peek",
+          "next",
+          "peek",
+          "next",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element stream, peek repeatedly then consume",
+      "input": [
+        [
+          "PeekingIterator",
+          "hasNext",
+          "peek",
+          "peek",
+          "peek",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              7
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "hasNext right after a peek that buffered the final element — must still be true",
+      "input": [
+        [
+          "PeekingIterator",
+          "next",
+          "peek",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              4,
+              9
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "next-only usage — the buffer must not desync when peek is never called",
+      "input": [
+        [
+          "PeekingIterator",
+          "next",
+          "next",
+          "next",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              5,
+              6,
+              7,
+              8
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "alternating peek/next through the whole stream",
+      "input": [
+        [
+          "PeekingIterator",
+          "peek",
+          "next",
+          "peek",
+          "next",
+          "peek",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              10,
+              20,
+              30
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate values back to back — peek must return the buffered copy, not skip it",
+      "input": [
+        [
+          "PeekingIterator",
+          "peek",
+          "peek",
+          "next",
+          "peek",
+          "next",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              2,
+              2,
+              2
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random stream fully drained with random peek/hasNext probes between next calls",
+      "seed": 3319,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 200)))\n    nums = [rng.randint(1, 1000) for _ in range(n)]\n    ops = ['PeekingIterator']\n    args = [[nums]]\n    for _ in range(n):\n        if rng.random() < 0.5:\n            ops.append('peek')\n            args.append([])\n        if rng.random() < 0.3:\n            ops.append('hasNext')\n            args.append([])\n        ops.append('next')\n        args.append([])\n    ops.append('hasNext')\n    args.append([])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "class PeekingIterator:\n    def __init__(self, iterator):\n        self.vals = []\n        while iterator.hasNext():\n            self.vals.append(iterator.next())\n        self.i = 0\n    def peek(self):\n        return self.vals[self.i]\n    def next(self):\n        v = self.vals[self.i]\n        self.i += 1\n        return v\n    def hasNext(self):\n        return self.i < len(self.vals)\n",
+  "solutions": {
+    "python": "class PeekingIterator:\n    def __init__(self, iterator):\n        self.iterator = iterator\n        self.has_buffered = False\n        self.buffered = None\n    def peek(self):\n        if not self.has_buffered:\n            self.buffered = self.iterator.next()\n            self.has_buffered = True\n        return self.buffered\n    def next(self):\n        if self.has_buffered:\n            self.has_buffered = False\n            v = self.buffered\n            self.buffered = None\n            return v\n        return self.iterator.next()\n    def hasNext(self):\n        return self.has_buffered or self.iterator.hasNext()\n",
+    "javascript": "var PeekingIterator = function(iterator) {\n    this.iterator = iterator;\n    this.hasBuffered = false;\n    this.buffered = null;\n};\nPeekingIterator.prototype.peek = function() {\n    if (!this.hasBuffered) {\n        this.buffered = this.iterator.next();\n        this.hasBuffered = true;\n    }\n    return this.buffered;\n};\nPeekingIterator.prototype.next = function() {\n    if (this.hasBuffered) {\n        this.hasBuffered = false;\n        const v = this.buffered;\n        this.buffered = null;\n        return v;\n    }\n    return this.iterator.next();\n};\nPeekingIterator.prototype.hasNext = function() {\n    return this.hasBuffered || this.iterator.hasNext();\n};\n"
+  }
+}
