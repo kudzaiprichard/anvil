@@ -10,14 +10,23 @@ checklist** first — it is the project's one inviolable safety rule.
 
 ```bash
 node release.mjs patch   # or minor / major
+node release.mjs minor --dry-run    # rehearse: every gate, nothing changed
+node release.mjs patch --no-watch   # skip the live build monitor at the end
 ```
 
 `release.mjs` is the only thing that should ever cut a release — see the comment at the top of the file
-for exactly what it checks (repo state, Tauri version alignment, a `CHANGELOG.md` entry for the target
-version, lint, types, curriculum validity, the boundary gate, the frontend build, and the full Rust test
-suite) before it bumps `package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml`, commits,
-pushes, and pushes the `vX.Y.Z` tag that triggers the `Release` workflow. If any check fails, nothing is
-touched — no half-bumped version, no stray commit, no tag.
+for exactly what it checks (repo state, a fresh unused tag, a dated `CHANGELOG.md` heading for the
+target version, Tauri version alignment, the shipped-content gates, the boundary gate, lint, types,
+curriculum validity, the frontend build + a non-empty export, and the full Rust test suite) before it
+bumps `package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml`, commits, pushes, and pushes
+the `vX.Y.Z` tag that triggers the `Release` workflow. If any check fails, nothing is touched — no
+half-bumped version, no stray commit, no tag. Checks run cheapest-and-most-fatal first, so a doomed
+release dies in milliseconds, not after a multi-minute test run.
+
+After the tag push the script **watches the Release workflow live from the terminal** (needs the `gh`
+CLI): the create-release job and all four platform builds, updating in place until they finish, ending
+with the draft-release link on success or the failed-job command on failure. Ctrl-C during the watch is
+safe — the release is already cut by then; the monitor is purely observational.
 
 ### One-time setup: the cross-repo publish token
 
@@ -63,13 +72,18 @@ file — this list is what it enforces, kept here as the reference (and as the m
 need to release without the script):
 
 - [ ] On a clean, up-to-date `main`.
+- [ ] The target tag `vX.Y.Z` does not already exist, locally or on origin.
+- [ ] `CHANGELOG.md` has a dated `## [X.Y.Z] - YYYY-MM-DD` heading for the version being tagged.
 - [ ] `@tauri-apps/api` (npm) and the `tauri` crate (Rust) are on the same major.minor.
-- [ ] `CHANGELOG.md` has a dated section for the version being tagged.
+- [ ] **No empty shell**: `test-packs.json.gz` parses, is non-empty, every pack is `verified`, and the
+      pack count equals the freeze manifest (`tools/packs/index.json`); the curriculum and lessons
+      resource directories exist and are non-empty.
+- [ ] `python tools/check_release_boundary.py` passes (no `*leetcode*` bundled; payload at baseline).
+- [ ] `RELEASES_REPO_TOKEN` is set on the repo (warn-only — checked via `gh` when available).
 - [ ] `npm run lint` passes.
 - [ ] `npx tsc --noEmit` passes.
 - [ ] `python tools/build_curriculum.py --check` passes (curriculum content is valid, fail-closed).
-- [ ] `python tools/check_release_boundary.py` passes (no `*leetcode*` bundled; payload at baseline).
-- [ ] `npm run build` passes.
+- [ ] `npm run build` passes, and the `out/` export actually contains the app (index.html + assets).
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml` passes.
 - [ ] `version` is in sync across `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`
       (release.mjs bumps all three together, atomically).
