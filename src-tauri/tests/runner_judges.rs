@@ -236,6 +236,89 @@ fn design_io_hands_javascript_constructor_a_real_tree_node() {
     assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
 }
 
+// ---------- Phase B wire types: node_ref / graph freshness ----------
+
+fn lca_problem() -> app_lib::domain::problem::Problem {
+    // p and q arrive as REAL nodes inside root's tree; the return value is
+    // identity-checked against that tree and serialized as its value.
+    problem_with(
+        Judge::Exact,
+        Some(EntryPoint {
+            python: "Solution.lowestCommonAncestor".into(),
+            javascript: "lowestCommonAncestor".into(),
+            arity: 3,
+            io_types: Some(IoTypes {
+                params: vec![
+                    IoType::Tree,
+                    IoType::NodeRef { param: 0 },
+                    IoType::NodeRef { param: 0 },
+                ],
+                returns: IoType::NodeRef { param: 0 },
+            }),
+        }),
+        vec![case(
+            json!([[6, 2, 8, 0, 4, 7, 9, null, null, 3, 5], 2, 8]),
+            json!(6),
+        )],
+    )
+}
+
+#[test]
+fn node_ref_params_reach_python_as_real_nodes() {
+    require_runtime!("python");
+    let code = "class Solution:\n    def lowestCommonAncestor(self, root, p, q):\n        node = root\n        while node:\n            if p.val < node.val and q.val < node.val:\n                node = node.left\n            elif p.val > node.val and q.val > node.val:\n                node = node.right\n            else:\n                return node\n";
+    let result = runner::execute(&lca_problem(), Language::Python, code, true).unwrap();
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+
+    // Returning a freshly built node (not part of the input tree) must not pass.
+    let foreign = "class Solution:\n    def lowestCommonAncestor(self, root, p, q):\n        return TreeNode(6)\n";
+    let result = runner::execute(&lca_problem(), Language::Python, foreign, true).unwrap();
+    assert_ne!(result.status, RunStatus::Pass);
+}
+
+fn clone_graph_problem() -> app_lib::domain::problem::Problem {
+    problem_with(
+        Judge::Exact,
+        Some(EntryPoint {
+            python: "Solution.cloneGraph".into(),
+            javascript: "cloneGraph".into(),
+            arity: 1,
+            io_types: Some(IoTypes {
+                params: vec![IoType::Graph],
+                returns: IoType::Graph,
+            }),
+        }),
+        vec![case(
+            json!([[[2, 4], [1, 3], [2, 4], [1, 3]]]),
+            json!([[2, 4], [1, 3], [2, 4], [1, 3]]),
+        )],
+    )
+}
+
+#[test]
+fn graph_io_type_judges_a_clone_and_rejects_returning_the_input() {
+    require_runtime!("python");
+    let clone = "class Solution:\n    def cloneGraph(self, node):\n        if not node: return None\n        memo = {}\n        def dfs(n):\n            if id(n) in memo: return memo[id(n)]\n            c = Node(n.val)\n            memo[id(n)] = c\n            c.neighbors = [dfs(x) for x in n.neighbors]\n            return c\n        return dfs(node)\n";
+    let result = runner::execute(&clone_graph_problem(), Language::Python, clone, true).unwrap();
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+
+    // The classic cheat — returning the input graph — must not pass.
+    let cheat = "class Solution:\n    def cloneGraph(self, node):\n        return node\n";
+    let result = runner::execute(&clone_graph_problem(), Language::Python, cheat, true).unwrap();
+    assert_ne!(result.status, RunStatus::Pass);
+}
+
+#[test]
+fn node_ref_params_reach_javascript_as_real_nodes() {
+    require_runtime!("node");
+    let code = "var lowestCommonAncestor = function(root, p, q) {\n  let node = root;\n  while (node) {\n    if (p.val < node.val && q.val < node.val) node = node.left;\n    else if (p.val > node.val && q.val > node.val) node = node.right;\n    else return node;\n  }\n};";
+    let result = runner::execute(&lca_problem(), Language::Javascript, code, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+}
+
 // ---------- any_valid ----------
 
 fn any_pair_problem() -> app_lib::domain::problem::Problem {

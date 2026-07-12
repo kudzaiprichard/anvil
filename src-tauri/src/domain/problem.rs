@@ -134,15 +134,48 @@ pub struct EntryPoint {
     pub io_types: Option<IoTypes>,
 }
 
-/// Per-call I/O shape: `json` (plain), `linked_list`, `tree`, or a `list_of`
-/// composite. Serializes to `"json"`/`"linked_list"`/`"tree"`/`{"list_of": …}`.
+/// Per-call I/O shape (task 0003 + closing-the-48 Phase B). Leaves serialize
+/// as `"json"`/`"linked_list"`/`"tree"`/`"cyclic_list"`/… ; composites as
+/// `{"list_of": …}` / `{"ctx_only": …}` / `{"node_ref": {"param": i}}` (and
+/// the other param-referencing forms). Every variant here must be understood
+/// by BOTH harnesses' deserialize/serialize and by `tools/build_packs.py`'s
+/// `_ok_io_type` — the bundle parse is strict, so an unknown type would empty
+/// the whole pack store.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IoType {
     Json,
     LinkedList,
     Tree,
+    /// `{"values": [...], "pos": k|null}` — tail links back to node #k.
+    CyclicList,
+    /// `[[val, randomIdx|null], ...]` — LeetCode's copy-random-pointer form.
+    RandomList,
+    /// Adjacency list; node i (0-based) carries val i+1.
+    Graph,
+    /// LeetCode level order with null group separators.
+    NAryTree,
+    /// Level order of `[isLeaf, val]` pairs with nulls (tl/tr/bl/br).
+    QuadTree,
+    /// In: plain level order; out: serialized by FOLLOWING the next pointers.
+    NextTree,
+    /// Segments with a global-index parent: `[{"values": [...], "parent": …}]`.
+    MultilevelList,
     ListOf(Box<IoType>),
+    /// Built into the judging context but never passed to the solution
+    /// (e.g. delete-node's hidden list head).
+    CtxOnly(Box<IoType>),
+    /// Wire value is a node VALUE; the harness resolves the real node object
+    /// inside the already-built param `param`. As a return type: the node's
+    /// value, after verifying identity membership in that structure.
+    NodeRef { param: usize },
+    /// A structure-preserving deep copy of the already-built param `param`.
+    CloneOf { param: usize },
+    /// `{"values": [...], "attach": idx|null}` — a fresh list whose last node
+    /// links into param `param`'s chain (intersection-of-two-linked-lists).
+    TailOf { param: usize },
+    /// Return-only: the returned node's index in param `param`'s chain.
+    NodeIndexOf { param: usize },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -498,6 +531,52 @@ mod tests {
         user.source = ProblemSource::User;
         let user_payload = serde_json::to_string(&user.sanitized_for_ipc()).unwrap();
         assert!(user_payload.contains("secret-input-77631"));
+    }
+
+    #[test]
+    fn io_type_variants_round_trip_their_wire_names() {
+        // The names both harnesses and tools/build_packs.py dispatch on —
+        // a rename here silently breaks the whole bundle, so pin them.
+        for (value, expect) in [
+            (json!("json"), IoType::Json),
+            (json!("linked_list"), IoType::LinkedList),
+            (json!("tree"), IoType::Tree),
+            (json!("cyclic_list"), IoType::CyclicList),
+            (json!("random_list"), IoType::RandomList),
+            (json!("graph"), IoType::Graph),
+            (json!("n_ary_tree"), IoType::NAryTree),
+            (json!("quad_tree"), IoType::QuadTree),
+            (json!("next_tree"), IoType::NextTree),
+            (json!("multilevel_list"), IoType::MultilevelList),
+            (
+                json!({ "list_of": "tree" }),
+                IoType::ListOf(Box::new(IoType::Tree)),
+            ),
+            (
+                json!({ "ctx_only": "linked_list" }),
+                IoType::CtxOnly(Box::new(IoType::LinkedList)),
+            ),
+            (
+                json!({ "node_ref": { "param": 0 } }),
+                IoType::NodeRef { param: 0 },
+            ),
+            (
+                json!({ "clone_of": { "param": 0 } }),
+                IoType::CloneOf { param: 0 },
+            ),
+            (
+                json!({ "tail_of": { "param": 0 } }),
+                IoType::TailOf { param: 0 },
+            ),
+            (
+                json!({ "node_index_of": { "param": 0 } }),
+                IoType::NodeIndexOf { param: 0 },
+            ),
+        ] {
+            let parsed: IoType = serde_json::from_value(value.clone()).expect("deserialize");
+            assert_eq!(parsed, expect);
+            assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
+        }
     }
 
     #[test]

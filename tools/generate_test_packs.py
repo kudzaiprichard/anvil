@@ -670,10 +670,16 @@ def verify_and_build(
     if io_types is not None:
         if not isinstance(io_types, dict) or "params" not in io_types or "returns" not in io_types:
             return VerifyResult(False, "io_types must be {params: [...], returns: ...}")
-        if len(io_types["params"]) != entry.arity:
+        # ctx_only params are built for judging but never passed, so they
+        # don't count toward the stub's arity (closing-the-48 Phase B).
+        passed_params = [
+            t for t in io_types["params"]
+            if not (isinstance(t, dict) and "ctx_only" in t)
+        ]
+        if len(passed_params) != entry.arity:
             return VerifyResult(
                 False,
-                f"io_types.params has {len(io_types['params'])} entries but the stub arity is {entry.arity}",
+                f"io_types.params passes {len(passed_params)} args but the stub arity is {entry.arity}",
             )
 
     # 1. Anchor: the optimal solution must reproduce every statement example.

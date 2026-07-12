@@ -229,6 +229,90 @@ class TreeNode:
         self.right = right
 """
 
+# LeetCode names every special node class `Node`, so exactly one variant can
+# be injected per problem — chosen from the io types the meta declares
+# (closing-the-48 Phase B). Signatures match leetcode.com's stubs.
+VARIANT_NODE_PRELUDES = {
+    "graph": """
+class Node:
+    def __init__(self, val=0, neighbors=None):
+        self.val = val
+        self.neighbors = neighbors if neighbors is not None else []
+""",
+    "n_ary_tree": """
+class Node:
+    def __init__(self, val=None, children=None):
+        self.val = val
+        self.children = children if children is not None else []
+""",
+    "quad_tree": """
+class Node:
+    def __init__(self, val=False, isLeaf=False, topLeft=None, topRight=None, bottomLeft=None, bottomRight=None):
+        self.val = val
+        self.isLeaf = isLeaf
+        self.topLeft = topLeft
+        self.topRight = topRight
+        self.bottomLeft = bottomLeft
+        self.bottomRight = bottomRight
+""",
+    "next_tree": """
+class Node:
+    def __init__(self, val=0, left=None, right=None, next=None):
+        self.val = val
+        self.left = left
+        self.right = right
+        self.next = next
+""",
+    "random_list": """
+class Node:
+    def __init__(self, x=0, next=None, random=None):
+        self.val = x
+        self.next = next
+        self.random = random
+""",
+    "multilevel_list": """
+class Node:
+    def __init__(self, val=0, prev=None, next=None, child=None):
+        self.val = val
+        self.prev = prev
+        self.next = next
+        self.child = child
+""",
+}
+
+
+def _leaf_types(t, out):
+    if isinstance(t, dict):
+        if "list_of" in t:
+            _leaf_types(t["list_of"], out)
+        elif "ctx_only" in t:
+            _leaf_types(t["ctx_only"], out)
+        return
+    if isinstance(t, str):
+        out.add(t)
+
+
+def variant_prelude(meta):
+    # The extra `class Node` source for this problem's solution scope, "" when
+    # none of the declared io types needs one. Raises on a conflicting mix
+    # (an authoring error — one problem never uses two Node shapes).
+    leaves = set()
+    io = meta.get("io_types") or {}
+    for t in io.get("params") or []:
+        _leaf_types(t, leaves)
+    _leaf_types(io.get("returns", "json"), leaves)
+    dio = meta.get("design_io") or {}
+    for t in dio.get("ctor") or []:
+        _leaf_types(t, leaves)
+    for mio in (dio.get("methods") or {}).values():
+        for t in mio.get("params") or []:
+            _leaf_types(t, leaves)
+        _leaf_types(mio.get("returns", "json"), leaves)
+    picks = [k for k in VARIANT_NODE_PRELUDES if k in leaves]
+    if len(picks) > 1:
+        raise RuntimeError("conflicting Node class variants declared: %s" % ", ".join(sorted(picks)))
+    return VARIANT_NODE_PRELUDES[picks[0]] if picks else ""
+
 
 # The harness's own node classes, used by deserialize() to build inputs. The
 # solution gets its own copies via NODE_PRELUDE; serialize() is duck-typed
@@ -246,46 +330,311 @@ class TreeNode:
         self.right = right
 
 
+# Harness-internal node classes for the closing-the-48 wire types. The
+# solution scope gets its own `Node` class via _variant_prelude(); everything
+# here is duck-typed on attribute names so class identity never matters.
+class GraphNode:
+    def __init__(self, val=0, neighbors=None):
+        self.val = val
+        self.neighbors = neighbors if neighbors is not None else []
+
+
+class NAryNode:
+    def __init__(self, val=None, children=None):
+        self.val = val
+        self.children = children if children is not None else []
+
+
+class QuadNode:
+    def __init__(self, val=False, isLeaf=False, topLeft=None, topRight=None, bottomLeft=None, bottomRight=None):
+        self.val = val
+        self.isLeaf = isLeaf
+        self.topLeft = topLeft
+        self.topRight = topRight
+        self.bottomLeft = bottomLeft
+        self.bottomRight = bottomRight
+
+
+class NextNode:
+    def __init__(self, val=0, left=None, right=None, next=None):
+        self.val = val
+        self.left = left
+        self.right = right
+        self.next = next
+
+
+class RandomNode:
+    def __init__(self, val=0, next=None, random=None):
+        self.val = val
+        self.next = next
+        self.random = random
+
+
+class MultilevelNode:
+    def __init__(self, val=0, prev=None, next=None, child=None):
+        self.val = val
+        self.prev = prev
+        self.next = next
+        self.child = child
+
+
 def _list_kind(t):
     # A composite list type is {"list_of": <inner>}; everything else is a leaf.
     return t.get("list_of") if isinstance(t, dict) else None
 
 
-def deserialize(value, t):
+def _ref_param(t, key):
+    # {"node_ref": {"param": i}} and friends → i, else None.
+    if isinstance(t, dict) and key in t:
+        spec = t[key]
+        if isinstance(spec, dict):
+            return spec.get("param")
+    return None
+
+
+def _walk_nodes(root):
+    # Generic identity-ordered walk over any node structure (list, tree,
+    # graph, multilevel), cycle-safe. Yields each node exactly once.
+    seen = set()
+    stack = [root]
+    while stack:
+        node = stack.pop(0)
+        if node is None or id(node) in seen:
+            continue
+        seen.add(id(node))
+        yield node
+        for attr in ("next", "left", "right", "child", "random",
+                     "topLeft", "topRight", "bottomLeft", "bottomRight"):
+            child = getattr(node, attr, None)
+            if child is not None:
+                stack.append(child)
+        for n in getattr(node, "neighbors", None) or getattr(node, "children", None) or []:
+            if n is not None:
+                stack.append(n)
+
+
+def _find_node(root, val):
+    for node in _walk_nodes(root):
+        if node.val == val:
+            return node
+    raise RuntimeError("node_ref: no node with value %r in the referenced argument" % (val,))
+
+
+def _chain_nodes(head):
+    # The nodes of a (possibly cyclic) list in order, stopping at a revisit.
+    out, seen = [], set()
+    node = head
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        out.append(node)
+        node = node.next
+    return out
+
+
+def _clone_structure(node, memo=None):
+    # Structure-preserving deep copy of a binary tree (find-corresponding-
+    # node's clone argument).
+    if node is None:
+        return None
+    if memo is None:
+        memo = {}
+    if id(node) in memo:
+        return memo[id(node)]
+    copy_node = TreeNode(node.val)
+    memo[id(node)] = copy_node
+    copy_node.left = _clone_structure(getattr(node, "left", None), memo)
+    copy_node.right = _clone_structure(getattr(node, "right", None), memo)
+    return copy_node
+
+
+def deserialize(value, t, ctx=None):
     inner = _list_kind(t)
     if inner is not None:
-        return [deserialize(v, inner) for v in value]
+        return [deserialize(v, inner, ctx) for v in value]
+    if isinstance(t, dict):
+        if "ctx_only" in t:
+            # ctx_only wraps a real type: built into the context, not passed.
+            return deserialize(value, t["ctx_only"], ctx)
+        p = _ref_param(t, "node_ref")
+        if p is not None:
+            return None if value is None else _find_node((ctx or [])[p], value)
+        p = _ref_param(t, "clone_of")
+        if p is not None:
+            return _clone_structure((ctx or [])[p])
+        p = _ref_param(t, "tail_of")
+        if p is not None:
+            # {"values": [...], "attach": idx|null}: a fresh list whose last
+            # node links to node #idx of the referenced argument's chain.
+            values = (value or {}).get("values", [])
+            attach = (value or {}).get("attach")
+            tail = None
+            if attach is not None:
+                chain = _chain_nodes((ctx or [])[p])
+                tail = chain[attach]
+            head = tail
+            for v in reversed(values):
+                head = ListNode(v, head)
+            return head
+        return value
     if t == "linked_list":
         head = None
         for v in reversed(value or []):
             head = ListNode(v, head)
         return head
-    if t == "tree":
+    if t == "cyclic_list":
+        # {"values": [...], "pos": k|null}: tail links back to node #k.
+        values = (value or {}).get("values", [])
+        pos = (value or {}).get("pos")
+        nodes = [ListNode(v) for v in values]
+        for a, b in zip(nodes, nodes[1:]):
+            a.next = b
+        if pos is not None and nodes:
+            nodes[-1].next = nodes[pos]
+        return nodes[0] if nodes else None
+    if t == "random_list":
+        # [[val, randomIdx|null], ...] — LeetCode's exact wire form.
+        pairs = value or []
+        nodes = [RandomNode(p[0]) for p in pairs]
+        for a, b in zip(nodes, nodes[1:]):
+            a.next = b
+        for node, p in zip(nodes, pairs):
+            if p[1] is not None:
+                node.random = nodes[p[1]]
+        return nodes[0] if nodes else None
+    if t == "graph":
+        # Adjacency list; node i (0-based) has val i+1 (LeetCode convention).
+        adj = value or []
+        if not adj:
+            return None
+        nodes = [GraphNode(i + 1) for i in range(len(adj))]
+        for node, neighbors in zip(nodes, adj):
+            node.neighbors = [nodes[v - 1] for v in neighbors]
+        return nodes[0]
+    if t == "tree" or t == "next_tree":
         if not value:
             return None
-        root = TreeNode(value[0])
+        make = TreeNode if t == "tree" else NextNode
+        root = make(value[0])
         queue = [root]
         i = 1
         while queue and i < len(value):
             node = queue.pop(0)
             if i < len(value):
                 if value[i] is not None:
-                    node.left = TreeNode(value[i])
+                    node.left = make(value[i])
                     queue.append(node.left)
                 i += 1
             if i < len(value):
                 if value[i] is not None:
-                    node.right = TreeNode(value[i])
+                    node.right = make(value[i])
                     queue.append(node.right)
                 i += 1
         return root
+    if t == "n_ary_tree":
+        # LeetCode level order with null group separators: [1,null,3,2,4,null,5,6].
+        vals = value or []
+        if not vals:
+            return None
+        root = NAryNode(vals[0])
+        queue = [root]
+        i = 2  # skip the null right after the root
+        while queue and i < len(vals):
+            node = queue.pop(0)
+            while i < len(vals) and vals[i] is not None:
+                child = NAryNode(vals[i])
+                node.children.append(child)
+                queue.append(child)
+                i += 1
+            i += 1  # the null closing this node's group
+        return root
+    if t == "quad_tree":
+        # Level order of [isLeaf, val] pairs with nulls, children tl/tr/bl/br.
+        vals = value or []
+        if not vals or vals[0] is None:
+            return None
+        root = QuadNode(val=bool(vals[0][1]), isLeaf=bool(vals[0][0]))
+        queue = [root]
+        i = 1
+        attrs = ("topLeft", "topRight", "bottomLeft", "bottomRight")
+        while queue and i < len(vals):
+            node = queue.pop(0)
+            for attr in attrs:
+                if i >= len(vals):
+                    break
+                if vals[i] is not None:
+                    child = QuadNode(val=bool(vals[i][1]), isLeaf=bool(vals[i][0]))
+                    setattr(node, attr, child)
+                    queue.append(child)
+                i += 1
+        return root
+    if t == "multilevel_list":
+        # Segments with a global-index parent: [{"values": [...], "parent":
+        # null|int}, ...]. Nodes are numbered in segment order, left to right.
+        segments = value or []
+        all_nodes = []
+        heads = []
+        for seg in segments:
+            nodes = [MultilevelNode(v) for v in seg.get("values", [])]
+            for a, b in zip(nodes, nodes[1:]):
+                a.next = b
+                b.prev = a
+            heads.append(nodes[0] if nodes else None)
+            all_nodes.extend(nodes)
+        for seg, head in zip(segments, heads):
+            parent = seg.get("parent")
+            if parent is not None and head is not None:
+                all_nodes[parent].child = head
+        return heads[0] if heads else None
     return value  # "json"
 
 
-def serialize(value, t):
+def _collect_input_node_ids(ctx):
+    ids = set()
+    for arg in ctx or []:
+        if hasattr(arg, "val"):
+            for node in _walk_nodes(arg):
+                ids.add(id(node))
+    return ids
+
+
+def _check_fresh(value, ctx, what):
+    # Copy problems (clone-graph, copy-list-with-random-pointer) must return
+    # entirely new nodes — returning any input node is the classic cheat.
+    input_ids = _collect_input_node_ids(ctx)
+    for node in _walk_nodes(value):
+        if id(node) in input_ids:
+            raise RuntimeError(
+                "the returned %s reuses a node from the input — return a deep copy" % what
+            )
+
+
+def serialize(value, t, ctx=None):
     inner = _list_kind(t)
     if inner is not None:
-        return [serialize(v, inner) for v in value]
+        return [serialize(v, inner, ctx) for v in value]
+    if isinstance(t, dict):
+        p = _ref_param(t, "node_ref")
+        if p is not None:
+            if value is None:
+                return None
+            if not hasattr(value, "val"):
+                raise RuntimeError("expected a node return value, got %r" % (value,))
+            for node in _walk_nodes((ctx or [])[p]):
+                if node is value:
+                    return value.val
+            raise RuntimeError("the returned node is not part of the referenced input structure")
+        p = _ref_param(t, "node_index_of")
+        if p is not None:
+            if value is None:
+                return None
+            chain = _chain_nodes((ctx or [])[p])
+            for i, node in enumerate(chain):
+                if node is value:
+                    return i
+            raise RuntimeError("the returned node is not part of the referenced input list")
+        if "ctx_only" in t:
+            return serialize(value, t["ctx_only"], ctx)
+        return value
     if t == "linked_list":
         out = []
         node = value
@@ -296,6 +645,36 @@ def serialize(value, t):
             seen += 1
             if seen > 1_000_000:
                 raise RuntimeError("linked list too long (cycle?)")
+        return out
+    if t == "random_list":
+        if ctx is not None:
+            _check_fresh(value, ctx, "list")
+        chain = _chain_nodes(value)
+        index = {id(n): i for i, n in enumerate(chain)}
+        out = []
+        for node in chain:
+            r = getattr(node, "random", None)
+            if r is not None and id(r) not in index:
+                raise RuntimeError("a random pointer leaves the returned list")
+            out.append([node.val, None if r is None else index[id(r)]])
+        return out
+    if t == "graph":
+        if value is None:
+            return []
+        if ctx is not None:
+            _check_fresh(value, ctx, "graph")
+        nodes = list(_walk_nodes(value))
+        by_val = {}
+        for node in nodes:
+            if not isinstance(node.val, int) or node.val in by_val:
+                raise RuntimeError("graph nodes must carry the unique 1..n values of the input")
+            by_val[node.val] = node
+        n = len(nodes)
+        if sorted(by_val) != list(range(1, n + 1)):
+            raise RuntimeError("graph nodes must carry the unique 1..n values of the input")
+        out = []
+        for v in range(1, n + 1):
+            out.append(sorted(nb.val for nb in by_val[v].neighbors or []))
         return out
     if t == "tree":
         if value is None:
@@ -313,12 +692,93 @@ def serialize(value, t):
         while out and out[-1] is None:
             out.pop()
         return out
+    if t == "next_tree":
+        # Serialized BY FOLLOWING the next pointers (null closes each level),
+        # so unset/wrong pointers fail even when the tree shape is right.
+        out = []
+        head = value
+        seen = 0
+        while head is not None:
+            node = head
+            next_head = None
+            while node is not None:
+                out.append(node.val)
+                if next_head is None:
+                    next_head = node.left if node.left is not None else node.right
+                node = node.next
+                seen += 1
+                if seen > 1_000_000:
+                    raise RuntimeError("next-pointer chain too long (cycle?)")
+            out.append(None)
+            head = next_head
+        return out
+    if t == "n_ary_tree":
+        if value is None:
+            return []
+        out = [value.val, None]
+        queue = [value]
+        while queue:
+            node = queue.pop(0)
+            for child in node.children or []:
+                out.append(child.val)
+                queue.append(child)
+            out.append(None)
+        while out and out[-1] is None:
+            out.pop()
+        return out
+    if t == "quad_tree":
+        if value is None:
+            return []
+        out = []
+        queue = [value]
+        while queue:
+            node = queue.pop(0)
+            if node is None:
+                out.append(None)
+                continue
+            out.append([1 if node.isLeaf else 0, 1 if node.val else 0])
+            queue.append(node.topLeft)
+            queue.append(node.topRight)
+            queue.append(node.bottomLeft)
+            queue.append(node.bottomRight)
+        while out and out[-1] is None:
+            out.pop()
+        return out
+    if t == "multilevel_list":
+        if value is None:
+            return []
+        segments = []
+        queue = [(value, None)]
+        numbered = {}
+        counter = 0
+        while queue:
+            head, parent = queue.pop(0)
+            values = []
+            node = head
+            seen = 0
+            while node is not None:
+                numbered[id(node)] = counter
+                values.append(node.val)
+                if node.child is not None:
+                    queue.append((node.child, counter))
+                counter += 1
+                node = node.next
+                seen += 1
+                if seen > 1_000_000:
+                    raise RuntimeError("multilevel list too long (cycle?)")
+            segments.append({"values": values, "parent": parent})
+        return segments
     return value  # "json"
 
 
-def load_solution_with_prelude():
-    # Inject the prelude (typing names, common modules, ListNode/TreeNode) into a
-    # fresh `solution` module namespace, THEN exec the user's code as its own
+def _is_ctx_only(t):
+    return isinstance(t, dict) and "ctx_only" in t
+
+
+def load_solution_with_prelude(extra_prelude=""):
+    # Inject the prelude (typing names, common modules, ListNode/TreeNode, plus
+    # the per-problem `Node` variant when one is declared) into a fresh
+    # `solution` module namespace, THEN exec the user's code as its own
     # compilation unit so annotations like `List[int]` / `Optional[ListNode]`
     # resolve at definition time (as on leetcode.com) AND traceback line numbers
     # still point at the real line in solution.py (no prelude offset).
@@ -327,7 +787,7 @@ def load_solution_with_prelude():
     with open("solution.py", "r", encoding="utf-8") as f:
         src = f.read()
     mod = _types.ModuleType("solution")
-    exec(compile(NODE_PRELUDE, "<prelude>", "exec"), mod.__dict__)
+    exec(compile(NODE_PRELUDE + extra_prelude, "<prelude>", "exec"), mod.__dict__)
     exec(compile(src, "solution.py", "exec"), mod.__dict__)
     return mod
 
@@ -348,7 +808,7 @@ def main():
         # Always load through the prelude so LeetCode-style annotations/imports
         # (List, Optional, collections, …) resolve for every problem, not just
         # node ones.
-        solution = load_solution_with_prelude()
+        solution = load_solution_with_prelude(variant_prelude(meta))
     except BaseException:
         fail(0, clean_traceback(traceback.format_exc()))
         return
@@ -394,12 +854,26 @@ def main():
             # any_valid: the validator judges against the ORIGINAL input, so
             # the solution gets a deep copy in case it mutates its arguments.
             call_args = copy.deepcopy(args) if mode == "any_valid" else args
-            # io_types: deserialize array/level-order args into ListNode/TreeNode
-            # so the user's stub runs unmodified (task 0003).
+            # io_types: deserialize wire args into live node structures so the
+            # user's stub runs unmodified (task 0003 + closing-the-48 Phase B).
+            # Args build left-to-right into `built` so a later param can
+            # reference an earlier one (node_ref/clone_of/tail_of); ctx_only
+            # params are built for judging but never passed to the solution.
+            built = None
             if io_types:
+                built = []
+                try:
+                    for i, a in enumerate(call_args):
+                        built.append(
+                            deserialize(a, param_types[i] if i < len(param_types) else "json", built)
+                        )
+                except BaseException:
+                    fail(index, "Failed to build node input:\n" + clean_traceback(traceback.format_exc()))
+                    return
                 call_args = [
-                    deserialize(a, param_types[i] if i < len(param_types) else "json")
-                    for i, a in enumerate(call_args)
+                    v
+                    for i, v in enumerate(built)
+                    if not (i < len(param_types) and _is_ctx_only(param_types[i]))
                 ]
             start = time.perf_counter()
             try:
@@ -411,15 +885,16 @@ def main():
             out_type = return_type
             if mode == "in_place":
                 arg_index = meta.get("arg_index", 0)
-                if not isinstance(arg_index, int) or arg_index >= len(call_args):
+                source = built if io_types else call_args
+                if not isinstance(arg_index, int) or arg_index >= len(source):
                     fail(index, "in_place judge: arg_index %r is out of range." % arg_index)
                     return
-                result = call_args[arg_index]
+                result = source[arg_index]
                 if io_types:
                     out_type = param_types[arg_index] if arg_index < len(param_types) else "json"
             if io_types:
                 try:
-                    result = serialize(result, out_type)
+                    result = serialize(result, out_type, built)
                 except BaseException:
                     fail(index, "Failed to serialize node output:\n" + clean_traceback(traceback.format_exc()))
                     return

@@ -138,7 +138,8 @@ def validate_source(slug: str, src: dict) -> None:
         )
         for t in list(io["params"]) + [io["returns"]]:
             _require(_ok_io_type(t),
-                     f"io_types entries must be json|linked_list|tree|{{list_of: <type>}}, got {t!r}")
+                     f"io_types entries must be one of {_NODE_TYPES} or a "
+                     f"{{list_of|ctx_only: <type>}} / {{node_ref|clone_of|tail_of|node_index_of: {{param: i}}}} form, got {t!r}")
 
     if judge_type == "design":
         _, extra = _judge_fields(src.get("judge"))
@@ -230,13 +231,36 @@ def validate_source(slug: str, src: dict) -> None:
 #: lockstep with the Rust `IoType` enum (domain/problem.rs) and both
 #: harnesses' deserialize/serialize — the bundle parse is strict, so an
 #: unknown type here would otherwise empty the whole pack store at runtime.
-_NODE_TYPES = ("json", "linked_list", "tree")
+_NODE_TYPES = (
+    "json", "linked_list", "tree",
+    # closing-the-48 Phase B
+    "cyclic_list", "random_list", "graph", "n_ary_tree", "quad_tree",
+    "next_tree", "multilevel_list",
+)
+#: Composite forms referencing an already-built earlier param: {key: {"param": i}}.
+_PARAM_REF_KEYS = ("node_ref", "clone_of", "tail_of", "node_index_of")
 
 
 def _ok_io_type(t: Any) -> bool:
     if isinstance(t, str):
         return t in _NODE_TYPES
-    return isinstance(t, dict) and set(t) == {"list_of"} and _ok_io_type(t["list_of"])
+    if not isinstance(t, dict) or len(t) != 1:
+        return False
+    if "list_of" in t:
+        return _ok_io_type(t["list_of"])
+    if "ctx_only" in t:
+        return _ok_io_type(t["ctx_only"])
+    for key in _PARAM_REF_KEYS:
+        if key in t:
+            spec = t[key]
+            return (
+                isinstance(spec, dict)
+                and set(spec) == {"param"}
+                and isinstance(spec.get("param"), int)
+                and not isinstance(spec.get("param"), bool)
+                and spec["param"] >= 0
+            )
+    return False
 
 
 def _judge_fields(judge: Any) -> tuple[str, dict]:

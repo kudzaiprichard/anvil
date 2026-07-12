@@ -127,8 +127,29 @@ export interface EntryPoint {
   io_types?: IoTypes;
 }
 
-/** A per-call I/O shape: plain JSON, a linked list, a binary tree, or a list of. */
-export type IoType = "json" | "linked_list" | "tree" | { list_of: IoType };
+/**
+ * A per-call I/O shape (task 0003 + closing-the-48 Phase B). Leaves are wire
+ * names; composites reference an already-built earlier param (`node_ref`,
+ * `clone_of`, `tail_of`, `node_index_of`), wrap a type built for judging but
+ * never passed (`ctx_only`), or nest (`list_of`). Mirrors Rust `IoType`.
+ */
+export type IoType =
+  | "json"
+  | "linked_list"
+  | "tree"
+  | "cyclic_list"
+  | "random_list"
+  | "graph"
+  | "n_ary_tree"
+  | "quad_tree"
+  | "next_tree"
+  | "multilevel_list"
+  | { list_of: IoType }
+  | { ctx_only: IoType }
+  | { node_ref: { param: number } }
+  | { clone_of: { param: number } }
+  | { tail_of: { param: number } }
+  | { node_index_of: { param: number } };
 
 export interface IoTypes {
   params: IoType[];
