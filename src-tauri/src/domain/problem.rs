@@ -360,6 +360,25 @@ pub struct ProblemSummary {
 }
 
 impl Problem {
+    /// The experience tier this problem is judged under, as recorded on each
+    /// attempt (closing-the-48): "full" = a hidden-test pack (or a built-in /
+    /// user problem, which validation requires to carry hidden cases),
+    /// "basic" = statement examples only, "run-only" = no verdict at all.
+    /// Mirrors the frontend TierChip derivation in problem-pane.tsx.
+    pub fn experience_tier(&self) -> &'static str {
+        if self.source != ProblemSource::Imported {
+            return "full";
+        }
+        let has_hidden = self.test_cases.iter().any(|tc| tc.hidden);
+        if self.judge.is_some() && has_hidden {
+            "full"
+        } else if !self.test_cases.is_empty() {
+            "basic"
+        } else {
+            "run-only"
+        }
+    }
+
     /// The judge the runner must use: explicit `judge` when present,
     /// otherwise derived from the legacy `checker` field.
     pub fn effective_judge(&self) -> Judge {
@@ -585,6 +604,36 @@ mod tests {
         user.source = ProblemSource::User;
         let user_payload = serde_json::to_string(&user.sanitized_for_ipc()).unwrap();
         assert!(user_payload.contains("secret-input-77631"));
+    }
+
+    #[test]
+    fn experience_tier_mirrors_the_tier_chip_derivation() {
+        let mut p: Problem = serde_json::from_value(json!({
+            "id": "t", "number": 1, "title": "T", "pattern": "Stack",
+            "difficulty": "Easy", "source": "imported", "description_md": "d",
+            "constraints": [], "examples": [],
+            "function_signature": { "python": "def solve():", "javascript": "function solve() {}" },
+            "test_cases": [], "hints": [],
+            "license": "user-import", "author": "imported"
+        }))
+        .unwrap();
+        assert_eq!(p.experience_tier(), "run-only");
+        p.test_cases = vec![TestCase {
+            input: vec![json!(1)],
+            expected: json!(1),
+            hidden: false,
+        }];
+        assert_eq!(p.experience_tier(), "basic");
+        p.judge = Some(Judge::Exact);
+        assert_eq!(p.experience_tier(), "basic"); // judge without hidden cases
+        p.test_cases.push(TestCase {
+            input: vec![json!(2)],
+            expected: json!(2),
+            hidden: true,
+        });
+        assert_eq!(p.experience_tier(), "full");
+        p.source = ProblemSource::BuiltIn;
+        assert_eq!(p.experience_tier(), "full");
     }
 
     #[test]

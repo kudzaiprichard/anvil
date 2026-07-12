@@ -278,6 +278,7 @@ mod tests {
                 language: "python",
                 kind: "submit",
                 status: "pass",
+                tier: "full",
                 runtime_ms: Some(10),
                 code: "print(1)",
                 attempted_at: "2026-06-22T00:00:00",

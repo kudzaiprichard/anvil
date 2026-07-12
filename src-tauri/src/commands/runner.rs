@@ -28,6 +28,7 @@ async fn run(
             Language::Javascript => "Node.js 18+ not found — see Settings → Runtime".into(),
         })
     })?;
+    let tier = problem.experience_tier();
     let (language, code) = (req.language, req.code.clone());
     let result = tauri::async_runtime::spawn_blocking(move || {
         runner::execute_with_program(&problem, language, &code, include_hidden, &program)
@@ -50,6 +51,7 @@ async fn run(
             RunStatus::Error => "error",
             RunStatus::Timeout => "timeout",
         },
+        tier,
         runtime_ms: result.runtime_ms,
         code: &req.code,
         attempted_at: &db::now_local_iso(),
