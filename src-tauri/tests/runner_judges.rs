@@ -220,16 +220,20 @@ fn design_io_hands_python_constructor_a_real_tree_node() {
         "self.vals.append(n.val)\n            dfs(n.right)",
         "self.vals.append(n.val)\n            dfs(n.left)",
     );
-    let result =
-        runner::execute(&bst_iterator_problem(), Language::Python, &wrong, true).unwrap();
+    let result = runner::execute(&bst_iterator_problem(), Language::Python, &wrong, true).unwrap();
     assert_eq!(result.status, RunStatus::Fail);
 }
 
 #[test]
 fn design_io_hands_javascript_constructor_a_real_tree_node() {
     require_runtime!("node");
-    let result =
-        runner::execute(&bst_iterator_problem(), Language::Javascript, BST_ITER_JS, true).unwrap();
+    let result = runner::execute(
+        &bst_iterator_problem(),
+        Language::Javascript,
+        BST_ITER_JS,
+        true,
+    )
+    .unwrap();
     let Some(result) = common::skip_if_node_unavailable(result) else {
         return;
     };
@@ -407,8 +411,13 @@ fn is_bad_version_shim_reaches_python_as_a_global() {
 fn is_bad_version_shim_curries_the_javascript_entry() {
     require_runtime!("node");
     let code = "var solution = function(isBadVersion) {\n  return function(n) {\n    let lo = 1, hi = n;\n    while (lo < hi) {\n      const mid = Math.floor((lo + hi) / 2);\n      if (isBadVersion(mid)) hi = mid; else lo = mid + 1;\n    }\n    return lo;\n  };\n};";
-    let result =
-        runner::execute(&first_bad_version_problem(), Language::Javascript, code, true).unwrap();
+    let result = runner::execute(
+        &first_bad_version_problem(),
+        Language::Javascript,
+        code,
+        true,
+    )
+    .unwrap();
     let Some(result) = common::skip_if_node_unavailable(result) else {
         return;
     };
@@ -506,7 +515,14 @@ fn randomized_set_problem() -> app_lib::domain::problem::Problem {
         }),
         vec![case(
             json!([
-                ["RandomizedSet", "insert", "insert", "getRandom", "remove", "getRandom"],
+                [
+                    "RandomizedSet",
+                    "insert",
+                    "insert",
+                    "getRandom",
+                    "remove",
+                    "getRandom"
+                ],
                 [[], [1], [2], [], [1], []]
             ]),
             // A sample run's outputs — display only; the validator judges.
@@ -527,8 +543,7 @@ fn property_judge_validates_random_outputs_per_call() {
     // getRandom returning something not in the set must fail even though
     // every run's outputs legitimately differ.
     let bad = RSET_PY.replace("return random.choice(self.items)", "return -999999");
-    let result =
-        runner::execute(&randomized_set_problem(), Language::Python, &bad, true).unwrap();
+    let result = runner::execute(&randomized_set_problem(), Language::Python, &bad, true).unwrap();
     assert_eq!(result.status, RunStatus::Fail);
 }
 

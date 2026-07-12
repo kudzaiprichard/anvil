@@ -208,14 +208,22 @@ pub enum IoType {
     /// Wire value is a node VALUE; the harness resolves the real node object
     /// inside the already-built param `param`. As a return type: the node's
     /// value, after verifying identity membership in that structure.
-    NodeRef { param: usize },
+    NodeRef {
+        param: usize,
+    },
     /// A structure-preserving deep copy of the already-built param `param`.
-    CloneOf { param: usize },
+    CloneOf {
+        param: usize,
+    },
     /// `{"values": [...], "attach": idx|null}` — a fresh list whose last node
     /// links into param `param`'s chain (intersection-of-two-linked-lists).
-    TailOf { param: usize },
+    TailOf {
+        param: usize,
+    },
     /// Return-only: the returned node's index in param `param`'s chain.
-    NodeIndexOf { param: usize },
+    NodeIndexOf {
+        param: usize,
+    },
     /// An injected object/callback built by the harness from per-case hidden
     /// data (closing-the-48 Phase D): `{"shim": {"kind": "mountain_array"}}`.
     /// The kind names a fixed harness-owned registry; global kinds

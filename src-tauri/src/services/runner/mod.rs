@@ -101,7 +101,9 @@ fn harness_meta(problem: &Problem, language: Language, judge: &Judge) -> Option<
                 serde_json::json!({ "io": io, "encode": encode, "decode": decode }),
             );
         }
-        Judge::Property { exec, design_io, .. } => {
+        Judge::Property {
+            exec, design_io, ..
+        } => {
             meta.insert("mode".into(), serde_json::json!("property"));
             meta.insert("exec".into(), serde_json::json!(exec));
             if let Some(io) = design_io {
@@ -369,7 +371,9 @@ pub fn compute_outputs(
         // Reference-output computation never involves a validator: a
         // property pack executes as a plain design/call so its (randomized)
         // outputs can be produced; validity is judged elsewhere.
-        Judge::Property { exec, design_io, .. } => {
+        Judge::Property {
+            exec, design_io, ..
+        } => {
             if exec.is_design() {
                 meta.insert("mode".into(), serde_json::json!("design"));
                 if let Some(io) = design_io {
@@ -837,7 +841,12 @@ mod tests {
             harness_meta(&with_ep, Language::Python, &Judge::InPlace { arg_index: 1 }).unwrap();
         assert_eq!(meta["mode"], "in_place");
         assert_eq!(meta["arg_index"], 1);
-        let meta = harness_meta(&problem, Language::Javascript, &Judge::Design { design_io: None }).unwrap();
+        let meta = harness_meta(
+            &problem,
+            Language::Javascript,
+            &Judge::Design { design_io: None },
+        )
+        .unwrap();
         assert_eq!(meta["mode"], "design");
         assert!(meta.get("design_io").is_none());
         // float is judged Rust-side — no meta needed
