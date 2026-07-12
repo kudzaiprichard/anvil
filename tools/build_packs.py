@@ -257,6 +257,11 @@ _NODE_TYPES = (
 )
 #: Composite forms referencing an already-built earlier param: {key: {"param": i}}.
 _PARAM_REF_KEYS = ("node_ref", "clone_of", "tail_of", "node_index_of")
+#: Injected-object shims (closing-the-48 Phase D) — the harness registry.
+_SHIM_KINDS = (
+    "iterator", "nested_integer", "custom_function", "master_guess",
+    "mountain_array", "is_bad_version", "guess_oracle", "rand7",
+)
 
 
 def _ok_io_type(t: Any) -> bool:
@@ -268,6 +273,14 @@ def _ok_io_type(t: Any) -> bool:
         return _ok_io_type(t["list_of"])
     if "ctx_only" in t:
         return _ok_io_type(t["ctx_only"])
+    if "shim" in t:
+        spec = t["shim"]
+        return (
+            isinstance(spec, dict)
+            and set(spec) <= {"kind", "curry_js"}
+            and spec.get("kind") in _SHIM_KINDS
+            and isinstance(spec.get("curry_js", False), bool)
+        )
     for key in _PARAM_REF_KEYS:
         if key in t:
             spec = t[key]

@@ -368,6 +368,86 @@ fn any_valid_javascript_runs_the_pack_validator() {
     assert_eq!(result.status, RunStatus::Fail);
 }
 
+// ---------- injected shims (closing-the-48 Phase D) ----------
+
+fn first_bad_version_problem() -> app_lib::domain::problem::Problem {
+    // The oracle's hidden value rides in the second (never-passed) param slot;
+    // python gets a global isBadVersion, javascript a curried entry.
+    problem_with(
+        Judge::Exact,
+        Some(EntryPoint {
+            python: "Solution.firstBadVersion".into(),
+            javascript: "solution".into(),
+            arity: 1,
+            io_types: Some(IoTypes {
+                params: vec![
+                    IoType::Json,
+                    IoType::Shim(app_lib::domain::problem::ShimSpec {
+                        kind: "is_bad_version".into(),
+                        curry_js: true,
+                    }),
+                ],
+                returns: IoType::Json,
+            }),
+        }),
+        vec![case(json!([5, 4]), json!(4))],
+    )
+}
+
+#[test]
+fn is_bad_version_shim_reaches_python_as_a_global() {
+    require_runtime!("python");
+    let code = "class Solution:\n    def firstBadVersion(self, n):\n        lo, hi = 1, n\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if isBadVersion(mid):\n                hi = mid\n            else:\n                lo = mid + 1\n        return lo\n";
+    let result =
+        runner::execute(&first_bad_version_problem(), Language::Python, code, true).unwrap();
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+}
+
+#[test]
+fn is_bad_version_shim_curries_the_javascript_entry() {
+    require_runtime!("node");
+    let code = "var solution = function(isBadVersion) {\n  return function(n) {\n    let lo = 1, hi = n;\n    while (lo < hi) {\n      const mid = Math.floor((lo + hi) / 2);\n      if (isBadVersion(mid)) hi = mid; else lo = mid + 1;\n    }\n    return lo;\n  };\n};";
+    let result =
+        runner::execute(&first_bad_version_problem(), Language::Javascript, code, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+}
+
+#[test]
+fn mountain_array_shim_enforces_the_get_budget() {
+    require_runtime!("python");
+    let p = problem_with(
+        Judge::Exact,
+        Some(EntryPoint {
+            python: "Solution.findInMountainArray".into(),
+            javascript: "findInMountainArray".into(),
+            arity: 2,
+            io_types: Some(IoTypes {
+                params: vec![
+                    IoType::Json,
+                    IoType::Shim(app_lib::domain::problem::ShimSpec {
+                        kind: "mountain_array".into(),
+                        curry_js: false,
+                    }),
+                ],
+                returns: IoType::Json,
+            }),
+        }),
+        vec![case(
+            json!([99, {"arr": [1, 2, 3, 4, 5, 3, 1], "budget": 4}]),
+            json!(-1),
+        )],
+    );
+    // A linear scan burns more than 4 gets and must be stopped by the budget.
+    let greedy = "class Solution:\n    def findInMountainArray(self, target, mountain_arr):\n        for i in range(mountain_arr.length()):\n            if mountain_arr.get(i) == target:\n                return i\n        return -1\n";
+    let result = runner::execute(&p, Language::Python, greedy, true).unwrap();
+    assert_ne!(result.status, RunStatus::Pass);
+    let err = format!("{:?}", result.error);
+    assert!(err.contains("budget"), "error was: {err}");
+}
+
 // ---------- round_trip + property (closing-the-48 Phase C) ----------
 
 fn tree_codec_problem() -> app_lib::domain::problem::Problem {

@@ -438,6 +438,172 @@ class MultilevelNode:
         self.child = child
 
 
+# --- Injected-object shims (closing-the-48 Phase D) -----------------------
+# A fixed menu of harness-owned wrappers around per-case hidden data, declared
+# as the param type {"shim": {"kind": "<name>"}}. Three kinds are installed as
+# globals in the solution scope instead of being passed positionally (their
+# param slot only carries the hidden data): is_bad_version, guess_oracle,
+# rand7. Shims count calls and enforce the problem's stated budgets.
+SHIM_GLOBAL_NAMES = {
+    "is_bad_version": "isBadVersion",
+    "guess_oracle": "guess",
+    "rand7": "rand7",
+}
+
+
+class _MountainArray:
+    def __init__(self, arr, budget):
+        self._arr = list(arr)
+        self._budget = budget
+        self._gets = 0
+
+    def get(self, k):
+        self._gets += 1
+        if self._budget is not None and self._gets > self._budget:
+            raise RuntimeError(
+                "MountainArray.get call budget (%d) exceeded" % self._budget
+            )
+        return self._arr[k]
+
+    def length(self):
+        return len(self._arr)
+
+
+class _Master:
+    def __init__(self, secret, words, budget):
+        self._secret = secret
+        self._words = set(words)
+        self._budget = budget
+        self._calls = 0
+        self._correct = False
+
+    def guess(self, word):
+        self._calls += 1
+        if self._budget is not None and self._calls > self._budget:
+            raise RuntimeError("Master.guess call budget (%d) exceeded" % self._budget)
+        if word == self._secret:
+            self._correct = True
+        if word not in self._words:
+            return -1
+        return sum(a == b for a, b in zip(word, self._secret))
+
+    def _anvil_verdict(self):
+        # The case's real output: was the secret guessed within budget?
+        return self._correct
+
+
+class _NestedInteger:
+    def __init__(self, value):
+        if isinstance(value, list):
+            self._int = None
+            self._list = [_NestedInteger(v) for v in value]
+        else:
+            self._int = value
+            self._list = None
+
+    def isInteger(self):
+        return self._int is not None
+
+    def getInteger(self):
+        return self._int
+
+    def getList(self):
+        return self._list
+
+
+class _Iterator:
+    def __init__(self, data):
+        self._data = list(data)
+        self._i = 0
+
+    def hasNext(self):
+        return self._i < len(self._data)
+
+    def next(self):
+        v = self._data[self._i]
+        self._i += 1
+        return v
+
+
+# f(x, y) formulas for the CustomFunction shim, keyed by function_id — all
+# strictly increasing in x and y (the problem's contract). Identical in
+# harness.js.
+CUSTOM_FUNCTIONS = {
+    1: lambda x, y: x + y,
+    2: lambda x, y: x * y,
+    3: lambda x, y: x * x + y,
+    4: lambda x, y: x + y * y,
+    5: lambda x, y: x * x + y * y,
+    6: lambda x, y: x * x * x + y,
+    7: lambda x, y: x + y * y * y,
+    8: lambda x, y: 2 * x + y,
+    9: lambda x, y: x + 2 * y,
+}
+
+
+class _CustomFunction:
+    def __init__(self, function_id):
+        if function_id not in CUSTOM_FUNCTIONS:
+            raise RuntimeError("unknown custom_function id %r" % (function_id,))
+        self._fn = CUSTOM_FUNCTIONS[function_id]
+
+    def f(self, x, y):
+        return self._fn(x, y)
+
+
+def _build_shim(spec, value):
+    kind = spec.get("kind")
+    if kind == "is_bad_version":
+        bad = value
+
+        def isBadVersion(version):
+            return version >= bad
+
+        return isBadVersion
+    if kind == "guess_oracle":
+        pick = value
+
+        def guess(num):
+            if num == pick:
+                return 0
+            return -1 if num > pick else 1
+
+        return guess
+    if kind == "rand7":
+        # Deterministic Park-Miller LCG (identical in harness.js — the
+        # multiplier keeps products under 2^53 so JS doubles stay exact) so
+        # everything that is NOT property-judged cross-checks byte-identically.
+        state = [int(value or 1) % 2147483647 or 1]
+
+        def rand7():
+            state[0] = (state[0] * 48271) % 2147483647
+            return state[0] % 7 + 1
+
+        return rand7
+    if kind == "mountain_array":
+        v = value or {}
+        return _MountainArray(v.get("arr") or [], v.get("budget"))
+    if kind == "master_guess":
+        v = value or {}
+        return _Master(v.get("secret", ""), v.get("words") or [], v.get("budget"))
+    if kind == "custom_function":
+        return _CustomFunction(value)
+    if kind == "iterator":
+        return _Iterator(value or [])
+    if kind == "nested_integer":
+        # Top-level wire value is a list => a List[NestedInteger] argument.
+        if isinstance(value, list):
+            return [_NestedInteger(v) for v in value]
+        return _NestedInteger(value)
+    raise RuntimeError("unknown shim kind %r" % (kind,))
+
+
+def _shim_spec(t):
+    if isinstance(t, dict) and "shim" in t and isinstance(t["shim"], dict):
+        return t["shim"]
+    return None
+
+
 def _list_kind(t):
     # A composite list type is {"list_of": <inner>}; everything else is a leaf.
     return t.get("list_of") if isinstance(t, dict) else None
@@ -515,6 +681,9 @@ def deserialize(value, t, ctx=None):
         if "ctx_only" in t:
             # ctx_only wraps a real type: built into the context, not passed.
             return deserialize(value, t["ctx_only"], ctx)
+        spec = _shim_spec(t)
+        if spec is not None:
+            return _build_shim(spec, value)
         p = _ref_param(t, "node_ref")
         if p is not None:
             return None if value is None else _find_node((ctx or [])[p], value)
@@ -832,7 +1001,12 @@ def serialize(value, t, ctx=None):
 
 
 def _is_ctx_only(t):
-    return isinstance(t, dict) and "ctx_only" in t
+    if isinstance(t, dict) and "ctx_only" in t:
+        return True
+    # Global-installed shims occupy a param slot for their hidden data but
+    # are never passed positionally.
+    spec = _shim_spec(t)
+    return spec is not None and spec.get("kind") in SHIM_GLOBAL_NAMES
 
 
 def load_solution_with_prelude(extra_prelude=""):
@@ -967,6 +1141,12 @@ def main():
                     for i, v in enumerate(built)
                     if not (i < len(param_types) and _is_ctx_only(param_types[i]))
                 ]
+                # Global shims (isBadVersion, guess, rand7) are installed into
+                # the solution module per case, hidden data and all.
+                for i, t in enumerate(param_types):
+                    spec = _shim_spec(t)
+                    if spec is not None and spec.get("kind") in SHIM_GLOBAL_NAMES:
+                        setattr(solution, SHIM_GLOBAL_NAMES[spec["kind"]], built[i])
             start = time.perf_counter()
             try:
                 result = fn(*call_args)
@@ -974,6 +1154,13 @@ def main():
                 fail(index, clean_traceback(traceback.format_exc()))
                 return
             elapsed_ms = (time.perf_counter() - start) * 1000.0
+            # A shim with a verdict hook (Master.guess) IS the case's real
+            # output — the solution itself returns nothing.
+            if built is not None:
+                for arg in built:
+                    if hasattr(arg, "_anvil_verdict"):
+                        result = arg._anvil_verdict()
+                        break
             out_type = return_type
             if mode == "in_place":
                 arg_index = meta.get("arg_index", 0)

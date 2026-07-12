@@ -698,12 +698,17 @@ def verify_and_build(
     if io_types is not None:
         if not isinstance(io_types, dict) or "params" not in io_types or "returns" not in io_types:
             return VerifyResult(False, "io_types must be {params: [...], returns: ...}")
-        # ctx_only params are built for judging but never passed, so they
-        # don't count toward the stub's arity (closing-the-48 Phase B).
-        passed_params = [
-            t for t in io_types["params"]
-            if not (isinstance(t, dict) and "ctx_only" in t)
-        ]
+        # ctx_only params and global-installed shims are built for judging /
+        # injection but never passed, so they don't count toward the stub's
+        # arity (closing-the-48 Phases B and D).
+        def _is_passed(t):
+            if isinstance(t, dict) and "ctx_only" in t:
+                return False
+            if isinstance(t, dict) and isinstance(t.get("shim"), dict):
+                return t["shim"].get("kind") not in ("is_bad_version", "guess_oracle", "rand7")
+            return True
+
+        passed_params = [t for t in io_types["params"] if _is_passed(t)]
         if len(passed_params) != entry.arity:
             return VerifyResult(
                 False,

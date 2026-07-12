@@ -165,7 +165,8 @@ export type IoType =
   | { node_ref: { param: number } }
   | { clone_of: { param: number } }
   | { tail_of: { param: number } }
-  | { node_index_of: { param: number } };
+  | { node_index_of: { param: number } }
+  | { shim: { kind: string; curry_js?: boolean } };
 
 export interface IoTypes {
   params: IoType[];

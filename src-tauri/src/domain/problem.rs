@@ -216,6 +216,20 @@ pub enum IoType {
     TailOf { param: usize },
     /// Return-only: the returned node's index in param `param`'s chain.
     NodeIndexOf { param: usize },
+    /// An injected object/callback built by the harness from per-case hidden
+    /// data (closing-the-48 Phase D): `{"shim": {"kind": "mountain_array"}}`.
+    /// The kind names a fixed harness-owned registry; global kinds
+    /// (is_bad_version, guess_oracle, rand7) install into the solution scope
+    /// instead of being passed. `curry_js` curries the JS entry with the shim
+    /// (LeetCode's `var solution = function(isBadVersion)` stub shape).
+    Shim(ShimSpec),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShimSpec {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub curry_js: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -611,6 +625,20 @@ mod tests {
             (
                 json!({ "node_index_of": { "param": 0 } }),
                 IoType::NodeIndexOf { param: 0 },
+            ),
+            (
+                json!({ "shim": { "kind": "mountain_array" } }),
+                IoType::Shim(ShimSpec {
+                    kind: "mountain_array".into(),
+                    curry_js: false,
+                }),
+            ),
+            (
+                json!({ "shim": { "kind": "is_bad_version", "curry_js": true } }),
+                IoType::Shim(ShimSpec {
+                    kind: "is_bad_version".into(),
+                    curry_js: true,
+                }),
             ),
         ] {
             let parsed: IoType = serde_json::from_value(value.clone()).expect("deserialize");

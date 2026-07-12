@@ -109,6 +109,136 @@ function NextNode(val) { this.val = val; this.left = null; this.right = null; th
 function RandomNode(val) { this.val = val; this.next = null; this.random = null; }
 function MultilevelNode(val) { this.val = val; this.prev = null; this.next = null; this.child = null; }
 
+// --- Injected-object shims (closing-the-48 Phase D) -----------------------
+// Mirror of harness.py: a fixed menu of harness-owned wrappers around
+// per-case hidden data, declared as the param type {"shim": {"kind": ...}}.
+// is_bad_version / guess_oracle / rand7 install as globals (their param slot
+// only carries the hidden data); a `curry_js: true` spec additionally curries
+// the entry (LeetCode's `var solution = function(isBadVersion) {...}` shape).
+const SHIM_GLOBAL_NAMES = {
+  is_bad_version: "isBadVersion",
+  guess_oracle: "guess",
+  rand7: "rand7",
+};
+
+// f(x, y) formulas for the CustomFunction shim — identical to harness.py.
+const CUSTOM_FUNCTIONS = {
+  1: (x, y) => x + y,
+  2: (x, y) => x * y,
+  3: (x, y) => x * x + y,
+  4: (x, y) => x + y * y,
+  5: (x, y) => x * x + y * y,
+  6: (x, y) => x * x * x + y,
+  7: (x, y) => x + y * y * y,
+  8: (x, y) => 2 * x + y,
+  9: (x, y) => x + 2 * y,
+};
+
+function buildShim(spec, value) {
+  const kind = spec.kind;
+  if (kind === "is_bad_version") {
+    const bad = value;
+    return (version) => version >= bad;
+  }
+  if (kind === "guess_oracle") {
+    const pick = value;
+    return (num) => (num === pick ? 0 : num > pick ? -1 : 1);
+  }
+  if (kind === "rand7") {
+    // Deterministic Park-Miller LCG (identical in harness.py — the
+    // multiplier keeps products under 2^53 so doubles stay exact).
+    let state = (Number(value || 1) % 2147483647) || 1;
+    return () => {
+      state = (state * 48271) % 2147483647;
+      return (state % 7) + 1;
+    };
+  }
+  if (kind === "mountain_array") {
+    const v = value || {};
+    const arr = (v.arr || []).slice();
+    const budget = v.budget === undefined ? null : v.budget;
+    let gets = 0;
+    return {
+      get(k) {
+        gets++;
+        if (budget !== null && gets > budget) {
+          throw new Error("MountainArray.get call budget (" + budget + ") exceeded");
+        }
+        return arr[k];
+      },
+      length() {
+        return arr.length;
+      },
+    };
+  }
+  if (kind === "master_guess") {
+    const v = value || {};
+    const secret = v.secret || "";
+    const words = new Set(v.words || []);
+    const budget = v.budget === undefined ? null : v.budget;
+    let calls = 0;
+    return {
+      _anvilCorrect: false,
+      guess(word) {
+        calls++;
+        if (budget !== null && calls > budget) {
+          throw new Error("Master.guess call budget (" + budget + ") exceeded");
+        }
+        if (word === secret) this._anvilCorrect = true;
+        if (!words.has(word)) return -1;
+        let m = 0;
+        for (let i = 0; i < Math.min(word.length, secret.length); i++) {
+          if (word[i] === secret[i]) m++;
+        }
+        return m;
+      },
+      _anvil_verdict() {
+        return this._anvilCorrect;
+      },
+    };
+  }
+  if (kind === "custom_function") {
+    const fn = CUSTOM_FUNCTIONS[value];
+    if (!fn) throw new Error("unknown custom_function id " + JSON.stringify(value));
+    return { f: (x, y) => fn(x, y) };
+  }
+  if (kind === "iterator") {
+    const data = (value || []).slice();
+    let i = 0;
+    return {
+      hasNext: () => i < data.length,
+      next: () => data[i++],
+    };
+  }
+  if (kind === "nested_integer") {
+    const build = (v) => {
+      if (Array.isArray(v)) {
+        const list = v.map(build);
+        return {
+          isInteger: () => false,
+          getInteger: () => null,
+          getList: () => list,
+        };
+      }
+      return {
+        isInteger: () => true,
+        getInteger: () => v,
+        getList: () => null,
+      };
+    };
+    // Top-level wire value is a list => a NestedInteger[] argument.
+    return Array.isArray(value) ? value.map(build) : build(value);
+  }
+  throw new Error("unknown shim kind " + JSON.stringify(kind));
+}
+
+function shimSpec(t) {
+  if (t && typeof t === "object" && t.shim && typeof t.shim === "object") {
+    return t.shim;
+  }
+  return null;
+}
+
 function listKind(t) {
   return t && typeof t === "object" && "list_of" in t ? t.list_of : null;
 }
@@ -122,7 +252,11 @@ function refParam(t, key) {
 }
 
 function isCtxOnly(t) {
-  return Boolean(t && typeof t === "object" && "ctx_only" in t);
+  if (t && typeof t === "object" && "ctx_only" in t) return true;
+  // Global-installed shims occupy a param slot for their hidden data but
+  // are never passed positionally.
+  const spec = shimSpec(t);
+  return Boolean(spec && SHIM_GLOBAL_NAMES[spec.kind]);
 }
 
 function walkNodes(root) {
@@ -206,6 +340,8 @@ function deserialize(value, t, ctx) {
   if (inner !== null) return (value || []).map((v) => deserialize(v, inner, ctx));
   if (t && typeof t === "object") {
     if ("ctx_only" in t) return deserialize(value, t.ctx_only, ctx);
+    const spec = shimSpec(t);
+    if (spec !== null) return buildShim(spec, value);
     let p = refParam(t, "node_ref");
     if (p !== null) return value === null ? null : findNode((ctx || [])[p], value);
     p = refParam(t, "clone_of");
@@ -883,15 +1019,48 @@ function main() {
           (_, i) => !(i < paramTypes.length && isCtxOnly(paramTypes[i]))
         );
       }
+      // Global shims install per case; a curry_js shim additionally curries
+      // the entry (LeetCode's `var solution = function(isBadVersion)` shape).
+      let callFn = fn;
+      if (built !== null) {
+        for (let i = 0; i < paramTypes.length; i++) {
+          const spec = shimSpec(paramTypes[i]);
+          if (!spec) continue;
+          if (SHIM_GLOBAL_NAMES[spec.kind]) {
+            global[SHIM_GLOBAL_NAMES[spec.kind]] = built[i];
+          }
+          if (spec.curry_js) {
+            try {
+              callFn = callFn(built[i]);
+            } catch (err) {
+              fail(index, cleanStack(err));
+              return;
+            }
+            if (typeof callFn !== "function") {
+              fail(index, "The curried entry did not return a function.");
+              return;
+            }
+          }
+        }
+      }
       const start = process.hrtime.bigint();
       let result;
       try {
-        result = fn(...callArgs);
+        result = callFn(...callArgs);
       } catch (err) {
         fail(index, cleanStack(err));
         return;
       }
       const timeMs = Number(process.hrtime.bigint() - start) / 1e6;
+      // A shim with a verdict hook (Master.guess) IS the case's real output.
+      if (built !== null) {
+        for (const arg of built) {
+          if (arg && typeof arg === "object" && typeof arg._anvil_verdict === "function") {
+            result = arg._anvil_verdict();
+            break;
+          }
+        }
+      }
       let outType = returnType;
       if (mode === "in_place") {
         const argIndex = Number.isInteger(meta.arg_index) ? meta.arg_index : 0;
