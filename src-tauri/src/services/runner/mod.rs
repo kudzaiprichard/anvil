@@ -226,7 +226,12 @@ pub fn execute_with_program(
             .map_err(|e| AppError::Runner(format!("failed to encode cases: {e}")))?,
     )?;
 
-    let guards = Guards::default();
+    let mut guards = Guards::default();
+    if matches!(judge, Judge::Concurrency { .. }) {
+        // The concurrency judge legitimately needs threads; on Linux the
+        // RLIMIT_NPROC task cap would forbid them (see sandbox::Guards).
+        guards.cap_tasks = false;
+    }
     let mut cmd = Command::new(program);
     cmd.args(spec.args)
         .arg(spec.harness_filename)
@@ -445,7 +450,10 @@ pub fn compute_outputs(
             .map_err(|e| AppError::Runner(format!("failed to encode cases: {e}")))?,
     )?;
 
-    let guards = Guards::default();
+    let mut guards = Guards::default();
+    if matches!(judge, Judge::Concurrency { .. }) {
+        guards.cap_tasks = false;
+    }
     let mut cmd = Command::new(program);
     cmd.args(spec.args)
         .arg(spec.harness_filename)

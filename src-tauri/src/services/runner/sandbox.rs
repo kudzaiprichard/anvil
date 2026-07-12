@@ -22,6 +22,15 @@ pub struct Guards {
     pub timeout_ms: u64,
     pub memory_bytes: u64,
     pub max_processes: u32,
+    /// Whether to apply the Unix `RLIMIT_NPROC` task cap. On Linux that
+    /// limit counts the invoking user's TASKS — threads included — so any
+    /// run that legitimately needs threads (the concurrency judge) can never
+    /// start them under it. Normal runs keep the cap (the harness's own
+    /// big-stack thread falls back gracefully); concurrency runs disable it
+    /// and rely on the timeout + memory cap + kill-the-tree guards. The
+    /// Windows Job Object limit counts processes, not threads, and is
+    /// unaffected by this flag.
+    pub cap_tasks: bool,
 }
 
 impl Default for Guards {
@@ -30,6 +39,7 @@ impl Default for Guards {
             timeout_ms: DEFAULT_TIMEOUT_MS,
             memory_bytes: DEFAULT_MEMORY_BYTES,
             max_processes: DEFAULT_MAX_PROCESSES,
+            cap_tasks: true,
         }
     }
 }
@@ -204,6 +214,7 @@ fn apply_unix_guards(cmd: &mut Command, guards: &Guards) {
     use std::os::unix::process::CommandExt;
     let memory_bytes = guards.memory_bytes;
     let max_processes = guards.max_processes;
+    let cap_tasks = guards.cap_tasks;
     unsafe {
         cmd.pre_exec(move || {
             // own session/process group so killpg reaches grandchildren
@@ -213,11 +224,15 @@ fn apply_unix_guards(cmd: &mut Command, guards: &Guards) {
                 rlim_max: memory_bytes as libc::rlim_t,
             };
             libc::setrlimit(libc::RLIMIT_AS, &mem);
-            let nproc = libc::rlimit {
-                rlim_cur: max_processes as libc::rlim_t,
-                rlim_max: max_processes as libc::rlim_t,
-            };
-            libc::setrlimit(libc::RLIMIT_NPROC, &nproc);
+            if cap_tasks {
+                // NPROC counts the user's tasks (threads included) on Linux;
+                // skipped for runs that legitimately need threads.
+                let nproc = libc::rlimit {
+                    rlim_cur: max_processes as libc::rlim_t,
+                    rlim_max: max_processes as libc::rlim_t,
+                };
+                libc::setrlimit(libc::RLIMIT_NPROC, &nproc);
+            }
             Ok(())
         });
     }
