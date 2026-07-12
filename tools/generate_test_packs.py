@@ -96,6 +96,7 @@ def _harness_meta(
     entry_point: Optional[str],
     judge_type: str,
     io_types: Optional[dict] = None,
+    design_io: Optional[dict] = None,
 ) -> dict:
     """Mirror of `runner::compute_outputs`'s meta.json construction.
 
@@ -112,6 +113,8 @@ def _harness_meta(
         meta["arg_index"] = 0
     elif judge_type == "design":
         meta["mode"] = "design"
+        if design_io:
+            meta["design_io"] = design_io
     if io_types:
         meta["io_types"] = io_types
     return meta
@@ -127,6 +130,7 @@ def run_harness(
     arg_index: int = 0,
     timeout_s: float = 10.0,
     io_types: Optional[dict] = None,
+    design_io: Optional[dict] = None,
 ) -> list[Any]:
     """Executes `code` against each positional-arg input list and returns the
     raw outputs in order. Raises HarnessError on any failure (mirrors
@@ -143,7 +147,7 @@ def run_harness(
         raise ValueError(f"unknown language {lang!r}")
 
     harness_src = (HARNESS_DIR / harness_file).read_text(encoding="utf-8")
-    meta = _harness_meta(lang, entry_point, judge_type, io_types)
+    meta = _harness_meta(lang, entry_point, judge_type, io_types, design_io)
     if judge_type == "in_place":
         meta["arg_index"] = arg_index
 
@@ -198,6 +202,7 @@ def compute_expected(
     judge_type: str,
     inputs: list[list[Any]],
     io_types: Optional[dict] = None,
+    design_io: Optional[dict] = None,
 ) -> list[Any]:
     """Compute expected outputs by EXECUTING the reference Python solution.
 
@@ -213,6 +218,7 @@ def compute_expected(
         judge_type,
         inputs,
         io_types=io_types,
+        design_io=design_io,
     )
 
 
@@ -658,6 +664,8 @@ def verify_and_build(
 
     # Node I/O types (task 0003): when present, the harness (de)serializes
     # ListNode/TreeNode params + return at the call boundary. Validate shape.
+    # `design_io` is the design-mode counterpart (closing-the-48 Phase A).
+    design_io = gen.get("design_io") if judge == "design" else None
     io_types = gen.get("io_types")
     if io_types is not None:
         if not isinstance(io_types, dict) or "params" not in io_types or "returns" not in io_types:
@@ -672,7 +680,7 @@ def verify_and_build(
     anchor_inputs = [a[0] for a in anchors]
     if anchor_inputs:
         try:
-            got = compute_expected(sol_py, entry, judge, anchor_inputs, io_types)
+            got = compute_expected(sol_py, entry, judge, anchor_inputs, io_types, design_io)
         except HarnessError as e:
             return VerifyResult(False, f"optimal solution failed to run on examples: {e}")
         for (args, expected), actual in zip(anchors, got):
@@ -711,14 +719,14 @@ def verify_and_build(
 
     # 3. expected = optimal Python via the harness (the ONLY expected source).
     try:
-        expected = compute_expected(sol_py, entry, judge, inputs, io_types)
+        expected = compute_expected(sol_py, entry, judge, inputs, io_types, design_io)
     except HarnessError as e:
         return VerifyResult(False, f"optimal solution crashed on a generated input: {e}")
 
     # 4. Brute-force oracle must agree on every literal input (differential).
     if brute:
         try:
-            brute_out = run_harness("python", brute, entry.python, judge, inputs, io_types=io_types)
+            brute_out = run_harness("python", brute, entry.python, judge, inputs, io_types=io_types, design_io=design_io)
         except HarnessError as e:
             return VerifyResult(False, f"brute force crashed: {e}")
         for inp, a, b in zip(inputs, expected, brute_out):
@@ -729,7 +737,7 @@ def verify_and_build(
 
     # 5. Cross-language: JavaScript must agree with Python on everything.
     try:
-        js_out = run_harness("javascript", sol_js, entry.javascript, judge, inputs, io_types=io_types)
+        js_out = run_harness("javascript", sol_js, entry.javascript, judge, inputs, io_types=io_types, design_io=design_io)
     except HarnessError as e:
         return VerifyResult(False, f"javascript solution crashed: {e}")
     for inp, a, b in zip(inputs, expected, js_out):
@@ -787,6 +795,8 @@ def _judge_obj(judge: str, gen: dict) -> dict:
     elif judge == "any_valid":
         obj["validator_python"] = gen.get("validator_python", "")
         obj["validator_javascript"] = gen.get("validator_javascript", "")
+    elif judge == "design" and gen.get("design_io"):
+        obj["design_io"] = gen["design_io"]
     return obj
 
 

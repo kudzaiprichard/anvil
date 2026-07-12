@@ -114,6 +114,14 @@ mod tests {
             "validator_javascript": "function validate(args, out) { return true; }"
         }));
         round_trip::<Judge>(json!({ "type": "design" }));
+        // design_io (closing-the-48 Phase A): node-typed ctor/method boundary.
+        round_trip::<Judge>(json!({
+            "type": "design",
+            "design_io": {
+                "ctor": ["tree"],
+                "methods": { "next": { "returns": "json" }, "insert": { "params": ["tree"] } }
+            }
+        }));
     }
 
     #[test]

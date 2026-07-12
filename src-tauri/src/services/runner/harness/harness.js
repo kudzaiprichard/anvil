@@ -213,7 +213,15 @@ function resolveEntry(scope, entry) {
 // LeetCode wire format: args = [ops, argLists]. ops[0] names the class;
 // instantiate with argLists[0], apply remaining ops, collect outputs
 // (null for the constructor and void methods). Returns null after fail().
-function runDesign(scope, index, args) {
+function applyParamTypes(values, types) {
+  // Positional deserialization; params beyond the declared list stay JSON.
+  return values.map((v, i) => deserialize(v, i < types.length ? types[i] : "json"));
+}
+
+function runDesign(scope, index, args, designIo) {
+  // `designIo` (closing-the-48 Phase A) node-types the ctor/method boundary:
+  // {ctor: [types], methods: {name: {params: [types], returns: type}}}; ops
+  // absent from the map run all-JSON, exactly as before.
   if (
     !Array.isArray(args) ||
     args.length !== 2 ||
@@ -228,6 +236,8 @@ function runDesign(scope, index, args) {
     fail(index, "Design case operations and argument lists must align.");
     return null;
   }
+  const ctorTypes = (designIo && designIo.ctor) || [];
+  const methodIo = (designIo && designIo.methods) || {};
   const clsName = String(ops[0]);
   const cls = IDENT.test(clsName) ? scope.lookup(clsName) : undefined;
   if (typeof cls !== "function") {
@@ -236,7 +246,7 @@ function runDesign(scope, index, args) {
   }
   let instance;
   try {
-    instance = new cls(...argLists[0]);
+    instance = new cls(...applyParamTypes(argLists[0], ctorTypes));
   } catch (err) {
     fail(
       index,
@@ -254,12 +264,24 @@ function runDesign(scope, index, args) {
       );
       return null;
     }
+    const io = methodIo[String(ops[i])] || {};
     let value;
     try {
-      value = method.apply(instance, argLists[i]);
+      value = method.apply(instance, applyParamTypes(argLists[i], io.params || []));
     } catch (err) {
       fail(index, "op " + i + " (" + ops[i] + ") raised:\n" + cleanStack(err));
       return null;
+    }
+    if (io.returns) {
+      try {
+        value = serialize(value, io.returns);
+      } catch (err) {
+        fail(
+          index,
+          "op " + i + " (" + ops[i] + "): failed to serialize node output:\n" + cleanStack(err)
+        );
+        return null;
+      }
     }
     outputs.push(value === undefined ? null : value);
   }
@@ -285,7 +307,9 @@ function main() {
 
   let scope;
   try {
-    scope = loadSolutionScope(ioTypes ? NODE_PRELUDE : "");
+    // Node classes must be in scope whenever any boundary is node-typed —
+    // including design packs whose only io declaration is `design_io`.
+    scope = loadSolutionScope(ioTypes || meta.design_io ? NODE_PRELUDE : "");
   } catch (err) {
     fail(0, cleanStack(err));
     return;
@@ -321,7 +345,7 @@ function main() {
     let payload;
     if (mode === "design") {
       const start = process.hrtime.bigint();
-      const outputs = runDesign(scope, index, args);
+      const outputs = runDesign(scope, index, args, meta.design_io || null);
       if (outputs === null) return;
       const timeMs = Number(process.hrtime.bigint() - start) / 1e6;
       payload = { index, ok: true, output: outputs, timeMs };

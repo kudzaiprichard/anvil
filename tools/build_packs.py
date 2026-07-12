@@ -136,16 +136,28 @@ def validate_source(slug: str, src: dict) -> None:
             isinstance(io, dict) and isinstance(io.get("params"), list) and "returns" in io,
             "`io_types` must be {params: [<type>, ...], returns: <type>}",
         )
-        _NODE_TYPES = ("json", "linked_list", "tree")
-
-        def _ok_type(t):
-            if isinstance(t, str):
-                return t in _NODE_TYPES
-            return isinstance(t, dict) and set(t) == {"list_of"} and _ok_type(t["list_of"])
-
         for t in list(io["params"]) + [io["returns"]]:
-            _require(_ok_type(t),
+            _require(_ok_io_type(t),
                      f"io_types entries must be json|linked_list|tree|{{list_of: <type>}}, got {t!r}")
+
+    if judge_type == "design":
+        _, extra = _judge_fields(src.get("judge"))
+        design_io = extra.get("design_io")
+        if design_io is not None:
+            _require(isinstance(design_io, dict) and set(design_io) <= {"ctor", "methods"},
+                     "`design_io` must be {ctor?: [<type>, ...], methods?: {name: {params?, returns?}}}")
+            for t in design_io.get("ctor", []):
+                _require(_ok_io_type(t), f"design_io.ctor entries must be io types, got {t!r}")
+            methods = design_io.get("methods", {})
+            _require(isinstance(methods, dict), "`design_io.methods` must be an object keyed by method name")
+            for name, mio in methods.items():
+                _require(isinstance(mio, dict) and set(mio) <= {"params", "returns"},
+                         f"design_io.methods.{name} must be {{params?: [<type>, ...], returns?: <type>}}")
+                for t in mio.get("params", []):
+                    _require(_ok_io_type(t), f"design_io.methods.{name}.params entries must be io types, got {t!r}")
+                if "returns" in mio:
+                    _require(_ok_io_type(mio["returns"]),
+                             f"design_io.methods.{name}.returns must be an io type, got {mio['returns']!r}")
 
     _require(isinstance(src.get("pattern", ""), str), "`pattern` must be a string")
     hints = src.get("hints", [])
@@ -214,6 +226,19 @@ def validate_source(slug: str, src: dict) -> None:
         )
 
 
+#: Leaf io_type names accepted in `io_types` and `design_io`. Must stay in
+#: lockstep with the Rust `IoType` enum (domain/problem.rs) and both
+#: harnesses' deserialize/serialize — the bundle parse is strict, so an
+#: unknown type here would otherwise empty the whole pack store at runtime.
+_NODE_TYPES = ("json", "linked_list", "tree")
+
+
+def _ok_io_type(t: Any) -> bool:
+    if isinstance(t, str):
+        return t in _NODE_TYPES
+    return isinstance(t, dict) and set(t) == {"list_of"} and _ok_io_type(t["list_of"])
+
+
 def _judge_fields(judge: Any) -> tuple[str, dict]:
     """Normalize `judge` (a bare string or an object) → (type, extra-fields)."""
     if isinstance(judge, str):
@@ -265,6 +290,8 @@ def to_gen(src: dict) -> dict:
     if judge_type == "any_valid":
         gen["validator_python"] = extra.get("validator_python", "")
         gen["validator_javascript"] = extra.get("validator_javascript", "")
+    if judge_type == "design" and extra.get("design_io"):
+        gen["design_io"] = extra["design_io"]
     return gen
 
 

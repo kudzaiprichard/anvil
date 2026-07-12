@@ -80,8 +80,11 @@ fn harness_meta(problem: &Problem, language: Language, judge: &Judge) -> Option<
             meta.insert("mode".into(), serde_json::json!("in_place"));
             meta.insert("arg_index".into(), serde_json::json!(arg_index));
         }
-        Judge::Design => {
+        Judge::Design { design_io } => {
             meta.insert("mode".into(), serde_json::json!("design"));
+            if let Some(io) = design_io {
+                meta.insert("design_io".into(), serde_json::json!(io));
+            }
         }
         Judge::AnyValid { .. } => {
             meta.insert("mode".into(), serde_json::json!("any_valid"));
@@ -330,8 +333,11 @@ pub fn compute_outputs(
             meta.insert("mode".into(), serde_json::json!("in_place"));
             meta.insert("arg_index".into(), serde_json::json!(arg_index));
         }
-        Judge::Design => {
+        Judge::Design { design_io } => {
             meta.insert("mode".into(), serde_json::json!("design"));
+            if let Some(io) = design_io {
+                meta.insert("design_io".into(), serde_json::json!(io));
+            }
         }
         _ => {}
     }
@@ -546,7 +552,7 @@ fn memory_limit_message(guards: &Guards) -> String {
 /// `any_valid` trusts the pack validator's verdict from the harness line.
 fn case_passes(judge: &Judge, line: &HarnessLine, expected: &serde_json::Value) -> bool {
     match judge {
-        Judge::Exact | Judge::InPlace { .. } | Judge::Design => line.output == *expected,
+        Judge::Exact | Judge::InPlace { .. } | Judge::Design { .. } => line.output == *expected,
         Judge::Unordered => unordered_match(&line.output, expected),
         Judge::Float { epsilon } => float_match(&line.output, expected, *epsilon),
         Judge::AnyValid { .. } => line.valid == Some(true),
@@ -781,8 +787,9 @@ mod tests {
             harness_meta(&with_ep, Language::Python, &Judge::InPlace { arg_index: 1 }).unwrap();
         assert_eq!(meta["mode"], "in_place");
         assert_eq!(meta["arg_index"], 1);
-        let meta = harness_meta(&problem, Language::Javascript, &Judge::Design).unwrap();
+        let meta = harness_meta(&problem, Language::Javascript, &Judge::Design { design_io: None }).unwrap();
         assert_eq!(meta["mode"], "design");
+        assert!(meta.get("design_io").is_none());
         // float is judged Rust-side — no meta needed
         assert!(
             harness_meta(&problem, Language::Python, &Judge::Float { epsilon: 1e-5 }).is_none()

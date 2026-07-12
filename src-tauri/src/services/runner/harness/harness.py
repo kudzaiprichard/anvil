@@ -112,10 +112,21 @@ def resolve_entry(module, entry):
     raise LookupError("Invalid entry point %r." % entry)
 
 
-def run_design(module, index, args):
+def _apply_param_types(values, types):
+    # Positional deserialization; params beyond the declared list stay JSON.
+    return [
+        deserialize(v, types[i] if i < len(types) else "json")
+        for i, v in enumerate(values)
+    ]
+
+
+def run_design(module, index, args, design_io=None):
     # LeetCode wire format: args = [ops, argLists]. ops[0] names the class;
     # instantiate with argLists[0], apply remaining ops, collect outputs
-    # (None for the constructor and void methods).
+    # (None for the constructor and void methods). `design_io` (closing-the-48
+    # Phase A) node-types the ctor/method boundary: {"ctor": [types],
+    # "methods": {name: {"params": [types], "returns": type}}}; ops absent
+    # from the map run all-JSON, exactly as before.
     if len(args) != 2 or not isinstance(args[0], list) or not isinstance(args[1], list):
         fail(index, "Design case input must be [operations, argument_lists].")
         return None
@@ -123,13 +134,15 @@ def run_design(module, index, args):
     if not ops or len(ops) != len(arg_lists):
         fail(index, "Design case operations and argument lists must align.")
         return None
+    ctor_types = (design_io or {}).get("ctor") or []
+    method_io = (design_io or {}).get("methods") or {}
     cls_name = ops[0]
     cls = getattr(module, cls_name, None) if re.fullmatch(IDENT, str(cls_name)) else None
     if not inspect.isclass(cls):
         fail(index, "Class '%s' not found in your code." % cls_name)
         return None
     try:
-        instance = cls(*arg_lists[0])
+        instance = cls(*_apply_param_types(arg_lists[0], ctor_types))
     except BaseException:
         fail(
             index,
@@ -143,8 +156,9 @@ def run_design(module, index, args):
         if not callable(method):
             fail(index, "op %d: class '%s' has no method '%s'." % (i, cls_name, ops[i]))
             return None
+        io = method_io.get(str(ops[i])) or {}
         try:
-            outputs.append(method(*arg_lists[i]))
+            result = method(*_apply_param_types(arg_lists[i], io.get("params") or []))
         except BaseException:
             fail(
                 index,
@@ -152,6 +166,17 @@ def run_design(module, index, args):
                 % (i, ops[i], clean_traceback(traceback.format_exc())),
             )
             return None
+        if io.get("returns"):
+            try:
+                result = serialize(result, io["returns"])
+            except BaseException:
+                fail(
+                    index,
+                    "op %d (%s): failed to serialize node output:\n%s"
+                    % (i, ops[i], clean_traceback(traceback.format_exc())),
+                )
+                return None
+        outputs.append(result)
     return outputs
 
 
@@ -359,7 +384,7 @@ def main():
 
         if mode == "design":
             start = time.perf_counter()
-            outputs = run_design(solution, index, args)
+            outputs = run_design(solution, index, args, meta.get("design_io"))
             if outputs is None:
                 return
             elapsed_ms = (time.perf_counter() - start) * 1000.0

@@ -87,8 +87,27 @@ export type Judge =
       validator_python: string;
       validator_javascript: string;
     }
-  /** Ops-sequence problems (LRU Cache): LeetCode's wire format. */
-  | { type: "design" };
+  /**
+   * Ops-sequence problems (LRU Cache): LeetCode's wire format. `design_io`
+   * node-types the constructor/method call boundary (e.g. a real TreeNode
+   * into a BSTIterator constructor); absent ⇒ raw JSON args.
+   */
+  | { type: "design"; design_io?: DesignIo };
+
+/** Node I/O for one design method; absent fields mean plain JSON. */
+export interface MethodIo {
+  params?: IoType[];
+  returns?: IoType;
+}
+
+/**
+ * Per-op I/O map for design packs: constructor param types plus a
+ * method-name → MethodIo table. Undeclared methods run all-JSON.
+ */
+export interface DesignIo {
+  ctor?: IoType[];
+  methods?: Record<string, MethodIo>;
+}
 
 /**
  * Which callable the harness invokes per language: "Solution.twoSum" means

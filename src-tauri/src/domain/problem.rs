@@ -88,7 +88,34 @@ pub enum Judge {
     },
     /// Ops-sequence problems (LRU Cache): input is `[ops, argLists]`,
     /// expected is the per-op output array — LeetCode's wire format.
-    Design,
+    /// `design_io` node-types the constructor/method call boundary so packs
+    /// like binary-search-tree-iterator can hand a real `TreeNode` to the
+    /// constructor; absent ⇒ raw JSON args (all pre-existing design packs).
+    Design {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        design_io: Option<DesignIo>,
+    },
+}
+
+/// Node I/O for one `design` method: param types positionally, plus the
+/// return type when it needs serializing (absent ⇒ plain JSON).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MethodIo {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<IoType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub returns: Option<IoType>,
+}
+
+/// Per-op I/O map for `design` packs: constructor param types plus a
+/// method-name → `MethodIo` table. Methods absent from the map run all-JSON,
+/// so authors only declare the node-typed ops.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DesignIo {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ctor: Vec<IoType>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub methods: std::collections::BTreeMap<String, MethodIo>,
 }
 
 /// Which callable the harness invokes, per language. `"Solution.twoSum"`

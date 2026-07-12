@@ -4,7 +4,7 @@
 
 mod common;
 
-use app_lib::domain::problem::{EntryPoint, IoType, IoTypes, Judge, TestCase};
+use app_lib::domain::problem::{DesignIo, EntryPoint, IoType, IoTypes, Judge, TestCase};
 use app_lib::domain::run::{Language, RunStatus};
 use app_lib::services::runner;
 use common::fixture_problem;
@@ -115,7 +115,7 @@ fn in_place_javascript_mutates_the_real_array_not_a_copy() {
 fn counter_problem() -> app_lib::domain::problem::Problem {
     // Ops sequence in LeetCode wire format: a Counter with add/total.
     problem_with(
-        Judge::Design,
+        Judge::Design { design_io: None },
         Some(EntryPoint {
             python: "Counter".into(),
             javascript: "Counter".into(),
@@ -174,6 +174,66 @@ fn design_exception_mid_sequence_reports_the_op_index() {
     let err = result.error.unwrap();
     assert!(err.contains("op 1 (add)"), "error was: {err}");
     assert!(err.contains("boom"), "error was: {err}");
+}
+
+// ---------- design + design_io (closing-the-48 Phase A) ----------
+
+fn bst_iterator_problem() -> app_lib::domain::problem::Problem {
+    // The constructor receives a REAL TreeNode (deserialized from level-order)
+    // — the exact gap that kept binary-search-tree-iterator deferred.
+    problem_with(
+        Judge::Design {
+            design_io: Some(DesignIo {
+                ctor: vec![IoType::Tree],
+                methods: std::collections::BTreeMap::new(),
+            }),
+        },
+        Some(EntryPoint {
+            python: "BSTIterator".into(),
+            javascript: "BSTIterator".into(),
+            arity: 1,
+            io_types: None,
+        }),
+        vec![case(
+            json!([
+                ["BSTIterator", "next", "next", "hasNext", "next", "hasNext"],
+                [[[7, 3, 15, null, null, 9, 20]], [], [], [], [], []]
+            ]),
+            json!([null, 3, 7, true, 9, true]),
+        )],
+    )
+}
+
+const BST_ITER_PY: &str = "class BSTIterator:\n    def __init__(self, root):\n        self.vals = []\n        def dfs(n):\n            if not n:\n                return\n            dfs(n.left)\n            self.vals.append(n.val)\n            dfs(n.right)\n        dfs(root)\n        self.i = 0\n    def next(self):\n        v = self.vals[self.i]\n        self.i += 1\n        return v\n    def hasNext(self):\n        return self.i < len(self.vals)\n";
+
+const BST_ITER_JS: &str = "class BSTIterator {\n  constructor(root) {\n    this.vals = [];\n    const dfs = (n) => {\n      if (!n) return;\n      dfs(n.left);\n      this.vals.push(n.val);\n      dfs(n.right);\n    };\n    dfs(root);\n    this.i = 0;\n  }\n  next() { return this.vals[this.i++]; }\n  hasNext() { return this.i < this.vals.length; }\n}";
+
+#[test]
+fn design_io_hands_python_constructor_a_real_tree_node() {
+    require_runtime!("python");
+    let result =
+        runner::execute(&bst_iterator_problem(), Language::Python, BST_ITER_PY, true).unwrap();
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+
+    // Wrong traversal order still fails on exact per-op comparison.
+    let wrong = BST_ITER_PY.replace("dfs(n.left)", "dfs(n.right)").replace(
+        "self.vals.append(n.val)\n            dfs(n.right)",
+        "self.vals.append(n.val)\n            dfs(n.left)",
+    );
+    let result =
+        runner::execute(&bst_iterator_problem(), Language::Python, &wrong, true).unwrap();
+    assert_eq!(result.status, RunStatus::Fail);
+}
+
+#[test]
+fn design_io_hands_javascript_constructor_a_real_tree_node() {
+    require_runtime!("node");
+    let result =
+        runner::execute(&bst_iterator_problem(), Language::Javascript, BST_ITER_JS, true).unwrap();
+    let Some(result) = common::skip_if_node_unavailable(result) else {
+        return;
+    };
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
 }
 
 // ---------- any_valid ----------
