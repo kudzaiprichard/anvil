@@ -1,0 +1,96 @@
+{
+  "slug": "encode-and-decode-tinyurl",
+  "judge": {
+    "type": "round_trip",
+    "io": "json",
+    "encode": "encode",
+    "decode": "decode"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Because the same codec instance handles both ends of a single request, an in-memory table keyed by a freshly minted short code is all the state needed to invert the mapping — nothing about the URL's contents has to be understood at all.",
+  "hints": [
+    "The interesting part is not compressing the URL — it is inventing a short key you can reliably map back to the exact original string later.",
+    "Keep a dictionary from generated short code to the original URL inside the codec instance; encode and decode are always called on that same instance for a given request.",
+    "A monotonically increasing counter (or a random token) turned into a short string is enough for the key — store the full URL as the value and look it up verbatim on decode, with no parsing of the URL itself."
+  ],
+  "constraints": [
+    {
+      "param": "longUrl",
+      "kind": "string",
+      "len": [
+        1,
+        2000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "ordinary URL with a path",
+      "input": [
+        "https://leetcode.com/problems/design-tinyurl"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "URL with several query parameters",
+      "input": [
+        "https://example.com/search?q=anvil+pack+authoring&page=2&sort=asc"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "very long URL near the length constraint",
+      "input": [
+        "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "very short URL",
+      "input": [
+        "http://a.co"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "trailing slash and mixed case must be preserved exactly, not normalized",
+      "input": [
+        "https://Example.com/Path/"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "percent-encoded (unicode-safe ASCII) characters embedded in the path and query",
+      "input": [
+        "https://example.com/caf%C3%A9?query=%E2%9C%93&note=%20space"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "URL already carrying a fragment and something that looks like a short code",
+      "input": [
+        "https://tinyurl.com/abc123#section-3?note=hello"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "distinct URL sharing a domain with an earlier case, to confirm each case is judged independently",
+      "input": [
+        "https://example.com/another-distinct-resource"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random-length URL-shaped strings drawn from a URL-safe alphabet",
+      "seed": 5507,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(5, max(6, min(size, 400)))\n    chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_./~%?=&'\n    path = ''.join(rng.choice(chars) for _ in range(n))\n    return ['https://example.com/' + path]\n"
+    }
+  ],
+  "solutions": {
+    "python": "class Codec:\n    def __init__(self):\n        self.store = {}\n        self.counter = 0\n\n    def encode(self, longUrl: str) -> str:\n        self.counter += 1\n        code = 'https://tiny.url/' + str(self.counter)\n        self.store[code] = longUrl\n        return code\n\n    def decode(self, shortUrl: str) -> str:\n        return self.store[shortUrl]\n",
+    "javascript": "var _tinyUrlStore = new Map();\nvar _tinyUrlCounter = 0;\n\nvar encode = function(longUrl) {\n    _tinyUrlCounter += 1;\n    const code = 'https://tiny.url/' + _tinyUrlCounter;\n    _tinyUrlStore.set(code, longUrl);\n    return code;\n};\n\nvar decode = function(shortUrl) {\n    return _tinyUrlStore.get(shortUrl);\n};\n"
+  }
+}

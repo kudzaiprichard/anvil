@@ -19,6 +19,7 @@ fn record(
             language: "python",
             kind,
             status,
+            tier: "full",
             runtime_ms: Some(12),
             code: "def solve(): pass",
             attempted_at,

@@ -116,10 +116,25 @@ def validate_source(slug: str, src: dict) -> None:
 
     sols = src.get("solutions")
     _require(isinstance(sols, dict), "`solutions` must be an object keyed by language")
-    for lang in CORE_LANGS:
+    # Single-language packs (closing-the-48): `languages` lists the runnable
+    # languages this pack ships (default: the core python+javascript pair).
+    # Python is always required — it is the expected-value source; every
+    # listed language needs a solution. Future languages slot in here.
+    languages = src.get("languages", list(CORE_LANGS))
+    _require(
+        isinstance(languages, list) and languages and all(isinstance(l, str) for l in languages),
+        "`languages` must be a non-empty list of language names",
+    )
+    _require("python" in languages, "`languages` must include python (the expected-value source)")
+    for lang in languages:
+        _require(
+            lang in LANGUAGES,
+            f"`languages` entry {lang!r} is not a registered language "
+            f"(see tools/LANGUAGES.md: {sorted(LANGUAGES)})",
+        )
         _require(
             isinstance(sols.get(lang), str) and sols[lang].strip(),
-            f"`solutions.{lang}` is required and must be non-empty source",
+            f"`solutions.{lang}` is required (listed in `languages`) and must be non-empty source",
         )
     for lang in sols:
         _require(
@@ -136,16 +151,63 @@ def validate_source(slug: str, src: dict) -> None:
             isinstance(io, dict) and isinstance(io.get("params"), list) and "returns" in io,
             "`io_types` must be {params: [<type>, ...], returns: <type>}",
         )
-        _NODE_TYPES = ("json", "linked_list", "tree")
-
-        def _ok_type(t):
-            if isinstance(t, str):
-                return t in _NODE_TYPES
-            return isinstance(t, dict) and set(t) == {"list_of"} and _ok_type(t["list_of"])
-
         for t in list(io["params"]) + [io["returns"]]:
-            _require(_ok_type(t),
-                     f"io_types entries must be json|linked_list|tree|{{list_of: <type>}}, got {t!r}")
+            _require(_ok_io_type(t),
+                     f"io_types entries must be one of {_NODE_TYPES} or a "
+                     f"{{list_of|ctx_only: <type>}} / {{node_ref|clone_of|tail_of|node_index_of: {{param: i}}}} form, got {t!r}")
+
+    if judge_type == "round_trip":
+        _, extra = _judge_fields(src.get("judge"))
+        _require(_ok_io_type(extra.get("io", "json")),
+                 f"`round_trip` judge `io` must be a valid io type, got {extra.get('io')!r}")
+        for name in ("encode", "decode"):
+            v = extra.get(name, name)
+            _require(isinstance(v, str) and v.strip(),
+                     f"`round_trip` judge `{name}` must be a non-empty method/function name")
+
+    if judge_type == "property":
+        _, extra = _judge_fields(src.get("judge"))
+        _require(
+            bool(extra.get("validator_python")) and bool(extra.get("validator_javascript")),
+            "`property` judge needs `validator_python` and `validator_javascript`",
+        )
+        _require(extra.get("exec", "design") in ("design", "call"),
+                 "`property` judge `exec` must be design|call")
+
+    if judge_type == "concurrency":
+        _, extra = _judge_fields(src.get("judge"))
+        _require(
+            bool(extra.get("driver_python")) and bool(extra.get("validator_python")),
+            "`concurrency` judge needs `driver_python` and `validator_python`",
+        )
+        runs = extra.get("runs", 6)
+        _require(
+            isinstance(runs, int) and not isinstance(runs, bool) and 1 <= runs <= 20,
+            "`concurrency` judge `runs` must be an int in 1..20",
+        )
+        _require(src.get("languages") == ["python"],
+                 "`concurrency` packs must set `languages`: [\"python\"] — JS has no threads")
+        _require(bool(src.get("oracle_python")),
+                 "`concurrency` packs need `oracle_python` — it replaces the JS differential")
+
+    if judge_type in ("design", "property"):
+        _, extra = _judge_fields(src.get("judge"))
+        design_io = extra.get("design_io")
+        if design_io is not None:
+            _require(isinstance(design_io, dict) and set(design_io) <= {"ctor", "methods"},
+                     "`design_io` must be {ctor?: [<type>, ...], methods?: {name: {params?, returns?}}}")
+            for t in design_io.get("ctor", []):
+                _require(_ok_io_type(t), f"design_io.ctor entries must be io types, got {t!r}")
+            methods = design_io.get("methods", {})
+            _require(isinstance(methods, dict), "`design_io.methods` must be an object keyed by method name")
+            for name, mio in methods.items():
+                _require(isinstance(mio, dict) and set(mio) <= {"params", "returns"},
+                         f"design_io.methods.{name} must be {{params?: [<type>, ...], returns?: <type>}}")
+                for t in mio.get("params", []):
+                    _require(_ok_io_type(t), f"design_io.methods.{name}.params entries must be io types, got {t!r}")
+                if "returns" in mio:
+                    _require(_ok_io_type(mio["returns"]),
+                             f"design_io.methods.{name}.returns must be an io type, got {mio['returns']!r}")
 
     _require(isinstance(src.get("pattern", ""), str), "`pattern` must be a string")
     hints = src.get("hints", [])
@@ -214,6 +276,55 @@ def validate_source(slug: str, src: dict) -> None:
         )
 
 
+#: Leaf io_type names accepted in `io_types` and `design_io`. Must stay in
+#: lockstep with the Rust `IoType` enum (domain/problem.rs) and both
+#: harnesses' deserialize/serialize — the bundle parse is strict, so an
+#: unknown type here would otherwise empty the whole pack store at runtime.
+_NODE_TYPES = (
+    "json", "linked_list", "tree",
+    # closing-the-48 Phase B
+    "cyclic_list", "random_list", "graph", "n_ary_tree", "quad_tree",
+    "next_tree", "multilevel_list",
+)
+#: Composite forms referencing an already-built earlier param: {key: {"param": i}}.
+_PARAM_REF_KEYS = ("node_ref", "clone_of", "tail_of", "node_index_of")
+#: Injected-object shims (closing-the-48 Phase D) — the harness registry.
+_SHIM_KINDS = (
+    "iterator", "nested_integer", "custom_function", "master_guess",
+    "mountain_array", "is_bad_version", "guess_oracle", "rand7",
+)
+
+
+def _ok_io_type(t: Any) -> bool:
+    if isinstance(t, str):
+        return t in _NODE_TYPES
+    if not isinstance(t, dict) or len(t) != 1:
+        return False
+    if "list_of" in t:
+        return _ok_io_type(t["list_of"])
+    if "ctx_only" in t:
+        return _ok_io_type(t["ctx_only"])
+    if "shim" in t:
+        spec = t["shim"]
+        return (
+            isinstance(spec, dict)
+            and set(spec) <= {"kind", "curry_js"}
+            and spec.get("kind") in _SHIM_KINDS
+            and isinstance(spec.get("curry_js", False), bool)
+        )
+    for key in _PARAM_REF_KEYS:
+        if key in t:
+            spec = t[key]
+            return (
+                isinstance(spec, dict)
+                and set(spec) == {"param"}
+                and isinstance(spec.get("param"), int)
+                and not isinstance(spec.get("param"), bool)
+                and spec["param"] >= 0
+            )
+    return False
+
+
 def _judge_fields(judge: Any) -> tuple[str, dict]:
     """Normalize `judge` (a bare string or an object) → (type, extra-fields)."""
     if isinstance(judge, str):
@@ -245,7 +356,8 @@ def to_gen(src: dict) -> dict:
     gen: dict[str, Any] = {
         "judge": judge_type,
         "solution_python": sols["python"],
-        "solution_javascript": sols["javascript"],
+        "solution_javascript": sols.get("javascript", ""),
+        "languages": src.get("languages", list(CORE_LANGS)),
         "pattern": src.get("pattern", ""),
         "hints": src.get("hints", []),
         "constraints": src.get("constraints", []),
@@ -265,6 +377,22 @@ def to_gen(src: dict) -> dict:
     if judge_type == "any_valid":
         gen["validator_python"] = extra.get("validator_python", "")
         gen["validator_javascript"] = extra.get("validator_javascript", "")
+    if judge_type in ("design", "property") and extra.get("design_io"):
+        gen["design_io"] = extra["design_io"]
+    if judge_type == "round_trip":
+        gen["round_trip"] = {
+            "io": extra.get("io", "json"),
+            "encode": extra.get("encode", "encode"),
+            "decode": extra.get("decode", "decode"),
+        }
+    if judge_type == "property":
+        gen["validator_python"] = extra.get("validator_python", "")
+        gen["validator_javascript"] = extra.get("validator_javascript", "")
+        gen["property_exec"] = extra.get("exec", "design")
+    if judge_type == "concurrency":
+        gen["driver_python"] = extra.get("driver_python", "")
+        gen["validator_python"] = extra.get("validator_python", "")
+        gen["concurrency_runs"] = extra.get("runs", 6)
     return gen
 
 
@@ -412,7 +540,8 @@ def build(args: argparse.Namespace) -> int:
             continue
 
         packs[slug] = result.pack
-        verified_langs = list(CORE_LANGS) + extra_langs
+        # Single-language packs record exactly what was verified.
+        verified_langs = list(src.get("languages", list(CORE_LANGS))) + extra_langs
         manifest[slug] = {
             # Explicit --batch wins; else auto-assign from the scrape row; else
             # keep a prior value. Auto-assignment keeps parallel sessions correct.

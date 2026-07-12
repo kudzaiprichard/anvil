@@ -1,0 +1,231 @@
+{
+  "slug": "random-pick-with-weight",
+  "judge": {
+    "type": "property",
+    "validator_python": "def validate(args, outputs):\n    ops, arg_lists = args\n    if not isinstance(outputs, list) or len(outputs) != len(ops):\n        return False\n    if ops[0] != 'Solution':\n        return False\n    w = arg_lists[0][0]\n    n = len(w)\n    for i in range(1, len(ops)):\n        op, out = ops[i], outputs[i]\n        if op == 'pickIndex':\n            if not isinstance(out, int) or isinstance(out, bool):\n                return False\n            if out < 0 or out >= n:\n                return False\n    return True\n",
+    "validator_javascript": "function validate(args, outputs) {\n  const [ops, argLists] = args;\n  if (!Array.isArray(outputs) || outputs.length !== ops.length) return false;\n  if (ops[0] !== 'Solution') return false;\n  const w = argLists[0][0];\n  const n = w.length;\n  for (let i = 1; i < ops.length; i++) {\n    const op = ops[i], out = outputs[i];\n    if (op === 'pickIndex') {\n      if (typeof out !== 'number' || !Number.isInteger(out)) return false;\n      if (out < 0 || out >= n) return false;\n    }\n  }\n  return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Turning per-item weights into a prefix-sum ladder lets a single uniform random draw plus a binary search pick indices proportionally to their weight in logarithmic time.",
+  "hints": [
+    "Picking an index with probability proportional to its weight is like throwing a dart at a number line marked off in weighted segments.",
+    "Build a running total of the weights; the segment a random point in [1, total] lands in tells you the index.",
+    "Binary search the prefix-sum array for the first value >= your random draw — that index is your answer."
+  ],
+  "constraints": [
+    {
+      "param": "w",
+      "kind": "int[]",
+      "len": [
+        1,
+        10000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "single weight forces every pick to index 0",
+      "input": [
+        [
+          "Solution",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex"
+        ],
+        [
+          [
+            [
+              7
+            ]
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two heavily skewed weights (index 1 should dominate but index 0 must still be legal)",
+      "input": [
+        [
+          "Solution",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex"
+        ],
+        [
+          [
+            [
+              1,
+              100000
+            ]
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "all equal weights across five buckets",
+      "input": [
+        [
+          "Solution",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex"
+        ],
+        [
+          [
+            [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "weight-1 minimum values mixed together",
+      "input": [
+        [
+          "Solution",
+          "pickIndex",
+          "pickIndex"
+        ],
+        [
+          [
+            [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "maximum single weight at the constraint ceiling",
+      "input": [
+        [
+          "Solution",
+          "pickIndex",
+          "pickIndex"
+        ],
+        [
+          [
+            [
+              100000
+            ]
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "a huge first weight next to a tiny last weight",
+      "input": [
+        [
+          "Solution",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex"
+        ],
+        [
+          [
+            [
+              99999,
+              1
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "many buckets, repeated picking",
+      "input": [
+        [
+          "Solution",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex",
+          "pickIndex"
+        ],
+        [
+          [
+            [
+              5,
+              10,
+              1,
+              20,
+              3,
+              3,
+              8
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random weight vector with a burst of pickIndex calls",
+      "seed": 71,
+      "size": 300,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 200)\n    w = [rng.randint(1, 100000) for _ in range(n)]\n    ops = ['Solution']\n    argv = [[w]]\n    calls = max(1, min(size, 300))\n    for _ in range(calls):\n        ops.append('pickIndex')\n        argv.append([])\n    return [ops, argv]\n"
+    }
+  ],
+  "oracle_python": "import random\n\n\nclass Solution:\n    def __init__(self, w):\n        self.w = w\n        self.total = sum(w)\n\n    def pickIndex(self):\n        target = random.randint(1, self.total)\n        cum = 0\n        for i, x in enumerate(self.w):\n            cum += x\n            if cum >= target:\n                return i\n        return len(self.w) - 1\n",
+  "solutions": {
+    "python": "import bisect\nimport random\n\n\nclass Solution:\n    def __init__(self, w):\n        self.prefix = []\n        total = 0\n        for x in w:\n            total += x\n            self.prefix.append(total)\n        self.total = total\n\n    def pickIndex(self):\n        target = random.randint(1, self.total)\n        return bisect.bisect_left(self.prefix, target)\n",
+    "javascript": "var Solution = function(w) {\n    this.prefix = [];\n    let total = 0;\n    for (const x of w) {\n        total += x;\n        this.prefix.push(total);\n    }\n    this.total = total;\n};\n\nSolution.prototype.pickIndex = function() {\n    const target = Math.floor(Math.random() * this.total) + 1;\n    let lo = 0, hi = this.prefix.length - 1;\n    while (lo < hi) {\n        const mid = (lo + hi) >> 1;\n        if (this.prefix[mid] < target) lo = mid + 1;\n        else hi = mid;\n    }\n    return lo;\n};\n"
+  },
+  "complexity": {
+    "time": "O(log n) per pickIndex, O(n) to build",
+    "space": "O(n)"
+  }
+}

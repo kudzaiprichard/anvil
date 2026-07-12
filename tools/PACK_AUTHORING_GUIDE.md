@@ -103,6 +103,9 @@ runtime. Choosing wrong silently ships a pack that fails correct user code.
 | `"in_place"` | the function returns void/None (or a length) and the **answer is a mutated argument** (sort in place, move zeroes) | `{ "type": "in_place", "arg_index": 0 }` (index of the mutated arg) |
 | `"any_valid"` | **many distinct valid outputs** and you cannot reduce to a canonical order — list-of-lists (3sum, subsets, permutations, combinations, partitions), "any valid ordering", group-anagrams. | `{ "type": "any_valid", "validator_python": "...", "validator_javascript": "..." }` |
 | `"design"` | class with an **operations sequence** (LRUCache, MinStack, Trie). Input is `[ops, argLists]`. | `"judge": "design"`, `"no_anchor_ok": true` |
+| `"round_trip"` | **codec problems** where the solver invents the format (serialize-and-deserialize-*, tinyurl): the harness runs `decode(encode(x))` and emits the canonical serialization, so the exact compare judges it. | `{ "type": "round_trip", "io": "tree", "encode": "serialize", "decode": "deserialize" }` |
+| `"property"` | **randomized output** (getRandom, shuffle, pick): no single correct answer, so a pack validator replays the op sequence and checks each output belongs to the legal set. Default execution is the design ops shape; `"exec": "call"` for a plain function (rand10). | `{ "type": "property", "validator_python": "…", "validator_javascript": "…" }`, `"no_anchor_ok": true` |
+| `"concurrency"` | **multithreading problems** (print-in-order, dining-philosophers). Python-only: set `"languages": ["python"]` and ship an `oracle_python` (it replaces the JS differential). A pack DRIVER spawns the real threads and records events; a pack VALIDATOR judges each recorded sequence. The harness amplifies races (tiny GIL switch interval, jitter inside every record, barrier starts, `runs` repetitions) and a watchdog turns deadlocks into a clear failure. Drivers: daemon threads + join deadline; validators judge the LOGICAL sequence only so a correct solution can never flake. | `{ "type": "concurrency", "driver_python": "…", "validator_python": "…", "runs": 6 }`, `"no_anchor_ok": true` |
 
 ### `unordered` vs `any_valid` (the most common mistake)
 
@@ -205,8 +208,46 @@ classes — do not define them yourself).
   `TreeNode(v)`); the oracle should be an independent construction. Statement
   examples anchor as usual (the harness serializes the reference's node output
   back to an array). Do **not** set `io_types` for plain-value problems.
-- Out of scope this phase (ship basic-mode): graph `Node`, cyclic lists (`pos`),
-  random-pointer lists, `next`-pointer trees, BST iterator (see task 0003 Tier B).
+
+### 4c. Closing-the-48 wire types (Phase B/D of the `48` branch)
+
+The full leaf set is now `json | linked_list | tree | cyclic_list | random_list |
+graph | n_ary_tree | quad_tree | next_tree | multilevel_list`, plus these composite
+forms (see `.docs/48_PLAN.md` and the pilot packs for worked examples):
+
+- `{"node_ref": {"param": i}}` — the wire value is a node **value**; the harness
+  resolves the real node object inside already-built param `i` (args build left to
+  right). As a *return* type it emits the node's value after verifying the returned
+  object really lives in that structure. Referenced values must be unique.
+- `{"clone_of": {"param": i}}` — a structure-preserving deep copy of param `i`
+  (wire value: `null`).
+- `{"tail_of": {"param": i}}` — `{"values": [...], "attach": idx|null}`: a fresh
+  list whose last node links into param `i`'s chain (intersection-of-two-linked-lists).
+- `{"node_index_of": {"param": i}}` — return-only: the returned node's index in
+  param `i`'s chain.
+- `{"ctx_only": <type>}` — built for judging but **not passed** to the solution
+  (delete-node's hidden head; pair with `in_place`'s `arg_index`). ctx_only params
+  don't count toward the stub arity.
+- `{"shim": {"kind": "<kind>", "curry_js"?: true}}` — an injected object/callback
+  built from per-case hidden data. Kinds: `iterator`, `nested_integer`,
+  `custom_function` (function_id 1–9), `master_guess` (budget-enforced, the case
+  output becomes the guessed-it verdict), `mountain_array` (budget-enforced),
+  and the global-installed `is_bad_version` / `guess_oracle` / `rand7` (their param
+  slot carries only the hidden value and is not passed; `curry_js` handles
+  LeetCode's curried JS stubs). `rand7` is a deterministic seeded LCG, identical
+  across languages.
+
+Wire forms: `cyclic_list` = `{"values": [...], "pos": k|null}`; `random_list` =
+`[[val, randomIdx|null], ...]`; `graph` = adjacency list (node i is val i+1, return
+freshness-checked); `n_ary_tree` = LeetCode null-separated level order; `quad_tree`
+= level order of `[isLeaf, val]` 1/0 pairs; `next_tree` = plain level order in,
+serialized **by following the `next` pointers** out; `multilevel_list` = segments
+`[{"values": [...], "parent": null|globalNodeIndex}, ...]`.
+
+`design` packs may node-type the constructor/method boundary with
+`"judge": {"type": "design", "design_io": {"ctor": ["tree"], "methods": {"insert":
+{"params": ["tree"], "returns": "tree"}}}}` — undeclared methods stay all-JSON. A
+`property` judge accepts the same `design_io` key for node-typed constructors.
 
 ## 5. Originality (non-negotiable)
 

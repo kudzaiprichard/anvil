@@ -1,0 +1,300 @@
+{
+  "slug": "construct-quad-tree",
+  "judge": "exact",
+  "io_types": {
+    "params": [
+      "json"
+    ],
+    "returns": "quad_tree"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Recursive spatial subdivision becomes canonical only when you merge on the way back up: build the four quadrants first, then fuse them into a single leaf whenever all four agree.",
+  "hints": [
+    "Split the square into four half-size quadrants and solve each one the same way — the recursion bottoms out at a single cell, which is always a leaf.",
+    "Checking whether a whole region is uniform up front works, but you can avoid rescanning by deciding after the four recursive calls return.",
+    "If all four children came back as leaves carrying the same value, throw them away and return one leaf with that value instead of an internal node."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [
+        1,
+        64
+      ],
+      "value": [
+        0,
+        1
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "single cell holding a one",
+      "input": [
+        [
+          [
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single cell holding a zero",
+      "input": [
+        [
+          [
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "2x2 checkerboard that cannot collapse at all",
+      "input": [
+        [
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "4x4 grid that is entirely uniform — must come back as one leaf, not a tree of identical leaves",
+      "input": [
+        [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "4x4 grid where three quadrants collapse to leaves but the bottom-left stays internal",
+      "input": [
+        [
+          [
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "uniform except a single flipped cell in the bottom-right corner, forcing maximum depth along exactly one path",
+      "input": [
+        [
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "8x8 grid whose top half is solid and bottom half mixes uniform and non-uniform 4x4 quadrants",
+      "input": [
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "4x4 grid where each 2x2 sub-block is uniform yet no two quadrants share a value, so nothing above the leaves may merge",
+      "input": [
+        [
+          [
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            1,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "power-of-two grids painted with a base value plus a few random rectangles so uniform regions and collapses actually occur",
+      "seed": 403,
+      "size": 64,
+      "generator_python": "def gen(rng, size):\n    n = 1 << rng.randint(0, 6)\n    base = rng.randint(0, 1)\n    grid = [[base] * n for _ in range(n)]\n    for _ in range(rng.randint(0, 6)):\n        r1 = rng.randrange(n)\n        r2 = rng.randint(r1, n - 1)\n        c1 = rng.randrange(n)\n        c2 = rng.randint(c1, n - 1)\n        v = rng.randint(0, 1)\n        for r in range(r1, r2 + 1):\n            for c in range(c1, c2 + 1):\n                grid[r][c] = v\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def construct(self, grid: 'List[List[int]]') -> 'Node':\n        def build(r, c, s):\n            v = grid[r][c]\n            if all(grid[r + i][c + j] == v for i in range(s) for j in range(s)):\n                return Node(v == 1, True)\n            h = s // 2\n            return Node(True, False,\n                        build(r, c, h), build(r, c + h, h),\n                        build(r + h, c, h), build(r + h, c + h, h))\n        return build(0, 0, len(grid))\n",
+  "solutions": {
+    "python": "class Solution:\n    def construct(self, grid: 'List[List[int]]') -> 'Node':\n        def build(r, c, s):\n            if s == 1:\n                return Node(grid[r][c] == 1, True)\n            h = s // 2\n            tl = build(r, c, h)\n            tr = build(r, c + h, h)\n            bl = build(r + h, c, h)\n            br = build(r + h, c + h, h)\n            if (tl.isLeaf and tr.isLeaf and bl.isLeaf and br.isLeaf\n                    and tl.val == tr.val == bl.val == br.val):\n                return Node(tl.val, True)\n            return Node(True, False, tl, tr, bl, br)\n        return build(0, 0, len(grid))\n",
+    "javascript": "var construct = function(grid) {\n    const build = (r, c, s) => {\n        if (s === 1) {\n            return new Node(grid[r][c] === 1, true);\n        }\n        const h = s >> 1;\n        const tl = build(r, c, h);\n        const tr = build(r, c + h, h);\n        const bl = build(r + h, c, h);\n        const br = build(r + h, c + h, h);\n        if (tl.isLeaf && tr.isLeaf && bl.isLeaf && br.isLeaf &&\n                tl.val === tr.val && tr.val === bl.val && bl.val === br.val) {\n            return new Node(tl.val, true);\n        }\n        return new Node(true, false, tl, tr, bl, br);\n    };\n    return build(0, 0, grid.length);\n};\n"
+  }
+}

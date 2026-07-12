@@ -1,0 +1,231 @@
+{
+  "slug": "random-pick-with-blacklist",
+  "judge": {
+    "type": "property",
+    "validator_python": "def validate(args, outputs):\n    ops, arg_lists = args\n    if not isinstance(outputs, list) or len(outputs) != len(ops):\n        return False\n    if ops[0] != 'Solution':\n        return False\n    n, blacklist = arg_lists[0]\n    bl = set(blacklist)\n    for i in range(1, len(ops)):\n        op, out = ops[i], outputs[i]\n        if op == 'pick':\n            if not isinstance(out, int) or isinstance(out, bool):\n                return False\n            if out < 0 or out >= n:\n                return False\n            if out in bl:\n                return False\n    return True\n",
+    "validator_javascript": "function validate(args, outputs) {\n  const [ops, argLists] = args;\n  if (!Array.isArray(outputs) || outputs.length !== ops.length) return false;\n  if (ops[0] !== 'Solution') return false;\n  const [n, blacklist] = argLists[0];\n  const bl = new Set(blacklist);\n  for (let i = 1; i < ops.length; i++) {\n    const op = ops[i], out = outputs[i];\n    if (op === 'pick') {\n      if (typeof out !== 'number' || !Number.isInteger(out)) return false;\n      if (out < 0 || out >= n) return false;\n      if (bl.has(out)) return false;\n    }\n  }\n  return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Remapping every blacklisted value below a shrunken white-list boundary onto an unused value above it turns a sparse, unbounded exclusion set into a dense range a single bounded random draw can sample from.",
+  "hints": [
+    "Rejection sampling (redraw until you miss the blacklist) is correct but can spin forever when the blacklist is dense — you need a scheme with a bounded number of random calls.",
+    "Shrink the sampling range to whitelist size m = n - blacklist.length; every value below m that IS blacklisted needs somewhere else to point.",
+    "Collect the unblacklisted values living at or above m (the 'tail') and map each low blacklisted value to one of them; then a single draw in [0, m) is always legal."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        1000000000
+      ]
+    },
+    {
+      "param": "blacklist",
+      "kind": "int[]",
+      "len": [
+        0,
+        100000
+      ],
+      "value": [
+        0,
+        999999999
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "trap",
+      "description": "blacklist covers the tail exactly, no remap needed",
+      "input": [
+        [
+          "Solution",
+          "pick",
+          "pick",
+          "pick",
+          "pick"
+        ],
+        [
+          [
+            7,
+            [
+              4,
+              5,
+              6
+            ]
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "empty blacklist, every index legal",
+      "input": [
+        [
+          "Solution",
+          "pick",
+          "pick",
+          "pick"
+        ],
+        [
+          [
+            5,
+            []
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "blacklist covers all but one value, output fully determined",
+      "input": [
+        [
+          "Solution",
+          "pick",
+          "pick",
+          "pick",
+          "pick"
+        ],
+        [
+          [
+            3,
+            [
+              0,
+              1
+            ]
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "blacklist scattered through both the white region and the tail",
+      "input": [
+        [
+          "Solution",
+          "pick",
+          "pick",
+          "pick",
+          "pick",
+          "pick"
+        ],
+        [
+          [
+            10,
+            [
+              2,
+              3,
+              5
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element domain with nothing blacklisted",
+      "input": [
+        [
+          "Solution",
+          "pick",
+          "pick"
+        ],
+        [
+          [
+            1,
+            []
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "blacklist given out of order and with values clustered near n-1",
+      "input": [
+        [
+          "Solution",
+          "pick",
+          "pick",
+          "pick",
+          "pick"
+        ],
+        [
+          [
+            10000,
+            [
+              9999,
+              9998,
+              1,
+              5000
+            ]
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "large n with a small blacklist near the low end",
+      "input": [
+        [
+          "Solution",
+          "pick",
+          "pick",
+          "pick"
+        ],
+        [
+          [
+            1000000000,
+            [
+              0,
+              1,
+              2
+            ]
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random n with a random-size blacklist and a burst of picks",
+      "seed": 411,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, 500)\n    k = rng.randint(0, max(0, n - 1))\n    blacklist = rng.sample(range(n), k) if k > 0 else []\n    ops = ['Solution']\n    argv = [[n, blacklist]]\n    calls = max(1, min(size, 200))\n    for _ in range(calls):\n        ops.append('pick')\n        argv.append([])\n    return [ops, argv]\n"
+    }
+  ],
+  "oracle_python": "import random\n\n\nclass Solution:\n    def __init__(self, n, blacklist):\n        self.n = n\n        self.bl = set(blacklist)\n\n    def pick(self):\n        while True:\n            x = random.randrange(self.n)\n            if x not in self.bl:\n                return x\n",
+  "solutions": {
+    "python": "import random\n\n\nclass Solution:\n    def __init__(self, n, blacklist):\n        bl = set(blacklist)\n        self.m = n - len(bl)\n        self.remap = {}\n        tail = iter(x for x in range(self.m, n) if x not in bl)\n        for b in bl:\n            if b < self.m:\n                self.remap[b] = next(tail)\n\n    def pick(self):\n        x = random.randrange(self.m)\n        return self.remap.get(x, x)\n",
+    "javascript": "var Solution = function(n, blacklist) {\n    const bl = new Set(blacklist);\n    this.m = n - bl.size;\n    this.remap = new Map();\n    const tail = [];\n    for (let x = this.m; x < n; x++) {\n        if (!bl.has(x)) tail.push(x);\n    }\n    let ti = 0;\n    for (const b of bl) {\n        if (b < this.m) {\n            this.remap.set(b, tail[ti++]);\n        }\n    }\n};\n\nSolution.prototype.pick = function() {\n    const x = Math.floor(Math.random() * this.m);\n    return this.remap.has(x) ? this.remap.get(x) : x;\n};\n"
+  },
+  "complexity": {
+    "time": "O(b) to build, O(1) per pick",
+    "space": "O(b)"
+  }
+}

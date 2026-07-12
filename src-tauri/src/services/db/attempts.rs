@@ -16,6 +16,9 @@ pub struct AttemptRecord<'a> {
     pub kind: &'a str,
     /// `"pass" | "fail" | "error" | "timeout"`.
     pub status: &'a str,
+    /// Experience tier at attempt time: `"full" | "basic" | "run-only"`
+    /// (`Problem::experience_tier`) — a basic-mode pass is a weaker signal.
+    pub tier: &'a str,
     pub runtime_ms: Option<u64>,
     pub code: &'a str,
     /// Local ISO timestamp (`db::now_local_iso()`); injected for tests.
@@ -27,13 +30,14 @@ pub fn record_attempt(db: &Db, rec: &AttemptRecord) -> AppResult<()> {
     let mut conn = db.lock()?;
     let tx = conn.transaction()?;
     tx.execute(
-        "INSERT INTO attempts (problem_id, language, kind, status, runtime_ms, attempted_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO attempts (problem_id, language, kind, status, tier, runtime_ms, attempted_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             rec.problem_id,
             rec.language,
             rec.kind,
             rec.status,
+            rec.tier,
             rec.runtime_ms,
             rec.attempted_at
         ],

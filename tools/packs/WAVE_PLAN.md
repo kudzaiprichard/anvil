@@ -474,6 +474,49 @@ PACK_AUTHORING_GUIDE.md §4b already lists "BST iterator" by name as out of scop
 | 19 | 60 (0 Wave-18 redo folded in) | yes | 47 | 13 (19B dropped 0/12 before writing any files on a transient API-connection-closed error; 19E's `maximum-path-intersection-sum-in-a-grid` is a genuine algorithmic failure — not a deferred shape, the agent could not find an O(m·n·polylog) algorithm and left it unauthored rather than ship something wrong/too slow — see Wave 19 notes) |
 | 20 | 53 (40 + 13 Wave-19 redo folded in) | yes | **52** | 1 (`maximum-path-intersection-sum-in-a-grid` deferred a second time — genuine hard-algorithm case, no efficient-enough correct approach found; see Wave 20 notes) |
 | defer | 37 | yes | **3** | 0 (34 confirmed as genuine defers, not redo — see "Final wave" section above for full reasons) |
+| 48-branch | 42 | yes | **42** | 0 (the closing-the-48 sweep — see the section below) |
+
+### Closing-the-48 branch (resolves the confirmed defers)
+
+The `48` branch closed every confirmed defer except the 6 concurrency problems by
+extending the harness itself (`.docs/48.md` has the inventory, `.docs/48_PLAN.md`
+the design). New capabilities, each proven by a pilot pack before its wave ran:
+
+- **Wire types** (`PACK_AUTHORING_GUIDE.md` §4c): `cyclic_list`, `random_list`
+  (freshness-checked), `graph` (freshness-checked), `n_ary_tree`, `quad_tree`,
+  `next_tree` (serialized by following the next pointers), `multilevel_list`,
+  plus the param-referencing forms `node_ref` / `clone_of` / `tail_of` /
+  `node_index_of` and `ctx_only`.
+- **`design_io`**: node-typed constructor/method boundaries in design mode —
+  un-deferred `binary-search-tree-iterator` (the §4b Tier-B exclusion above).
+- **New judges**: `round_trip` (codecs: `decode(encode(x))` canonicalized) and
+  `property` (randomized outputs validated by a pack-shipped op-replay validator;
+  build cross-check runs every implementation through the validator instead of
+  byte comparison).
+- **Injected shims**: `iterator`, `nested_integer`, `custom_function`,
+  `master_guess`, `mountain_array`, `is_bad_version`, `guess_oracle`, `rand7`
+  (deterministic LCG) — with call-budget enforcement and JS stub currying.
+- **`maximum-path-intersection-sum-in-a-grid`** (the Wave-19/20 hard-algorithm
+  defer): resolved with the exact column-interval DP — state after each column is
+  both players' exit rows; each column's shared cells are one interval overlap.
+  O(n·m⁴) with small pack sizes (≤12 rows, ≤144 cells); anchors against both
+  statement examples and a brute-force path-pair oracle.
+
+**Concurrency six — closed in the follow-up sweep** (`concurrency` judge):
+`print-in-order` `print-foobar-alternately` `print-zero-even-odd` `building-h2o`
+`fizz-buzz-multithreaded` `the-dining-philosophers`. Python-only packs
+(`languages: ["python"]` — JS has no shared-memory threads; the `oracle_python`,
+a differently-synchronized second implementation, replaces the JS differential).
+A pack-shipped driver spawns real threads (barrier start, daemon threads, join
+watchdog) and records the event sequence; a pack-shipped validator judges it.
+The harness amplifies races: 10µs GIL switch interval, random jitter inside
+every recorded event, and repeated runs per case — the same judging model
+leetcode.com applies to these problems, hardened per the systematic-concurrency-
+testing literature (noise injection / bug amplification). Honest limit, recorded:
+run-based judging samples interleavings, it cannot PROVE race-freedom — but a
+correct solution can never flake (validators check the logical sequence only),
+and deadlocks surface as explained failures in ~1s, never hangs.
+**The catalog now stands at 3,026/3,026 packs — the 48.md gap is fully closed.**
 
 ### Wave 1 notes
 

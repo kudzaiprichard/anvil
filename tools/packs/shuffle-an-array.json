@@ -1,0 +1,213 @@
+{
+  "slug": "shuffle-an-array",
+  "judge": {
+    "type": "property",
+    "validator_python": "def validate(args, outputs):\n    ops, arg_lists = args\n    if not isinstance(outputs, list) or len(outputs) != len(ops):\n        return False\n    original = arg_lists[0][0]\n    sorted_original = sorted(original)\n    for i in range(1, len(ops)):\n        op, out = ops[i], outputs[i]\n        if op == 'reset':\n            if out != original:\n                return False\n        elif op == 'shuffle':\n            if not isinstance(out, list) or len(out) != len(original):\n                return False\n            if sorted(out) != sorted_original:\n                return False\n    return True\n",
+    "validator_javascript": "function validate(args, outputs) {\n  const [ops, argLists] = args;\n  if (!Array.isArray(outputs) || outputs.length !== ops.length) return false;\n  const original = argLists[0][0];\n  const sortedOriginal = [...original].sort((a, b) => a - b);\n  const arraysEqual = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);\n  for (let i = 1; i < ops.length; i++) {\n    const op = ops[i], out = outputs[i];\n    if (op === 'reset') {\n      if (!Array.isArray(out) || !arraysEqual(out, original)) return false;\n    } else if (op === 'shuffle') {\n      if (!Array.isArray(out) || out.length !== original.length) return false;\n      const sortedOut = [...out].sort((a, b) => a - b);\n      if (!arraysEqual(sortedOut, sortedOriginal)) return false;\n    }\n  }\n  return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "A shuffle only needs to be verifiably fair, not reproducible in any particular order — Fisher-Yates swaps each position with a uniformly chosen remaining one in a single backward pass, and reset just restores the array you started with.",
+  "hints": [
+    "Keep the constructor's array untouched somewhere so reset can hand it back byte-for-byte, no matter how many shuffles happened in between.",
+    "shuffle should work on a separate working copy, walking from the last index to the first.",
+    "At position i, swap the element there with a uniformly random element chosen among positions 0..i (inclusive) — that single backward pass is Fisher-Yates and produces every permutation with equal probability."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        1,
+        50
+      ],
+      "value": [
+        -1000000,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "shuffle then reset then shuffle again — reset must restore the exact original order",
+      "input": [
+        [
+          "Solution",
+          "shuffle",
+          "reset",
+          "shuffle",
+          "reset"
+        ],
+        [
+          [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-element array — shuffle and reset both have only one possible output",
+      "input": [
+        [
+          "Solution",
+          "shuffle",
+          "reset",
+          "shuffle"
+        ],
+        [
+          [
+            [
+              42
+            ]
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate values — a shuffled output must be a permutation of the multiset, not merely contain the same distinct values",
+      "input": [
+        [
+          "Solution",
+          "shuffle",
+          "shuffle",
+          "reset"
+        ],
+        [
+          [
+            [
+              2,
+              2,
+              3
+            ]
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "negative and mixed-sign values",
+      "input": [
+        [
+          "Solution",
+          "shuffle",
+          "reset"
+        ],
+        [
+          [
+            [
+              -5,
+              0,
+              5,
+              10
+            ]
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "reset called as the very first operation, before any shuffle",
+      "input": [
+        [
+          "Solution",
+          "reset",
+          "shuffle"
+        ],
+        [
+          [
+            [
+              9,
+              1,
+              4
+            ]
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "several shuffles in a row with no intervening reset — each must independently be a full permutation of the original",
+      "input": [
+        [
+          "Solution",
+          "shuffle",
+          "shuffle",
+          "shuffle",
+          "shuffle",
+          "reset"
+        ],
+        [
+          [
+            [
+              1,
+              2,
+              3,
+              4,
+              5
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme constraint values at max magnitude",
+      "input": [
+        [
+          "Solution",
+          "shuffle",
+          "reset"
+        ],
+        [
+          [
+            [
+              -1000000,
+              1000000,
+              0
+            ]
+          ],
+          [],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random-size array with an interleaved random sequence of shuffle/reset calls",
+      "seed": 84,
+      "size": 50,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 50)))\n    nums = [rng.randint(-1000000, 1000000) for _ in range(n)]\n    ops = ['Solution']\n    args = [[nums]]\n    calls = max(1, min(size, 50))\n    for _ in range(calls):\n        if rng.random() < 0.5:\n            ops.append('shuffle')\n        else:\n            ops.append('reset')\n        args.append([])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "import random\n\n\nclass Solution:\n    def __init__(self, nums):\n        self.original = list(nums)\n    def reset(self):\n        return list(self.original)\n    def shuffle(self):\n        return random.sample(self.original, len(self.original))\n",
+  "solutions": {
+    "python": "import random\n\n\nclass Solution:\n    def __init__(self, nums):\n        self.original = list(nums)\n        self.array = list(nums)\n    def reset(self):\n        self.array = list(self.original)\n        return list(self.array)\n    def shuffle(self):\n        for i in range(len(self.array) - 1, 0, -1):\n            j = random.randint(0, i)\n            self.array[i], self.array[j] = self.array[j], self.array[i]\n        return list(self.array)\n",
+    "javascript": "var Solution = function(nums) {\n    this.original = nums.slice();\n    this.array = nums.slice();\n};\nSolution.prototype.reset = function() {\n    this.array = this.original.slice();\n    return this.array.slice();\n};\nSolution.prototype.shuffle = function() {\n    for (let i = this.array.length - 1; i > 0; i--) {\n        const j = Math.floor(Math.random() * (i + 1));\n        const tmp = this.array[i];\n        this.array[i] = this.array[j];\n        this.array[j] = tmp;\n    }\n    return this.array.slice();\n};\n"
+  }
+}

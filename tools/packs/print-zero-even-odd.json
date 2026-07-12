@@ -1,0 +1,78 @@
+{
+  "slug": "print-zero-even-odd",
+  "judge": {
+    "type": "concurrency",
+    "runs": 6,
+    "driver_python": "import threading\nimport time\n\nWATCHDOG_S = 1.0\n\n\ndef _run(targets):\n    errors = []\n    barrier = threading.Barrier(len(targets) + 1)\n\n    def wrap(fn):\n        def go():\n            try:\n                barrier.wait()\n                fn()\n            except BaseException as exc:  # noqa: BLE001 - relayed below\n                errors.append(exc)\n        return go\n\n    threads = [threading.Thread(target=wrap(t), daemon=True) for t in targets]\n    for t in threads:\n        t.start()\n    barrier.wait()\n    deadline = time.monotonic() + WATCHDOG_S\n    for t in threads:\n        t.join(max(0.0, deadline - time.monotonic()))\n    if errors:\n        raise errors[0]\n    if any(t.is_alive() for t in threads):\n        raise RuntimeError(\n            \"threads did not finish within the watchdog - deadlock or a missed signal\"\n        )\ndef drive(cls, args, record):\n    inst = cls(args[0])\n    _run([\n        lambda: inst.zero(lambda x: record(x)),\n        lambda: inst.even(lambda x: record(x)),\n        lambda: inst.odd(lambda x: record(x)),\n    ])\n",
+    "validator_python": "def validate(args, events):\n    expected = []\n    for i in range(1, args[0] + 1):\n        expected.append(0)\n        expected.append(i)\n    return events == expected\n"
+  },
+  "languages": [
+    "python"
+  ],
+  "no_anchor_ok": true,
+  "pattern": "Three-way turn-taking generalizes the two-gate handoff: the zero thread is the dispatcher, opening the odd or even gate based on the number it just preceded.",
+  "hints": [
+    "The zero thread runs n times, but odd and even each run only about n/2 — size their loops before thinking about locks.",
+    "Zero should decide who goes next: after printing 0 for the i-th time, open odd's gate when i is odd, even's when i is even.",
+    "Both number threads hand control back to zero after printing — three semaphores, zero's initialized open."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "n = 1 — the even thread must exit without printing",
+      "input": [
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "n = 2 — one number each",
+      "input": [
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "n = 5 — odd finishes after even",
+      "input": [
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "n = 10 — repeated handoffs both directions",
+      "input": [
+        10
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "n = 15 under jitter",
+      "input": [
+        15
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random n",
+      "seed": 43,
+      "size": 20,
+      "generator_python": "def gen(rng, size):\n    return [rng.randint(1, max(1, min(size, 20)))]\n"
+    }
+  ],
+  "oracle_python": "import threading\n\n\nclass ZeroEvenOdd:\n    def __init__(self, n):\n        self.n = n\n        self.state = \"zero\"\n        self.i = 1\n        self.cv = threading.Condition()\n\n    def zero(self, printNumber):\n        for _ in range(self.n):\n            with self.cv:\n                self.cv.wait_for(lambda: self.state == \"zero\")\n                printNumber(0)\n                self.state = \"odd\" if self.i % 2 == 1 else \"even\"\n                self.cv.notify_all()\n\n    def even(self, printNumber):\n        for _ in range(self.n // 2):\n            with self.cv:\n                self.cv.wait_for(lambda: self.state == \"even\")\n                printNumber(self.i)\n                self.i += 1\n                self.state = \"zero\"\n                self.cv.notify_all()\n\n    def odd(self, printNumber):\n        for _ in range((self.n + 1) // 2):\n            with self.cv:\n                self.cv.wait_for(lambda: self.state == \"odd\")\n                printNumber(self.i)\n                self.i += 1\n                self.state = \"zero\"\n                self.cv.notify_all()\n",
+  "solutions": {
+    "python": "import threading\n\n\nclass ZeroEvenOdd:\n    def __init__(self, n):\n        self.n = n\n        self.zero_gate = threading.Semaphore(1)\n        self.even_gate = threading.Semaphore(0)\n        self.odd_gate = threading.Semaphore(0)\n\n    def zero(self, printNumber):\n        for i in range(1, self.n + 1):\n            self.zero_gate.acquire()\n            printNumber(0)\n            if i % 2 == 1:\n                self.odd_gate.release()\n            else:\n                self.even_gate.release()\n\n    def even(self, printNumber):\n        for i in range(2, self.n + 1, 2):\n            self.even_gate.acquire()\n            printNumber(i)\n            self.zero_gate.release()\n\n    def odd(self, printNumber):\n        for i in range(1, self.n + 1, 2):\n            self.odd_gate.acquire()\n            printNumber(i)\n            self.zero_gate.release()\n"
+  }
+}

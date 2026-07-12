@@ -1,0 +1,78 @@
+{
+  "slug": "print-foobar-alternately",
+  "judge": {
+    "type": "concurrency",
+    "runs": 6,
+    "driver_python": "import threading\nimport time\n\nWATCHDOG_S = 1.0\n\n\ndef _run(targets):\n    errors = []\n    barrier = threading.Barrier(len(targets) + 1)\n\n    def wrap(fn):\n        def go():\n            try:\n                barrier.wait()\n                fn()\n            except BaseException as exc:  # noqa: BLE001 - relayed below\n                errors.append(exc)\n        return go\n\n    threads = [threading.Thread(target=wrap(t), daemon=True) for t in targets]\n    for t in threads:\n        t.start()\n    barrier.wait()\n    deadline = time.monotonic() + WATCHDOG_S\n    for t in threads:\n        t.join(max(0.0, deadline - time.monotonic()))\n    if errors:\n        raise errors[0]\n    if any(t.is_alive() for t in threads):\n        raise RuntimeError(\n            \"threads did not finish within the watchdog - deadlock or a missed signal\"\n        )\ndef drive(cls, args, record):\n    inst = cls(args[0])\n    _run([\n        lambda: inst.foo(lambda: record(\"foo\")),\n        lambda: inst.bar(lambda: record(\"bar\")),\n    ])\n",
+    "validator_python": "def validate(args, events):\n    return events == [\"foo\", \"bar\"] * args[0]\n"
+  },
+  "languages": [
+    "python"
+  ],
+  "no_anchor_ok": true,
+  "pattern": "Strict alternation between two threads is a pair of gates: each thread's print opens the other's gate and then waits for its own to reopen.",
+  "hints": [
+    "A shared boolean checked in a busy loop wastes CPU and still races between the check and the print.",
+    "Give each thread its own semaphore; foo's starts open, bar's starts closed.",
+    "After printing, release the OTHER thread's semaphore, then loop back to acquire your own — n rounds each."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "single round",
+      "input": [
+        1
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two rounds",
+      "input": [
+        2
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "five rounds",
+      "input": [
+        5
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "enough rounds to expose a missed handoff",
+      "input": [
+        12
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "longer alternation under jitter",
+      "input": [
+        25
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random round counts",
+      "seed": 41,
+      "size": 30,
+      "generator_python": "def gen(rng, size):\n    return [rng.randint(1, max(1, min(size, 30)))]\n"
+    }
+  ],
+  "oracle_python": "import threading\n\n\nclass FooBar:\n    def __init__(self, n):\n        self.n = n\n        self.turn_foo = True\n        self.cv = threading.Condition()\n\n    def foo(self, printFoo):\n        for _ in range(self.n):\n            with self.cv:\n                self.cv.wait_for(lambda: self.turn_foo)\n                printFoo()\n                self.turn_foo = False\n                self.cv.notify_all()\n\n    def bar(self, printBar):\n        for _ in range(self.n):\n            with self.cv:\n                self.cv.wait_for(lambda: not self.turn_foo)\n                printBar()\n                self.turn_foo = True\n                self.cv.notify_all()\n",
+  "solutions": {
+    "python": "import threading\n\n\nclass FooBar:\n    def __init__(self, n):\n        self.n = n\n        self.foo_gate = threading.Semaphore(1)\n        self.bar_gate = threading.Semaphore(0)\n\n    def foo(self, printFoo):\n        for _ in range(self.n):\n            self.foo_gate.acquire()\n            printFoo()\n            self.bar_gate.release()\n\n    def bar(self, printBar):\n        for _ in range(self.n):\n            self.bar_gate.acquire()\n            printBar()\n            self.foo_gate.release()\n"
+  }
+}

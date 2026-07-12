@@ -96,6 +96,10 @@ def _harness_meta(
     entry_point: Optional[str],
     judge_type: str,
     io_types: Optional[dict] = None,
+    design_io: Optional[dict] = None,
+    round_trip: Optional[dict] = None,
+    property_exec: Optional[str] = None,
+    concurrency_runs: Optional[int] = None,
 ) -> dict:
     """Mirror of `runner::compute_outputs`'s meta.json construction.
 
@@ -112,6 +116,25 @@ def _harness_meta(
         meta["arg_index"] = 0
     elif judge_type == "design":
         meta["mode"] = "design"
+        if design_io:
+            meta["design_io"] = design_io
+    elif judge_type == "round_trip":
+        meta["mode"] = "round_trip"
+        meta["round_trip"] = round_trip or {}
+    elif judge_type == "property":
+        # Reference-output computation never involves a validator: run as a
+        # plain design/call so the (randomized) outputs can be produced; the
+        # engine validates them in-process afterwards.
+        if (property_exec or "design") == "design":
+            meta["mode"] = "design"
+            if design_io:
+                meta["design_io"] = design_io
+    elif judge_type == "concurrency":
+        # Same principle: the driver records sample sequences; the engine
+        # validates them in-process. run_harness writes driver.py.
+        meta["mode"] = "concurrency"
+        meta["driver_file"] = "driver.py"
+        meta["runs"] = concurrency_runs or 6
     if io_types:
         meta["io_types"] = io_types
     return meta
@@ -127,6 +150,11 @@ def run_harness(
     arg_index: int = 0,
     timeout_s: float = 10.0,
     io_types: Optional[dict] = None,
+    design_io: Optional[dict] = None,
+    round_trip: Optional[dict] = None,
+    property_exec: Optional[str] = None,
+    driver_python: Optional[str] = None,
+    concurrency_runs: Optional[int] = None,
 ) -> list[Any]:
     """Executes `code` against each positional-arg input list and returns the
     raw outputs in order. Raises HarnessError on any failure (mirrors
@@ -143,7 +171,7 @@ def run_harness(
         raise ValueError(f"unknown language {lang!r}")
 
     harness_src = (HARNESS_DIR / harness_file).read_text(encoding="utf-8")
-    meta = _harness_meta(lang, entry_point, judge_type, io_types)
+    meta = _harness_meta(lang, entry_point, judge_type, io_types, design_io, round_trip, property_exec, concurrency_runs)
     if judge_type == "in_place":
         meta["arg_index"] = arg_index
 
@@ -151,6 +179,10 @@ def run_harness(
         dp = Path(d)
         (dp / solution_file).write_text(code + suffix, encoding="utf-8")
         (dp / harness_file).write_text(harness_src, encoding="utf-8")
+        if judge_type == "concurrency":
+            if lang != "python":
+                raise ValueError("concurrency packs are python-only")
+            (dp / "driver.py").write_text(driver_python or "", encoding="utf-8")
         if meta:
             (dp / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
         cases = [{"index": i + 1, "args": args} for i, args in enumerate(inputs)]
@@ -198,6 +230,11 @@ def compute_expected(
     judge_type: str,
     inputs: list[list[Any]],
     io_types: Optional[dict] = None,
+    design_io: Optional[dict] = None,
+    round_trip: Optional[dict] = None,
+    property_exec: Optional[str] = None,
+    driver_python: Optional[str] = None,
+    concurrency_runs: Optional[int] = None,
 ) -> list[Any]:
     """Compute expected outputs by EXECUTING the reference Python solution.
 
@@ -213,6 +250,11 @@ def compute_expected(
         judge_type,
         inputs,
         io_types=io_types,
+        design_io=design_io,
+        round_trip=round_trip,
+        property_exec=property_exec,
+        driver_python=driver_python,
+        concurrency_runs=concurrency_runs,
     )
 
 
@@ -474,7 +516,13 @@ def _example_blocks(body_text: str) -> list[tuple[Optional[str], Optional[str]]]
 # Judge classification (CONTENT_DESIGN.md §4) — mechanical sanity checks
 # ---------------------------------------------------------------------------
 
-JUDGE_TYPES = {"exact", "unordered", "float", "in_place", "any_valid", "design"}
+JUDGE_TYPES = {
+    "exact", "unordered", "float", "in_place", "any_valid", "design",
+    # closing-the-48 Phase C
+    "round_trip", "property",
+    # closing-the-48 concurrency (python-only packs)
+    "concurrency",
+}
 
 
 def mechanical_judge_hint(python_stub: str, body_text: str) -> Optional[str]:
@@ -646,7 +694,13 @@ def verify_and_build(
     sol_py = gen.get("solution_python", "")
     sol_js = gen.get("solution_javascript", "")
     brute = gen.get("solution_python_brute")
-    if not sol_py or not sol_js:
+    # Single-language packs (closing-the-48): `languages` lists the runnable
+    # languages this pack ships. Python is always required — it is the
+    # expected-value source; javascript is skipped when not listed
+    # (concurrency packs — JS has no shared-memory threads).
+    languages = gen.get("languages") or ["python", "javascript"]
+    wants_js = "javascript" in languages
+    if not sol_py or (wants_js and not sol_js):
         return VerifyResult(False, "missing reference solution(s)")
 
     entry = derive_entry_point(
@@ -658,21 +712,48 @@ def verify_and_build(
 
     # Node I/O types (task 0003): when present, the harness (de)serializes
     # ListNode/TreeNode params + return at the call boundary. Validate shape.
+    # `design_io` is the design-mode counterpart (closing-the-48 Phase A);
+    # `round_trip`/`property_exec` configure the Phase C judge modes.
+    design_io = gen.get("design_io") if judge in ("design", "property") else None
+    round_trip = gen.get("round_trip") if judge == "round_trip" else None
+    property_exec = gen.get("property_exec") if judge == "property" else None
+    driver_python = gen.get("driver_python") if judge == "concurrency" else None
+    concurrency_runs = gen.get("concurrency_runs") if judge == "concurrency" else None
+    if judge == "round_trip" and not round_trip:
+        return VerifyResult(False, "round_trip pack needs {io, encode, decode}")
+    if judge == "concurrency":
+        if not driver_python:
+            return VerifyResult(False, "concurrency pack needs driver_python")
+        if wants_js:
+            return VerifyResult(False, "concurrency packs are python-only — set languages: [python]")
     io_types = gen.get("io_types")
     if io_types is not None:
         if not isinstance(io_types, dict) or "params" not in io_types or "returns" not in io_types:
             return VerifyResult(False, "io_types must be {params: [...], returns: ...}")
-        if len(io_types["params"]) != entry.arity:
+        # ctx_only params and global-installed shims are built for judging /
+        # injection but never passed, so they don't count toward the stub's
+        # arity (closing-the-48 Phases B and D).
+        def _is_passed(t):
+            if isinstance(t, dict) and "ctx_only" in t:
+                return False
+            if isinstance(t, dict) and isinstance(t.get("shim"), dict):
+                return t["shim"].get("kind") not in ("is_bad_version", "guess_oracle", "rand7")
+            return True
+
+        passed_params = [t for t in io_types["params"] if _is_passed(t)]
+        if len(passed_params) != entry.arity:
             return VerifyResult(
                 False,
-                f"io_types.params has {len(io_types['params'])} entries but the stub arity is {entry.arity}",
+                f"io_types.params passes {len(passed_params)} args but the stub arity is {entry.arity}",
             )
 
     # 1. Anchor: the optimal solution must reproduce every statement example.
-    anchor_inputs = [a[0] for a in anchors]
+    # Property/concurrency packs have nothing to anchor — outputs are
+    # legitimately different run to run.
+    anchor_inputs = [a[0] for a in anchors] if judge not in ("property", "concurrency") else []
     if anchor_inputs:
         try:
-            got = compute_expected(sol_py, entry, judge, anchor_inputs, io_types)
+            got = compute_expected(sol_py, entry, judge, anchor_inputs, io_types, design_io, round_trip, property_exec)
         except HarnessError as e:
             return VerifyResult(False, f"optimal solution failed to run on examples: {e}")
         for (args, expected), actual in zip(anchors, got):
@@ -711,32 +792,78 @@ def verify_and_build(
 
     # 3. expected = optimal Python via the harness (the ONLY expected source).
     try:
-        expected = compute_expected(sol_py, entry, judge, inputs, io_types)
+        expected = compute_expected(sol_py, entry, judge, inputs, io_types, design_io, round_trip, property_exec, driver_python, concurrency_runs)
     except HarnessError as e:
         return VerifyResult(False, f"optimal solution crashed on a generated input: {e}")
+
+    # Property/concurrency packs: byte equality is meaningless for outputs
+    # that legitimately vary run to run, so the differential check becomes
+    # "every implementation's outputs satisfy the pack validator" — run
+    # in-process (the validator is our own code).
+    prop_validate = None
+    if judge == "concurrency":
+        vp = gen.get("validator_python")
+        if not vp:
+            return VerifyResult(False, "concurrency pack missing a validator")
+        try:
+            prop_validate = _load_python_validator(vp)
+        except Exception as e:  # noqa: BLE001 - authoring error, fail closed
+            return VerifyResult(False, f"concurrency validator failed to load: {e}")
+        for inp, out in zip(inputs, expected):
+            if not prop_validate(inp, out):
+                return VerifyResult(
+                    False, f"optimal solution's thread sequence fails its own validator on {inp!r}: {out!r}"
+                )
+    if judge == "property":
+        vp = gen.get("validator_python")
+        vj = gen.get("validator_javascript")
+        if not vp or not vj:
+            return VerifyResult(False, "property pack missing a validator")
+        try:
+            prop_validate = _load_python_validator(vp)
+        except Exception as e:  # noqa: BLE001 - authoring error, fail closed
+            return VerifyResult(False, f"property validator failed to load: {e}")
+        for inp, out in zip(inputs, expected):
+            if not prop_validate(inp, out):
+                return VerifyResult(
+                    False, f"optimal solution's output fails its own validator on {inp!r}: {out!r}"
+                )
 
     # 4. Brute-force oracle must agree on every literal input (differential).
     if brute:
         try:
-            brute_out = run_harness("python", brute, entry.python, judge, inputs, io_types=io_types)
+            brute_out = run_harness("python", brute, entry.python, judge, inputs, io_types=io_types, design_io=design_io, round_trip=round_trip, property_exec=property_exec, driver_python=driver_python, concurrency_runs=concurrency_runs)
         except HarnessError as e:
             return VerifyResult(False, f"brute force crashed: {e}")
         for inp, a, b in zip(inputs, expected, brute_out):
-            if not values_agree(judge, a, b):
+            if prop_validate is not None:
+                if not prop_validate(inp, b):
+                    return VerifyResult(False, f"brute force output fails the validator on {inp!r}: {b!r}")
+            elif not values_agree(judge, a, b):
                 return VerifyResult(
                     False, f"brute force disagrees on {inp!r}: {a!r} vs {b!r}"
                 )
 
-    # 5. Cross-language: JavaScript must agree with Python on everything.
-    try:
-        js_out = run_harness("javascript", sol_js, entry.javascript, judge, inputs, io_types=io_types)
-    except HarnessError as e:
-        return VerifyResult(False, f"javascript solution crashed: {e}")
-    for inp, a, b in zip(inputs, expected, js_out):
-        if not values_agree(judge, a, b):
-            return VerifyResult(
-                False, f"javascript disagrees on {inp!r}: {a!r} vs {b!r}"
-            )
+    # 5. Cross-language: JavaScript must agree with Python on everything
+    #    (for property packs: must independently satisfy the validator).
+    #    Skipped for single-language packs — the oracle differential above is
+    #    then the required second implementation.
+    if wants_js:
+        try:
+            js_out = run_harness("javascript", sol_js, entry.javascript, judge, inputs, io_types=io_types, design_io=design_io, round_trip=round_trip, property_exec=property_exec)
+        except HarnessError as e:
+            return VerifyResult(False, f"javascript solution crashed: {e}")
+        for inp, a, b in zip(inputs, expected, js_out):
+            if prop_validate is not None:
+                if not prop_validate(inp, b):
+                    return VerifyResult(False, f"javascript output fails the validator on {inp!r}: {b!r}")
+            elif not values_agree(judge, a, b):
+                return VerifyResult(
+                    False, f"javascript disagrees on {inp!r}: {a!r} vs {b!r}"
+                )
+    elif not brute:
+        # No JS and no oracle would leave a single implementation unchecked.
+        return VerifyResult(False, "single-language packs must ship an oracle_python for the differential")
 
     # 6. any_valid: the validator must accept the reference output and reject a
     #    corrupted one (sanity check the shipped validator).
@@ -768,14 +895,30 @@ def verify_and_build(
         "stress": _clean_stress(gen.get("stress", []) or []),
         "solutions": {
             "python": sol_py,
-            "javascript": sol_js,
+            **({"javascript": sol_js} if wants_js else {}),
             **({"brute_force_python": brute} if brute else {}),
             **({"complexity": gen["complexity"]} if gen.get("complexity") else {}),
         },
+        # Statement examples are only usable as runtime visible cases when the
+        # build actually anchored against them — anchoring proves the wire
+        # format and the statement encoding agree. Property packs never anchor
+        # (randomized outputs). Absent ⇒ true (old packs).
+        **({"examples_ok": False} if (not anchors or judge == "property") else {}),
         "verified": True,
         "generated_at": _now_iso(),
     }
     return VerifyResult(True, pack=pack)
+
+
+def _load_python_validator(source: str):
+    """Load a pack validator's `validate(args, output)` from source — our own
+    pack-shipped code, exercised in-process for the property cross-check."""
+    ns: dict = {}
+    exec(compile(source, "validator.py", "exec"), ns)  # noqa: S102 - pack code, not user code
+    validate = ns.get("validate")
+    if not callable(validate):
+        raise ValueError("validator defines no validate(args, output)")
+    return validate
 
 
 def _judge_obj(judge: str, gen: dict) -> dict:
@@ -787,6 +930,24 @@ def _judge_obj(judge: str, gen: dict) -> dict:
     elif judge == "any_valid":
         obj["validator_python"] = gen.get("validator_python", "")
         obj["validator_javascript"] = gen.get("validator_javascript", "")
+    elif judge == "design" and gen.get("design_io"):
+        obj["design_io"] = gen["design_io"]
+    elif judge == "round_trip":
+        rt = gen.get("round_trip") or {}
+        obj["io"] = rt.get("io", "json")
+        obj["encode"] = rt.get("encode", "encode")
+        obj["decode"] = rt.get("decode", "decode")
+    elif judge == "property":
+        obj["validator_python"] = gen.get("validator_python", "")
+        obj["validator_javascript"] = gen.get("validator_javascript", "")
+        if gen.get("property_exec", "design") != "design":
+            obj["exec"] = gen["property_exec"]
+        if gen.get("design_io"):
+            obj["design_io"] = gen["design_io"]
+    elif judge == "concurrency":
+        obj["driver_python"] = gen.get("driver_python", "")
+        obj["validator_python"] = gen.get("validator_python", "")
+        obj["runs"] = gen.get("concurrency_runs") or 6
     return obj
 
 

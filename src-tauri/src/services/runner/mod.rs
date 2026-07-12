@@ -80,8 +80,11 @@ fn harness_meta(problem: &Problem, language: Language, judge: &Judge) -> Option<
             meta.insert("mode".into(), serde_json::json!("in_place"));
             meta.insert("arg_index".into(), serde_json::json!(arg_index));
         }
-        Judge::Design => {
+        Judge::Design { design_io } => {
             meta.insert("mode".into(), serde_json::json!("design"));
+            if let Some(io) = design_io {
+                meta.insert("design_io".into(), serde_json::json!(io));
+            }
         }
         Judge::AnyValid { .. } => {
             meta.insert("mode".into(), serde_json::json!("any_valid"));
@@ -90,6 +93,33 @@ fn harness_meta(problem: &Problem, language: Language, judge: &Judge) -> Option<
                 Language::Javascript => "validator.js",
             };
             meta.insert("validator_file".into(), serde_json::json!(file));
+        }
+        Judge::RoundTrip { io, encode, decode } => {
+            meta.insert("mode".into(), serde_json::json!("round_trip"));
+            meta.insert(
+                "round_trip".into(),
+                serde_json::json!({ "io": io, "encode": encode, "decode": decode }),
+            );
+        }
+        Judge::Property {
+            exec, design_io, ..
+        } => {
+            meta.insert("mode".into(), serde_json::json!("property"));
+            meta.insert("exec".into(), serde_json::json!(exec));
+            if let Some(io) = design_io {
+                meta.insert("design_io".into(), serde_json::json!(io));
+            }
+            let file = match language {
+                Language::Python => "validator.py",
+                Language::Javascript => "validator.js",
+            };
+            meta.insert("validator_file".into(), serde_json::json!(file));
+        }
+        Judge::Concurrency { runs, .. } => {
+            meta.insert("mode".into(), serde_json::json!("concurrency"));
+            meta.insert("runs".into(), serde_json::json!(runs));
+            meta.insert("driver_file".into(), serde_json::json!("driver.py"));
+            meta.insert("validator_file".into(), serde_json::json!("validator.py"));
         }
         Judge::Exact | Judge::Unordered | Judge::Float { .. } => {}
     }
@@ -128,21 +158,48 @@ pub fn execute_with_program(
         .collect();
     let total = selected.len() as u32;
 
+    let judge = problem.effective_judge();
+    // Concurrency packs are Python-only (JS has no shared-memory threads);
+    // the UI hides the toggle, this is the backstop.
+    if matches!(judge, Judge::Concurrency { .. }) && language == Language::Javascript {
+        return Ok(error_result(
+            total,
+            "This problem is Python-only — JavaScript has no shared-memory threads.".into(),
+        ));
+    }
+
     // RAII guard: the temp dir is removed on every exit path, kill included.
     let dir = tempfile::tempdir()?;
     let mut solution = code.to_string();
     solution.push_str(spec.solution_suffix);
     std::fs::write(dir.path().join(spec.solution_filename), solution)?;
     std::fs::write(dir.path().join(spec.harness_filename), spec.harness_source)?;
-    let judge = problem.effective_judge();
     if let Some(meta) = harness_meta(problem, language, &judge) {
         std::fs::write(dir.path().join("meta.json"), meta.to_string())?;
     }
-    if let Judge::AnyValid {
+    if let Judge::Concurrency {
+        driver_python,
         validator_python,
-        validator_javascript,
+        ..
     } = &judge
     {
+        // Pack-shipped thread driver + validator — our code, never the user's.
+        std::fs::write(dir.path().join("driver.py"), driver_python)?;
+        std::fs::write(dir.path().join("validator.py"), validator_python)?;
+    }
+    let validator_pair = match &judge {
+        Judge::AnyValid {
+            validator_python,
+            validator_javascript,
+        }
+        | Judge::Property {
+            validator_python,
+            validator_javascript,
+            ..
+        } => Some((validator_python, validator_javascript)),
+        _ => None,
+    };
+    if let Some((validator_python, validator_javascript)) = validator_pair {
         // Pack-shipped validator — our code, never anything from the
         // imported file (CONTENT_DESIGN.md §4).
         let (file, mut source) = match language {
@@ -169,7 +226,12 @@ pub fn execute_with_program(
             .map_err(|e| AppError::Runner(format!("failed to encode cases: {e}")))?,
     )?;
 
-    let guards = Guards::default();
+    let mut guards = Guards::default();
+    if matches!(judge, Judge::Concurrency { .. }) {
+        // The concurrency judge legitimately needs threads; on Linux the
+        // RLIMIT_NPROC task cap would forbid them (see sandbox::Guards).
+        guards.cap_tasks = false;
+    }
     let mut cmd = Command::new(program);
     cmd.args(spec.args)
         .arg(spec.harness_filename)
@@ -330,8 +392,43 @@ pub fn compute_outputs(
             meta.insert("mode".into(), serde_json::json!("in_place"));
             meta.insert("arg_index".into(), serde_json::json!(arg_index));
         }
-        Judge::Design => {
+        Judge::Design { design_io } => {
             meta.insert("mode".into(), serde_json::json!("design"));
+            if let Some(io) = design_io {
+                meta.insert("design_io".into(), serde_json::json!(io));
+            }
+        }
+        // Reference-output computation never involves a validator: a
+        // property pack executes as a plain design/call so its (randomized)
+        // outputs can be produced; validity is judged elsewhere.
+        Judge::Property {
+            exec, design_io, ..
+        } => {
+            if exec.is_design() {
+                meta.insert("mode".into(), serde_json::json!("design"));
+                if let Some(io) = design_io {
+                    meta.insert("design_io".into(), serde_json::json!(io));
+                }
+            }
+        }
+        Judge::RoundTrip { io, encode, decode } => {
+            meta.insert("mode".into(), serde_json::json!("round_trip"));
+            meta.insert(
+                "round_trip".into(),
+                serde_json::json!({ "io": io, "encode": encode, "decode": decode }),
+            );
+        }
+        // Reference-output computation: the driver runs the threads but no
+        // validator is written, so the harness just records a sample sequence.
+        Judge::Concurrency {
+            driver_python,
+            runs,
+            ..
+        } => {
+            meta.insert("mode".into(), serde_json::json!("concurrency"));
+            meta.insert("runs".into(), serde_json::json!(runs));
+            meta.insert("driver_file".into(), serde_json::json!("driver.py"));
+            std::fs::write(dir.path().join("driver.py"), driver_python)?;
         }
         _ => {}
     }
@@ -353,7 +450,10 @@ pub fn compute_outputs(
             .map_err(|e| AppError::Runner(format!("failed to encode cases: {e}")))?,
     )?;
 
-    let guards = Guards::default();
+    let mut guards = Guards::default();
+    if matches!(judge, Judge::Concurrency { .. }) {
+        guards.cap_tasks = false;
+    }
     let mut cmd = Command::new(program);
     cmd.args(spec.args)
         .arg(spec.harness_filename)
@@ -546,7 +646,12 @@ fn memory_limit_message(guards: &Guards) -> String {
 /// `any_valid` trusts the pack validator's verdict from the harness line.
 fn case_passes(judge: &Judge, line: &HarnessLine, expected: &serde_json::Value) -> bool {
     match judge {
-        Judge::Exact | Judge::InPlace { .. } | Judge::Design => line.output == *expected,
+        Judge::Exact | Judge::InPlace { .. } | Judge::Design { .. } | Judge::RoundTrip { .. } => {
+            line.output == *expected
+        }
+        // The validator's per-case verdict is the whole judgment — outputs
+        // are legitimately different run to run.
+        Judge::Property { .. } | Judge::Concurrency { .. } => line.valid == Some(true),
         Judge::Unordered => unordered_match(&line.output, expected),
         Judge::Float { epsilon } => float_match(&line.output, expected, *epsilon),
         Judge::AnyValid { .. } => line.valid == Some(true),
@@ -781,8 +886,14 @@ mod tests {
             harness_meta(&with_ep, Language::Python, &Judge::InPlace { arg_index: 1 }).unwrap();
         assert_eq!(meta["mode"], "in_place");
         assert_eq!(meta["arg_index"], 1);
-        let meta = harness_meta(&problem, Language::Javascript, &Judge::Design).unwrap();
+        let meta = harness_meta(
+            &problem,
+            Language::Javascript,
+            &Judge::Design { design_io: None },
+        )
+        .unwrap();
         assert_eq!(meta["mode"], "design");
+        assert!(meta.get("design_io").is_none());
         // float is judged Rust-side — no meta needed
         assert!(
             harness_meta(&problem, Language::Python, &Judge::Float { epsilon: 1e-5 }).is_none()

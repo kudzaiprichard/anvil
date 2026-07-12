@@ -1,0 +1,287 @@
+{
+  "slug": "flatten-nested-list-iterator",
+  "judge": {
+    "type": "design",
+    "design_io": {
+      "ctor": [
+        {
+          "shim": {
+            "kind": "nested_integer"
+          }
+        }
+      ]
+    }
+  },
+  "no_anchor_ok": true,
+  "pattern": "Keeping the unexplored suffix of the structure on a stack, and only unpacking a list when its turn actually arrives, turns arbitrarily deep nesting into a flat lazy stream where hasNext does the digging and next just hands over an integer.",
+  "hints": [
+    "Recursively collecting every integer up front works, but the follow-up wants an iterator that does no more digging than the caller demands.",
+    "Push the top-level entries onto a stack in reverse so the leftmost sits on top; the top of the stack is always the next thing to consider.",
+    "Make hasNext do the real work: while the top is a list, pop it and push its children in reverse, discarding empties along the way — when the loop leaves an integer on top, next simply pops it."
+  ],
+  "constraints": [
+    {
+      "param": "nestedList",
+      "kind": "nested",
+      "len": [
+        1,
+        500
+      ],
+      "value": [
+        -1000000,
+        1000000
+      ]
+    },
+    {
+      "param": "depth",
+      "kind": "int",
+      "value": [
+        1,
+        50
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "two nested pairs around a bare integer",
+      "input": [
+        [
+          "NestedIterator",
+          "hasNext",
+          "next",
+          "next",
+          "next",
+          "next",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              [
+                1,
+                1
+              ],
+              2,
+              [
+                1,
+                1
+              ]
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "deeply nested single integers",
+      "input": [
+        [
+          "NestedIterator",
+          "hasNext",
+          "next",
+          "hasNext",
+          "next",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              1,
+              [
+                4,
+                [
+                  6
+                ]
+              ]
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "empty inner lists sprinkled through the structure — hasNext must skip them without emitting anything",
+      "input": [
+        [
+          "NestedIterator",
+          "hasNext",
+          "next",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              [],
+              [
+                3,
+                []
+              ],
+              4
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "nothing but empty lists — hasNext is false from the start",
+      "input": [
+        [
+          "NestedIterator",
+          "hasNext",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              [],
+              [
+                []
+              ],
+              [
+                [],
+                []
+              ]
+            ]
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "a single bare integer at the top level",
+      "input": [
+        [
+          "NestedIterator",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              42
+            ]
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "next called without interleaved hasNext probes — laziness must not depend on the caller priming it",
+      "input": [
+        [
+          "NestedIterator",
+          "next",
+          "next",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              [
+                2,
+                [
+                  3
+                ]
+              ],
+              [],
+              5
+            ]
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "negative values across mixed depths",
+      "input": [
+        [
+          "NestedIterator",
+          "next",
+          "hasNext",
+          "next",
+          "next",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              -9,
+              [
+                [
+                  -4
+                ],
+                -2
+              ],
+              [],
+              [
+                0,
+                [
+                  -1
+                ]
+              ]
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random nested structure (with occasional empty lists) drained with interleaved hasNext probes",
+      "seed": 6653,
+      "size": 120,
+      "generator_python": "def gen(rng, size):\n    budget = [max(1, min(size, 120))]\n    def build(depth):\n        out = []\n        items = rng.randint(0 if depth else 1, 4)\n        for _ in range(items):\n            if budget[0] <= 0:\n                break\n            if depth < 5 and rng.random() < 0.35:\n                out.append(build(depth + 1))\n            else:\n                budget[0] -= 1\n                out.append(rng.randint(-1000000, 1000000))\n        return out\n    nested = build(0)\n    def count(v):\n        if isinstance(v, int):\n            return 1\n        return sum(count(x) for x in v)\n    total = count(nested)\n    if total == 0:\n        nested.append(rng.randint(-1000000, 1000000))\n        total = 1\n    ops = ['NestedIterator']\n    args = [[nested]]\n    for _ in range(total):\n        if rng.random() < 0.5:\n            ops.append('hasNext')\n            args.append([])\n        ops.append('next')\n        args.append([])\n    ops.append('hasNext')\n    args.append([])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "class NestedIterator:\n    def __init__(self, nestedList):\n        self.vals = []\n        def dig(items):\n            for item in items:\n                if item.isInteger():\n                    self.vals.append(item.getInteger())\n                else:\n                    dig(item.getList())\n        dig(nestedList)\n        self.i = 0\n    def next(self) -> int:\n        v = self.vals[self.i]\n        self.i += 1\n        return v\n    def hasNext(self) -> bool:\n        return self.i < len(self.vals)\n",
+  "solutions": {
+    "python": "class NestedIterator:\n    def __init__(self, nestedList):\n        self.stack = list(reversed(nestedList))\n    def next(self) -> int:\n        self.hasNext()\n        return self.stack.pop().getInteger()\n    def hasNext(self) -> bool:\n        while self.stack:\n            top = self.stack[-1]\n            if top.isInteger():\n                return True\n            self.stack.pop()\n            for item in reversed(top.getList()):\n                self.stack.append(item)\n        return False\n",
+    "javascript": "var NestedIterator = function(nestedList) {\n    this.stack = nestedList.slice().reverse();\n};\nNestedIterator.prototype.hasNext = function() {\n    while (this.stack.length > 0) {\n        const top = this.stack[this.stack.length - 1];\n        if (top.isInteger()) return true;\n        this.stack.pop();\n        const list = top.getList();\n        for (let i = list.length - 1; i >= 0; i--) this.stack.push(list[i]);\n    }\n    return false;\n};\nNestedIterator.prototype.next = function() {\n    this.hasNext();\n    return this.stack.pop().getInteger();\n};\n"
+  }
+}

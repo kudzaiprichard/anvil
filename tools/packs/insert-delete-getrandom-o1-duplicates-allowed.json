@@ -1,0 +1,232 @@
+{
+  "slug": "insert-delete-getrandom-o1-duplicates-allowed",
+  "judge": {
+    "type": "property",
+    "validator_python": "def validate(args, outputs):\n    ops, arg_lists = args\n    if not isinstance(outputs, list) or len(outputs) != len(ops):\n        return False\n    counts = {}\n    for i in range(1, len(ops)):\n        op, a, out = ops[i], arg_lists[i], outputs[i]\n        if op == 'insert':\n            v = a[0]\n            expected = counts.get(v, 0) == 0\n            if out != expected:\n                return False\n            counts[v] = counts.get(v, 0) + 1\n        elif op == 'remove':\n            v = a[0]\n            expected = counts.get(v, 0) > 0\n            if out != expected:\n                return False\n            if expected:\n                counts[v] -= 1\n                if counts[v] == 0:\n                    del counts[v]\n        elif op == 'getRandom':\n            if counts.get(out, 0) <= 0:\n                return False\n    return True\n",
+    "validator_javascript": "function validate(args, outputs) {\n  const [ops, argLists] = args;\n  if (!Array.isArray(outputs) || outputs.length !== ops.length) return false;\n  const counts = new Map();\n  for (let i = 1; i < ops.length; i++) {\n    const op = ops[i], a = argLists[i], out = outputs[i];\n    if (op === 'insert') {\n      const v = a[0];\n      const expected = (counts.get(v) || 0) === 0;\n      if (out !== expected) return false;\n      counts.set(v, (counts.get(v) || 0) + 1);\n    } else if (op === 'remove') {\n      const v = a[0];\n      const expected = (counts.get(v) || 0) > 0;\n      if (out !== expected) return false;\n      if (expected) {\n        const c = counts.get(v) - 1;\n        if (c === 0) counts.delete(v); else counts.set(v, c);\n      }\n    } else if (op === 'getRandom') {\n      if (!counts.has(out) || counts.get(out) <= 0) return false;\n    }\n  }\n  return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Tracking each value's set of live indices (rather than a single index) lets one array-with-swap-pop structure support duplicate values while keeping insert, remove, and uniform getRandom at O(1).",
+  "hints": [
+    "A plain value-to-index map breaks the instant a value can appear twice — you need to know *which* copy you removed.",
+    "Map each value to the set of positions it currently occupies in a backing array; insert appends and records the new position.",
+    "To remove one copy, pick any recorded position for that value, overwrite it with the array's last element (fixing that moved element's position set), then pop — getRandom is a uniform index into the array."
+  ],
+  "constraints": [
+    {
+      "param": "val",
+      "kind": "int",
+      "value": [
+        -2147483648,
+        2147483647
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "insert a duplicate, then remove one copy leaving one behind",
+      "input": [
+        [
+          "RandomizedCollection",
+          "insert",
+          "insert",
+          "remove",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1
+          ],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "second insert of the same value must report false even though the collection grows",
+      "input": [
+        [
+          "RandomizedCollection",
+          "insert",
+          "insert",
+          "insert",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            2
+          ],
+          [
+            2
+          ],
+          [
+            2
+          ],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "remove every copy of a value down to zero, then it must be absent from getRandom and re-insertable as new",
+      "input": [
+        [
+          "RandomizedCollection",
+          "insert",
+          "insert",
+          "remove",
+          "remove",
+          "insert"
+        ],
+        [
+          [],
+          [
+            4
+          ],
+          [
+            4
+          ],
+          [
+            4
+          ],
+          [
+            4
+          ],
+          [
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "getRandom over a collection holding a single copy of a single value is fully determined",
+      "input": [
+        [
+          "RandomizedCollection",
+          "insert",
+          "getRandom",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            9
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "remove on a value never inserted must return false without touching state",
+      "input": [
+        [
+          "RandomizedCollection",
+          "insert",
+          "remove",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            3
+          ],
+          [
+            8
+          ],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two values with mixed multiplicities, random draws confined to survivors",
+      "input": [
+        [
+          "RandomizedCollection",
+          "insert",
+          "insert",
+          "insert",
+          "insert",
+          "remove",
+          "getRandom",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "extreme int values with a duplicate at one extreme",
+      "input": [
+        [
+          "RandomizedCollection",
+          "insert",
+          "insert",
+          "insert",
+          "remove",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            -2147483648
+          ],
+          [
+            -2147483648
+          ],
+          [
+            2147483647
+          ],
+          [
+            2147483647
+          ],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random op mix over a small value pool (forces duplicates), getRandom only when non-empty",
+      "seed": 271,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    ops = ['RandomizedCollection']\n    args = [[]]\n    counts = {}\n    pool = list(range(-10, 11))\n    for _ in range(max(1, min(size, 400))):\n        alive = [v for v, c in counts.items() if c > 0]\n        r = rng.random()\n        if r < 0.5 or not alive:\n            v = rng.choice(pool)\n            ops.append('insert')\n            args.append([v])\n            counts[v] = counts.get(v, 0) + 1\n        elif r < 0.75:\n            v = rng.choice(pool)\n            ops.append('remove')\n            args.append([v])\n            if counts.get(v, 0) > 0:\n                counts[v] -= 1\n        else:\n            ops.append('getRandom')\n            args.append([])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "import random\n\n\nclass RandomizedCollection:\n    def __init__(self):\n        self.items = []\n    def insert(self, val):\n        present = val in self.items\n        self.items.append(val)\n        return not present\n    def remove(self, val):\n        if val not in self.items:\n            return False\n        self.items.remove(val)\n        return True\n    def getRandom(self):\n        return random.choice(self.items)\n",
+  "solutions": {
+    "python": "import random\nfrom collections import defaultdict\n\n\nclass RandomizedCollection:\n    def __init__(self):\n        self.items = []\n        self.pos = defaultdict(set)\n    def insert(self, val):\n        present = len(self.pos[val]) > 0\n        self.pos[val].add(len(self.items))\n        self.items.append(val)\n        return not present\n    def remove(self, val):\n        if not self.pos[val]:\n            return False\n        remove_idx = next(iter(self.pos[val]))\n        self.pos[val].discard(remove_idx)\n        last_idx = len(self.items) - 1\n        last_val = self.items[last_idx]\n        if remove_idx != last_idx:\n            self.items[remove_idx] = last_val\n            self.pos[last_val].discard(last_idx)\n            self.pos[last_val].add(remove_idx)\n        self.items.pop()\n        return True\n    def getRandom(self):\n        return random.choice(self.items)\n",
+    "javascript": "var RandomizedCollection = function() {\n    this.items = [];\n    this.pos = new Map();\n};\nRandomizedCollection.prototype.insert = function(val) {\n    if (!this.pos.has(val)) this.pos.set(val, new Set());\n    const set = this.pos.get(val);\n    const present = set.size > 0;\n    set.add(this.items.length);\n    this.items.push(val);\n    return !present;\n};\nRandomizedCollection.prototype.remove = function(val) {\n    const set = this.pos.get(val);\n    if (!set || set.size === 0) return false;\n    const removeIdx = set.values().next().value;\n    set.delete(removeIdx);\n    const lastIdx = this.items.length - 1;\n    const lastVal = this.items[lastIdx];\n    if (removeIdx !== lastIdx) {\n        this.items[removeIdx] = lastVal;\n        const lastSet = this.pos.get(lastVal);\n        lastSet.delete(lastIdx);\n        lastSet.add(removeIdx);\n    }\n    this.items.pop();\n    return true;\n};\nRandomizedCollection.prototype.getRandom = function() {\n    return this.items[Math.floor(Math.random() * this.items.length)];\n};\n"
+  }
+}

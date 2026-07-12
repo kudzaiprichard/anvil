@@ -1,0 +1,204 @@
+{
+  "slug": "generate-random-point-in-a-circle",
+  "judge": {
+    "type": "property",
+    "validator_python": "def validate(args, outputs):\n    ops, arg_lists = args\n    if not isinstance(outputs, list) or len(outputs) != len(ops):\n        return False\n    if ops[0] != 'Solution':\n        return False\n    radius, xc, yc = arg_lists[0]\n    eps = 1e-6\n    r2 = radius * radius\n    for i in range(1, len(ops)):\n        op, out = ops[i], outputs[i]\n        if op == 'randPoint':\n            if not (isinstance(out, list) and len(out) == 2):\n                return False\n            x, y = out\n            if not isinstance(x, (int, float)) or isinstance(x, bool):\n                return False\n            if not isinstance(y, (int, float)) or isinstance(y, bool):\n                return False\n            dx = x - xc\n            dy = y - yc\n            if dx * dx + dy * dy > r2 + eps:\n                return False\n    return True\n",
+    "validator_javascript": "function validate(args, outputs) {\n  const [ops, argLists] = args;\n  if (!Array.isArray(outputs) || outputs.length !== ops.length) return false;\n  if (ops[0] !== 'Solution') return false;\n  const [radius, xc, yc] = argLists[0];\n  const eps = 1e-6;\n  const r2 = radius * radius;\n  for (let i = 1; i < ops.length; i++) {\n    const op = ops[i], out = outputs[i];\n    if (op === 'randPoint') {\n      if (!Array.isArray(out) || out.length !== 2) return false;\n      const [x, y] = out;\n      if (typeof x !== 'number' || typeof y !== 'number') return false;\n      const dx = x - xc, dy = y - yc;\n      if (dx * dx + dy * dy > r2 + eps) return false;\n    }\n  }\n  return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Sampling radius as the square root of a uniform draw (not the draw itself) compensates for the shrinking circumference near the center, giving points uniform over the disk's area instead of clustering them in the middle.",
+  "hints": [
+    "Picking a uniform angle and a uniform radius independently overweights the center, because area near r=0 is tiny compared to area near r=radius.",
+    "The circle's area up to radius r grows like r^2, so the radius you sample should be distributed like the square root of a uniform value, not the value itself.",
+    "Multiply the circle's radius by sqrt(random()) for the distance from center, pair it with a uniform angle in [0, 2*pi), then convert to Cartesian and add the center offset."
+  ],
+  "constraints": [
+    {
+      "param": "radius",
+      "kind": "float"
+    },
+    {
+      "param": "x_center",
+      "kind": "float"
+    },
+    {
+      "param": "y_center",
+      "kind": "float"
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "tiny radius near the origin",
+      "input": [
+        [
+          "Solution",
+          "randPoint",
+          "randPoint",
+          "randPoint"
+        ],
+        [
+          [
+            0.01,
+            0.0,
+            0.0
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "huge radius at the origin",
+      "input": [
+        [
+          "Solution",
+          "randPoint",
+          "randPoint",
+          "randPoint"
+        ],
+        [
+          [
+            10000000.0,
+            0.0,
+            0.0
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "negative centers in both coordinates",
+      "input": [
+        [
+          "Solution",
+          "randPoint",
+          "randPoint",
+          "randPoint"
+        ],
+        [
+          [
+            5.0,
+            -10.0,
+            -20.0
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "tiny radius far from the origin (tests dx/dy, not just x/y against 0)",
+      "input": [
+        [
+          "Solution",
+          "randPoint",
+          "randPoint",
+          "randPoint"
+        ],
+        [
+          [
+            0.001,
+            10000000.0,
+            -10000000.0
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "moderate radius, several successive draws",
+      "input": [
+        [
+          "Solution",
+          "randPoint",
+          "randPoint",
+          "randPoint",
+          "randPoint",
+          "randPoint"
+        ],
+        [
+          [
+            3.5,
+            1.5,
+            -2.5
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "unit radius centered at the origin",
+      "input": [
+        [
+          "Solution",
+          "randPoint",
+          "randPoint"
+        ],
+        [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "positive center offset far from the origin with a mid-size radius",
+      "input": [
+        [
+          "Solution",
+          "randPoint",
+          "randPoint",
+          "randPoint"
+        ],
+        [
+          [
+            250.75,
+            9999.25,
+            4321.5
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random radius/center combinations with a burst of randPoint calls",
+      "seed": 158,
+      "size": 200,
+      "generator_python": "def gen(rng, size):\n    radius = rng.uniform(0.01, 1000000.0)\n    xc = rng.uniform(-1000000.0, 1000000.0)\n    yc = rng.uniform(-1000000.0, 1000000.0)\n    ops = ['Solution']\n    argv = [[radius, xc, yc]]\n    calls = max(1, min(size, 200))\n    for _ in range(calls):\n        ops.append('randPoint')\n        argv.append([])\n    return [ops, argv]\n"
+    }
+  ],
+  "oracle_python": "import random\n\n\nclass Solution:\n    def __init__(self, radius, x_center, y_center):\n        self.radius = radius\n        self.x_center = x_center\n        self.y_center = y_center\n\n    def randPoint(self):\n        while True:\n            x = random.uniform(-self.radius, self.radius)\n            y = random.uniform(-self.radius, self.radius)\n            if x * x + y * y <= self.radius * self.radius:\n                return [self.x_center + x, self.y_center + y]\n",
+  "solutions": {
+    "python": "import math\nimport random\n\n\nclass Solution:\n    def __init__(self, radius, x_center, y_center):\n        self.radius = radius\n        self.x_center = x_center\n        self.y_center = y_center\n\n    def randPoint(self):\n        r = self.radius * math.sqrt(random.random())\n        angle = random.uniform(0, 2 * math.pi)\n        return [self.x_center + r * math.cos(angle), self.y_center + r * math.sin(angle)]\n",
+    "javascript": "var Solution = function(radius, x_center, y_center) {\n    this.radius = radius;\n    this.x_center = x_center;\n    this.y_center = y_center;\n};\n\nSolution.prototype.randPoint = function() {\n    const r = this.radius * Math.sqrt(Math.random());\n    const angle = Math.random() * 2 * Math.PI;\n    return [this.x_center + r * Math.cos(angle), this.y_center + r * Math.sin(angle)];\n};\n"
+  },
+  "complexity": {
+    "time": "O(1) per randPoint",
+    "space": "O(1)"
+  }
+}

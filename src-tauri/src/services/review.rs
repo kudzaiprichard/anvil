@@ -508,6 +508,7 @@ mod tests {
                     language: "python",
                     kind: "submit",
                     status: "pass",
+                    tier: "full",
                     runtime_ms: Some(10),
                     code: "x",
                     attempted_at: day,

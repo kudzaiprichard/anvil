@@ -87,8 +87,54 @@ export type Judge =
       validator_python: string;
       validator_javascript: string;
     }
-  /** Ops-sequence problems (LRU Cache): LeetCode's wire format. */
-  | { type: "design" };
+  /**
+   * Ops-sequence problems (LRU Cache): LeetCode's wire format. `design_io`
+   * node-types the constructor/method call boundary (e.g. a real TreeNode
+   * into a BSTIterator constructor); absent ⇒ raw JSON args.
+   */
+  | { type: "design"; design_io?: DesignIo }
+  /**
+   * Codec problems: the harness judges decode(encode(x)) by emitting the
+   * canonical serialization of the round-tripped structure.
+   */
+  | { type: "round_trip"; io: IoType; encode: string; decode: string }
+  /**
+   * Randomized problems: a pack-shipped validator replays the op sequence
+   * and checks each output is a member of the legal set.
+   */
+  | {
+      type: "property";
+      validator_python: string;
+      validator_javascript: string;
+      exec?: "design" | "call";
+      design_io?: DesignIo;
+    }
+  /**
+   * Multithreading problems, Python-only: a pack-shipped driver spawns the
+   * real threads and records the event sequence; a pack-shipped validator
+   * judges each of the `runs` amplified repetitions.
+   */
+  | {
+      type: "concurrency";
+      driver_python: string;
+      validator_python: string;
+      runs: number;
+    };
+
+/** Node I/O for one design method; absent fields mean plain JSON. */
+export interface MethodIo {
+  params?: IoType[];
+  returns?: IoType;
+}
+
+/**
+ * Per-op I/O map for design packs: constructor param types plus a
+ * method-name → MethodIo table. Undeclared methods run all-JSON.
+ */
+export interface DesignIo {
+  ctor?: IoType[];
+  methods?: Record<string, MethodIo>;
+}
 
 /**
  * Which callable the harness invokes per language: "Solution.twoSum" means
@@ -108,8 +154,30 @@ export interface EntryPoint {
   io_types?: IoTypes;
 }
 
-/** A per-call I/O shape: plain JSON, a linked list, a binary tree, or a list of. */
-export type IoType = "json" | "linked_list" | "tree" | { list_of: IoType };
+/**
+ * A per-call I/O shape (task 0003 + closing-the-48 Phase B). Leaves are wire
+ * names; composites reference an already-built earlier param (`node_ref`,
+ * `clone_of`, `tail_of`, `node_index_of`), wrap a type built for judging but
+ * never passed (`ctx_only`), or nest (`list_of`). Mirrors Rust `IoType`.
+ */
+export type IoType =
+  | "json"
+  | "linked_list"
+  | "tree"
+  | "cyclic_list"
+  | "random_list"
+  | "graph"
+  | "n_ary_tree"
+  | "quad_tree"
+  | "next_tree"
+  | "multilevel_list"
+  | { list_of: IoType }
+  | { ctx_only: IoType }
+  | { node_ref: { param: number } }
+  | { clone_of: { param: number } }
+  | { tail_of: { param: number } }
+  | { node_index_of: { param: number } }
+  | { shim: { kind: string; curry_js?: boolean } };
 
 export interface IoTypes {
   params: IoType[];
@@ -197,8 +265,10 @@ export interface ConstraintSpec {
 }
 
 export interface PackSolutions {
+  /** Python is the expected-value source and is always present. */
   python: string;
-  javascript: string;
+  /** Absent for single-language packs (e.g. the Python-only concurrency set). */
+  javascript?: string;
   /** Naive oracle used for differential verification. */
   brute_force_python?: string;
   complexity?: { time: string; space: string };
@@ -211,6 +281,11 @@ export interface TestPack {
   schema_version: number;
   entry_point: EntryPoint;
   judge: Judge;
+  /**
+   * Whether the statement's own examples are usable as visible cases under
+   * this pack's wire format; absent ⇒ true (anchored or never-parsed).
+   */
+  examples_ok?: boolean;
   /** One-sentence pattern explanation (what this problem teaches). */
   pattern: string;
   /** Three progressive hints: nudge → approach → near-answer. */

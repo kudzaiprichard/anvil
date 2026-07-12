@@ -1,0 +1,64 @@
+{
+  "slug": "the-dining-philosophers",
+  "judge": {
+    "type": "concurrency",
+    "runs": 4,
+    "driver_python": "import threading\nimport time\n\nWATCHDOG_S = 1.0\n\n\ndef _run(targets):\n    errors = []\n    barrier = threading.Barrier(len(targets) + 1)\n\n    def wrap(fn):\n        def go():\n            try:\n                barrier.wait()\n                fn()\n            except BaseException as exc:  # noqa: BLE001 - relayed below\n                errors.append(exc)\n        return go\n\n    threads = [threading.Thread(target=wrap(t), daemon=True) for t in targets]\n    for t in threads:\n        t.start()\n    barrier.wait()\n    deadline = time.monotonic() + WATCHDOG_S\n    for t in threads:\n        t.join(max(0.0, deadline - time.monotonic()))\n    if errors:\n        raise errors[0]\n    if any(t.is_alive() for t in threads):\n        raise RuntimeError(\n            \"threads did not finish within the watchdog - deadlock or a missed signal\"\n        )\ndef _eater(inst, i, n, record):\n    def go():\n        for _ in range(n):\n            inst.wantsToEat(\n                i,\n                lambda: record([i, 1, 1]),\n                lambda: record([i, 2, 1]),\n                lambda: record([i, 0, 3]),\n                lambda: record([i, 1, 2]),\n                lambda: record([i, 2, 2]),\n            )\n    return go\n\n\ndef drive(cls, args, record):\n    inst = cls()\n    n = args[0]\n    _run([_eater(inst, i, n, record) for i in range(5)])\n",
+    "validator_python": "def validate(args, events):\n    n = args[0]\n    forks = [None] * 5\n    held = [set() for _ in range(5)]\n    eats = [0] * 5\n    for e in events:\n        if not (isinstance(e, list) and len(e) == 3):\n            return False\n        a, b, c = e\n        if not (0 <= a < 5):\n            return False\n        if c == 1 or c == 2:\n            if b not in (1, 2):\n                return False\n            fork = a if b == 1 else (a + 1) % 5\n            if c == 1:\n                if forks[fork] is not None:\n                    return False\n                forks[fork] = a\n                held[a].add(fork)\n            else:\n                if forks[fork] != a:\n                    return False\n                forks[fork] = None\n                held[a].discard(fork)\n        elif c == 3:\n            left, right = a, (a + 1) % 5\n            if left not in held[a] or right not in held[a]:\n                return False\n            eats[a] += 1\n        else:\n            return False\n    if any(f is not None for f in forks):\n        return False\n    return eats == [n] * 5\n"
+  },
+  "languages": [
+    "python"
+  ],
+  "no_anchor_ok": true,
+  "pattern": "The circular-wait deadlock disappears the moment the resource-acquisition order is made global — always grab the lower-numbered fork first, and no cycle of philosophers can ever close.",
+  "hints": [
+    "If everyone picks their left fork first, five held forks and five hungry philosophers form a perfect deadlock cycle.",
+    "Break the symmetry: impose a single global ordering on the forks and acquire both in that order.",
+    "Philosopher i needs forks i and (i+1) % 5 — lock min first, then max; release in any order after eating."
+  ],
+  "constraints": [
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        60
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "everyone eats once",
+      "input": [
+        1
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two rounds — the classic all-grab-left deadlock window recurs",
+      "input": [
+        2
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "three rounds under jitter",
+      "input": [
+        3
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small round counts",
+      "seed": 59,
+      "size": 3,
+      "generator_python": "def gen(rng, size):\n    return [rng.randint(1, max(1, min(size, 3)))]\n"
+    }
+  ],
+  "oracle_python": "import threading\n\n\nclass DiningPhilosophers:\n    def __init__(self):\n        self.table = threading.Lock()\n\n    def wantsToEat(self, philosopher, pickLeftFork, pickRightFork, eat, putLeftFork, putRightFork):\n        with self.table:\n            pickLeftFork()\n            pickRightFork()\n            eat()\n            putLeftFork()\n            putRightFork()\n",
+  "solutions": {
+    "python": "import threading\n\n\nclass DiningPhilosophers:\n    def __init__(self):\n        self.forks = [threading.Lock() for _ in range(5)]\n\n    def wantsToEat(self, philosopher, pickLeftFork, pickRightFork, eat, putLeftFork, putRightFork):\n        left = philosopher\n        right = (philosopher + 1) % 5\n        first, second = (left, right) if left < right else (right, left)\n        with self.forks[first]:\n            with self.forks[second]:\n                pickLeftFork()\n                pickRightFork()\n                eat()\n                putLeftFork()\n                putRightFork()\n"
+  }
+}

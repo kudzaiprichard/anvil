@@ -88,7 +88,95 @@ pub enum Judge {
     },
     /// Ops-sequence problems (LRU Cache): input is `[ops, argLists]`,
     /// expected is the per-op output array — LeetCode's wire format.
+    /// `design_io` node-types the constructor/method call boundary so packs
+    /// like binary-search-tree-iterator can hand a real `TreeNode` to the
+    /// constructor; absent ⇒ raw JSON args (all pre-existing design packs).
+    Design {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        design_io: Option<DesignIo>,
+    },
+    /// Codec problems (serialize-and-deserialize-*): the solver invents the
+    /// format, so the harness judges `decode(encode(x))` — it emits the
+    /// canonical serialization of the round-tripped structure, which the
+    /// existing exact compare then checks. `encode`/`decode` name the codec
+    /// methods (python: on the entry-point class; javascript: class methods
+    /// or top-level functions).
+    RoundTrip {
+        io: IoType,
+        encode: String,
+        decode: String,
+    },
+    /// Randomized problems (getRandom/shuffle/pick): no single correct
+    /// output exists, so a pack-shipped validator replays the op sequence
+    /// and checks each output is a member of the legal set. `exec` picks the
+    /// execution shape (ops sequence vs plain call); `design_io` node-types
+    /// the constructor when `exec` is design (linked-list-random-node).
+    Property {
+        validator_python: String,
+        validator_javascript: String,
+        #[serde(default, skip_serializing_if = "PropertyExec::is_design")]
+        exec: PropertyExec,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        design_io: Option<DesignIo>,
+    },
+    /// Multithreading problems (print-in-order, dining-philosophers, …),
+    /// Python-only. A pack-shipped DRIVER spawns the real threads (barrier
+    /// start, daemon threads, join watchdog) and records the emitted event
+    /// sequence; a pack-shipped VALIDATOR judges each recorded sequence. The
+    /// harness amplifies races: it shrinks the GIL switch interval, injects
+    /// random jitter inside every recorded event, and repeats each case
+    /// `runs` times — every repetition must validate, and a watchdog turns
+    /// deadlocks into a clear failure. Run-based judging cannot PROVE
+    /// race-freedom (no sampler can); this is the same judging model
+    /// leetcode.com uses for these problems, hardened. A correct solution can
+    /// never flake: validators check the logical sequence, never timing.
+    Concurrency {
+        driver_python: String,
+        validator_python: String,
+        #[serde(default = "default_concurrency_runs")]
+        runs: u32,
+    },
+}
+
+fn default_concurrency_runs() -> u32 {
+    6
+}
+
+/// How a `property` pack executes: as a design ops sequence (the default —
+/// RandomizedSet, Solution.shuffle, …) or as a single plain call (rand10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PropertyExec {
+    #[default]
     Design,
+    Call,
+}
+
+impl PropertyExec {
+    pub fn is_design(&self) -> bool {
+        matches!(self, PropertyExec::Design)
+    }
+}
+
+/// Node I/O for one `design` method: param types positionally, plus the
+/// return type when it needs serializing (absent ⇒ plain JSON).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MethodIo {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<IoType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub returns: Option<IoType>,
+}
+
+/// Per-op I/O map for `design` packs: constructor param types plus a
+/// method-name → `MethodIo` table. Methods absent from the map run all-JSON,
+/// so authors only declare the node-typed ops.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DesignIo {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ctor: Vec<IoType>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub methods: std::collections::BTreeMap<String, MethodIo>,
 }
 
 /// Which callable the harness invokes, per language. `"Solution.twoSum"`
@@ -107,15 +195,70 @@ pub struct EntryPoint {
     pub io_types: Option<IoTypes>,
 }
 
-/// Per-call I/O shape: `json` (plain), `linked_list`, `tree`, or a `list_of`
-/// composite. Serializes to `"json"`/`"linked_list"`/`"tree"`/`{"list_of": …}`.
+/// Per-call I/O shape (task 0003 + closing-the-48 Phase B). Leaves serialize
+/// as `"json"`/`"linked_list"`/`"tree"`/`"cyclic_list"`/… ; composites as
+/// `{"list_of": …}` / `{"ctx_only": …}` / `{"node_ref": {"param": i}}` (and
+/// the other param-referencing forms). Every variant here must be understood
+/// by BOTH harnesses' deserialize/serialize and by `tools/build_packs.py`'s
+/// `_ok_io_type` — the bundle parse is strict, so an unknown type would empty
+/// the whole pack store.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IoType {
     Json,
     LinkedList,
     Tree,
+    /// `{"values": [...], "pos": k|null}` — tail links back to node #k.
+    CyclicList,
+    /// `[[val, randomIdx|null], ...]` — LeetCode's copy-random-pointer form.
+    RandomList,
+    /// Adjacency list; node i (0-based) carries val i+1.
+    Graph,
+    /// LeetCode level order with null group separators.
+    NAryTree,
+    /// Level order of `[isLeaf, val]` pairs with nulls (tl/tr/bl/br).
+    QuadTree,
+    /// In: plain level order; out: serialized by FOLLOWING the next pointers.
+    NextTree,
+    /// Segments with a global-index parent: `[{"values": [...], "parent": …}]`.
+    MultilevelList,
     ListOf(Box<IoType>),
+    /// Built into the judging context but never passed to the solution
+    /// (e.g. delete-node's hidden list head).
+    CtxOnly(Box<IoType>),
+    /// Wire value is a node VALUE; the harness resolves the real node object
+    /// inside the already-built param `param`. As a return type: the node's
+    /// value, after verifying identity membership in that structure.
+    NodeRef {
+        param: usize,
+    },
+    /// A structure-preserving deep copy of the already-built param `param`.
+    CloneOf {
+        param: usize,
+    },
+    /// `{"values": [...], "attach": idx|null}` — a fresh list whose last node
+    /// links into param `param`'s chain (intersection-of-two-linked-lists).
+    TailOf {
+        param: usize,
+    },
+    /// Return-only: the returned node's index in param `param`'s chain.
+    NodeIndexOf {
+        param: usize,
+    },
+    /// An injected object/callback built by the harness from per-case hidden
+    /// data (closing-the-48 Phase D): `{"shim": {"kind": "mountain_array"}}`.
+    /// The kind names a fixed harness-owned registry; global kinds
+    /// (is_bad_version, guess_oracle, rand7) install into the solution scope
+    /// instead of being passed. `curry_js` curries the JS entry with the shim
+    /// (LeetCode's `var solution = function(isBadVersion)` stub shape).
+    Shim(ShimSpec),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShimSpec {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub curry_js: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -246,6 +389,25 @@ pub struct ProblemSummary {
 }
 
 impl Problem {
+    /// The experience tier this problem is judged under, as recorded on each
+    /// attempt (closing-the-48): "full" = a hidden-test pack (or a built-in /
+    /// user problem, which validation requires to carry hidden cases),
+    /// "basic" = statement examples only, "run-only" = no verdict at all.
+    /// Mirrors the frontend TierChip derivation in problem-pane.tsx.
+    pub fn experience_tier(&self) -> &'static str {
+        if self.source != ProblemSource::Imported {
+            return "full";
+        }
+        let has_hidden = self.test_cases.iter().any(|tc| tc.hidden);
+        if self.judge.is_some() && has_hidden {
+            "full"
+        } else if !self.test_cases.is_empty() {
+            "basic"
+        } else {
+            "run-only"
+        }
+    }
+
     /// The judge the runner must use: explicit `judge` when present,
     /// otherwise derived from the legacy `checker` field.
     pub fn effective_judge(&self) -> Judge {
@@ -471,6 +633,96 @@ mod tests {
         user.source = ProblemSource::User;
         let user_payload = serde_json::to_string(&user.sanitized_for_ipc()).unwrap();
         assert!(user_payload.contains("secret-input-77631"));
+    }
+
+    #[test]
+    fn experience_tier_mirrors_the_tier_chip_derivation() {
+        let mut p: Problem = serde_json::from_value(json!({
+            "id": "t", "number": 1, "title": "T", "pattern": "Stack",
+            "difficulty": "Easy", "source": "imported", "description_md": "d",
+            "constraints": [], "examples": [],
+            "function_signature": { "python": "def solve():", "javascript": "function solve() {}" },
+            "test_cases": [], "hints": [],
+            "license": "user-import", "author": "imported"
+        }))
+        .unwrap();
+        assert_eq!(p.experience_tier(), "run-only");
+        p.test_cases = vec![TestCase {
+            input: vec![json!(1)],
+            expected: json!(1),
+            hidden: false,
+        }];
+        assert_eq!(p.experience_tier(), "basic");
+        p.judge = Some(Judge::Exact);
+        assert_eq!(p.experience_tier(), "basic"); // judge without hidden cases
+        p.test_cases.push(TestCase {
+            input: vec![json!(2)],
+            expected: json!(2),
+            hidden: true,
+        });
+        assert_eq!(p.experience_tier(), "full");
+        p.source = ProblemSource::BuiltIn;
+        assert_eq!(p.experience_tier(), "full");
+    }
+
+    #[test]
+    fn io_type_variants_round_trip_their_wire_names() {
+        // The names both harnesses and tools/build_packs.py dispatch on —
+        // a rename here silently breaks the whole bundle, so pin them.
+        for (value, expect) in [
+            (json!("json"), IoType::Json),
+            (json!("linked_list"), IoType::LinkedList),
+            (json!("tree"), IoType::Tree),
+            (json!("cyclic_list"), IoType::CyclicList),
+            (json!("random_list"), IoType::RandomList),
+            (json!("graph"), IoType::Graph),
+            (json!("n_ary_tree"), IoType::NAryTree),
+            (json!("quad_tree"), IoType::QuadTree),
+            (json!("next_tree"), IoType::NextTree),
+            (json!("multilevel_list"), IoType::MultilevelList),
+            (
+                json!({ "list_of": "tree" }),
+                IoType::ListOf(Box::new(IoType::Tree)),
+            ),
+            (
+                json!({ "ctx_only": "linked_list" }),
+                IoType::CtxOnly(Box::new(IoType::LinkedList)),
+            ),
+            (
+                json!({ "node_ref": { "param": 0 } }),
+                IoType::NodeRef { param: 0 },
+            ),
+            (
+                json!({ "clone_of": { "param": 0 } }),
+                IoType::CloneOf { param: 0 },
+            ),
+            (
+                json!({ "tail_of": { "param": 0 } }),
+                IoType::TailOf { param: 0 },
+            ),
+            (
+                json!({ "node_index_of": { "param": 0 } }),
+                IoType::NodeIndexOf { param: 0 },
+            ),
+            (
+                json!({ "shim": { "kind": "mountain_array" } }),
+                IoType::Shim(ShimSpec {
+                    kind: "mountain_array".into(),
+                    curry_js: false,
+                }),
+            ),
+            (
+                json!({ "shim": { "kind": "is_bad_version", "curry_js": true } }),
+                IoType::Shim(ShimSpec {
+                    kind: "is_bad_version".into(),
+                    curry_js: true,
+                }),
+            ),
+        ] {
+            let parsed: IoType = serde_json::from_value(value.clone()).expect("deserialize");
+            assert_eq!(parsed, expect);
+            assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
+        }
     }
 
     #[test]

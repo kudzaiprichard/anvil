@@ -1,0 +1,225 @@
+{
+  "slug": "maximum-path-intersection-sum-in-a-grid",
+  "judge": "exact",
+  "pattern": "When two lattice paths only overlap column by column, tracking each walker's exit row per column turns an entangled two-path search into a clean interval-overlap DP.",
+  "hints": [
+    "Trying to move both players in lockstep breaks down because shared cells need not be reached at the same step — describe the paths by shape instead.",
+    "Within any single column, each player's cells form one contiguous vertical run, fixed entirely by the row where they entered and the row where they leave.",
+    "Let the state after each column be both players' exit rows; the shared contribution of the next column is just the overlap of two intervals, computable from column prefix sums."
+  ],
+  "constraints": [
+    {
+      "param": "grid",
+      "kind": "int[][]",
+      "len": [
+        2,
+        12
+      ],
+      "value": [
+        -100,
+        100
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "smallest legal grid — 2x2, crossing unavoidable",
+      "input": [
+        [
+          [
+            5,
+            -1
+          ],
+          [
+            -2,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "all-negative grid: the best answer is still negative because sharing is forced",
+      "input": [
+        [
+          [
+            -5,
+            -9,
+            -4
+          ],
+          [
+            -1,
+            -8,
+            -7
+          ],
+          [
+            -6,
+            -2,
+            -3
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "positive pocket worth detouring for",
+      "input": [
+        [
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            50,
+            60,
+            0
+          ],
+          [
+            0,
+            70,
+            80,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "wide short grid — long horizontal overlap possible",
+      "input": [
+        [
+          [
+            1,
+            -2,
+            3,
+            -4,
+            5,
+            -6,
+            7
+          ],
+          [
+            -7,
+            6,
+            -5,
+            4,
+            -3,
+            2,
+            -1
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "tall narrow grid — vertical overlap dominates",
+      "input": [
+        [
+          [
+            3,
+            -1
+          ],
+          [
+            -2,
+            6
+          ],
+          [
+            8,
+            -3
+          ],
+          [
+            -1,
+            2
+          ],
+          [
+            4,
+            -5
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "zeros everywhere except one forced corner decision",
+      "input": [
+        [
+          [
+            9,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            9
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "best shared region sits mid-grid, not on either diagonal",
+      "input": [
+        [
+          [
+            1,
+            2,
+            0,
+            -3
+          ],
+          [
+            1,
+            -2,
+            1,
+            0
+          ],
+          [
+            -4,
+            2,
+            -1,
+            3
+          ],
+          [
+            3,
+            -3,
+            3,
+            -2
+          ],
+          [
+            -1,
+            -5,
+            0,
+            1
+          ]
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random small rectangles (rows x cols capped near 144 cells) with full value range",
+      "seed": 977,
+      "size": 144,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(2, 12)\n    n = rng.randint(2, max(2, min(size, 144) // m))\n    grid = [[rng.randint(-100, 100) for _ in range(n)] for _ in range(m)]\n    return [grid]\n"
+    }
+  ],
+  "oracle_python": "from itertools import combinations\n\n\nclass Solution:\n    def maxScore(self, grid):\n        m, n = len(grid), len(grid[0])\n\n        def paths(start, end, steps):\n            # All monotone paths as frozensets of cells; steps are the two\n            # allowed row/col deltas.\n            out = []\n            def walk(r, c, acc):\n                if (r, c) == end:\n                    out.append(frozenset(acc))\n                    return\n                for dr, dc in steps:\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < m and 0 <= nc < n:\n                        acc.append((nr, nc))\n                        walk(nr, nc, acc)\n                        acc.pop()\n            walk(start[0], start[1], [start])\n            return out\n\n        p1 = paths((0, 0), (m - 1, n - 1), [(1, 0), (0, 1)])\n        p2 = paths((m - 1, 0), (0, n - 1), [(-1, 0), (0, 1)])\n        best = None\n        for a in p1:\n            for b in p2:\n                s = sum(grid[r][c] for r, c in a & b)\n                if best is None or s > best:\n                    best = s\n        return best\n",
+  "solutions": {
+    "python": "class Solution:\n    def maxScore(self, grid):\n        m, n = len(grid), len(grid[0])\n        pref = [[0] * (m + 1) for _ in range(n)]\n        for c in range(n):\n            for r in range(m):\n                pref[c][r + 1] = pref[c][r] + grid[r][c]\n\n        def seg(c, lo, hi):\n            if lo > hi:\n                return 0\n            return pref[c][hi + 1] - pref[c][lo]\n\n        NEG = float('-inf')\n        # After column c, state = (player 1's exit row, player 2's exit\n        # row). Player 1's column-c cells are [prev_e1, e1]; player 2's\n        # are [e2, prev_e2]; the shared cells are the interval overlap.\n        dp = [[NEG] * m for _ in range(m)]\n        for e1 in range(m):\n            for e2 in range(m):\n                dp[e1][e2] = seg(0, e2, e1)\n        for c in range(1, n):\n            ndp = [[NEG] * m for _ in range(m)]\n            for a in range(m):\n                row = dp[a]\n                for b in range(m):\n                    base = row[b]\n                    if base == NEG:\n                        continue\n                    for a2 in range(a, m):\n                        hi_cap = a2 if a2 < b else b\n                        for b2 in range(b + 1):\n                            lo = a if a > b2 else b2\n                            gain = seg(c, lo, hi_cap)\n                            if base + gain > ndp[a2][b2]:\n                                ndp[a2][b2] = base + gain\n            dp = ndp\n        return int(dp[m - 1][0])\n",
+    "javascript": "var maxScore = function(grid) {\n    const m = grid.length, n = grid[0].length;\n    const pref = Array.from({ length: n }, () => new Array(m + 1).fill(0));\n    for (let c = 0; c < n; c++) {\n        for (let r = 0; r < m; r++) pref[c][r + 1] = pref[c][r] + grid[r][c];\n    }\n    const seg = (c, lo, hi) => (lo > hi ? 0 : pref[c][hi + 1] - pref[c][lo]);\n    const NEG = -Infinity;\n    let dp = Array.from({ length: m }, () => new Array(m).fill(NEG));\n    for (let e1 = 0; e1 < m; e1++) {\n        for (let e2 = 0; e2 < m; e2++) dp[e1][e2] = seg(0, e2, e1);\n    }\n    for (let c = 1; c < n; c++) {\n        const ndp = Array.from({ length: m }, () => new Array(m).fill(NEG));\n        for (let a = 0; a < m; a++) {\n            for (let b = 0; b < m; b++) {\n                const base = dp[a][b];\n                if (base === NEG) continue;\n                for (let a2 = a; a2 < m; a2++) {\n                    const hiCap = Math.min(a2, b);\n                    for (let b2 = 0; b2 <= b; b2++) {\n                        const lo = Math.max(a, b2);\n                        const gain = seg(c, lo, hiCap);\n                        if (base + gain > ndp[a2][b2]) ndp[a2][b2] = base + gain;\n                    }\n                }\n            }\n        }\n        dp = ndp;\n    }\n    return dp[m - 1][0];\n};\n"
+  }
+}

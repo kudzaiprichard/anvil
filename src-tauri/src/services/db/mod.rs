@@ -61,6 +61,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (4, include_str!("migrations/0004_gate_solve.sql")),
     (5, include_str!("migrations/0005_quiz_result.sql")),
     (6, include_str!("migrations/0006_advancement.sql")),
+    (7, include_str!("migrations/0007_attempt_tier.sql")),
 ];
 
 fn migrate(conn: &Connection) -> AppResult<()> {

@@ -59,8 +59,13 @@ pub struct ConstraintSpec {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PackSolutions {
+    /// Python is the expected-value source and is always present.
     pub python: String,
-    pub javascript: String,
+    /// Absent for single-language packs (closing-the-48: the concurrency set
+    /// has no JavaScript — JS has no shared-memory threads). The build skips
+    /// the cross-language check for these; the workspace disables the toggle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub javascript: Option<String>,
     /// The naive oracle used for differential verification, kept for
     /// re-verification runs.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -88,8 +93,27 @@ pub struct TestPack {
     pub tests: Vec<PackTest>,
     pub stress: Vec<StressSpec>,
     pub solutions: PackSolutions,
+    /// Whether the statement's own examples are usable as visible test cases
+    /// under this pack's wire format (closing-the-48). True exactly when the
+    /// build anchored the pack against the statement examples; false for
+    /// `no_anchor_ok` packs whose wire encoding differs from the statement
+    /// (cyclic lists, multilevel lists, shim args, …) — the import then shows
+    /// the pack's own tests instead. Absent on pre-existing packs ⇒ true,
+    /// which is correct: they were all anchor-verified or their examples
+    /// never parsed in the first place.
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    pub examples_ok: bool,
     pub verified: bool,
     pub generated_at: String,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_true(v: &bool) -> bool {
+    *v
 }
 
 #[cfg(test)]
@@ -114,6 +138,40 @@ mod tests {
             "validator_javascript": "function validate(args, out) { return true; }"
         }));
         round_trip::<Judge>(json!({ "type": "design" }));
+        // design_io (closing-the-48 Phase A): node-typed ctor/method boundary.
+        round_trip::<Judge>(json!({
+            "type": "design",
+            "design_io": {
+                "ctor": ["tree"],
+                "methods": { "next": { "returns": "json" }, "insert": { "params": ["tree"] } }
+            }
+        }));
+        // Phase C judges: codec round-trip and property (randomized) packs.
+        round_trip::<Judge>(json!({
+            "type": "round_trip",
+            "io": "tree",
+            "encode": "serialize",
+            "decode": "deserialize"
+        }));
+        round_trip::<Judge>(json!({
+            "type": "property",
+            "validator_python": "def validate(args, outputs): return True",
+            "validator_javascript": "function validate(args, outputs) { return true; }"
+        }));
+        round_trip::<Judge>(json!({
+            "type": "property",
+            "validator_python": "def validate(args, out): return True",
+            "validator_javascript": "function validate(args, out) { return true; }",
+            "exec": "call",
+            "design_io": { "ctor": ["linked_list"] }
+        }));
+        // Concurrency (python-only): driver + validator + amplified runs.
+        round_trip::<Judge>(json!({
+            "type": "concurrency",
+            "driver_python": "def drive(cls, args, record): ...",
+            "validator_python": "def validate(args, events): return True",
+            "runs": 6
+        }));
     }
 
     #[test]
