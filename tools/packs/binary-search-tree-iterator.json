@@ -1,0 +1,196 @@
+{
+  "slug": "binary-search-tree-iterator",
+  "judge": {
+    "type": "design",
+    "design_io": {
+      "ctor": [
+        "tree"
+      ]
+    }
+  },
+  "no_anchor_ok": true,
+  "pattern": "An explicit stack of the not-yet-visited left spine turns recursive inorder traversal into a pausable object: each next() pops one node and pushes its right child's spine, amortizing to O(1).",
+  "hints": [
+    "Flattening the whole tree in the constructor works but costs O(n) memory up front; the follow-up wants O(h).",
+    "Recursion pauses exactly at the chain of ancestors you have not visited — model that chain with your own stack.",
+    "Seed the stack with the path of left children from the root; next() pops a node, then walks the left spine of its right child. hasNext is just a non-empty check."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        1,
+        100000
+      ],
+      "value": [
+        0,
+        1000000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "classic mixed tree walked to exhaustion",
+      "input": [
+        [
+          "BSTIterator",
+          "next",
+          "next",
+          "hasNext",
+          "next",
+          "hasNext",
+          "next",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              7,
+              3,
+              15,
+              null,
+              null,
+              9,
+              20
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single-node tree",
+      "input": [
+        [
+          "BSTIterator",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              1
+            ]
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "left-skewed chain (deep initial spine)",
+      "input": [
+        [
+          "BSTIterator",
+          "next",
+          "next",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              3,
+              2,
+              null,
+              1
+            ]
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "right-skewed chain (spine rebuilt on every next)",
+      "input": [
+        [
+          "BSTIterator",
+          "next",
+          "next",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              1,
+              null,
+              2,
+              null,
+              3
+            ]
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "hasNext asked repeatedly without advancing",
+      "input": [
+        [
+          "BSTIterator",
+          "hasNext",
+          "hasNext",
+          "next",
+          "hasNext",
+          "hasNext",
+          "next",
+          "hasNext"
+        ],
+        [
+          [
+            [
+              2,
+              1,
+              3
+            ]
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random BST fully drained with interleaved hasNext probes",
+      "seed": 733,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 60)))\n    vals = rng.sample(range(0, 100000), n)\n    nodes = [[vals[0], None, None]]\n    for v in vals[1:]:\n        cur = nodes[0]\n        while True:\n            if v < cur[0]:\n                if cur[1] is None:\n                    cur[1] = [v, None, None]\n                    break\n                cur = cur[1]\n            else:\n                if cur[2] is None:\n                    cur[2] = [v, None, None]\n                    break\n                cur = cur[2]\n    out = []\n    queue = [nodes[0]]\n    while queue:\n        cur = queue.pop(0)\n        if cur is None:\n            out.append(None)\n            continue\n        out.append(cur[0])\n        queue.append(cur[1])\n        queue.append(cur[2])\n    while out and out[-1] is None:\n        out.pop()\n    ops = ['BSTIterator']\n    args = [[out]]\n    for _ in range(n):\n        if rng.random() < 0.4:\n            ops.append('hasNext')\n            args.append([])\n        ops.append('next')\n        args.append([])\n    ops.append('hasNext')\n    args.append([])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "class BSTIterator:\n    def __init__(self, root):\n        self.vals = []\n        def dfs(node):\n            if node is None:\n                return\n            dfs(node.left)\n            self.vals.append(node.val)\n            dfs(node.right)\n        dfs(root)\n        self.i = 0\n    def next(self):\n        v = self.vals[self.i]\n        self.i += 1\n        return v\n    def hasNext(self):\n        return self.i < len(self.vals)\n",
+  "solutions": {
+    "python": "class BSTIterator:\n    def __init__(self, root):\n        self.stack = []\n        self._push_left(root)\n    def _push_left(self, node):\n        while node is not None:\n            self.stack.append(node)\n            node = node.left\n    def next(self):\n        node = self.stack.pop()\n        self._push_left(node.right)\n        return node.val\n    def hasNext(self):\n        return len(self.stack) > 0\n",
+    "javascript": "var BSTIterator = function(root) {\n    this.stack = [];\n    this._pushLeft(root);\n};\nBSTIterator.prototype._pushLeft = function(node) {\n    while (node !== null) {\n        this.stack.push(node);\n        node = node.left;\n    }\n};\nBSTIterator.prototype.next = function() {\n    const node = this.stack.pop();\n    this._pushLeft(node.right);\n    return node.val;\n};\nBSTIterator.prototype.hasNext = function() {\n    return this.stack.length > 0;\n};\n"
+  }
+}

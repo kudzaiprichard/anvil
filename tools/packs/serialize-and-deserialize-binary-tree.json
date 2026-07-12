@@ -1,0 +1,130 @@
+{
+  "slug": "serialize-and-deserialize-binary-tree",
+  "judge": {
+    "type": "round_trip",
+    "io": "tree",
+    "encode": "serialize",
+    "decode": "deserialize"
+  },
+  "no_anchor_ok": true,
+  "pattern": "A traversal only pins down a tree when the missing children are written too — record explicit null markers and the same walk that produced the string can rebuild the exact shape.",
+  "hints": [
+    "Any single traversal without null markers is ambiguous: several trees share the same value order.",
+    "Emit a marker for every absent child during a preorder walk, joining tokens with a separator that cannot appear inside a number.",
+    "Deserialize by consuming tokens in the same preorder order: a value makes a node and recurses twice, a marker returns null."
+  ],
+  "constraints": [
+    {
+      "param": "root",
+      "kind": "tree",
+      "len": [
+        0,
+        10000
+      ],
+      "value": [
+        -1000,
+        1000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "empty tree",
+      "input": [
+        []
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node",
+      "input": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "textbook mixed shape",
+      "input": [
+        [
+          1,
+          2,
+          3,
+          null,
+          null,
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "negative and multi-digit values must survive tokenization",
+      "input": [
+        [
+          -1000,
+          42,
+          -7,
+          null,
+          999
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "left-only chain (deep null right sides)",
+      "input": [
+        [
+          1,
+          2,
+          null,
+          3,
+          null,
+          4
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "identical values everywhere — shape alone distinguishes",
+      "input": [
+        [
+          2,
+          2,
+          2,
+          2,
+          null,
+          null,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "right-only chain",
+      "input": [
+        [
+          5,
+          null,
+          6,
+          null,
+          7
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random tree shapes built by attaching each new node to a random open slot",
+      "seed": 271,
+      "size": 80,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(0, max(1, min(size, 80)))\n    if n == 0:\n        return [[]]\n    nodes = [[rng.randint(-1000, 1000), None, None]]\n    for _ in range(n - 1):\n        open_nodes = [x for x in nodes if x[1] is None or x[2] is None]\n        parent = rng.choice(open_nodes)\n        node = [rng.randint(-1000, 1000), None, None]\n        if parent[1] is None and (parent[2] is not None or rng.random() < 0.5):\n            parent[1] = node\n        else:\n            parent[2] = node\n        nodes.append(node)\n    out = []\n    queue = [nodes[0]]\n    while queue:\n        cur = queue.pop(0)\n        if cur is None:\n            out.append(None)\n            continue\n        out.append(cur[0])\n        queue.append(cur[1])\n        queue.append(cur[2])\n    while out and out[-1] is None:\n        out.pop()\n    return [out]\n"
+    }
+  ],
+  "solutions": {
+    "python": "class Codec:\n    def serialize(self, root):\n        tokens = []\n        def dfs(node):\n            if node is None:\n                tokens.append('#')\n                return\n            tokens.append(str(node.val))\n            dfs(node.left)\n            dfs(node.right)\n        dfs(root)\n        return ','.join(tokens)\n\n    def deserialize(self, data):\n        it = iter(data.split(','))\n        def build():\n            token = next(it)\n            if token == '#':\n                return None\n            node = TreeNode(int(token))\n            node.left = build()\n            node.right = build()\n            return node\n        return build()\n",
+    "javascript": "var serialize = function(root) {\n    const tokens = [];\n    const dfs = (node) => {\n        if (!node) {\n            tokens.push('#');\n            return;\n        }\n        tokens.push(String(node.val));\n        dfs(node.left);\n        dfs(node.right);\n    };\n    dfs(root);\n    return tokens.join(',');\n};\n\nvar deserialize = function(data) {\n    const it = data.split(',')[Symbol.iterator]();\n    const build = () => {\n        const token = it.next().value;\n        if (token === '#') return null;\n        const node = new TreeNode(parseInt(token, 10));\n        node.left = build();\n        node.right = build();\n        return node;\n    };\n    return build();\n};\n"
+  }
+}

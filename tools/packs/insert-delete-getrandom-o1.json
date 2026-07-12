@@ -1,0 +1,216 @@
+{
+  "slug": "insert-delete-getrandom-o1",
+  "judge": {
+    "type": "property",
+    "validator_python": "def validate(args, outputs):\n    ops, arg_lists = args\n    if not isinstance(outputs, list) or len(outputs) != len(ops):\n        return False\n    present = set()\n    for i in range(1, len(ops)):\n        op, a, out = ops[i], arg_lists[i], outputs[i]\n        if op == 'insert':\n            expected = a[0] not in present\n            present.add(a[0])\n            if out != expected:\n                return False\n        elif op == 'remove':\n            expected = a[0] in present\n            present.discard(a[0])\n            if out != expected:\n                return False\n        elif op == 'getRandom':\n            if out not in present:\n                return False\n    return True\n",
+    "validator_javascript": "function validate(args, outputs) {\n  const [ops, argLists] = args;\n  if (!Array.isArray(outputs) || outputs.length !== ops.length) return false;\n  const present = new Set();\n  for (let i = 1; i < ops.length; i++) {\n    const op = ops[i], a = argLists[i], out = outputs[i];\n    if (op === 'insert') {\n      const expected = !present.has(a[0]);\n      present.add(a[0]);\n      if (out !== expected) return false;\n    } else if (op === 'remove') {\n      const expected = present.has(a[0]);\n      present.delete(a[0]);\n      if (out !== expected) return false;\n    } else if (op === 'getRandom') {\n      if (!present.has(out)) return false;\n    }\n  }\n  return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Pairing an array (for uniform random indexing) with a hash map of positions (for constant-time lookup) — and filling deletion holes with the last element — gives every operation true O(1).",
+  "hints": [
+    "A set alone gives O(1) insert and remove but no way to pick uniformly at random; an array alone makes removal linear.",
+    "Store values in an array and remember each value's index in a map.",
+    "To remove, swap the victim with the last array element, pop, and fix the moved element's index — getRandom is then just a random array slot."
+  ],
+  "constraints": [
+    {
+      "param": "val",
+      "kind": "int",
+      "value": [
+        -2147483648,
+        2147483647
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "insert, duplicate insert, remove, random over survivors",
+      "input": [
+        [
+          "RandomizedSet",
+          "insert",
+          "remove",
+          "insert",
+          "getRandom",
+          "remove",
+          "insert",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            2
+          ],
+          [],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "remove from empty then insert into the hole",
+      "input": [
+        [
+          "RandomizedSet",
+          "remove",
+          "insert",
+          "getRandom",
+          "remove",
+          "insert",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            5
+          ],
+          [
+            5
+          ],
+          [],
+          [
+            5
+          ],
+          [
+            7
+          ],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "duplicate inserts must report false without corrupting state",
+      "input": [
+        [
+          "RandomizedSet",
+          "insert",
+          "insert",
+          "insert",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            3
+          ],
+          [
+            3
+          ],
+          [
+            3
+          ],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "getRandom over a single element is fully determined",
+      "input": [
+        [
+          "RandomizedSet",
+          "insert",
+          "getRandom",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            42
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "remove the most recent insert repeatedly (swap-with-last edge)",
+      "input": [
+        [
+          "RandomizedSet",
+          "insert",
+          "insert",
+          "insert",
+          "remove",
+          "remove",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ],
+          [
+            3
+          ],
+          [
+            2
+          ],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "negative and extreme values",
+      "input": [
+        [
+          "RandomizedSet",
+          "insert",
+          "insert",
+          "getRandom",
+          "remove",
+          "getRandom"
+        ],
+        [
+          [],
+          [
+            -2147483648
+          ],
+          [
+            2147483647
+          ],
+          [],
+          [
+            2147483647
+          ],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random op mix that only asks getRandom when the set is non-empty",
+      "seed": 359,
+      "size": 400,
+      "generator_python": "def gen(rng, size):\n    ops = ['RandomizedSet']\n    args = [[]]\n    present = set()\n    pool = list(range(-20, 21))\n    for _ in range(max(1, min(size, 400))):\n        r = rng.random()\n        if r < 0.45 or not present:\n            v = rng.choice(pool)\n            ops.append('insert')\n            args.append([v])\n            present.add(v)\n        elif r < 0.75:\n            v = rng.choice(pool)\n            ops.append('remove')\n            args.append([v])\n            present.discard(v)\n        else:\n            ops.append('getRandom')\n            args.append([])\n    return [ops, args]\n"
+    }
+  ],
+  "oracle_python": "import random\n\n\nclass RandomizedSet:\n    def __init__(self):\n        self.values = set()\n    def insert(self, val):\n        if val in self.values:\n            return False\n        self.values.add(val)\n        return True\n    def remove(self, val):\n        if val not in self.values:\n            return False\n        self.values.discard(val)\n        return True\n    def getRandom(self):\n        return random.choice(list(self.values))\n",
+  "solutions": {
+    "python": "import random\n\n\nclass RandomizedSet:\n    def __init__(self):\n        self.items = []\n        self.index = {}\n    def insert(self, val):\n        if val in self.index:\n            return False\n        self.index[val] = len(self.items)\n        self.items.append(val)\n        return True\n    def remove(self, val):\n        if val not in self.index:\n            return False\n        i = self.index.pop(val)\n        last = self.items.pop()\n        if i < len(self.items):\n            self.items[i] = last\n            self.index[last] = i\n        return True\n    def getRandom(self):\n        return random.choice(self.items)\n",
+    "javascript": "var RandomizedSet = function() {\n    this.items = [];\n    this.index = new Map();\n};\nRandomizedSet.prototype.insert = function(val) {\n    if (this.index.has(val)) return false;\n    this.index.set(val, this.items.length);\n    this.items.push(val);\n    return true;\n};\nRandomizedSet.prototype.remove = function(val) {\n    if (!this.index.has(val)) return false;\n    const i = this.index.get(val);\n    this.index.delete(val);\n    const last = this.items.pop();\n    if (i < this.items.length) {\n        this.items[i] = last;\n        this.index.set(last, i);\n    }\n    return true;\n};\nRandomizedSet.prototype.getRandom = function() {\n    return this.items[Math.floor(Math.random() * this.items.length)];\n};\n"
+  }
+}
