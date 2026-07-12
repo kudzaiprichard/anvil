@@ -1,0 +1,238 @@
+{
+  "slug": "flatten-a-multilevel-doubly-linked-list",
+  "judge": "exact",
+  "io_types": {
+    "params": [
+      "multilevel_list"
+    ],
+    "returns": "multilevel_list"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Splicing a nested branch into a doubly linked spine is a bookkeeping exercise in fours: every cut requires rejoining next AND prev on both ends, and a saved continuation for whatever the branch displaced.",
+  "hints": [
+    "Depth-first order is exactly the flattened order: a node's child segment comes right after the node, before its original next.",
+    "When you hit a node with a child, park its old next somewhere (a stack works), splice the child in, and null out the child pointer.",
+    "Every splice must fix both directions — the child's head gets a prev, and when a branch runs out, the parked continuation gets its prev re-aimed too."
+  ],
+  "constraints": [
+    {
+      "param": "head",
+      "kind": "multilevel_list",
+      "len": [
+        0,
+        1000
+      ],
+      "value": [
+        1,
+        100000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "flat list with no children at all",
+      "input": [
+        [
+          {
+            "values": [
+              1,
+              2,
+              3
+            ],
+            "parent": null
+          }
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "empty list",
+      "input": [
+        []
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "single node, no child",
+      "input": [
+        [
+          {
+            "values": [
+              5
+            ],
+            "parent": null
+          }
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "one child branch hanging off the middle node",
+      "input": [
+        [
+          {
+            "values": [
+              1,
+              2,
+              3
+            ],
+            "parent": null
+          },
+          {
+            "values": [
+              7,
+              8
+            ],
+            "parent": 1
+          }
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "child on the LAST node of the spine — after splicing there is no displaced continuation, and a solution that blindly reconnects a saved null tail corrupts the prev chain",
+      "input": [
+        [
+          {
+            "values": [
+              1,
+              2,
+              3
+            ],
+            "parent": null
+          },
+          {
+            "values": [
+              9,
+              10
+            ],
+            "parent": 2
+          }
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "child on the FIRST node, so the splice happens immediately at the head",
+      "input": [
+        [
+          {
+            "values": [
+              1,
+              2,
+              3
+            ],
+            "parent": null
+          },
+          {
+            "values": [
+              100,
+              101
+            ],
+            "parent": 0
+          }
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "three levels nested at each segment's tail — any algorithm that walks back through prev to find a tail visits freshly spliced nodes, and one sloppy prev assignment reorders the chain",
+      "input": [
+        [
+          {
+            "values": [
+              1,
+              2
+            ],
+            "parent": null
+          },
+          {
+            "values": [
+              3,
+              4
+            ],
+            "parent": 1
+          },
+          {
+            "values": [
+              5,
+              6
+            ],
+            "parent": 3
+          }
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "two separate branches off one spine plus a nested grandchild starting at its segment's head",
+      "input": [
+        [
+          {
+            "values": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "parent": null
+          },
+          {
+            "values": [
+              10,
+              11
+            ],
+            "parent": 0
+          },
+          {
+            "values": [
+              20
+            ],
+            "parent": 2
+          },
+          {
+            "values": [
+              30
+            ],
+            "parent": 4
+          }
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "single node whose entire tail lives in its child",
+      "input": [
+        [
+          {
+            "values": [
+              1
+            ],
+            "parent": null
+          },
+          {
+            "values": [
+              2,
+              3
+            ],
+            "parent": 0
+          }
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random multilevel lists built segment-first with bounded depth, then numbered in discovery order for the wire form",
+      "seed": 405,
+      "size": 60,
+      "generator_python": "def gen(rng, size):\n    if rng.random() < 0.05:\n        return [[]]\n    budget = [max(1, min(size, 60))]\n    def make_seg(depth):\n        n = min(rng.randint(1, 5), max(1, budget[0]))\n        budget[0] -= n\n        nodes = []\n        for _ in range(n):\n            child = None\n            if depth < 4 and budget[0] > 0 and rng.random() < 0.35:\n                child = make_seg(depth + 1)\n            nodes.append((rng.randint(1, 100000), child))\n        return nodes\n    root = make_seg(0)\n    segments = []\n    queue = [(root, None)]\n    counter = 0\n    while queue:\n        seg, parent = queue.pop(0)\n        values = []\n        for val, child in seg:\n            values.append(val)\n            if child is not None:\n                queue.append((child, counter))\n            counter += 1\n        segments.append({'values': values, 'parent': parent})\n    return [segments]\n"
+    }
+  ],
+  "oracle_python": "class Solution:\n    def flatten(self, head: 'Optional[Node]') -> 'Optional[Node]':\n        def rec(node):\n            tail = node\n            cur = node\n            while cur:\n                nxt = cur.next\n                if cur.child:\n                    ctail = rec(cur.child)\n                    cur.next = cur.child\n                    cur.child.prev = cur\n                    cur.child = None\n                    if nxt:\n                        ctail.next = nxt\n                        nxt.prev = ctail\n                    tail = ctail\n                else:\n                    tail = cur\n                cur = nxt\n            return tail\n        if head:\n            rec(head)\n        return head\n",
+  "solutions": {
+    "python": "class Solution:\n    def flatten(self, head: 'Optional[Node]') -> 'Optional[Node]':\n        if not head:\n            return head\n        dummy = Node(0)\n        prev = dummy\n        stack = [head]\n        while stack:\n            cur = stack.pop()\n            prev.next = cur\n            cur.prev = prev\n            if cur.next:\n                stack.append(cur.next)\n            if cur.child:\n                stack.append(cur.child)\n                cur.child = None\n            prev = cur\n        dummy.next.prev = None\n        return dummy.next\n",
+    "javascript": "var flatten = function(head) {\n    if (!head) return head;\n    const dummy = new Node(0);\n    let prev = dummy;\n    const stack = [head];\n    while (stack.length) {\n        const cur = stack.pop();\n        prev.next = cur;\n        cur.prev = prev;\n        if (cur.next) stack.push(cur.next);\n        if (cur.child) {\n            stack.push(cur.child);\n            cur.child = null;\n        }\n        prev = cur;\n    }\n    dummy.next.prev = null;\n    return dummy.next;\n};\n"
+  }
+}
