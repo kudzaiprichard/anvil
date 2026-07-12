@@ -1,0 +1,223 @@
+{
+  "slug": "random-flip-matrix",
+  "judge": {
+    "type": "property",
+    "validator_python": "def validate(args, outputs):\n    ops, arg_lists = args\n    if not isinstance(outputs, list) or len(outputs) != len(ops):\n        return False\n    if ops[0] != 'Solution':\n        return False\n    m, n = arg_lists[0]\n    total = m * n\n    flipped = set()\n    for i in range(1, len(ops)):\n        op, out = ops[i], outputs[i]\n        if op == 'flip':\n            if not (isinstance(out, list) and len(out) == 2):\n                return False\n            r, c = out\n            if not isinstance(r, int) or isinstance(r, bool):\n                return False\n            if not isinstance(c, int) or isinstance(c, bool):\n                return False\n            if r < 0 or r >= m or c < 0 or c >= n:\n                return False\n            key = r * n + c\n            if key in flipped or len(flipped) >= total:\n                return False\n            flipped.add(key)\n        elif op == 'reset':\n            if out is not None:\n                return False\n            flipped = set()\n    return True\n",
+    "validator_javascript": "function validate(args, outputs) {\n  const [ops, argLists] = args;\n  if (!Array.isArray(outputs) || outputs.length !== ops.length) return false;\n  if (ops[0] !== 'Solution') return false;\n  const [m, n] = argLists[0];\n  const total = m * n;\n  let flipped = new Set();\n  for (let i = 1; i < ops.length; i++) {\n    const op = ops[i], out = outputs[i];\n    if (op === 'flip') {\n      if (!Array.isArray(out) || out.length !== 2) return false;\n      const [r, c] = out;\n      if (typeof r !== 'number' || !Number.isInteger(r)) return false;\n      if (typeof c !== 'number' || !Number.isInteger(c)) return false;\n      if (r < 0 || r >= m || c < 0 || c >= n) return false;\n      const key = r * n + c;\n      if (flipped.has(key) || flipped.size >= total) return false;\n      flipped.add(key);\n    } else if (op === 'reset') {\n      if (out !== null) return false;\n      flipped = new Set();\n    }\n  }\n  return true;\n}\n"
+  },
+  "no_anchor_ok": true,
+  "pattern": "Treating the unflipped cells as a shrinking virtual array and swapping each chosen slot with the last live slot (Fisher-Yates style) samples without replacement in O(1) instead of rejecting repeats.",
+  "hints": [
+    "A set of already-flipped coordinates plus rejection sampling works but degrades badly once most of the matrix is flipped.",
+    "Flatten the grid to a single index 0..m*n-1 and imagine an array of 'still available' slots shrinking by one after every flip.",
+    "A hash map from logical slot to its current occupant lets you swap the picked slot with the last live slot and shrink the count, without ever allocating the full array."
+  ],
+  "constraints": [
+    {
+      "param": "m",
+      "kind": "int",
+      "value": [
+        1,
+        10000
+      ]
+    },
+    {
+      "param": "n",
+      "kind": "int",
+      "value": [
+        1,
+        10000
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "1x1 matrix: flip is fully determined, survives resets",
+      "input": [
+        [
+          "Solution",
+          "flip",
+          "reset",
+          "flip",
+          "reset",
+          "flip"
+        ],
+        [
+          [
+            1,
+            1
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "1x2 matrix exhausted: both flips must be distinct cells",
+      "input": [
+        [
+          "Solution",
+          "flip",
+          "flip"
+        ],
+        [
+          [
+            1,
+            2
+          ],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "2x2 matrix flipped to exhaustion then reset and reused",
+      "input": [
+        [
+          "Solution",
+          "flip",
+          "flip",
+          "flip",
+          "flip",
+          "reset",
+          "flip",
+          "flip"
+        ],
+        [
+          [
+            2,
+            2
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "interleaved flip-reset-flip on a 3x3 grid",
+      "input": [
+        [
+          "Solution",
+          "flip",
+          "flip",
+          "reset",
+          "flip",
+          "flip",
+          "flip",
+          "reset",
+          "flip"
+        ],
+        [
+          [
+            3,
+            3
+          ],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "reset called before any flip has happened",
+      "input": [
+        [
+          "Solution",
+          "reset",
+          "flip",
+          "flip"
+        ],
+        [
+          [
+            1,
+            3
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "narrow 3x1 column exhausted in one pass",
+      "input": [
+        [
+          "Solution",
+          "flip",
+          "flip",
+          "flip"
+        ],
+        [
+          [
+            3,
+            1
+          ],
+          [],
+          [],
+          []
+        ]
+      ]
+    },
+    {
+      "kind": "boundary",
+      "description": "large sparse matrix with only a handful of flips (far from exhaustion)",
+      "input": [
+        [
+          "Solution",
+          "flip",
+          "flip",
+          "flip",
+          "flip",
+          "flip"
+        ],
+        [
+          [
+            100,
+            100
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "small-to-mid matrices with a mix of flip and reset, occasionally driven near exhaustion",
+      "seed": 823,
+      "size": 150,
+      "generator_python": "def gen(rng, size):\n    m = rng.randint(1, 6)\n    n = rng.randint(1, 6)\n    total = m * n\n    ops = ['Solution']\n    argv = [[m, n]]\n    flipped_count = 0\n    calls = max(1, min(size, 150))\n    for _ in range(calls):\n        if flipped_count >= total or rng.random() < 0.15:\n            ops.append('reset')\n            argv.append([])\n            flipped_count = 0\n        else:\n            ops.append('flip')\n            argv.append([])\n            flipped_count += 1\n    return [ops, argv]\n"
+    }
+  ],
+  "oracle_python": "import random\n\n\nclass Solution:\n    def __init__(self, m, n):\n        self.m = m\n        self.n = n\n        self.flipped = set()\n\n    def flip(self):\n        while True:\n            r = random.randrange(self.m)\n            c = random.randrange(self.n)\n            if (r, c) not in self.flipped:\n                self.flipped.add((r, c))\n                return [r, c]\n\n    def reset(self):\n        self.flipped = set()\n",
+  "solutions": {
+    "python": "import random\n\n\nclass Solution:\n    def __init__(self, m, n):\n        self.m = m\n        self.n = n\n        self.total = m * n\n        self.remaining = self.total\n        self.map = {}\n\n    def flip(self):\n        r = random.randrange(self.remaining)\n        x = self.map.get(r, r)\n        last = self.remaining - 1\n        self.map[r] = self.map.get(last, last)\n        self.remaining -= 1\n        return [x // self.n, x % self.n]\n\n    def reset(self):\n        self.remaining = self.total\n        self.map = {}\n",
+    "javascript": "var Solution = function(m, n) {\n    this.m = m;\n    this.n = n;\n    this.total = m * n;\n    this.remaining = this.total;\n    this.map = new Map();\n};\n\nSolution.prototype.flip = function() {\n    const r = Math.floor(Math.random() * this.remaining);\n    const x = this.map.has(r) ? this.map.get(r) : r;\n    const last = this.remaining - 1;\n    this.map.set(r, this.map.has(last) ? this.map.get(last) : last);\n    this.remaining--;\n    return [Math.floor(x / this.n), x % this.n];\n};\n\nSolution.prototype.reset = function() {\n    this.remaining = this.total;\n    this.map = new Map();\n};\n"
+  },
+  "complexity": {
+    "time": "O(1) amortized per flip/reset",
+    "space": "O(min(flips, m*n))"
+  }
+}
