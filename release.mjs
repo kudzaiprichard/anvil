@@ -1,22 +1,32 @@
-import { readFileSync, writeFileSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync, existsSync, readdirSync, statSync } from 'fs';
 import { execSync } from 'child_process';
+import { gunzipSync } from 'zlib';
 
 // Anvil's release script (see RELEASING.md for the full runbook). Run from a
 // clean `main`:
 //
-//   node release.mjs <patch|minor|major>
+//   node release.mjs <patch|minor|major> [--dry-run] [--no-watch]
+//
+//   --dry-run   run every pre-flight gate, then stop — nothing is bumped,
+//               committed, tagged, or pushed. Use it to rehearse a release.
+//   --no-watch  skip the live build monitor after the tag push.
 //
 // This is the ONLY thing that should ever cut a release. A normal commit/push
 // never triggers one: build.yml is workflow_dispatch-only, and release.yml
 // only fires on a `v*` tag push (which is the last thing this script does) or
-// a manual dispatch from an existing tag. Everything below runs BEFORE any
+// a manual dispatch from an existing tag. Every check below runs BEFORE any
 // file is touched or any git state changes — if anything fails, the repo is
 // exactly as you left it: no half-bumped version, no stray commit, no tag.
+// Checks are ordered cheapest-and-most-fatal first, so a doomed release dies
+// in milliseconds, not after a multi-minute cargo test run.
 
-const type = process.argv[2];
+const args = process.argv.slice(2);
+const type = args[0];
+const dryRun = args.includes('--dry-run');
+const noWatch = args.includes('--no-watch');
 
 if (!['patch', 'minor', 'major'].includes(type)) {
-    console.error('\n  Usage: node release.mjs <patch|minor|major>\n');
+    console.error('\n  Usage: node release.mjs <patch|minor|major> [--dry-run] [--no-watch]\n');
     console.error('  patch  → bug fixes, small tweaks        (0.1.0 → 0.1.1)');
     console.error('  minor  → new features, UI changes       (0.1.0 → 0.2.0)');
     console.error('  major  → breaking changes, major update (0.1.0 → 1.0.0)\n');
@@ -42,9 +52,18 @@ function sh(cmd) {
     return execSync(cmd, { encoding: 'utf-8' }).trim();
 }
 
+function ghAvailable() {
+    try {
+        execSync('gh --version', { stdio: 'ignore' });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // ─── Pre-flight checks ────────────────────────────────────────────────────────
-// Cheapest/fastest checks first so a mistake fails in milliseconds, not after
-// a multi-minute cargo test run.
 
 // 0. Must be run from a clean, up-to-date `main` — releasing from a feature
 //    branch or a stale/dirty checkout is how you ship the wrong thing.
@@ -66,7 +85,54 @@ console.log('\n  🔍 Checking repo state...');
     console.log('  ✅ On a clean, up-to-date main');
 }
 
-// 1. Tauri version alignment — NPM @tauri-apps/api minor must match Rust tauri minor.
+// 1. Compute the target version now — several checks below need it.
+const pkgPath = 'package.json';
+const tauriPath = 'src-tauri/tauri.conf.json';
+const cargoPath = 'src-tauri/Cargo.toml';
+
+const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+const current = pkg.version;
+const [major, minor, patch] = current.split('.').map(Number);
+
+let next;
+if (type === 'major') next = `${major + 1}.0.0`;
+else if (type === 'minor') next = `${major}.${minor + 1}.0`;
+else next = `${major}.${minor}.${patch + 1}`;
+
+console.log(`\n  Preparing release: ${current} → ${next}${dryRun ? '  (dry run)' : ''}`);
+
+// 2. The tag must not already exist, locally or on origin. Without this
+//    check the collision only surfaced at `git tag` — AFTER the version-bump
+//    commit was already pushed to main, leaving a half-cut release.
+console.log(`\n  🔍 Checking that v${next} is a fresh tag...`);
+{
+    if (sh(`git tag -l v${next}`) !== '') {
+        fail(`tag v${next} already exists locally. Delete it (git tag -d v${next}) or pick a different bump.`);
+    }
+    if (sh(`git ls-remote --tags origin refs/tags/v${next}`) !== '') {
+        fail(`tag v${next} already exists on origin — this version has already been released.`);
+    }
+    console.log(`  ✅ v${next} is unused`);
+}
+
+// 3. CHANGELOG.md must already have a DATED section heading for the version
+//    being released (RELEASING.md's pre-release checklist) — written by hand
+//    before running this script, not generated here. A bare "[X.Y.Z]"
+//    substring anywhere isn't enough; it must be the real heading.
+console.log(`\n  🔍 Checking CHANGELOG.md for a dated [${next}] section...`);
+{
+    const changelog = readFileSync('CHANGELOG.md', 'utf-8');
+    const heading = new RegExp(`^## \\[${next.replace(/\./g, '\\.')}\\] - \\d{4}-\\d{2}-\\d{2}`, 'm');
+    if (!heading.test(changelog)) {
+        fail(
+            `CHANGELOG.md has no "## [${next}] - YYYY-MM-DD" heading yet. Add a dated section ` +
+            `for v${next} before releasing (see RELEASING.md's pre-release checklist).`
+        );
+    }
+    console.log(`  ✅ CHANGELOG.md has a dated [${next}] section`);
+}
+
+// 4. Tauri version alignment — NPM @tauri-apps/api minor must match Rust tauri minor.
 //    This is the class of issue that broke v0.6.0's first CI run.
 console.log('\n  🔍 Checking Tauri package version alignment...');
 {
@@ -74,7 +140,7 @@ console.log('\n  🔍 Checking Tauri package version alignment...');
     const npmVersion = lockRaw.packages?.['node_modules/@tauri-apps/api']?.version;
     if (!npmVersion) fail('@tauri-apps/api not found in package-lock.json');
 
-    const cargoToml = readFileSync('src-tauri/Cargo.toml', 'utf-8');
+    const cargoToml = readFileSync(cargoPath, 'utf-8');
     const rustMatch = cargoToml.match(/^tauri\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"/m);
     if (!rustMatch) fail('tauri crate version not found in src-tauri/Cargo.toml');
     const rustVersion = rustMatch[1];
@@ -95,68 +161,122 @@ console.log('\n  🔍 Checking Tauri package version alignment...');
     console.log(`  ✅ Tauri versions aligned (NPM ${npmVersion} ↔ Rust ${rustVersion})`);
 }
 
-// 2. Compute the target version now — the changelog check below needs it.
-const pkgPath = 'package.json';
-const tauriPath = 'src-tauri/tauri.conf.json';
-const cargoPath = 'src-tauri/Cargo.toml';
-
-const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-const current = pkg.version;
-const [major, minor, patch] = current.split('.').map(Number);
-
-let next;
-if (type === 'major') next = `${major + 1}.0.0`;
-else if (type === 'minor') next = `${major}.${minor + 1}.0`;
-else next = `${major}.${minor}.${patch + 1}`;
-
-console.log(`\n  Preparing release: ${current} → ${next}`);
-
-// 3. CHANGELOG.md must already have a dated entry for the version being
-//    released (RELEASING.md's pre-release checklist) — written by hand
-//    before running this script, not generated here.
-console.log(`\n  🔍 Checking CHANGELOG.md for a [${next}] entry...`);
+// 5. Never ship an empty shell — the content the installer exists to deliver
+//    must actually be present and internally consistent BEFORE the slow
+//    gates run. The pack bundle must parse, be non-empty, be fully verified,
+//    and match the freeze manifest one-for-one (a build half-done or a
+//    truncated gz shows up here, instantly). Curriculum/lesson resources
+//    must exist and be non-empty (their semantic validity is checked by
+//    build_curriculum.py --check further down).
+console.log('\n  🔍 Checking shipped content (no empty shell)...');
 {
-    const changelog = readFileSync('CHANGELOG.md', 'utf-8');
-    if (!changelog.includes(`[${next}]`)) {
+    const gzPath = 'src-tauri/resources/test-packs.json.gz';
+    if (!existsSync(gzPath)) fail(`${gzPath} is missing — there are no test packs to ship.`);
+    let packs;
+    try {
+        packs = JSON.parse(gunzipSync(readFileSync(gzPath)).toString('utf-8'));
+    } catch (e) {
+        fail(`${gzPath} is corrupt (${e.message}) — rebuild it with: python tools/build_packs.py --bundle`);
+    }
+    const packCount = Object.keys(packs).length;
+    if (packCount === 0) fail('the pack bundle is EMPTY — nothing to judge against. Rebuild it.');
+    const unverified = Object.values(packs).filter((p) => p.verified !== true).length;
+    if (unverified > 0) fail(`${unverified} pack(s) in the bundle are not verified — the freeze is corrupt.`);
+
+    const manifest = JSON.parse(readFileSync('tools/packs/index.json', 'utf-8'));
+    const manifestCount = Object.keys(manifest).length;
+    if (packCount !== manifestCount) {
         fail(
-            `CHANGELOG.md has no "[${next}]" entry yet. Add a dated section for v${next} ` +
-            `before releasing (see RELEASING.md's pre-release checklist).`
+            `pack bundle (${packCount}) and freeze manifest (${manifestCount}) disagree — ` +
+            `the bundle is stale or half-built. Rebuild it with: python tools/build_packs.py --bundle`
         );
     }
-    console.log(`  ✅ CHANGELOG.md has a [${next}] entry`);
+
+    for (const dir of ['src-tauri/resources/curriculum', 'src-tauri/resources/lessons']) {
+        if (!existsSync(dir) || readdirSync(dir).length === 0) {
+            fail(`${dir} is missing or empty — the course content is not there to ship.`);
+        }
+    }
+    console.log(`  ✅ ${packCount} verified packs (bundle = manifest), curriculum + lessons present`);
 }
 
-// 4. Lint — same gate as CI's "Lint & build (web)" job.
-run('ESLint (npm run lint)', 'npm run lint');
-
-// 5. TypeScript — catches type errors before they hit CI.
-run('TypeScript check (tsc --noEmit)', 'npx tsc --noEmit');
-
-// 6. Curriculum content validation — fail-closed (LESSON_COURSE_DESIGN.md §8):
-//    the prereq DAG, every lesson's required parts, quiz answers, diagram
-//    indices, every referenced slug has a frozen pack.
-run(
-    'Curriculum content check (build_curriculum.py --check)',
-    'python tools/build_curriculum.py --check'
-);
-
-// 7. Installer boundary check — THE non-negotiable gate (COURSE_BLUEPRINT.md
+// 6. Installer boundary check — THE non-negotiable gate (COURSE_BLUEPRINT.md
 //    §2): a release must never bundle a *leetcode* catalog, and the bundled
-//    resource payload must stay at the no-scrape baseline.
+//    resource payload must stay at the no-scrape baseline. Runs early
+//    because it's milliseconds, and on a dev machine that still holds the
+//    scrape it is the most common (and most fatal) failure.
 run(
     'Installer boundary check (no *leetcode* bundling)',
     'python tools/check_release_boundary.py'
 );
 
-// 8. Next.js static export — validates the frontend bundle that gets packaged
-//    into the Tauri app (same command `tauri.conf.json`'s beforeBuildCommand
-//    runs, and CI's "Lint & build (web)" job).
+// 7. The cross-repo publish token should exist before we build for 20
+//    minutes only to fail at the upload step. Warn-only: `gh` may be absent
+//    or offline, and the secret's VALUE can't be verified from here anyway.
+if (ghAvailable()) {
+    try {
+        const secrets = sh('gh secret list --repo kudzaiprichard/anvil');
+        if (!secrets.includes('RELEASES_REPO_TOKEN')) {
+            console.warn(
+                '\n  ⚠️  RELEASES_REPO_TOKEN is not set on kudzaiprichard/anvil — the platform ' +
+                'builds will succeed but publishing to anvil-releases will fail. See RELEASING.md.'
+            );
+        } else {
+            console.log('\n  ✅ RELEASES_REPO_TOKEN secret is set');
+        }
+    } catch {
+        /* offline or no admin scope — the workflow will tell us */
+    }
+}
+
+// 8. Lint — same gate as CI's "Lint & build (web)" job.
+run('ESLint (npm run lint)', 'npm run lint');
+
+// 9. TypeScript — catches type errors before they hit CI.
+run('TypeScript check (tsc --noEmit)', 'npx tsc --noEmit');
+
+// 10. Curriculum content validation — fail-closed (LESSON_COURSE_DESIGN.md §8):
+//     the prereq DAG, every lesson's required parts, quiz answers, diagram
+//     indices, every referenced slug has a frozen pack.
+run(
+    'Curriculum content check (build_curriculum.py --check)',
+    'python tools/build_curriculum.py --check'
+);
+
+// 11. Next.js static export — validates the frontend bundle that gets packaged
+//     into the Tauri app (same command `tauri.conf.json`'s beforeBuildCommand
+//     runs, and CI's "Lint & build (web)" job).
 run('Next.js static export (npm run build)', 'npm run build');
 
-// 9. Rust test suite — same gate as CI's "Rust (fmt, clippy, test)" job (fmt
-//    and clippy run in CI on both platforms; the test suite is the slow part
-//    worth catching locally before pushing a release tag).
+// 12. The export must have actually produced a UI — an empty `out/` would
+//     bundle installers whose window opens onto nothing.
+console.log('\n  🔍 Checking the exported frontend is not an empty shell...');
+{
+    const dist = 'out'; // tauri.conf.json build.frontendDist = "../out"
+    if (!existsSync(`${dist}/index.html`)) {
+        fail(`${dist}/index.html is missing after the export — the frontend did not build.`);
+    }
+    const count = (function walk(d) {
+        return readdirSync(d).reduce((n, name) => {
+            const p = `${d}/${name}`;
+            return n + (statSync(p).isDirectory() ? walk(p) : 1);
+        }, 0);
+    })(dist);
+    if (count < 10) {
+        fail(`the exported frontend has only ${count} file(s) — that is an empty shell, not the app.`);
+    }
+    console.log(`  ✅ Frontend export present (${count} files)`);
+}
+
+// 13. Rust test suite — same gate as CI's "Rust (fmt, clippy, test)" job (fmt
+//     and clippy run in CI on both platforms; the test suite is the slow part
+//     worth catching locally before pushing a release tag).
 run('Rust test suite (cargo test)', 'cargo test --manifest-path src-tauri/Cargo.toml');
+
+if (dryRun) {
+    console.log(`\n  🏁 Dry run complete — every gate passed for v${next}. Nothing was changed.\n`);
+    process.exit(0);
+}
 
 // ─── Version bump ─────────────────────────────────────────────────────────────
 // package.json + tauri.conf.json + src-tauri/Cargo.toml move together —
@@ -222,4 +342,92 @@ try {
     } catch {
         /* nothing to clean up if we never got that far */
     }
+}
+
+// ─── Live build monitor ───────────────────────────────────────────────────────
+// The tag push above just triggered the Release workflow: one create-release
+// job, then four platform builds (Linux, Windows, macOS arm64 + x64). Watch
+// it from here so the terminal tells the whole story — no tab-switching to
+// know whether the installers actually landed. Purely observational: by this
+// point the release is cut; Ctrl-C (or --no-watch) never un-releases
+// anything, and a watch hiccup must not report a failed release.
+
+if (noWatch) {
+    console.log('  (--no-watch: skipping the live build monitor)\n');
+    process.exit(0);
+}
+if (!ghAvailable()) {
+    console.log('  (gh CLI not found: cannot watch the build from here — use the links above)\n');
+    process.exit(0);
+}
+
+const ICONS = { queued: '○', waiting: '○', pending: '○', in_progress: '◐', completed: '●' };
+const CONCLUSION = { success: '✅', failure: '❌', cancelled: '🚫', skipped: '⏭️' };
+
+function jobLine(job) {
+    if (job.status === 'completed') {
+        return `  ${CONCLUSION[job.conclusion] ?? '●'} ${job.name}`;
+    }
+    return `  ${ICONS[job.status] ?? '○'} ${job.name} (${job.status.replace('_', ' ')})`;
+}
+
+console.log('  👀 Watching the release build (Ctrl-C is safe — the release is already cut)...\n');
+
+let runId = null;
+for (let attempt = 0; attempt < 24 && !runId; attempt++) {
+    try {
+        const runs = JSON.parse(
+            sh('gh run list --workflow=release.yml --limit 5 --json databaseId,headBranch,status')
+        );
+        runId = runs.find((r) => r.headBranch === `v${next}`)?.databaseId ?? null;
+    } catch {
+        /* transient — retry below */
+    }
+    if (!runId) await sleep(5000);
+}
+if (!runId) {
+    console.log('  ⚠️  Could not find the workflow run yet — watch it at the Actions link above.\n');
+    process.exit(0);
+}
+
+const interactive = process.stdout.isTTY === true;
+let printedLines = 0;
+let lastSnapshot = '';
+let conclusion = null;
+
+while (conclusion === null) {
+    let view;
+    try {
+        view = JSON.parse(sh(`gh run view ${runId} --json status,conclusion,jobs`));
+    } catch {
+        await sleep(10000);
+        continue;
+    }
+    const lines = view.jobs.map(jobLine);
+    const snapshot = lines.join('\n');
+    if (interactive) {
+        if (printedLines > 0) process.stdout.write(`\x1b[${printedLines}A\x1b[0J`);
+        process.stdout.write(snapshot + '\n');
+        printedLines = lines.length;
+    } else if (snapshot !== lastSnapshot) {
+        // Non-interactive (CI, piped): print only on change, no cursor tricks.
+        console.log(snapshot + '\n');
+        lastSnapshot = snapshot;
+    }
+    if (view.status === 'completed') {
+        conclusion = view.conclusion;
+        break;
+    }
+    await sleep(10000);
+}
+
+if (conclusion === 'success') {
+    console.log(`\n  🎉 All platform builds succeeded for v${next}.`);
+    console.log('  Review + publish the draft: https://github.com/kudzaiprichard/anvil-releases/releases\n');
+} else {
+    console.error(`\n  ❌ The release build finished with conclusion: ${conclusion}.`);
+    console.error(`  Inspect the failed job(s): gh run view ${runId} --log-failed`);
+    console.error('  After fixing, re-run the workflow from the existing tag (Actions → Release →');
+    console.error(`  Run workflow → select v${next}), or cut a follow-up patch release.\n`);
+    process.exit(1);
 }
