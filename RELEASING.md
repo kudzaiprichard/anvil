@@ -83,14 +83,27 @@ need to release without the script):
 2. Make sure `CHANGELOG.md` has a dated `[X.Y.Z]` section for the version you're about to cut.
 3. Run `node release.mjs <patch|minor|major>` from a clean `main` — it runs the whole checklist above,
    then bumps the version, commits, pushes, and pushes the `vX.Y.Z` tag that triggers the build.
-4. The [`Release`](.github/workflows/release.yml) workflow builds installers for every platform, runs
-   the boundary gate again (belt and suspenders), and publishes them as a **draft** release on
-   [**kudzaiprichard/anvil-releases**](https://github.com/kudzaiprichard/anvil-releases/releases) — not
-   this repo.
-5. Review the draft there, verify the attached installer sizes are at the no-scrape baseline, then
-   publish.
+4. The [`Release`](.github/workflows/release.yml) workflow runs a `create-release` job first, which
+   creates the **draft** release on
+   [**kudzaiprichard/anvil-releases**](https://github.com/kudzaiprichard/anvil-releases/releases) (empty,
+   no assets yet) — not this repo. Once that lands, the 4 platform build jobs run in parallel, each
+   building its installer, re-running the boundary gate (belt and suspenders), and uploading its own
+   asset onto that one release.
+5. Review the draft there once all 4 platform jobs finish, verify the attached installer sizes are at
+   the no-scrape baseline, then publish.
 
 > Only a maintainer with push access can run `release.mjs` (it pushes to `main` directly) and publish the
 > draft. The `Release` workflow can also be re-run manually from **Actions → Release → Run workflow**,
 > but only by selecting an **existing tag** in the "Use workflow from" dropdown — dispatching it from a
 > branch is rejected by a guard step.
+
+### Why release creation is a separate job
+
+`create-release` exists only to call `gh release create` exactly once. Don't fold it back into the
+platform matrix, even though that looks simpler — `anvil-releases` has no git tag/commit matching the
+release's tag name, so `gh release create`'s "already exists" check doesn't reliably collide when several
+matrix jobs call it concurrently. An earlier version had each platform job try `gh release create || gh
+release upload`, and all 4 (sometimes more, across retries) independently "won" the create, producing
+separate duplicate draft releases instead of one shared release with every platform's installer attached.
+Serializing creation into its own job the matrix `needs:` closes that race by construction: there is
+exactly one `create` call in the whole workflow, and every platform job's publish step is upload-only.
