@@ -7,6 +7,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-12
+
+Closes the last judging gap: every one of the 3,026 catalog problems now runs against a full
+hidden-test pack — including the 48 that previously shipped in Basic or Run-only mode.
+
+### Added
+
+- **48 new verified test packs** (catalog coverage 2,978 → **3,026, 100%**): node-reference
+  arguments, cyclic and random-pointer lists, graphs, n-ary/quad/next-pointer trees, multilevel
+  lists, serialization codecs, injected interactive objects, randomized-output problems, and the
+  six multithreading problems.
+- **New judge modes** — `round_trip` (codec problems judged by encode→decode canonicalization),
+  `property` (randomized outputs validated by an op-replay validator, never by flaky statistics),
+  and `concurrency` (real threads driven by a pack-shipped driver with amplified scheduling —
+  tiny GIL switch interval, jitter injection, barrier starts, repeated runs — and a watchdog
+  that turns deadlocks into an explained failure instead of a hang).
+- **New wire formats** at the runner boundary: node references resolved by identity, deep-copy
+  and shared-tail construction, freshness checks that reject returning input nodes from copy
+  problems, and per-problem `Node` class injection matching each LeetCode stub.
+- **Injected-object shims** with enforced call budgets (`isBadVersion`, `guess`, `rand7`,
+  `MountainArray` ≤100 gets, `Master` ≤10 guesses, `CustomFunction`, iterators, nested integers).
+- **Single-language packs** — packs may now declare `languages: ["python"]` (the concurrency set
+  is Python-only; JavaScript has no shared-memory threads); the workspace hides unavailable
+  languages and a second differently-synchronized Python oracle replaces the cross-language check.
+- **Attempt-tier history** — every run/submit now records whether it was judged at full, basic,
+  or run-only tier (new `tier` column, migration 0007).
+
+### Fixed
+
+- Design-mode problems can now receive real node structures in their constructors
+  (binary-search-tree-iterator's long-standing gap).
+- Imports no longer attach statement examples whose encoding is incompatible with a pack's wire
+  format (they crashed or mis-judged); the pack's own leading tests are shown instead — this also
+  gives design problems runnable visible cases for the first time.
+- The Unix sandbox no longer blocks thread creation for problems that legitimately need threads
+  (`RLIMIT_NPROC` counts tasks on Linux); timeout, memory, and kill-tree guards are unchanged.
+- The workspace language selector no longer opens a Python-only problem parked on a carried-over
+  JavaScript selection.
+
 ## [0.1.0] - 2026-07-10
 
 First public release: a free, offline, guided DSA **course** that trains pattern *recognition* on real
