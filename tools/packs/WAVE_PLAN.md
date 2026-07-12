@@ -502,12 +502,21 @@ the design). New capabilities, each proven by a pilot pack before its wave ran:
   O(n·m⁴) with small pack sizes (≤12 rows, ≤144 cells); anchors against both
   statement examples and a brute-force path-pair oracle.
 
-Still deferred (6, permanent unless the sandbox grows real threading):
+**Concurrency six — closed in the follow-up sweep** (`concurrency` judge):
 `print-in-order` `print-foobar-alternately` `print-zero-even-odd` `building-h2o`
-`fizz-buzz-multithreaded` `the-dining-philosophers` — correctness for these is
-absence of races/deadlocks across interleavings, JS has no shared-memory threads
-(so the cross-language differential cannot exist), and a run-based judge cannot
-prove the property. Recorded as a deliberate product decision, not a gap.
+`fizz-buzz-multithreaded` `the-dining-philosophers`. Python-only packs
+(`languages: ["python"]` — JS has no shared-memory threads; the `oracle_python`,
+a differently-synchronized second implementation, replaces the JS differential).
+A pack-shipped driver spawns real threads (barrier start, daemon threads, join
+watchdog) and records the event sequence; a pack-shipped validator judges it.
+The harness amplifies races: 10µs GIL switch interval, random jitter inside
+every recorded event, and repeated runs per case — the same judging model
+leetcode.com applies to these problems, hardened per the systematic-concurrency-
+testing literature (noise injection / bug amplification). Honest limit, recorded:
+run-based judging samples interleavings, it cannot PROVE race-freedom — but a
+correct solution can never flake (validators check the logical sequence only),
+and deadlocks surface as explained failures in ~1s, never hangs.
+**The catalog now stands at 3,026/3,026 packs — the 48.md gap is fully closed.**
 
 ### Wave 1 notes
 

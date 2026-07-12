@@ -108,11 +108,22 @@ const SCENARIOS: &[Scenario] = &[
         mechanism: "column-interval DP (the resolved 48.md section-4.8 defer)",
         wrong_python: "class Solution:\n    def maxScore(self, grid):\n        return 0\n",
     },
+    Scenario {
+        slug: "print-in-order",
+        mechanism: "concurrency judge (amplified thread scheduling)",
+        wrong_python: "class Foo:\n    def __init__(self):\n        pass\n    def first(self, printFirst):\n        printFirst()\n    def second(self, printSecond):\n        printSecond()\n    def third(self, printThird):\n        printThird()\n",
+    },
+    Scenario {
+        slug: "the-dining-philosophers",
+        mechanism: "concurrency judge (fork-exclusivity validator)",
+        // Eats without ever picking up the right fork — always invalid.
+        wrong_python: "import threading\nclass DiningPhilosophers:\n    def __init__(self):\n        self.table = threading.Lock()\n    def wantsToEat(self, philosopher, pickLeftFork, pickRightFork, eat, putLeftFork, putRightFork):\n        with self.table:\n            pickLeftFork()\n            eat()\n            putLeftFork()\n",
+    },
 ];
 
 /// Every closing-the-48 slug. The reference-passes/tier check runs for all of
-/// them; the ten SCENARIOS above additionally prove a wrong solution fails.
-const ALL_42: &[&str] = &[
+/// them; the SCENARIOS above additionally prove a wrong solution fails.
+const ALL_48: &[&str] = &[
     "lowest-common-ancestor-of-a-binary-search-tree",
     "linked-list-cycle",
     "clone-graph",
@@ -155,17 +166,24 @@ const ALL_42: &[&str] = &[
     "generate-random-point-in-a-circle",
     "random-point-in-non-overlapping-rectangles",
     "maximum-path-intersection-sum-in-a-grid",
+    // The final six: the concurrency judge (python-only packs).
+    "print-in-order",
+    "print-foobar-alternately",
+    "print-zero-even-odd",
+    "building-h2o",
+    "fizz-buzz-multithreaded",
+    "the-dining-philosophers",
 ];
 
 #[test]
-fn all_42_closing_the_48_packs_import_and_reference_passes() {
+fn all_48_closing_the_48_packs_import_and_reference_passes() {
     require_runtime!("python");
     let Some(catalog) = load_catalog() else {
         return;
     };
     let store = shipped_packs();
 
-    for slug in ALL_42 {
+    for slug in ALL_48 {
         let pack = store
             .get(slug)
             .unwrap_or_else(|| panic!("{slug}: pack missing from shipped bundle"));
@@ -316,7 +334,10 @@ fn curried_javascript_shim_stub_runs_full_tier_end_to_end() {
     let result = runner::execute(
         &merged.problem,
         Language::Javascript,
-        &pack.solutions.javascript,
+        pack.solutions
+            .javascript
+            .as_deref()
+            .expect("first-bad-version ships a JS reference"),
         true,
     )
     .unwrap();

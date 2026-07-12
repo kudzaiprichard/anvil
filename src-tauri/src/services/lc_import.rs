@@ -229,7 +229,7 @@ pub fn merge_question(
             visible.extend(materialized_stress);
             let reference = ReferenceSolution {
                 python: Some(pack.solutions.python.clone()),
-                javascript: Some(pack.solutions.javascript.clone()),
+                javascript: pack.solutions.javascript.clone(),
                 complexity: pack.solutions.complexity.clone().map(|c| Complexity {
                     time: c.time,
                     space: c.space,
@@ -430,7 +430,7 @@ mod tests {
             stress: vec![],
             solutions: PackSolutions {
                 python: "class Solution:\n    def twoSum(self, nums, target): ...".into(),
-                javascript: "var twoSum = function(nums, target) {};".into(),
+                javascript: Some("var twoSum = function(nums, target) {};".into()),
                 brute_force_python: None,
                 complexity: None,
             },

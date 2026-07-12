@@ -1,0 +1,105 @@
+{
+  "slug": "print-in-order",
+  "judge": {
+    "type": "concurrency",
+    "runs": 6,
+    "driver_python": "import threading\nimport time\n\nWATCHDOG_S = 1.0\n\n\ndef _run(targets):\n    errors = []\n    barrier = threading.Barrier(len(targets) + 1)\n\n    def wrap(fn):\n        def go():\n            try:\n                barrier.wait()\n                fn()\n            except BaseException as exc:  # noqa: BLE001 - relayed below\n                errors.append(exc)\n        return go\n\n    threads = [threading.Thread(target=wrap(t), daemon=True) for t in targets]\n    for t in threads:\n        t.start()\n    barrier.wait()\n    deadline = time.monotonic() + WATCHDOG_S\n    for t in threads:\n        t.join(max(0.0, deadline - time.monotonic()))\n    if errors:\n        raise errors[0]\n    if any(t.is_alive() for t in threads):\n        raise RuntimeError(\n            \"threads did not finish within the watchdog - deadlock or a missed signal\"\n        )\ndef drive(cls, args, record):\n    inst = cls()\n    calls = {\n        1: lambda: inst.first(lambda: record(\"first\")),\n        2: lambda: inst.second(lambda: record(\"second\")),\n        3: lambda: inst.third(lambda: record(\"third\")),\n    }\n    _run([calls[i] for i in args[0]])\n",
+    "validator_python": "def validate(args, events):\n    return events == [\"first\", \"second\", \"third\"]\n"
+  },
+  "languages": [
+    "python"
+  ],
+  "no_anchor_ok": true,
+  "pattern": "Thread start order is meaningless — only explicit signaling (an event or semaphore released by the previous stage) can impose an execution order across threads.",
+  "hints": [
+    "Sleeping and hoping the scheduler cooperates is not synchronization — the judge starts the threads in every possible order.",
+    "Each stage should wait on a gate that only the previous stage opens.",
+    "Two events (or two zero-initialized semaphores) suffice: first() opens the gate for second(), second() opens the gate for third()."
+  ],
+  "constraints": [
+    {
+      "param": "nums",
+      "kind": "int[]",
+      "len": [
+        3,
+        3
+      ],
+      "value": [
+        1,
+        3
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "edge",
+      "description": "threads started in the natural order",
+      "input": [
+        [
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "third's thread starts first",
+      "input": [
+        [
+          3,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "second's thread starts first",
+      "input": [
+        [
+          2,
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "first starts, then third, then second",
+      "input": [
+        [
+          1,
+          3,
+          2
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "second, third, then first",
+      "input": [
+        [
+          2,
+          3,
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "third, first, then second",
+      "input": [
+        [
+          3,
+          1,
+          2
+        ]
+      ]
+    }
+  ],
+  "oracle_python": "import threading\n\n\nclass Foo:\n    def __init__(self):\n        self.gate2 = threading.Semaphore(0)\n        self.gate3 = threading.Semaphore(0)\n\n    def first(self, printFirst):\n        printFirst()\n        self.gate2.release()\n\n    def second(self, printSecond):\n        self.gate2.acquire()\n        printSecond()\n        self.gate3.release()\n\n    def third(self, printThird):\n        self.gate3.acquire()\n        printThird()\n",
+  "solutions": {
+    "python": "import threading\n\n\nclass Foo:\n    def __init__(self):\n        self.done_first = threading.Event()\n        self.done_second = threading.Event()\n\n    def first(self, printFirst):\n        printFirst()\n        self.done_first.set()\n\n    def second(self, printSecond):\n        self.done_first.wait()\n        printSecond()\n        self.done_second.set()\n\n    def third(self, printThird):\n        self.done_second.wait()\n        printThird()\n"
+  }
+}

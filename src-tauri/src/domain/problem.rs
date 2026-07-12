@@ -119,6 +119,27 @@ pub enum Judge {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         design_io: Option<DesignIo>,
     },
+    /// Multithreading problems (print-in-order, dining-philosophers, …),
+    /// Python-only. A pack-shipped DRIVER spawns the real threads (barrier
+    /// start, daemon threads, join watchdog) and records the emitted event
+    /// sequence; a pack-shipped VALIDATOR judges each recorded sequence. The
+    /// harness amplifies races: it shrinks the GIL switch interval, injects
+    /// random jitter inside every recorded event, and repeats each case
+    /// `runs` times — every repetition must validate, and a watchdog turns
+    /// deadlocks into a clear failure. Run-based judging cannot PROVE
+    /// race-freedom (no sampler can); this is the same judging model
+    /// leetcode.com uses for these problems, hardened. A correct solution can
+    /// never flake: validators check the logical sequence, never timing.
+    Concurrency {
+        driver_python: String,
+        validator_python: String,
+        #[serde(default = "default_concurrency_runs")]
+        runs: u32,
+    },
+}
+
+fn default_concurrency_runs() -> u32 {
+    6
 }
 
 /// How a `property` pack executes: as a design ops sequence (the default —

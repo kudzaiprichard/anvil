@@ -320,6 +320,15 @@ function Workspace() {
         }
         setLanguage(s.lastLanguage);
       }
+      // Single-language problems (e.g. the concurrency set is Python-only —
+      // no JS threads) ship an empty stub for the missing language; never
+      // leave the editor parked on one.
+      if (!p.function_signature[s.lastLanguage ?? "python"]?.trim()) {
+        const fallback = LANGUAGES.find((l) =>
+          p.function_signature[l]?.trim()
+        );
+        if (fallback) setLanguage(fallback);
+      }
       setCodeByLang(next);
       setBookmarked(s.bookmarked);
       setRunState("idle");
@@ -674,7 +683,9 @@ function Workspace() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {LANGUAGES.map((l) => (
+                  {LANGUAGES.filter(
+                    (l) => !problem || problem.function_signature[l]?.trim()
+                  ).map((l) => (
                     <DropdownMenuItem key={l} onClick={() => setLanguage(l)}>
                       {LANGUAGE_LABELS[l]}
                     </DropdownMenuItem>

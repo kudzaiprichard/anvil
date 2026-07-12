@@ -115,6 +115,12 @@ fn harness_meta(problem: &Problem, language: Language, judge: &Judge) -> Option<
             };
             meta.insert("validator_file".into(), serde_json::json!(file));
         }
+        Judge::Concurrency { runs, .. } => {
+            meta.insert("mode".into(), serde_json::json!("concurrency"));
+            meta.insert("runs".into(), serde_json::json!(runs));
+            meta.insert("driver_file".into(), serde_json::json!("driver.py"));
+            meta.insert("validator_file".into(), serde_json::json!("validator.py"));
+        }
         Judge::Exact | Judge::Unordered | Judge::Float { .. } => {}
     }
     if meta.is_empty() {
@@ -152,15 +158,34 @@ pub fn execute_with_program(
         .collect();
     let total = selected.len() as u32;
 
+    let judge = problem.effective_judge();
+    // Concurrency packs are Python-only (JS has no shared-memory threads);
+    // the UI hides the toggle, this is the backstop.
+    if matches!(judge, Judge::Concurrency { .. }) && language == Language::Javascript {
+        return Ok(error_result(
+            total,
+            "This problem is Python-only — JavaScript has no shared-memory threads.".into(),
+        ));
+    }
+
     // RAII guard: the temp dir is removed on every exit path, kill included.
     let dir = tempfile::tempdir()?;
     let mut solution = code.to_string();
     solution.push_str(spec.solution_suffix);
     std::fs::write(dir.path().join(spec.solution_filename), solution)?;
     std::fs::write(dir.path().join(spec.harness_filename), spec.harness_source)?;
-    let judge = problem.effective_judge();
     if let Some(meta) = harness_meta(problem, language, &judge) {
         std::fs::write(dir.path().join("meta.json"), meta.to_string())?;
+    }
+    if let Judge::Concurrency {
+        driver_python,
+        validator_python,
+        ..
+    } = &judge
+    {
+        // Pack-shipped thread driver + validator — our code, never the user's.
+        std::fs::write(dir.path().join("driver.py"), driver_python)?;
+        std::fs::write(dir.path().join("validator.py"), validator_python)?;
     }
     let validator_pair = match &judge {
         Judge::AnyValid {
@@ -388,6 +413,18 @@ pub fn compute_outputs(
                 serde_json::json!({ "io": io, "encode": encode, "decode": decode }),
             );
         }
+        // Reference-output computation: the driver runs the threads but no
+        // validator is written, so the harness just records a sample sequence.
+        Judge::Concurrency {
+            driver_python,
+            runs,
+            ..
+        } => {
+            meta.insert("mode".into(), serde_json::json!("concurrency"));
+            meta.insert("runs".into(), serde_json::json!(runs));
+            meta.insert("driver_file".into(), serde_json::json!("driver.py"));
+            std::fs::write(dir.path().join("driver.py"), driver_python)?;
+        }
         _ => {}
     }
     if !meta.is_empty() {
@@ -606,7 +643,7 @@ fn case_passes(judge: &Judge, line: &HarnessLine, expected: &serde_json::Value) 
         }
         // The validator's per-case verdict is the whole judgment — outputs
         // are legitimately different run to run.
-        Judge::Property { .. } => line.valid == Some(true),
+        Judge::Property { .. } | Judge::Concurrency { .. } => line.valid == Some(true),
         Judge::Unordered => unordered_match(&line.output, expected),
         Judge::Float { epsilon } => float_match(&line.output, expected, *epsilon),
         Judge::AnyValid { .. } => line.valid == Some(true),

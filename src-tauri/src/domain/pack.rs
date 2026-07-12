@@ -59,8 +59,13 @@ pub struct ConstraintSpec {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PackSolutions {
+    /// Python is the expected-value source and is always present.
     pub python: String,
-    pub javascript: String,
+    /// Absent for single-language packs (closing-the-48: the concurrency set
+    /// has no JavaScript — JS has no shared-memory threads). The build skips
+    /// the cross-language check for these; the workspace disables the toggle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub javascript: Option<String>,
     /// The naive oracle used for differential verification, kept for
     /// re-verification runs.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -159,6 +164,13 @@ mod tests {
             "validator_javascript": "function validate(args, out) { return true; }",
             "exec": "call",
             "design_io": { "ctor": ["linked_list"] }
+        }));
+        // Concurrency (python-only): driver + validator + amplified runs.
+        round_trip::<Judge>(json!({
+            "type": "concurrency",
+            "driver_python": "def drive(cls, args, record): ...",
+            "validator_python": "def validate(args, events): return True",
+            "runs": 6
         }));
     }
 

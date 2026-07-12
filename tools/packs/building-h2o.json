@@ -1,0 +1,82 @@
+{
+  "slug": "building-h2o",
+  "judge": {
+    "type": "concurrency",
+    "runs": 4,
+    "driver_python": "import threading\nimport time\n\nWATCHDOG_S = 1.0\n\n\ndef _run(targets):\n    errors = []\n    barrier = threading.Barrier(len(targets) + 1)\n\n    def wrap(fn):\n        def go():\n            try:\n                barrier.wait()\n                fn()\n            except BaseException as exc:  # noqa: BLE001 - relayed below\n                errors.append(exc)\n        return go\n\n    threads = [threading.Thread(target=wrap(t), daemon=True) for t in targets]\n    for t in threads:\n        t.start()\n    barrier.wait()\n    deadline = time.monotonic() + WATCHDOG_S\n    for t in threads:\n        t.join(max(0.0, deadline - time.monotonic()))\n    if errors:\n        raise errors[0]\n    if any(t.is_alive() for t in threads):\n        raise RuntimeError(\n            \"threads did not finish within the watchdog - deadlock or a missed signal\"\n        )\ndef drive(cls, args, record):\n    inst = cls()\n    targets = []\n    for ch in args[0]:\n        if ch == \"H\":\n            targets.append(lambda: inst.hydrogen(lambda: record(\"H\")))\n        else:\n            targets.append(lambda: inst.oxygen(lambda: record(\"O\")))\n    _run(targets)\n",
+    "validator_python": "def validate(args, events):\n    water = args[0]\n    if len(events) != len(water):\n        return False\n    if events.count(\"H\") != water.count(\"H\") or events.count(\"O\") != water.count(\"O\"):\n        return False\n    for g in range(0, len(events), 3):\n        group = events[g:g + 3]\n        if sorted(group) != [\"H\", \"H\", \"O\"]:\n            return False\n    return True\n"
+  },
+  "languages": [
+    "python"
+  ],
+  "no_anchor_ok": true,
+  "pattern": "Molecule formation is admission control plus a rendezvous: semaphores cap each element's in-flight count at its stoichiometric ratio, and a 3-party barrier releases only complete molecules.",
+  "hints": [
+    "Letting every waiting hydrogen through as soon as an oxygen arrives produces H3O and worse — cap admissions, don't just signal.",
+    "Allow at most two hydrogens and one oxygen 'inside' at once (two semaphores with counts 2 and 1).",
+    "The three admitted threads must cross a barrier together before any of them bonds; only after bonding do they free their admission slots."
+  ],
+  "constraints": [
+    {
+      "param": "water",
+      "kind": "string",
+      "len": [
+        3,
+        60
+      ],
+      "value": [
+        0,
+        0
+      ]
+    }
+  ],
+  "edge_inputs": [
+    {
+      "kind": "boundary",
+      "description": "single molecule",
+      "input": [
+        "HOH"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "both oxygens queued before any hydrogen",
+      "input": [
+        "OOHHHH"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "two molecules, mixed arrival",
+      "input": [
+        "HHOHHO"
+      ]
+    },
+    {
+      "kind": "trap",
+      "description": "hydrogen-heavy prefix must stall until oxygen arrives",
+      "input": [
+        "HHHHOO"
+      ]
+    },
+    {
+      "kind": "edge",
+      "description": "three molecules, alternating",
+      "input": [
+        "HOHHOHOHH"
+      ]
+    }
+  ],
+  "stress": [
+    {
+      "description": "random valid water strings (2n H, n O, shuffled)",
+      "seed": 53,
+      "size": 8,
+      "generator_python": "def gen(rng, size):\n    n = rng.randint(1, max(1, min(size, 8)))\n    letters = ['H'] * (2 * n) + ['O'] * n\n    rng.shuffle(letters)\n    return [''.join(letters)]\n"
+    }
+  ],
+  "oracle_python": "import threading\n\n\nclass H2O:\n    def __init__(self):\n        self.cv = threading.Condition()\n        self.h = 0\n        self.o = 0\n\n    def hydrogen(self, releaseHydrogen):\n        with self.cv:\n            self.cv.wait_for(lambda: self.h < 2)\n            self.h += 1\n            releaseHydrogen()\n            if self.h == 2 and self.o == 1:\n                self.h = 0\n                self.o = 0\n            self.cv.notify_all()\n\n    def oxygen(self, releaseOxygen):\n        with self.cv:\n            self.cv.wait_for(lambda: self.o < 1)\n            self.o += 1\n            releaseOxygen()\n            if self.h == 2 and self.o == 1:\n                self.h = 0\n                self.o = 0\n            self.cv.notify_all()\n",
+  "solutions": {
+    "python": "import threading\n\n\nclass H2O:\n    def __init__(self):\n        self.h_slots = threading.Semaphore(2)\n        self.o_slots = threading.Semaphore(1)\n        self.bond = threading.Barrier(3)\n\n    def hydrogen(self, releaseHydrogen):\n        self.h_slots.acquire()\n        self.bond.wait()\n        releaseHydrogen()\n        self.h_slots.release()\n\n    def oxygen(self, releaseOxygen):\n        self.o_slots.acquire()\n        self.bond.wait()\n        releaseOxygen()\n        self.o_slots.release()\n"
+  }
+}

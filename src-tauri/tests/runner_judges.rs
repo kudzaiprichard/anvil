@@ -559,6 +559,86 @@ fn property_judge_runs_the_javascript_validator() {
     assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
 }
 
+// ---------- concurrency (closing-the-48, the final six) ----------
+
+fn print_in_order_problem() -> app_lib::domain::problem::Problem {
+    let driver = "import threading\nimport time\n\nWATCHDOG_S = 1.0\n\ndef _run(targets):\n    errors = []\n    barrier = threading.Barrier(len(targets) + 1)\n    def wrap(fn):\n        def go():\n            try:\n                barrier.wait()\n                fn()\n            except BaseException as exc:\n                errors.append(exc)\n        return go\n    threads = [threading.Thread(target=wrap(t), daemon=True) for t in targets]\n    for t in threads:\n        t.start()\n    barrier.wait()\n    deadline = time.monotonic() + WATCHDOG_S\n    for t in threads:\n        t.join(max(0.0, deadline - time.monotonic()))\n    if errors:\n        raise errors[0]\n    if any(t.is_alive() for t in threads):\n        raise RuntimeError('threads did not finish within the watchdog - deadlock or a missed signal')\n\ndef drive(cls, args, record):\n    inst = cls()\n    calls = {\n        1: lambda: inst.first(lambda: record('first')),\n        2: lambda: inst.second(lambda: record('second')),\n        3: lambda: inst.third(lambda: record('third')),\n    }\n    _run([calls[i] for i in args[0]])\n";
+    let validator =
+        "def validate(args, events):\n    return events == ['first', 'second', 'third']\n";
+    problem_with(
+        Judge::Concurrency {
+            driver_python: driver.into(),
+            validator_python: validator.into(),
+            runs: 6,
+        },
+        Some(EntryPoint {
+            python: "Foo.__init__".into(),
+            javascript: "__init__".into(),
+            arity: 0,
+            io_types: None,
+        }),
+        vec![
+            case(json!([[3, 2, 1]]), json!(["first", "second", "third"])),
+            case(json!([[2, 3, 1]]), json!(["first", "second", "third"])),
+        ],
+    )
+}
+
+const FOO_SYNCED: &str = "import threading\n\nclass Foo:\n    def __init__(self):\n        self.a = threading.Event()\n        self.b = threading.Event()\n    def first(self, printFirst):\n        printFirst()\n        self.a.set()\n    def second(self, printSecond):\n        self.a.wait()\n        printSecond()\n        self.b.set()\n    def third(self, printThird):\n        self.b.wait()\n        printThird()\n";
+
+#[test]
+fn concurrency_judge_passes_synchronized_and_catches_unsynchronized() {
+    require_runtime!("python");
+    let result = runner::execute(
+        &print_in_order_problem(),
+        Language::Python,
+        FOO_SYNCED,
+        true,
+    )
+    .unwrap();
+    assert_eq!(result.status, RunStatus::Pass, "{:?}", result.error);
+
+    // No synchronization at all: with adversarial start orders, jitter, and
+    // repeated runs, the recorded sequence cannot stay in order.
+    let unsynced = "class Foo:\n    def __init__(self):\n        pass\n    def first(self, printFirst):\n        printFirst()\n    def second(self, printSecond):\n        printSecond()\n    def third(self, printThird):\n        printThird()\n";
+    let result =
+        runner::execute(&print_in_order_problem(), Language::Python, unsynced, true).unwrap();
+    assert_ne!(result.status, RunStatus::Pass);
+}
+
+#[test]
+fn concurrency_deadlock_surfaces_as_a_clear_error() {
+    require_runtime!("python");
+    // Circular wait: first blocks on a gate only second opens, second blocks
+    // on a gate only first opens. The driver watchdog must convert the
+    // deadlock into an explained failure instead of a hang.
+    let deadlocked = "import threading\n\nclass Foo:\n    def __init__(self):\n        self.a = threading.Event()\n        self.b = threading.Event()\n    def first(self, printFirst):\n        self.b.wait()\n        printFirst()\n        self.a.set()\n    def second(self, printSecond):\n        self.a.wait()\n        printSecond()\n        self.b.set()\n    def third(self, printThird):\n        printThird()\n";
+    let result = runner::execute(
+        &print_in_order_problem(),
+        Language::Python,
+        deadlocked,
+        true,
+    )
+    .unwrap();
+    assert_eq!(result.status, RunStatus::Error);
+    let err = result.error.unwrap_or_default();
+    assert!(err.contains("watchdog"), "error was: {err}");
+}
+
+#[test]
+fn concurrency_is_python_only() {
+    // No runtime needed — the guard rejects before spawning anything.
+    let result = runner::execute(
+        &print_in_order_problem(),
+        Language::Javascript,
+        "var x = 1;",
+        true,
+    )
+    .unwrap();
+    assert_eq!(result.status, RunStatus::Error);
+    assert!(result.error.unwrap_or_default().contains("Python-only"));
+}
+
 // ---------- regression: legacy judges byte-identical ----------
 
 #[test]

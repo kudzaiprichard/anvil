@@ -116,10 +116,25 @@ def validate_source(slug: str, src: dict) -> None:
 
     sols = src.get("solutions")
     _require(isinstance(sols, dict), "`solutions` must be an object keyed by language")
-    for lang in CORE_LANGS:
+    # Single-language packs (closing-the-48): `languages` lists the runnable
+    # languages this pack ships (default: the core python+javascript pair).
+    # Python is always required — it is the expected-value source; every
+    # listed language needs a solution. Future languages slot in here.
+    languages = src.get("languages", list(CORE_LANGS))
+    _require(
+        isinstance(languages, list) and languages and all(isinstance(l, str) for l in languages),
+        "`languages` must be a non-empty list of language names",
+    )
+    _require("python" in languages, "`languages` must include python (the expected-value source)")
+    for lang in languages:
+        _require(
+            lang in LANGUAGES,
+            f"`languages` entry {lang!r} is not a registered language "
+            f"(see tools/LANGUAGES.md: {sorted(LANGUAGES)})",
+        )
         _require(
             isinstance(sols.get(lang), str) and sols[lang].strip(),
-            f"`solutions.{lang}` is required and must be non-empty source",
+            f"`solutions.{lang}` is required (listed in `languages`) and must be non-empty source",
         )
     for lang in sols:
         _require(
@@ -158,6 +173,22 @@ def validate_source(slug: str, src: dict) -> None:
         )
         _require(extra.get("exec", "design") in ("design", "call"),
                  "`property` judge `exec` must be design|call")
+
+    if judge_type == "concurrency":
+        _, extra = _judge_fields(src.get("judge"))
+        _require(
+            bool(extra.get("driver_python")) and bool(extra.get("validator_python")),
+            "`concurrency` judge needs `driver_python` and `validator_python`",
+        )
+        runs = extra.get("runs", 6)
+        _require(
+            isinstance(runs, int) and not isinstance(runs, bool) and 1 <= runs <= 20,
+            "`concurrency` judge `runs` must be an int in 1..20",
+        )
+        _require(src.get("languages") == ["python"],
+                 "`concurrency` packs must set `languages`: [\"python\"] — JS has no threads")
+        _require(bool(src.get("oracle_python")),
+                 "`concurrency` packs need `oracle_python` — it replaces the JS differential")
 
     if judge_type in ("design", "property"):
         _, extra = _judge_fields(src.get("judge"))
@@ -325,7 +356,8 @@ def to_gen(src: dict) -> dict:
     gen: dict[str, Any] = {
         "judge": judge_type,
         "solution_python": sols["python"],
-        "solution_javascript": sols["javascript"],
+        "solution_javascript": sols.get("javascript", ""),
+        "languages": src.get("languages", list(CORE_LANGS)),
         "pattern": src.get("pattern", ""),
         "hints": src.get("hints", []),
         "constraints": src.get("constraints", []),
@@ -357,6 +389,10 @@ def to_gen(src: dict) -> dict:
         gen["validator_python"] = extra.get("validator_python", "")
         gen["validator_javascript"] = extra.get("validator_javascript", "")
         gen["property_exec"] = extra.get("exec", "design")
+    if judge_type == "concurrency":
+        gen["driver_python"] = extra.get("driver_python", "")
+        gen["validator_python"] = extra.get("validator_python", "")
+        gen["concurrency_runs"] = extra.get("runs", 6)
     return gen
 
 
@@ -504,7 +540,8 @@ def build(args: argparse.Namespace) -> int:
             continue
 
         packs[slug] = result.pack
-        verified_langs = list(CORE_LANGS) + extra_langs
+        # Single-language packs record exactly what was verified.
+        verified_langs = list(src.get("languages", list(CORE_LANGS))) + extra_langs
         manifest[slug] = {
             # Explicit --batch wins; else auto-assign from the scrape row; else
             # keep a prior value. Auto-assignment keeps parallel sessions correct.

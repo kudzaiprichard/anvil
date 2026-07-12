@@ -169,6 +169,79 @@ def run_round_trip(index, args, cfg, make_codec):
     return result, elapsed_ms
 
 
+def _load_pack_module(path, name):
+    # Pack-shipped code (driver/validator) — ours, never the user's.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def run_concurrency(solution, index, args, meta, driver, validate):
+    # Multithreading judge (closing-the-48): the pack DRIVER spawns real
+    # threads calling the user's class with an injected recorder; the pack
+    # VALIDATOR judges each recorded event sequence. Races are amplified by a
+    # tiny GIL switch interval (set in main), random jitter inside every
+    # recorded event, and `runs` repetitions — all must validate. Drivers use
+    # daemon threads + a join watchdog, so a deadlock surfaces as a clean,
+    # explained failure instead of a hang. Sampling cannot prove race
+    # freedom; it is the same judging model leetcode.com applies, hardened.
+    # Validators check the logical sequence only, so a CORRECT solution can
+    # never fail here by timing.
+    import random
+    import threading
+
+    entry = str(meta.get("entry_point") or "").split(".")[0]
+    cls = getattr(solution, entry, None) if re.fullmatch(IDENT, entry) else None
+    if not inspect.isclass(cls):
+        fail(index, "Class '%s' not found in your code." % entry)
+        return None
+    runs = meta.get("runs", 6)
+    if not isinstance(runs, int) or not 1 <= runs <= 50:
+        runs = 6
+    total_ms = 0.0
+    all_ok = True
+    events = []
+    for rep in range(runs):
+        events = []
+        lock = threading.Lock()
+        rng = random.Random(index * 1000003 + rep)
+
+        def record(label, _events=events, _lock=lock, _rng=rng):
+            # Jitter BEFORE the append widens the interleaving window a
+            # buggy solution leaves open; the lock keeps the record itself
+            # race-free so the judge never manufactures its own race.
+            time.sleep(_rng.random() * 0.0005)
+            with _lock:
+                _events.append(label)
+
+        start = time.perf_counter()
+        try:
+            driver.drive(cls, copy.deepcopy(args), record)
+        except BaseException:
+            fail(
+                index,
+                "run %d/%d: %s" % (rep + 1, runs, clean_traceback(traceback.format_exc())),
+            )
+            return None
+        total_ms += (time.perf_counter() - start) * 1000.0
+        if validate is not None:
+            try:
+                ok = bool(validate(args, events))
+            except BaseException:
+                fail(index, "Validator raised:\n" + clean_traceback(traceback.format_exc()))
+                return None
+            if not ok:
+                all_ok = False
+                break
+    payload = {"index": index, "ok": True, "output": events, "timeMs": total_ms}
+    if validate is not None:
+        payload["valid"] = all_ok
+    return payload
+
+
 def _apply_param_types(values, types):
     # Positional deserialization; params beyond the declared list stay JSON.
     return [
@@ -1048,20 +1121,32 @@ def main():
         return
 
     validate = None
-    if mode in ("any_valid", "property"):
+    if mode in ("any_valid", "property") or (
+        mode == "concurrency" and meta.get("validator_file")
+    ):
         # Pack-shipped validator (our code, written by the Rust side —
         # never from the imported file). Must define validate(args, output).
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location(
-            "validator", meta.get("validator_file", "validator.py")
-        )
-        validator = importlib.util.module_from_spec(spec)
+        # Concurrency reference-output runs carry no validator_file: the
+        # driver records a sample sequence and validation happens upstream.
         try:
-            spec.loader.exec_module(validator)
-            validate = validator.validate
+            validate = _load_pack_module(
+                meta.get("validator_file", "validator.py"), "validator"
+            ).validate
         except BaseException:
             fail(0, "Validator failed to load:\n" + clean_traceback(traceback.format_exc()))
+            return
+
+    driver = None
+    if mode == "concurrency":
+        # Threads must actually preempt each other for races to surface;
+        # shrink the GIL switch interval for the whole process.
+        import sys as _sys2
+
+        _sys2.setswitchinterval(1e-5)
+        try:
+            driver = _load_pack_module(meta.get("driver_file", "driver.py"), "driver")
+        except BaseException:
+            fail(0, "Driver failed to load:\n" + clean_traceback(traceback.format_exc()))
             return
 
     # property packs execute either as an ops sequence ("design", the
@@ -1083,7 +1168,7 @@ def main():
         except BaseException:
             fail(0, clean_traceback(traceback.format_exc()))
             return
-    elif not design_like:
+    elif not design_like and mode != "concurrency":
         try:
             get_callable = resolve_entry(solution, meta.get("entry_point"))
         except LookupError as e:
@@ -1094,7 +1179,11 @@ def main():
         index = case["index"]
         args = case["args"]
 
-        if design_like:
+        if mode == "concurrency":
+            payload = run_concurrency(solution, index, args, meta, driver, validate)
+            if payload is None:
+                return
+        elif design_like:
             start = time.perf_counter()
             outputs = run_design(solution, index, args, meta.get("design_io"))
             if outputs is None:

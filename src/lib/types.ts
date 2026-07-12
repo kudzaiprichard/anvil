@@ -108,6 +108,17 @@ export type Judge =
       validator_javascript: string;
       exec?: "design" | "call";
       design_io?: DesignIo;
+    }
+  /**
+   * Multithreading problems, Python-only: a pack-shipped driver spawns the
+   * real threads and records the event sequence; a pack-shipped validator
+   * judges each of the `runs` amplified repetitions.
+   */
+  | {
+      type: "concurrency";
+      driver_python: string;
+      validator_python: string;
+      runs: number;
     };
 
 /** Node I/O for one design method; absent fields mean plain JSON. */
@@ -254,8 +265,10 @@ export interface ConstraintSpec {
 }
 
 export interface PackSolutions {
+  /** Python is the expected-value source and is always present. */
   python: string;
-  javascript: string;
+  /** Absent for single-language packs (e.g. the Python-only concurrency set). */
+  javascript?: string;
   /** Naive oracle used for differential verification. */
   brute_force_python?: string;
   complexity?: { time: string; space: string };
