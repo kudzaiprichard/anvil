@@ -127,7 +127,7 @@ console.log(`\n  🔍 Checking that v${next} is a fresh tag...`);
 //    gates, and a real --dry-run release shows exactly what will ship.
 console.log(`\n  🔍 Previewing the CHANGELOG [${next}] section...`);
 try {
-    execSync(`node tools/prepare-release.mjs ${type} --date ${today} --dry-run`, { stdio: 'inherit' });
+    execSync(`node tools/prepare-release.mjs ${type} --version ${next} --base v${current} --date ${today} --dry-run`, { stdio: 'inherit' });
 } catch {
     fail('could not preview the CHANGELOG update (see the error above).');
 }
@@ -322,8 +322,11 @@ if (cargoLockChanged) console.log('  ✅ Updated src-tauri/Cargo.lock');
 // Stamp the dated CHANGELOG section (curated [Unreleased] notes win, else it's
 // generated from the commits since the last tag). Idempotent: if a dated
 // [next] section already exists this is a no-op and the file is left untouched.
+// Pass --version/--base explicitly: this runs AFTER package.json was bumped to
+// `next`, so letting prepare-release recompute from package.json would target
+// the version *after* this one (and diff against a tag that doesn't exist yet).
 try {
-    execSync(`node tools/prepare-release.mjs ${type} --date ${today}`, { stdio: 'inherit' });
+    execSync(`node tools/prepare-release.mjs ${type} --version ${next} --base v${current} --date ${today}`, { stdio: 'inherit' });
 } catch {
     fail('failed to prepare the CHANGELOG (see the error above).');
 }

@@ -14,6 +14,11 @@ node release.mjs minor --dry-run    # rehearse: every gate, nothing changed
 node release.mjs patch --no-watch   # skip the live build monitor at the end
 ```
 
+> **Rehearse with `--dry-run` first.** Before any real cut, run `node release.mjs <type> --dry-run`: it
+> runs every pre-flight gate (tests, build, boundary, content, version/tag checks) and **changes
+> nothing** — no bump, no commit, no tag. It's the cheap way to see a green (or failing) release before
+> committing to one, and it prints the exact `CHANGELOG` section that will ship.
+
 `release.mjs` is the only thing that should ever cut a release — see the comment at the top of the file
 for exactly what it checks (repo state, a fresh unused tag, a dated `CHANGELOG.md` heading for the
 target version, Tauri version alignment, the shipped-content gates, the boundary gate, lint, types,
@@ -114,10 +119,28 @@ need to release without the script):
 5. Review the draft there once all 4 platform jobs finish, verify the attached installer sizes are at
    the no-scrape baseline, then publish.
 
-> Only a maintainer with push access can run `release.mjs` (it pushes to `main` directly) and publish the
-> draft. The `Release` workflow can also be re-run manually from **Actions → Release → Run workflow**,
-> but only by selecting an **existing tag** in the "Use workflow from" dropdown — dispatching it from a
-> branch is rejected by a guard step.
+### Who can cut a release — and how contributor changes ship
+
+Cutting a release is **maintainer-only, by design** — not a limitation of the workflow, but a trust
+boundary. `release.mjs` does two things a regular contributor cannot:
+
+- it **pushes the version-bump commit straight to `main`**, a protected branch. Only a branch-protection
+  **bypass actor** (the maintainer/admin) may push directly; a contributor's push is rejected;
+- it **publishes signed installers** to `anvil-releases` via the `RELEASES_REPO_TOKEN` secret, which
+  only the maintainer holds. Tagging a release puts binaries in front of users under the project's name,
+  so it must stay with a trusted maintainer.
+
+**Contributors don't tag releases — they land changes, and the maintainer bundles them.** Any change,
+however big, ships the same way: fork → branch → PR → green CI → code-owner review → merge to `main`
+(see [CONTRIBUTING.md](./CONTRIBUTING.md)). Once it's on `main` it's *in the next release* — whenever the
+maintainer next runs `release.mjs`, which packages everything accumulated since the last tag into one
+versioned build. A large or breaking change simply warrants a `minor`/`major` bump. If a contributor
+needs a release cut for their merged work, they ask a maintainer (open an issue/discussion); they never
+tag it themselves.
+
+The `Release` workflow can also be re-run manually from **Actions → Release → Run workflow**, but only by
+selecting an **existing tag** in the "Use workflow from" dropdown — dispatching it from a branch is
+rejected by a guard step.
 
 ### Why release creation is a separate job
 
