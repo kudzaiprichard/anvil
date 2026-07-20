@@ -305,6 +305,20 @@ console.log('  ✅ Updated package.json');
 console.log('  ✅ Updated src-tauri/tauri.conf.json');
 console.log('  ✅ Updated src-tauri/Cargo.toml');
 
+// Keep Cargo.lock's anvil entry in lockstep with the bumped Cargo.toml so a
+// release never lands a stale lockfile (cargo rewrites it on the next build,
+// and a `--locked` CI check would fail). Only the local anvil package version
+// changes; --offline keeps this a fast, network-free rewrite (the dep graph is
+// already resolved by the `cargo test` gate above).
+const cargoLockPath = 'src-tauri/Cargo.lock';
+try {
+    execSync(`cargo update -p anvil --offline --manifest-path ${cargoPath}`, { stdio: 'inherit' });
+} catch {
+    fail('failed to sync src-tauri/Cargo.lock (cargo update -p anvil) — see the error above.');
+}
+const cargoLockChanged = sh(`git status --porcelain ${cargoLockPath}`) !== '';
+if (cargoLockChanged) console.log('  ✅ Updated src-tauri/Cargo.lock');
+
 // Stamp the dated CHANGELOG section (curated [Unreleased] notes win, else it's
 // generated from the commits since the last tag). Idempotent: if a dated
 // [next] section already exists this is a no-op and the file is left untouched.
@@ -332,6 +346,10 @@ try {
         `- ${tauriPath}: version ${current} -> ${next}`,
         `- ${cargoPath}: version ${current} -> ${next}`,
     ];
+    if (cargoLockChanged) {
+        filesToCommit.push(cargoLockPath);
+        commitMsg.push(`- ${cargoLockPath}: sync anvil lock entry to ${next}`);
+    }
     if (changelogChanged) {
         filesToCommit.push('CHANGELOG.md');
         commitMsg.push(`- CHANGELOG.md: add [${next}] release notes`);
