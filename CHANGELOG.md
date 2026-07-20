@@ -9,6 +9,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.6.0] - 2026-07-20
 
+### Added
+
+- copy the question and the reference solution to the clipboard from the workspace (#53)
+
 ### Changed
 
 - reframe the docs to position Anvil as a bring-your-own-LeetCode shell; keep the originality rule as a legal shield scoped to shipped test packs & lessons, and drop the "ship our own original problem library" goal (#49)
