@@ -125,8 +125,9 @@ The frontend is exported as static assets (`output: 'export'`) and served by Tau
 
 Pre-built installers (Linux, macOS Apple Silicon + Intel, Windows) are published to
 [**kudzaiprichard/anvil-releases**](https://github.com/kudzaiprichard/anvil-releases/releases) — a
-separate repo dedicated to release binaries, kept apart from this source repo. You can also run Anvil
-from source below.
+separate repo dedicated to release binaries, kept apart from this source repo. Each release is cut only
+by the maintainer, with **signed, verified commits and tags** ([how](./RELEASING.md#release-integrity--signed-commits--tags)).
+You can also run Anvil from source below.
 
 ### Prerequisites
 
