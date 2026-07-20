@@ -49,6 +49,58 @@ Set this up once:
 Without this secret set, the `Release` workflow's build steps still succeed, but the final "publish to
 anvil-releases" step will fail (no installers get uploaded anywhere).
 
+## Release integrity — signed commits & tags
+
+Both the version-bump **commit** and the `vX.Y.Z` **tag** a release produces are cryptographically
+signed and verified as the maintainer's, and repository rulesets **require** it:
+
+- The `main` branch ruleset and the `v*` tag ruleset both carry a **`required_signatures`** rule — every
+  commit on `main` and every release tag must have a verified signature.
+- The `v*` tag ruleset also restricts tag **creation/update/deletion to repository admins**, so only a
+  maintainer can cut a release tag (see [Who can cut a release](#who-can-cut-a-release--and-how-contributor-changes-ship)).
+- The maintainer is a branch-protection **bypass actor**, so `release.mjs` can push the bump commit and
+  tag directly — and because the maintainer signs, everything pushed there is signed anyway.
+
+Contributors are unaffected: they push to feature branches (not covered by these rulesets), and a
+squash-merge lands a single **GitHub-signed** (verified) commit on `main`.
+
+### One-time setup: SSH commit signing (maintainer machine)
+
+`release.mjs` runs non-interactively, so sign with an SSH key that has **no passphrase** (or one loaded
+in an agent) — otherwise every release commit/tag would prompt.
+
+```bash
+# 1. Tell git to sign commits + tags with your SSH key
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+
+# 2. (optional) let `git verify-commit`/`verify-tag` resolve your own signatures locally
+printf '%s %s\n' "$(git config user.email)" "$(cat ~/.ssh/id_ed25519.pub)" > ~/.ssh/allowed_signers
+git config --global gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+
+# 3. Register the PUBLIC key on GitHub as a **Signing key** (a signing key is separate
+#    from an authentication key — the same key can be both, but must be added twice):
+gh auth refresh -h github.com -s admin:ssh_signing_key   # grant the scope (interactive), then:
+gh ssh-key add ~/.ssh/id_ed25519.pub --type signing --title "anvil release signing"
+#    …or via the web UI: Settings → SSH and GPG keys → New SSH key → Key type: "Signing Key".
+```
+
+Confirm the whole chain works — a signed commit that GitHub itself verifies:
+
+```bash
+git verify-commit HEAD    # local → "Good git signature"
+gh api "repos/kudzaiprichard/anvil/commits/$(git rev-parse HEAD)" --jq '.commit.verification'
+# → { "verified": true, "reason": "valid", … }
+```
+
+> **Why the release tag is annotated:** a signed tag is an *annotated* tag, which needs a message. With
+> `tag.gpgsign=true`, a bare `git tag <name>` aborts with `fatal: no tag message?`, so `release.mjs`
+> creates the tag as `git tag -m "Release vX.Y.Z" vX.Y.Z` — annotated (and therefore signable). If a
+> machine has no signing configured, that still produces a valid *unsigned* annotated tag, so the
+> release never breaks; it just isn't signed there.
+
 ## The shipping boundary (never violate)
 
 Public installers ship **only** the app, the frozen verified test packs, and the lessons — and **never**
