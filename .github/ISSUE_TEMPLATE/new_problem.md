@@ -1,9 +1,13 @@
 ---
-name: New problem proposal
-about: Propose an original practice problem to add to the library
-title: "[Problem] "
+name: New test pack / lesson proposal
+about: Propose an original test pack (and optional lesson) for a problem slug
+title: "[Pack] "
 labels: new-problem
 ---
+
+> Anvil ships **no problem statements** — those are the user's own local, bring-your-own data. What you
+> propose here is an **original test pack** (reference solution, brute-force oracle, generators, hints)
+> keyed to a problem **slug**, and optionally a **lesson** that teaches the pattern in your own words.
 
 ## Concept
 
@@ -12,15 +16,18 @@ substring without repeats")
 
 - Pattern:
 - Difficulty: [Easy / Medium / Hard]
+- Problem slug:
 
 ## Summary
 
-A short, original description of the problem in your own words.
+A short, original description **in your own words** of the technique the pack exercises. Do **not** paste
+a platform's problem statement, examples, or test cases.
 
 ## Originality confirmation
 
-Anvil only accepts 100% original content (see [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+Anvil only accepts 100% original packs and lessons (see [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-- [ ] This problem's statement, examples, constraints, and test cases are **original** — not copied
-      from LeetCode/NeetCode or any other source.
+- [ ] My pack/lesson contains **no** wording, examples, constraints, editorials, or test cases copied
+      from LeetCode/NeetCode or any other source — it references the problem only by **slug**.
+- [ ] The reference solution, oracle, generators, and any lesson prose are **original**.
 - [ ] I have the right to share this content under the project license.

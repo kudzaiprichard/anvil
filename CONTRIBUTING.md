@@ -1,14 +1,17 @@
 # Contributing to Anvil
 
 Thanks for your interest in contributing! Anvil is an offline-first desktop app for DSA / coding-interview
-practice, and there are many ways to help — code, original practice problems, docs, design, and translations.
+practice, and there are many ways to help — code, original test packs & lessons, docs, design, and translations.
 
 By participating you agree to abide by our [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Ways to contribute
 
 - **Code** — the desktop shell (Tauri/Rust), the UI (Next.js/React), the code runner, and tooling.
-- **Problems** — author original DSA problems and test cases (no coding required — just Markdown + JSON).
+- **Test packs** — author original judges (reference solution, brute-force oracle, generators, hints)
+  keyed to a problem slug (no coding-shell required — just JSON). Anvil does **not** accept problem
+  statements; those are always the user's own local, bring-your-own data.
+- **Lessons** — teach a pattern in your own words (Markdown + JSON), referencing problems only by slug.
 - **Docs, design, accessibility, translations** — all welcome.
 
 ## Development setup
@@ -48,27 +51,29 @@ a PR can merge it must:
 Approvals are dismissed when new commits are pushed, so re-request review after changes. Force-pushes and
 deletion of `main` are blocked. In short: fork → branch → PR → green CI → maintainer approval → merge.
 
-## Contributing problems — the one non-negotiable rule
+## Contributing content — the one non-negotiable rule
 
 > **You may copy the IDEA. You may NOT copy the EXPRESSION.**
 
-All problem content must be **100% original**:
+Anvil ships **no problem statements** — those are always the user's own local, bring-your-own data.
+What you contribute here (test packs and lesson prose) must be **100% original**:
 
-- ✅ You may reuse algorithms, techniques, problem *types*, and famous *names* (e.g. "LRU Cache").
+- ✅ You may reference a problem by **slug** and reuse algorithms, techniques, problem *types*, and
+  famous *names* (e.g. "LRU Cache").
 - ❌ You may **not** copy anyone's exact problem **wording, examples, constraints, editorials, or test
-  cases** — including from LeetCode/NeetCode — not even as a "starting point."
-- By submitting a problem you **warrant that the content is original or that you have the right to
-  share it.**
+  cases** — including from LeetCode/NeetCode — into a pack or lesson, not even as a "starting point."
+- By submitting content you **warrant that it is original or that you have the right to share it.**
 
-LLM-assisted drafting is allowed only **from the abstract concept** ("write an original problem teaching
-the monotonic-stack technique"), never "rewrite this problem." This keeps the project legally clean for
-everyone. For the full content & licensing policy — including how user-supplied (non-shipped) catalogs
-work — see [DISCLAIMER.md](./DISCLAIMER.md).
+LLM-assisted drafting is allowed only **from the abstract concept** ("write an original oracle and
+generators for the monotonic-stack pattern"), never "rewrite this problem." This is the rule that keeps
+everything Anvil ships legally clean. For the full content & licensing policy — including how
+user-supplied (non-shipped) catalogs work — see [DISCLAIMER.md](./DISCLAIMER.md).
 
-A contributed problem is two original parts: a **statement** (an entry in an original `catalog.json`)
-and a **test pack** (`tools/packs/<slug>.json` — reference solution, brute-force oracle, generators,
-hints). The build (`tools/build_packs.py`) computes expected outputs by *executing* your references in
-the sandbox and cross-checking them; a pack whose solutions disagree is quarantined, never frozen.
+A contributed **test pack** (`tools/packs/<slug>.json`) is an original judge — reference solution,
+brute-force oracle, generators, hints — keyed to a problem *slug*. It carries **no statement**: the
+learner supplies that locally. The build (`tools/build_packs.py`) computes expected outputs by
+*executing* your references in the sandbox and cross-checking them; a pack whose solutions disagree is
+quarantined, never frozen.
 
 ## Contributing course content (lessons)
 
@@ -103,7 +108,7 @@ its required parts, quiz answers ∈ options, diagram indices in range):
 python tools/build_curriculum.py --check     # non-zero exit ⇒ don't ship
 ```
 
-The **same originality rule as problems applies**: reference LeetCode problems by slug and narrate the
+The **same originality rule as test packs applies**: reference problems by slug and narrate the
 *technique in your own words* — never paste a platform's problem statement, examples, or editorial into
 a lesson. See [DISCLAIMER.md](./DISCLAIMER.md).
 
