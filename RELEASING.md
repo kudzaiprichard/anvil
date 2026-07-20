@@ -74,6 +74,10 @@ need to release without the script):
 - [ ] On a clean, up-to-date `main`.
 - [ ] The target tag `vX.Y.Z` does not already exist, locally or on origin.
 - [ ] `CHANGELOG.md` has a dated `## [X.Y.Z] - YYYY-MM-DD` heading for the version being tagged.
+      **This is now automatic** — `release.mjs` stamps it for you via `tools/prepare-release.mjs`
+      (curated `[Unreleased]` notes win; otherwise the section is generated from the
+      Conventional-Commit subjects since the last tag). Preview it any time with
+      `npm run release:prepare -- <patch|minor|major> --dry-run`.
 - [ ] `@tauri-apps/api` (npm) and the `tauri` crate (Rust) are on the same major.minor.
 - [ ] **No empty shell**: `test-packs.json.gz` parses, is non-empty, every pack is `verified`, and the
       pack count equals the freeze manifest (`tools/packs/index.json`); the curriculum and lessons
@@ -94,9 +98,13 @@ need to release without the script):
 ## Cutting the release
 
 1. Land all release-blocking PRs on `main` (green CI + code-owner approval).
-2. Make sure `CHANGELOG.md` has a dated `[X.Y.Z]` section for the version you're about to cut.
+2. _(Optional.)_ If you want curated release notes instead of the auto-generated ones, write them under
+   `## [Unreleased]` in `CHANGELOG.md` — they take precedence. Otherwise skip this: the section is
+   generated from the commit history. Preview either way with
+   `npm run release:prepare -- <patch|minor|major> --dry-run`.
 3. Run `node release.mjs <patch|minor|major>` from a clean `main` — it runs the whole checklist above,
-   then bumps the version, commits, pushes, and pushes the `vX.Y.Z` tag that triggers the build.
+   stamps the dated `CHANGELOG.md` section, then bumps the version, commits (bump + changelog together),
+   pushes, and pushes the `vX.Y.Z` tag that triggers the build.
 4. The [`Release`](.github/workflows/release.yml) workflow runs a `create-release` job first, which
    creates the **draft** release on
    [**kudzaiprichard/anvil-releases**](https://github.com/kudzaiprichard/anvil-releases/releases) (empty,
