@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { exportProblem } from "@/src/lib/api";
 import { CodeEditor } from "@/src/components/anvil/code-editor";
+import { CopyButton } from "@/src/components/anvil/copy-button";
 import { DifficultyBadge } from "@/src/components/anvil/difficulty-badge";
 import { Markdown } from "@/src/components/anvil/markdown";
 import { PatternBadge } from "@/src/components/anvil/pattern-badge";
@@ -64,6 +65,47 @@ function InlineCode({ text }: { text: string }) {
   );
 }
 
+/** Flattens a problem statement to plain text for the clipboard: the title,
+ *  the statement body (sanitized HTML read as text, or the markdown source),
+ *  then structured examples / constraints / follow-up for markdown problems. */
+function questionToText(problem: Problem): string {
+  const out: string[] = [];
+  out.push(
+    `${problem.number > 0 ? `${problem.number}. ` : ""}${problem.title}`
+  );
+
+  if (problem.body_html) {
+    // Imported statements are a single sanitized HTML blob (examples and
+    // constraints already inside); copy its text content.
+    const el = document.createElement("div");
+    el.innerHTML = problem.body_html;
+    const text = (el.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
+    if (text) out.push("", text);
+    return out.join("\n").trim();
+  }
+
+  if (problem.description_md) out.push("", problem.description_md.trim());
+
+  problem.examples.forEach((ex, i) => {
+    out.push(
+      "",
+      `Example ${i + 1}:`,
+      `Input: ${ex.input}`,
+      `Output: ${ex.output}`
+    );
+    if (ex.explanation_md) out.push(`Explanation: ${ex.explanation_md}`);
+  });
+
+  if (problem.constraints.length > 0) {
+    out.push("", "Constraints:");
+    problem.constraints.forEach((c) => out.push(`- ${c}`));
+  }
+
+  if (problem.follow_up) out.push("", `Follow-up: ${problem.follow_up}`);
+
+  return out.join("\n").trim();
+}
+
 function DescriptionTab({
   problem,
   bookmarked,
@@ -82,6 +124,12 @@ function DescriptionTab({
           {problem.title}
         </h1>
         <div className="flex shrink-0 items-center gap-1.5">
+          <CopyButton
+            getText={() => questionToText(problem)}
+            toastMessage="Question copied"
+            title="Copy the question"
+            className="flex size-[30px] items-center justify-center rounded-lg border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          />
           {problem.source !== "built-in" && (
             <button
               type="button"
@@ -378,11 +426,21 @@ function SolutionTab({
             {LANGUAGE_LABELS[l]}
           </button>
         ))}
-        {solution.complexity && (
-          <span className="ml-auto font-mono text-xs text-muted-foreground">
-            Time {solution.complexity.time} · Space {solution.complexity.space}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {solution.complexity && (
+            <span className="font-mono text-xs text-muted-foreground">
+              Time {solution.complexity.time} · Space {solution.complexity.space}
+            </span>
+          )}
+          <CopyButton
+            getText={() => solution[lang] ?? ""}
+            toastMessage="Solution copied"
+            title="Copy the solution code"
+            label="Copy"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            iconClassName="size-[13px]"
+          />
+        </div>
       </div>
       <div className="mt-2.5 overflow-hidden rounded-[10px] border">
         <CodeEditor
