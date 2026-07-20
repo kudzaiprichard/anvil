@@ -109,34 +109,44 @@ async function main() {
   loadDotEnv();
 
   const url = process.env.ANVIL_CATALOG_URL;
-  if (!url) {
+
+  // PROD is the SHIPPING build. By design Anvil ships with an EMPTY library
+  // (bring-your-own-statement) and users import their own problems, so a
+  // bundled catalog is OPTIONAL here — catalog trouble must NEVER fail the
+  // release, and *leetcode* content must NEVER be bundled. So in prod a missing
+  // URL or a *leetcode* URL both degrade to "ship empty" with a loud, visible
+  // (::warning::) notice rather than a hard error. A valid, non-*leetcode* URL
+  // is still fetched and bundled below.
+  if (mode === 'prod') {
+    purgeScrapes(); // strip any dev *leetcode* scrape before we decide
+    if (!url) {
+      console.log(
+        '::warning::ANVIL_CATALOG_URL is not set — shipping an EMPTY catalog ' +
+          '(bring-your-own). Point a repo Variable/Secret at your OWN, ' +
+          'non-*leetcode* catalog to bundle problems into the installer.',
+      );
+      return;
+    }
+    if (isLeetcodeName(fileNameFromUrl(url))) {
+      console.log(
+        '::warning::ANVIL_CATALOG_URL resolves to a *leetcode* file — legally ' +
+          'un-shippable (DISCLAIMER.md §3–4), so it is NOT bundled; shipping an ' +
+          'EMPTY catalog. Point ANVIL_CATALOG_URL at your OWN catalog to bundle ' +
+          'problems.',
+      );
+      return;
+    }
+  } else if (!url) {
+    // DEV: a URL is required to populate your working catalog.
     console.error(
       'ERROR: ANVIL_CATALOG_URL is not set — cannot fetch the catalog.\n' +
-        '  This build step requires it. Set it in .env (see .env.example) or\n' +
-        '  export it in your environment:\n' +
-        '    ANVIL_CATALOG_URL=<raw-url>\n' +
-        `  (mode=${mode}: point it at your ` +
-        `${mode === 'prod' ? 'OWN, shippable' : 'dev'} catalog)`,
+        '  Set it in .env (see .env.example):\n' +
+        '    ANVIL_CATALOG_URL=<raw-url>',
     );
     process.exit(1);
   }
 
   const outName = fileNameFromUrl(url);
-
-  if (mode === 'prod') {
-    if (isLeetcodeName(outName)) {
-      console.error(
-        'ERROR: this is a SHIPPING build but ANVIL_CATALOG_URL points at a\n' +
-          `  *leetcode* catalog:\n    ${url}\n` +
-          '  The LeetCode scrape is legally un-shippable (DISCLAIMER.md §3–4) and is\n' +
-          '  blocked from installers by tools/check_release_boundary.py. Point\n' +
-          '  ANVIL_CATALOG_URL at your OWN catalog for a prod build.',
-      );
-      process.exit(1);
-    }
-    // Belt-and-suspenders: strip any dev scrape before we fetch the shippable one.
-    purgeScrapes();
-  }
 
   if (!existsSync(CATALOG_DIR)) mkdirSync(CATALOG_DIR, { recursive: true });
   const outPath = join(CATALOG_DIR, outName);
