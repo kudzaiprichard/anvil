@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-20
+
 ### Changed
 
 - reframe the docs to position Anvil as a bring-your-own-LeetCode shell; keep the originality rule as a legal shield scoped to shipped test packs & lessons, and drop the "ship our own original problem library" goal (#49)
@@ -1019,7 +1021,8 @@ LeetCode problems (bring-your-own-statement) with verified local judging.
   frozen test packs, and the lessons; the user supplies LeetCode statements themselves. Enforced
   fail-closed by the installer boundary gate (see above).
 
-[Unreleased]: https://github.com/kudzaiprichard/anvil/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/kudzaiprichard/anvil/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/kudzaiprichard/anvil/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kudzaiprichard/anvil/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kudzaiprichard/anvil/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kudzaiprichard/anvil/compare/v0.2.0...v0.3.0
