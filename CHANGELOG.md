@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- reframe the docs to position Anvil as a bring-your-own-LeetCode shell; keep the originality rule as a legal shield scoped to shipped test packs & lessons, and drop the "ship our own original problem library" goal (#49)
+- refresh the README — version, verified-pack count, SQLite status, positioning, and grammar (#49)
+- remove dangling references to deleted design docs from code comments across the codebase (#50)
+
 ## [0.5.0] - 2026-07-20
 
 ### Added
