@@ -7,6 +7,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-20
+
+Release engineering and delivery: the catalog is now baked into installers at build time, the
+installers carry the forged-iron & ember branding on every platform, and cutting a release is
+watched end-to-end from the terminal.
+
+### Added
+
+- **Build-time catalog embedding** — the problem catalog is fetched and embedded at build time
+  from a single `ANVIL_CATALOG_URL` (dev points at the LeetCode-derived catalog, production at
+  Anvil's own original catalog), so installers ship with the catalog baked in instead of fetching
+  it at runtime. (#45)
+- **Live release build monitor** — after the tag push, `release.mjs` streams each platform build
+  job (Linux, Windows, macOS arm64 + x64) to completion in the terminal, and new fail-fast
+  pre-flight gates catch a doomed release in milliseconds: a fresh-unused-tag check and empty-shell
+  guards on both the pack bundle and the exported frontend. (#32)
+
+### Changed
+
+- **Forged-iron & ember branding** across the installers, with per-platform installer configuration
+  for Windows, macOS, and Linux. (#34)
+- **Path-aware CI** — the Rust and web jobs are skipped when their inputs did not change, cutting CI
+  time on docs- and content-only changes. (#33)
+
 ## [0.2.0] - 2026-07-12
 
 Closes the last judging gap: every one of the 3,026 catalog problems now runs against a full
@@ -101,5 +125,7 @@ LeetCode problems (bring-your-own-statement) with verified local judging.
   frozen test packs, and the lessons; the user supplies LeetCode statements themselves. Enforced
   fail-closed by the installer boundary gate (see above).
 
-[Unreleased]: https://github.com/kudzaiprichard/anvil/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kudzaiprichard/anvil/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/kudzaiprichard/anvil/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/kudzaiprichard/anvil/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kudzaiprichard/anvil/releases/tag/v0.1.0

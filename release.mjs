@@ -99,6 +99,9 @@ if (type === 'major') next = `${major + 1}.0.0`;
 else if (type === 'minor') next = `${major}.${minor + 1}.0`;
 else next = `${major}.${minor}.${patch + 1}`;
 
+// Today's date (YYYY-MM-DD) — used to stamp the CHANGELOG section.
+const today = new Date().toISOString().slice(0, 10);
+
 console.log(`\n  Preparing release: ${current} → ${next}${dryRun ? '  (dry run)' : ''}`);
 
 // 2. The tag must not already exist, locally or on origin. Without this
@@ -115,21 +118,18 @@ console.log(`\n  🔍 Checking that v${next} is a fresh tag...`);
     console.log(`  ✅ v${next} is unused`);
 }
 
-// 3. CHANGELOG.md must already have a DATED section heading for the version
-//    being released (RELEASING.md's pre-release checklist) — written by hand
-//    before running this script, not generated here. A bare "[X.Y.Z]"
-//    substring anywhere isn't enough; it must be the real heading.
-console.log(`\n  🔍 Checking CHANGELOG.md for a dated [${next}] section...`);
-{
-    const changelog = readFileSync('CHANGELOG.md', 'utf-8');
-    const heading = new RegExp(`^## \\[${next.replace(/\./g, '\\.')}\\] - \\d{4}-\\d{2}-\\d{2}`, 'm');
-    if (!heading.test(changelog)) {
-        fail(
-            `CHANGELOG.md has no "## [${next}] - YYYY-MM-DD" heading yet. Add a dated section ` +
-            `for v${next} before releasing (see RELEASING.md's pre-release checklist).`
-        );
-    }
-    console.log(`  ✅ CHANGELOG.md has a dated [${next}] section`);
+// 3. CHANGELOG.md is AUTO-MAINTAINED — no hand-remembered step. Below (in the
+//    mutation phase) tools/prepare-release.mjs stamps a dated "## [X.Y.Z]"
+//    section and commits it alongside the version bump: curated [Unreleased]
+//    notes win if present, otherwise the section is generated from the
+//    Conventional-Commit subjects since the last tag. Here we only PREVIEW it
+//    (--dry-run touches nothing) so a doomed changelog surfaces before the slow
+//    gates, and a real --dry-run release shows exactly what will ship.
+console.log(`\n  🔍 Previewing the CHANGELOG [${next}] section...`);
+try {
+    execSync(`node tools/prepare-release.mjs ${type} --date ${today} --dry-run`, { stdio: 'inherit' });
+} catch {
+    fail('could not preview the CHANGELOG update (see the error above).');
 }
 
 // 4. Tauri version alignment — NPM @tauri-apps/api minor must match Rust tauri minor.
@@ -305,6 +305,17 @@ console.log('  ✅ Updated package.json');
 console.log('  ✅ Updated src-tauri/tauri.conf.json');
 console.log('  ✅ Updated src-tauri/Cargo.toml');
 
+// Stamp the dated CHANGELOG section (curated [Unreleased] notes win, else it's
+// generated from the commits since the last tag). Idempotent: if a dated
+// [next] section already exists this is a no-op and the file is left untouched.
+try {
+    execSync(`node tools/prepare-release.mjs ${type} --date ${today}`, { stdio: 'inherit' });
+} catch {
+    fail('failed to prepare the CHANGELOG (see the error above).');
+}
+const changelogChanged = sh('git status --porcelain CHANGELOG.md') !== '';
+if (changelogChanged) console.log('  ✅ Updated CHANGELOG.md');
+
 // ─── Commit, tag, push ────────────────────────────────────────────────────────
 // Only stage the files we explicitly changed — never `git add .` (risks
 // committing local env files or build artifacts). Commit message follows
@@ -314,15 +325,20 @@ console.log('  ✅ Updated src-tauri/Cargo.toml');
 
 const msgFile = '.release-commit-msg.tmp';
 try {
+    const filesToCommit = [pkgPath, tauriPath, cargoPath];
     const commitMsg = [
         `chore(release): bump version to v${next}`,
         `- ${pkgPath}: version ${current} -> ${next}`,
         `- ${tauriPath}: version ${current} -> ${next}`,
         `- ${cargoPath}: version ${current} -> ${next}`,
-    ].join('\n');
-    writeFileSync(msgFile, commitMsg, 'utf-8');
+    ];
+    if (changelogChanged) {
+        filesToCommit.push('CHANGELOG.md');
+        commitMsg.push(`- CHANGELOG.md: add [${next}] release notes`);
+    }
+    writeFileSync(msgFile, commitMsg.join('\n'), 'utf-8');
 
-    execSync(`git add ${pkgPath} ${tauriPath} ${cargoPath}`, { stdio: 'inherit' });
+    execSync(`git add ${filesToCommit.join(' ')}`, { stdio: 'inherit' });
     execSync(`git commit -F ${msgFile}`, { stdio: 'inherit' });
     execSync('git push', { stdio: 'inherit' });
     execSync(`git tag v${next}`, { stdio: 'inherit' });
