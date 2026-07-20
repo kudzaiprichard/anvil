@@ -1,4 +1,4 @@
-//! Formative quiz-result persistence (Phase 4, LESSON_COURSE_DESIGN.md §3.4).
+//! Formative quiz-result persistence (Phase 4).
 //! Quizzes never gate progression; these rows only *feed the review signal* —
 //! the recognition evidence later phases (FSRS scheduling, readiness) build on.
 //! The connection never leaves this module tree (see `mod.rs`): the grading

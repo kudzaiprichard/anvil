@@ -61,7 +61,7 @@ struct HarnessLine {
 }
 
 /// Builds the optional `meta.json` the harness reads next to `cases.json`
-/// (CONTENT_DESIGN.md §4–5). `None` means legacy behavior — no file is
+/// `None` means legacy behavior — no file is
 /// written, so built-in problems run exactly as before.
 fn harness_meta(problem: &Problem, language: Language, judge: &Judge) -> Option<serde_json::Value> {
     let mut meta = serde_json::Map::new();
@@ -201,7 +201,7 @@ pub fn execute_with_program(
     };
     if let Some((validator_python, validator_javascript)) = validator_pair {
         // Pack-shipped validator — our code, never anything from the
-        // imported file (CONTENT_DESIGN.md §4).
+        // imported file.
         let (file, mut source) = match language {
             Language::Python => ("validator.py", validator_python.clone()),
             Language::Javascript => ("validator.js", validator_javascript.clone()),
@@ -360,7 +360,7 @@ pub fn execute_with_program(
 /// Executes `code` against raw positional-arg inputs and returns each
 /// case's raw JSON output in order — no comparison, no display formatting.
 /// Used at import time to materialize stress generators and compute
-/// expected values by execution (task 0008, CONTENT_DESIGN.md §7); it only
+/// expected values by execution (task 0008); it only
 /// ever runs our own pack-shipped code, never user code. `AnyValid` is
 /// executed as a plain call (no validator — there is nothing to judge when
 /// the point is to *produce* the reference output).
@@ -539,7 +539,7 @@ pub enum ProbeOutcome {
 
 /// Runs the learner's Python `code` on a ladder of generated input `sizes`
 /// under a line-event counter, returning `(n, ops)` samples for complexity
-/// classification (COURSE_BLUEPRINT.md §7). Python-only: the counter is
+/// classification. Python-only: the counter is
 /// `sys.settrace`. `generator` is a pack stress generator (`def gen(rng,
 /// size)`); `entry_point`/`io_types` come from the pack. Only ever runs the
 /// user's own solution — same sandbox as a normal run.
@@ -640,7 +640,7 @@ fn memory_limit_message(guards: &Guards) -> String {
     )
 }
 
-/// Per-case verdict honoring the problem's judge (CONTENT_DESIGN.md §4).
+/// Per-case verdict honoring the problem's judge.
 /// `in_place` and `design` compare exactly — the harness already emitted
 /// the mutated argument / collected op outputs as the case output.
 /// `any_valid` trusts the pack validator's verdict from the harness line.

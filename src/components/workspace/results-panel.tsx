@@ -195,7 +195,7 @@ function ResultBody({
 }
 
 /* --------------------------------------------------------------------- */
-/* Deterministic complexity feedback (Phase 5, COURSE_BLUEPRINT.md §7)    */
+/* Deterministic complexity feedback (Phase 5)                           */
 /* --------------------------------------------------------------------- */
 
 const VERDICT_META: Record<
@@ -374,7 +374,7 @@ export function ResultsPanel({
   selectedCase: number;
   onSelectCase: (index: number) => void;
   onMarkMastered: () => void;
-  /** Off in a mastery gate (COURSE_BLUEPRINT.md §6); on for practice. */
+  /** Off in a mastery gate; on for practice. */
   complexityEnabled?: boolean;
   /** Profiles the current code — closure supplied by the workspace. */
   onAnalyzeComplexity?: () => Promise<ComplexityReport>;

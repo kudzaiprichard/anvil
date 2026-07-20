@@ -1,4 +1,4 @@
-//! Per-lesson user progress (LESSON_COURSE_DESIGN.md §6.4). Curriculum/unit/
+//! Per-lesson user progress. Curriculum/unit/
 //! lesson *content* is bundled resource data (validated by
 //! `services::curriculum`); this table holds only what the user *does* with a
 //! lesson — the same content/state split as `problem_state` vs. the catalog.

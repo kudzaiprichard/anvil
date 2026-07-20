@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keyless test-pack build (task 0001, CONTENT_DESIGN.md §2-4).
+"""Keyless test-pack build (task 0001).
 
 Compiles the hand-authored source files in ``tools/packs/<slug>.json`` into the
 shipped, verified bundle. There is **no model and no API key on this path** — the
@@ -68,7 +68,7 @@ DEFAULT_OUT = ROOT / "tools" / "test-packs.json"
 # ---------------------------------------------------------------------------
 #
 # `python` is the source of truth: every `expected` value is computed by
-# executing the python reference (CONTENT_DESIGN.md §2). Every *other* language
+# executing the python reference. Every *other* language
 # is verified *by agreement* against those expecteds — it adds zero new ground
 # truth. python + javascript are verified inside verify_and_build today; this
 # table lets the build also accept additional languages additively (a new entry

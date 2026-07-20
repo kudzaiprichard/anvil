@@ -20,7 +20,7 @@ MANIFEST = ROOT / "tools" / "packs" / "index.json"
 SCRAPE = ROOT / "src-tauri" / "resources" / "catalog" / "catalog_leetcode.json"
 PROGRESS_DIR = ROOT / "tools" / "packs" / ".progress"
 
-# Lane ownership from PARALLEL_PLAN.md (batch -> session).
+# Lane ownership (batch -> session).
 OWNER = {2: 1, 7: 1, 12: 1, 3: 2, 8: 2, 13: 2, 4: 3, 9: 3, 14: 3,
          5: 4, 10: 4, 15: 4, 6: 5, 11: 5, 16: 5, 1: "-", 0: "-"}
 

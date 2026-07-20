@@ -1,4 +1,4 @@
-//! Quiz types (LESSON_COURSE_DESIGN.md §3.4, §13.3) — formative checks
+//! Quiz types — formative checks
 //! only, never a gate. Three item types share one shape: `concept-check`
 //! and `complexity` grade against `answer`; `pattern-picker` is prompt-only
 //! (unlabeled) and additionally carries `correct_pattern`, the transfer
@@ -132,7 +132,7 @@ pub struct QuizItemResult {
 }
 
 /// The full graded submission returned by `submit_quiz` — never blocks
-/// progression (LESSON_COURSE_DESIGN.md §3.4: quizzes are formative).
+/// progression (quizzes are formative).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuizGrade {

@@ -78,7 +78,7 @@ pub fn run() {
             }
             let db = services::db::Db::open(&app.path().app_data_dir()?)?;
             store.set_user_problems(services::db::user_problems::list(&db)?);
-            // Course content (LESSON_COURSE_DESIGN.md §6.4): validated
+            // Course content: validated
             // fail-closed, like presets — a malformed curriculum/unit/lesson
             // file aborts startup rather than loading partial content.
             let curriculum = services::curriculum::CurriculumStore::load(&resources_dir, &packs)?;

@@ -1,4 +1,4 @@
-//! Statement example parser (task 0004, CONTENT_DESIGN.md §2 step 1, §7):
+//! Statement example parser (task 0004):
 //! turns a scraped question's own `Example` blocks into runnable visible
 //! `TestCase`s — the basic-mode tests for unmatched questions and the
 //! ground-truth anchor for the generation pipeline (whose Python mirror in

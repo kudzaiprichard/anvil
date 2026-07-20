@@ -1,4 +1,4 @@
-//! Deterministic complexity feedback (COURSE_BLUEPRINT.md §7, Phase 5).
+//! Deterministic complexity feedback (Phase 5).
 //!
 //! We already run the learner's code — so instead of guessing, we *measure*.
 //! The runner executes the solution on a ladder of growing inputs under a
@@ -10,7 +10,7 @@
 //! The counter sees Python-level line events *plus* a size-weighted charge for
 //! sequence-consuming built-ins (`sorted`, `sum`, `min`, `max`, `any`, `all`),
 //! so an O(n log n) sort or an O(n) reduction shows up in the growth instead of
-//! reading flat. Honesty note (COURSE_BLUEPRINT.md §8): a few method-style ops
+//! reading flat. Honesty note: a few method-style ops
 //! still run in C uncharged (`.sort()`, `x in list`, container construction,
 //! `str.join`) — the UI says so. It's the right lens for what this teaches:
 //! spotting work whose growth you can cut.

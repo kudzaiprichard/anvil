@@ -1,4 +1,4 @@
--- Course per-user state (LESSON_COURSE_DESIGN.md §6.4). Curriculum/unit/
+-- Course per-user state. Curriculum/unit/
 -- lesson *content* is bundled resource data (validated by
 -- services::curriculum); these tables hold only what the user *does* with
 -- it, same split as `problem_state` vs. the catalog. Columns are stubbed

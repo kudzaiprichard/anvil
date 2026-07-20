@@ -1,5 +1,4 @@
--- Phase 3: mastery-gate solves (COURSE_BLUEPRINT.md §6, LESSON_COURSE_DESIGN.md
--- §3.6). One row per gate problem a learner has cleared *hint-free and no-peek*
+-- Phase 3: mastery-gate solves. One row per gate problem a learner has cleared *hint-free and no-peek*
 -- — the only solves that count toward mastery. The PRIMARY KEY makes a re-solve
 -- idempotent (it never double-counts), and `novel` mirrors the unit manifest's
 -- tag so the engine can enforce "pass = N incl. >=1 novel". `unit_mastery`

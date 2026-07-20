@@ -17,7 +17,7 @@ pub enum StatusAction {
     ClearReview,
 }
 
-/// Where a lesson sits for this user (LESSON_COURSE_DESIGN.md §6.4). Mirrors
+/// Where a lesson sits for this user. Mirrors
 /// the `lesson_progress.status` CHECK constraint and the TS `LessonStatus`.
 /// `NotStarted` is the absence of a stored row, surfaced by the UI only.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

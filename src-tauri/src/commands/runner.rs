@@ -61,7 +61,7 @@ async fn run(
     }
 
     // A passing SUBMIT of a course problem enters the FSRS spaced-review queue
-    // (Phase 6, COURSE_BLUEPRINT.md §7): solved Stage-1 problems come back to be
+    // (Phase 6): solved Stage-1 problems come back to be
     // re-solved cold. Non-course library problems are ignored by `enqueue`.
     // A DB failure here must never eat the run result — log and move on.
     if include_hidden && result.status == RunStatus::Pass {
@@ -163,7 +163,7 @@ fn build_report(outcome: ProbeOutcome, optimal: Option<String>) -> ComplexityRep
     }
 }
 
-/// Deterministic complexity feedback (COURSE_BLUEPRINT.md §7, Phase 5).
+/// Deterministic complexity feedback (Phase 5).
 /// Profiles the learner's *own* Python solution on growing inputs (op-count via
 /// the runner, no AI) and compares the measured growth class to the pack's
 /// declared optimal. Never records anything — it's pure feedback, and it reuses

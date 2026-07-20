@@ -43,7 +43,7 @@ export function PracticeTimer({
 }: {
   problemId: string;
   autoStart: boolean;
-  /** Soft per-problem target (mastery gate, COURSE_BLUEPRINT.md §6). Shows an
+  /** Soft per-problem target (mastery gate). Shows an
    *  "aim < Nm" goal and turns amber once passed — it never stops the clock or
    *  fails the attempt. */
   targetMinutes?: number;

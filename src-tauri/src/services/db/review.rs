@@ -1,4 +1,4 @@
-//! FSRS review-schedule persistence (Phase 6, LESSON_COURSE_DESIGN.md §6.4).
+//! FSRS review-schedule persistence (Phase 6).
 //! One row per problem that has entered the spaced-review queue (a solved or
 //! gated Stage-1 problem). The connection never leaves this module tree (see
 //! `mod.rs`): the scheduler in `services::review` reconstructs an `rs_fsrs::Card`

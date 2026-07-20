@@ -1,7 +1,7 @@
 //! Retention / spaced-review types (Phase 6). These are *per-user state*
 //! shapes (camelCase JSON, like `progress::LessonProgress`), the front end of
-//! the FSRS review queue and the honest habit layer (COURSE_BLUEPRINT.md §7,
-//! LESSON_COURSE_DESIGN.md §6). The scheduling engine that fills them wraps the
+//! the FSRS review queue and the honest habit layer.
+//! The scheduling engine that fills them wraps the
 //! pure-Rust `rs-fsrs` crate in `services::review`; the domain layer stays free
 //! of the algorithm crate so it unit-tests as plain serde.
 //!
@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 /// The learner's self-assessed recall after a *cold* re-solve — the four FSRS
-/// grades (COURSE_BLUEPRINT.md §8: retrieval practice, re-solve don't re-read).
+/// grades (retrieval practice, re-solve don't re-read).
 /// Maps to `rs_fsrs::Rating` in `services::review`. `Again` is the failure grade
 /// that demotes the card.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,7 +61,7 @@ pub struct ReviewItem {
     pub overdue_days: i64,
 }
 
-/// The honest habit layer (COURSE_BLUEPRINT.md §7): a streak that survives one
+/// The honest habit layer: a streak that survives one
 /// missed day via a freeze ("never miss twice"), never XP or leaderboards. The
 /// streak counts calendar days with ≥1 passing submit; a single gap is bridged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,5 +1,5 @@
-//! Curriculum types — the one implicit course (LESSON_COURSE_DESIGN.md
-//! §3.1). `curriculum.json` is a single file: ordered stages, the unit
+//! Curriculum types — the one implicit course.
+//! `curriculum.json` is a single file: ordered stages, the unit
 //! list, the prerequisite DAG, and global gate defaults. Field names mirror
 //! `src/lib/types.ts` exactly.
 
@@ -19,7 +19,7 @@ pub struct CurriculumStage {
 
 /// One problem in the Stage-7 mixed capstone. `unit` is the pattern it
 /// *actually* belongs to — kept server-side for scoring/spiral bookkeeping and
-/// **never sent to the workspace**: the capstone's whole point (BLUEPRINT.md §4)
+/// **never sent to the workspace**: the capstone's whole point
 /// is that the learner sees the problem *unlabeled* and must recognize the
 /// pattern themselves.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -28,7 +28,7 @@ pub struct CapstoneProblem {
     pub unit: String,
 }
 
-/// The Stage-7 Mixed Capstone (BLUEPRINT.md §4, §13.5): a pool of problems drawn
+/// The Stage-7 Mixed Capstone: a pool of problems drawn
 /// from across every unit, shown without their pattern label. Clearing it is the
 /// operational definition of "can solve unfamiliar problems alone." Not a unit
 /// (it has no lessons and sits outside the prereq DAG), so it's carried on the
@@ -50,8 +50,7 @@ pub struct Capstone {
 pub struct Curriculum {
     pub id: String,
     pub stages: Vec<CurriculumStage>,
-    /// `unitId -> [prereq unitId]`, the prerequisite DAG driving unlocking
-    /// (BLUEPRINT.md §4).
+    /// `unitId -> [prereq unitId]`, the prerequisite DAG driving unlocking.
     #[serde(default)]
     pub prereqs: HashMap<String, Vec<String>>,
     /// Fallback gate knobs a unit may override in its own manifest.

@@ -1,5 +1,5 @@
 //! Test-pack types — the shape of one entry in the shipped `test-packs.json`
-//! bundle (CONTENT_DESIGN.md §3), keyed by LeetCode slug. Packs are entirely
+//! bundle, keyed by LeetCode slug. Packs are entirely
 //! our own content (tests, solutions, hints), merged with a user's imported
 //! question at import time. Field names mirror `src/lib/types.ts` exactly.
 
@@ -19,7 +19,7 @@ pub enum PackTestKind {
 
 /// A literal verified test: positional args (same convention as
 /// `TestCase.input`) and an expected value computed by executing the
-/// reference solutions — never authored by the model (CONTENT_DESIGN.md §2).
+/// reference solutions — never authored by the model.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PackTest {
     pub kind: PackTestKind,
@@ -30,7 +30,7 @@ pub struct PackTest {
 
 /// A deterministic stress-input generator. Large inputs never ship as
 /// literals; the importer materializes these once through the sandbox
-/// (CONTENT_DESIGN.md §7) into ordinary hidden test cases.
+/// into ordinary hidden test cases.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StressSpec {
     pub description: String,
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_pack_round_trips_the_design_doc_example() {
-        // The CONTENT_DESIGN.md §3 two-sum example, verbatim in shape.
+        // The two-sum example, verbatim in shape.
         round_trip::<TestPack>(json!({
             "slug": "two-sum",
             "qid": "1",

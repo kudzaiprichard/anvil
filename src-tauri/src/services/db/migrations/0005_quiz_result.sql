@@ -1,4 +1,4 @@
--- Formative quiz outcomes (Phase 4, LESSON_COURSE_DESIGN.md §3.4, §13.3).
+-- Formative quiz outcomes (Phase 4).
 -- Quizzes are NEVER a gate: this table only *feeds the review signal* — which
 -- items a learner got right/wrong, so later phases (FSRS review scheduling,
 -- readiness signal) can lean on real recognition data. Quiz *content* is

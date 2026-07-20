@@ -1,6 +1,6 @@
 //! Advanced-progression engine (Phase 7) — the compiled-behavior half of the
 //! four progression features layered on the proven Phase 1–6 engine
-//! (LESSON_COURSE_DESIGN.md §6: unlock/mastery/placement rules are code, never
+//! (unlock/mastery/placement rules are code, never
 //! editable data):
 //!
 //!   * [`capstone_view`] / [`evaluate_capstone`] — the Stage-7 **mixed capstone**:
@@ -100,7 +100,7 @@ pub fn evaluate_capstone(
     })
 }
 
-/// The honest readiness aggregate (BLUEPRINT.md §7). Ladder mastery is weighted
+/// The honest readiness aggregate. Ladder mastery is weighted
 /// 80%, the unlabeled capstone 20%; `ready` demands *both* a fully-mastered
 /// ladder and a cleared capstone.
 pub fn readiness(store: &CurriculumStore, db: &Db) -> AppResult<Readiness> {
@@ -172,7 +172,7 @@ pub fn placement_probe(store: &CurriculumStore) -> PlacementProbe {
     PlacementProbe { items, unit_ids }
 }
 
-/// Applies a submitted placement probe (BLUEPRINT.md §7 "diagnostic placement").
+/// Applies a submitted placement probe ("diagnostic placement").
 /// A unit is *recognized* when the learner answered every probe item for it
 /// correctly; a recognized unit is *placed out* only if all its prerequisites are
 /// themselves placed or already mastered (you can't skip a unit whose

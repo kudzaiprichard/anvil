@@ -1,4 +1,4 @@
--- Imported LeetCode problems (task 0005, CONTENT_DESIGN.md §6). One row per
+-- Imported LeetCode problems (task 0005). One row per
 -- slug = the user's statement merged with our pre-built test pack. Keyed by
 -- slug so re-imports upsert in place and attempt history (in `attempts` /
 -- `problem_state`, keyed by the slug used as the problem id) survives.

@@ -1,5 +1,5 @@
-//! Stress-materialization integration tests (task 0008, CONTENT_DESIGN.md
-//! §7): a pack's deterministic generator specs become literal hidden test
+//! Stress-materialization integration tests (task 0008):
+//! a pack's deterministic generator specs become literal hidden test
 //! cases through the real sandbox, so the runtime runner's `cases.json`
 //! contract never changes. Runtime-gated like all sandbox tests.
 

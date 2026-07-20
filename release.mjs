@@ -200,8 +200,8 @@ console.log('\n  🔍 Checking shipped content (no empty shell)...');
     console.log(`  ✅ ${packCount} verified packs (bundle = manifest), curriculum + lessons present`);
 }
 
-// 6. Installer boundary check — THE non-negotiable gate (COURSE_BLUEPRINT.md
-//    §2): a release must never bundle a *leetcode* catalog, and the bundled
+// 6. Installer boundary check — THE non-negotiable gate: a release must
+//    never bundle a *leetcode* catalog, and the bundled
 //    resource payload must stay at the no-scrape baseline. Runs early
 //    because it's milliseconds, and on a dev machine that still holds the
 //    scrape it is the most common (and most fatal) failure.
@@ -235,7 +235,7 @@ run('ESLint (npm run lint)', 'npm run lint');
 // 9. TypeScript — catches type errors before they hit CI.
 run('TypeScript check (tsc --noEmit)', 'npx tsc --noEmit');
 
-// 10. Curriculum content validation — fail-closed (LESSON_COURSE_DESIGN.md §8):
+// 10. Curriculum content validation — fail-closed:
 //     the prereq DAG, every lesson's required parts, quiz answers, diagram
 //     indices, every referenced slug has a frozen pack.
 run(
