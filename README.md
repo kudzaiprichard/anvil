@@ -4,7 +4,7 @@
 
 ### The free, offline, honest way to master DSA
 
-A guided course of **original** problems: learn each pattern with animated diagrams, check yourself with a quick quiz, then solve it and run against real test cases — **fully offline, no account, no AI crutch.**
+A guided course that plugs into the problems you already practice: learn each pattern with animated diagrams, check yourself with a quick quiz, then bring your own LeetCode problem and run your solution against real test cases — **fully offline, no account, no AI crutch.**
 
 [![CI](https://github.com/kudzaiprichard/anvil/actions/workflows/ci.yml/badge.svg)](https://github.com/kudzaiprichard/anvil/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -23,9 +23,9 @@ A guided course of **original** problems: learn each pattern with animated diagr
 
 **Anvil** is building the practice tool you'd actually want for a real interview: not a wall of random
 problems, but a **guided course**. For each pattern you get a short lesson with an **animated diagram**,
-a quick **concept quiz**, and *then* a curated set of problems to master it — written in your solution in
-an in-app editor and judged against real test cases in a **sandboxed local runtime** on your own machine.
-No sign-up, no network, no telemetry.
+a quick **concept quiz**, and *then* a curated set of problems to master it. You bring the statements,
+write your solution in an in-app editor, and it's judged against real test cases in a **sandboxed local
+runtime** on your own machine. No sign-up, no network, no telemetry.
 
 Two things make it different from the usual prep sites and the offline clones:
 
@@ -34,12 +34,13 @@ Two things make it different from the usual prep sites and the offline clones:
   increasingly bringing interviews back in-person specifically to counter AI-assisted cheating.)
 - **Its judging is provably correct, not answer-keyed.** Every problem is judged by executing reference
   solutions against an **independent brute-force oracle**, cross-checked across languages — so a wrong
-  solution can never be marked right, and the entire library is **100% original and MIT-licensed**.
+  solution can never be marked right. Everything Anvil ships — lessons, drills, and judges — is
+  **100% original and MIT-licensed**; the problem statements stay on your machine.
 
-> ### Project status — `0.1.0`, first release
+> ### Project status — `0.4.0`
 >
 > **Shipping now:** the desktop shell, the sandboxed code runner (Python & JavaScript), the offline
-> test-pack judging engine (**2,900+ verified packs**), **and the guided course** — a mastery-gated climb
+> test-pack judging engine (**3,000+ verified packs**), **and the guided course** — a mastery-gated climb
 > of **8 stages / 19 units / 62 lessons** with prediction diagrams, unlabeled pattern-picker drills,
 > hint-free timed gates, a graduated hint ladder, deterministic complexity feedback, FSRS spaced review,
 > and a Stage-7 unlabeled capstone (see the [roadmap](#roadmap)). The lessons, diagrams, judges, and
@@ -86,8 +87,8 @@ Anvil aims to be the best of both — a real course you own:
 - **Trustworthy judging without answer keys.** Problems are judged by executing reference solutions
   against an *independent brute-force oracle*, cross-checked across languages — a wrong solution can't be
   marked correct.
-- **Yours to own.** MIT-licensed, 100% original content, no accounts, no tracking. Take it on a plane; it
-  just works.
+- **Yours to own.** MIT-licensed — every lesson, drill, and judge is original — no accounts, no tracking.
+  Take it on a plane; it just works.
 
 ## Features
 
@@ -100,7 +101,7 @@ Anvil aims to be the best of both — a real course you own:
 | 💡 **Richer feedback** | Graduated Socratic hint ladder (off on gates), deterministic complexity feedback from op-count traces, and a self-explanation gate before the solution unlocks. |
 | 🖥️ **Native desktop app** | Tauri 2 shell — small, fast, and cross-platform (Windows, macOS Apple Silicon + Intel, Linux). |
 | 🔒 **Sandboxed code runner** | Runs Python & JavaScript in an isolated subprocess with a per-run timeout, memory cap, and temp-dir isolation (Job Objects on Windows). User code **never** runs in the WebView. |
-| ✅ **Oracle-verified judging** | 2,900+ test packs with **no hand-typed answer keys** — expected outputs are computed by executing reference solutions and cross-checking Python vs JavaScript vs a brute-force oracle. |
+| ✅ **Oracle-verified judging** | 3,000+ test packs with **no hand-typed answer keys** — expected outputs are computed by executing reference solutions and cross-checking Python vs JavaScript vs a brute-force oracle. |
 | 📝 **In-app code editor** | CodeMirror 6 with language modes for Python and JavaScript. |
 | 🔌 **Bring-your-own catalog** | A name-agnostic loader maps any local `catalog*.json` to the right hidden judge by slug — swap or merge catalogs with zero code changes. |
 | 🔎 **Zero-config runtimes** | Auto-detects a compatible Python (≥ 3.10) and Node (≥ 18) on your `PATH` and reports status in Settings. |
@@ -114,7 +115,7 @@ Anvil aims to be the best of both — a real course you own:
 | **Editor** | [CodeMirror 6](https://codemirror.net) (Python / JavaScript modes) |
 | **Styling** | [Tailwind CSS v4](https://tailwindcss.com) · custom "forged iron & ember" OKLCH theme via `next-themes` |
 | **Desktop shell** | [Tauri 2](https://tauri.app) (Rust) — small binaries, fast startup, cross-platform |
-| **Backend / runner** | Rust — sandboxed execution, judging, local SQLite (planned), pack/catalog loading |
+| **Backend / runner** | Rust — sandboxed execution, judging, local SQLite (`rusqlite`), pack/catalog loading |
 | **Tooling** | Python build pipeline (`tools/build_packs.py`) that verifies and freezes test packs |
 
 The frontend is exported as static assets (`output: 'export'`) and served by Tauri; all native work
@@ -242,10 +243,13 @@ src-tauri/resources/
   personal use only** — never redistribute or commit it. The repo hard-ignores any `*leetcode*` catalog
   to prevent accidents. Anvil provides no scraper and does not download content.
 
-You are responsible for ensuring any content you load complies with its source's copyright and Terms of
-Service. **Full details are in [DISCLAIMER.md](./DISCLAIMER.md).** The project's goal is a library of
-100% original problems so no external content is ever needed — see [CONTRIBUTING.md](./CONTRIBUTING.md)
-for the originality rule.
+Platforms such as **LeetCode** let *individuals* access problems for their own practice, but their
+Terms of Service do **not** allow a company, competition, or product to reuse or redistribute that
+content. So any catalog you assemble is for your **personal, individual, offline use only** — keep it on
+your machine, and don't redistribute, publish, or ship it. You are responsible for ensuring any content
+you load complies with its source's copyright and Terms of Service. **Full details are in
+[DISCLAIMER.md](./DISCLAIMER.md).** Everything Anvil itself ships stays original by rule — see
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Roadmap
 
@@ -254,21 +258,22 @@ for the originality rule.
 | ✅ | Desktop shell (Tauri) over the Next.js static export |
 | ✅ | Design system — custom "forged iron & ember" (OKLCH) theme, light & dark |
 | ✅ | Local code runner — run/test Python & JavaScript with timeouts and sandboxing (Rust) |
-| ✅ | Test-pack judging — 2,900+ verified packs frozen into the app (oracle-checked, no answer keys) |
+| ✅ | Test-pack judging — 3,000+ verified packs frozen into the app (oracle-checked, no answer keys) |
 | ✅ | Name-agnostic catalog loader — bring-your-own statements, mapped to packs by slug |
 | ✅ | **Guided course** — 8 stages / 19 units / 62 lessons: diagrams, quizzes, pattern-picker, mastery ladder |
 | ✅ | Mastery gates + prerequisite-DAG unlocking, diagnostic placement, Stage-7 unlabeled capstone |
 | ✅ | FSRS spaced review + progress tracking (local SQLite, no account) |
-| ✅ | User-authored problems — create, validate, import/export |
-| ⬜ | Problem library — original, pattern-organized problem *statements* (replacing bring-your-own) |
+| ✅ | User-authored problems — write & validate your own original problems in the app |
 | ⬜ | More languages — TypeScript, then compiled languages |
 
 ## Contributing
 
-Contributions are welcome — code, **original** problems, docs, design, and more. Good first steps:
+Contributions are welcome — code, **original** test packs & lessons, docs, design, and more. Good first
+steps:
 
 1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) — dev setup, the PR flow, and the one non-negotiable rule
-   for problem content (it must be **100% original**).
+   for the content Anvil ships (it must be **100% original**; problem statements are always
+   bring-your-own).
 2. Browse [issues](https://github.com/kudzaiprichard/anvil/issues) or open a
    [discussion](https://github.com/kudzaiprichard/anvil/discussions) to propose something.
 3. Fork → branch → PR. **All changes land via pull request** with passing CI and a maintainer review;

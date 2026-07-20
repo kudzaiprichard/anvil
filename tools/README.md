@@ -1,8 +1,7 @@
 # Anvil dev tools
 
 Developer-only scripts. **None of these ship in the app** and none write
-scraped statement text into a committed file. See `.docs/CONTENT_DESIGN.md`
-and `.docs/CONTENT_MAP.md` for the legal and engineering context.
+scraped statement text into a committed file.
 
 | Script | Purpose |
 |---|---|
@@ -131,4 +130,4 @@ separate, personal-use-only tool. A user runs it against *their own* LeetCode
 account to export *their own* questions to `my_questions.json`, which they then
 import through Settings → Practice. The app contains zero scraping code and
 never connects to LeetCode. `my_questions.json` is gitignored and never
-committed, shipped, or redistributed (`.docs/CONTENT_MAP.md`).
+committed, shipped, or redistributed.
