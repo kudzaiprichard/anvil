@@ -53,22 +53,26 @@ the right to use.
 
 - Problem statements on platforms such as **LeetCode** are **copyrighted by those platforms**, and
   their Terms of Service commonly **prohibit scraping, bulk export, and redistribution.**
-- Any catalog you assemble from such sources is for your **personal, offline use only.** Do **not**
-  redistribute it, commit it to a fork, publish it, or include it in a build you share.
+- Those platforms let *individuals* access problems for their **own** practice. That permission does
+  **not** extend to a company, competition, or product reusing or redistributing the content. Anvil is
+  a shell for your personal practice — it is **not** a way to repackage or ship anyone's problem set.
+- Any catalog you assemble from such sources is for your **personal, individual, offline use only.** Do
+  **not** redistribute it, commit it to a fork, publish it, or include it in a build you share.
 - To help prevent accidents, this repository's [`.gitignore`](./.gitignore) hard-ignores any catalog
   file whose name contains `leetcode` (`/src-tauri/resources/*leetcode*.json[.gz]`). An **original,
   redistributable** catalog you author yourself may be committed normally.
 
-If you cannot use a source's content within its terms, don't load it. The long-term goal of this
-project is to ship a library of **100% original** problems so no external content is ever needed —
-contributions welcome (see [CONTRIBUTING.md](./CONTRIBUTING.md)).
+If you cannot use a source's content within its terms, don't load it.
 
 ## 5. Contributed content must be original
 
-Anything contributed **to this repository** — problems, statements, examples, test cases — must be
-**100% original**. You may reuse an algorithm, technique, or well-known problem *name*, but never
-another author's exact wording, examples, constraints, editorials, or test cases. See the
-non-negotiable rule in [CONTRIBUTING.md](./CONTRIBUTING.md#contributing-problems--the-one-non-negotiable-rule).
+Anvil does **not** accept problem statements — those are always your local, bring-your-own data and are
+never committed here. What you *do* contribute to this repository — **test packs** (reference
+solutions, oracles, generators, hints) and **lesson prose** — must be **100% original**. You may
+reference a problem by slug and reuse an algorithm, technique, or well-known problem *name*, but never
+copy another author's exact wording, examples, constraints, editorials, or test cases into a pack or a
+lesson. This is the rule that keeps everything Anvil ships legally clean. See the non-negotiable rule in
+[CONTRIBUTING.md](./CONTRIBUTING.md#contributing-content--the-one-non-negotiable-rule).
 
 ## 6. Trademarks & affiliation
 

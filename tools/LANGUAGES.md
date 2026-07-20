@@ -1,7 +1,7 @@
 # Pack languages — registry & how to add one
 
-Test packs are **language-scalable by design** (`OVERVIEW.md`, `CONTENT_DESIGN.md`
-§2). One pack splits into an **agnostic core** (judge type, test inputs, the
+Test packs are **language-scalable by design**. One pack splits into an **agnostic
+core** (judge type, test inputs, the
 *computed* expected outputs, hints, pattern, constraints, stress generators) and a
 **`solutions` map keyed by language**. Adding a language is *additive*: drop in one
 solution per problem and re-verify — the core is never touched.
