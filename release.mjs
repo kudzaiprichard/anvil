@@ -362,7 +362,11 @@ try {
     execSync(`git add ${filesToCommit.join(' ')}`, { stdio: 'inherit' });
     execSync(`git commit -F ${msgFile}`, { stdio: 'inherit' });
     execSync('git push', { stdio: 'inherit' });
-    execSync(`git tag v${next}`, { stdio: 'inherit' });
+    // Annotated tag (has a message) so it works non-interactively when
+    // `tag.gpgsign=true` — a signed tag is annotated and a bare `git tag <name>`
+    // aborts with "no tag message". With signing configured this tag is signed;
+    // without it, it's just an unsigned annotated tag (still fine).
+    execSync(`git tag -m "Release v${next}" v${next}`, { stdio: 'inherit' });
     execSync(`git push origin v${next}`, { stdio: 'inherit' });
 
     console.log(`\n  Released v${next} successfully!\n`);
