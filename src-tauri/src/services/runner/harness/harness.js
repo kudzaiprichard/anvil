@@ -6,7 +6,7 @@
 //   @@ANVIL@@{"index": 2, "ok": false, "traceback": "..."}   (then stop)
 //
 // An optional meta.json configures entry-point resolution and execution
-// mode (CONTENT_DESIGN.md §4–5); absent = the original behavior:
+// mode; absent = the original behavior:
 //   { "entry_point": "twoSum", "mode": "call" | "in_place" | "design" |
 //     "any_valid", "arg_index": 0, "validator_file": "validator.js" }
 "use strict";
@@ -22,7 +22,7 @@ function emit(obj) {
   process.stdout.write(SENTINEL + JSON.stringify(obj) + "\n");
 }
 
-// --- Node I/O adapter (CONTENT_DESIGN.md §5, task 0003) -------------------
+// --- Node I/O adapter (task 0003) -------------------
 // Mirror of harness.py: when meta.json declares `io_types`, (de)serialize
 // ListNode/TreeNode params and return at the call boundary so a LeetCode stub
 // runs unmodified. Wire form: array (linked list) / BFS level-order array with

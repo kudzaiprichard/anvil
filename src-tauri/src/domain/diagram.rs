@@ -1,4 +1,4 @@
-//! Prediction-diagram types (LESSON_COURSE_DESIGN.md §3.5, §13.4). The
+//! Prediction-diagram types. The
 //! renderer/animator is engine (Phase 5); the steps/trace are data,
 //! precomputed offline — no server, no runtime execution. Field names
 //! mirror `src/lib/types.ts`.
@@ -25,7 +25,7 @@ pub struct DiagramChoice {
 /// Optional: a pause step without a `predict` block degrades to a
 /// think-then-reveal prompt (the caption carries the question). When present
 /// in `perform` mode it is the learner's step graded against ground truth
-/// (COURSE_BLUEPRINT.md §7, "perform the algorithm yourself").
+/// ("perform the algorithm yourself").
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DiagramPredict {
     pub prompt_md: String,

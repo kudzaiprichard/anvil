@@ -1,5 +1,5 @@
 //! Spaced-review engine (Phase 6) — the "hard-coded" half of the retention
-//! feature (COURSE_BLUEPRINT.md §7, LESSON_COURSE_DESIGN.md §6): it wraps the
+//! feature: it wraps the
 //! pure-Rust **`rs-fsrs`** crate (on-device, no network, no AI) to schedule when
 //! a solved Stage-1 problem should be re-solved *cold*, and builds the
 //! interleaved due queue + the honest habit header.
@@ -65,7 +65,7 @@ pub fn enqueue(
 }
 
 /// Partial-prereq-credit review (Phase 7, Math-Academy "repetition
-/// compression", BLUEPRINT.md §7). When a learner solves a problem in some unit,
+/// compression"). When a learner solves a problem in some unit,
 /// they've just *exercised* every pattern that unit builds on — so the
 /// prerequisite cards already due for a cold re-solve get a lighter,
 /// partial-credit review (a `Hard`-grade advancement) instead of demanding a
@@ -217,7 +217,7 @@ pub fn queue(
     })
 }
 
-/// The honest habit header (COURSE_BLUEPRINT.md §7). Streak = calendar days with
+/// The honest habit header. Streak = calendar days with
 /// a passing submit, forgiving one missed day via a freeze; due/reviewed counts
 /// come from the schedule. No XP, no leaderboards — just "did you show up, and
 /// what's waiting."
@@ -255,8 +255,8 @@ fn habit(
 }
 
 /// Round-robins due items across their units so consecutive re-solves favour
-/// *different* patterns — the interleaving the research calls for
-/// (LESSON_COURSE_DESIGN.md §8). Groups keep first-appearance order (which is
+/// *different* patterns — the interleaving the research calls for.
+/// Groups keep first-appearance order (which is
 /// due-order, since `list_all` sorts by due date), then one is taken from each
 /// group per pass.
 fn interleave(items: Vec<ReviewItem>) -> Vec<ReviewItem> {

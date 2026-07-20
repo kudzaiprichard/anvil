@@ -17,12 +17,12 @@ import { cn } from "@/src/lib/utils";
 import type { DiagramSpec } from "@/src/lib/types";
 
 /**
- * Prediction-diagram player (Phase 5, LESSON_COURSE_DESIGN.md §3.5/§13.4). The
+ * Prediction-diagram player (Phase 5). The
  * *renderer* is engine; the frames/trace are data, precomputed offline — no
  * server, no runtime execution. It steps through an algorithm's state
  * snapshots and, at each `predict_at` frame, **pauses to ask "what happens
  * next?"** before revealing the answer: the prediction turn is what converts a
- * passive animation into active engagement (COURSE_BLUEPRINT.md §7). A frame's
+ * passive animation into active engagement. A frame's
  * graded `predict` block scores the choice against the trace's ground truth;
  * without one, the pause degrades to think-then-reveal. In `perform` mode the
  * same turn is framed as "perform the step yourself".

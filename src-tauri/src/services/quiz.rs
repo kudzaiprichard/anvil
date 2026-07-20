@@ -1,5 +1,5 @@
 //! Quiz grading + review-signal recording (Phase 4). The "hard-coded" half of
-//! the formative-check feature (LESSON_COURSE_DESIGN.md §6.1: quiz *items* are
+//! the formative-check feature (quiz *items* are
 //! data, the *runner + grading logic* is engine). A submission names its
 //! source — a lesson id, or the interleaved `pattern-pool` — which resolves to
 //! a validated `Quiz` in the `CurriculumStore`; grading is pure

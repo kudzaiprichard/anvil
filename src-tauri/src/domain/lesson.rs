@@ -1,5 +1,5 @@
-//! Lesson types — one sub-pattern, the atom of the course
-//! (LESSON_COURSE_DESIGN.md §3.3). A lesson file is Markdown with YAML
+//! Lesson types — one sub-pattern, the atom of the course.
+//! A lesson file is Markdown with YAML
 //! frontmatter (§7.3): the frontmatter is `LessonFrontmatter`, the body is
 //! `explainer_md`. The loader (`services::curriculum`) resolves the
 //! frontmatter's `diagram`/`quiz` filename pointers into the actual

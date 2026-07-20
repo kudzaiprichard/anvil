@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Installer boundary check — the shipping safety gate (Phase 8, COURSE_BLUEPRINT.md §2).
+"""Installer boundary check — the shipping safety gate (Phase 8).
 
 Anvil's one inviolable shipping rule: **public installers ship no third-party
 problem statements, and specifically never any `*leetcode*` catalog.** The dev
@@ -171,7 +171,7 @@ def main() -> int:
         for e in errors:
             print(f"  !! {e}", file=sys.stderr)
         print(
-            "\nA release must never bundle a *leetcode* catalog (COURSE_BLUEPRINT.md §2). "
+            "\nA release must never bundle a *leetcode* catalog. "
             "Remove the dev scrape from src-tauri/resources/catalog/ (it is gitignored) "
             "and rebuild from a clean tree.",
             file=sys.stderr,

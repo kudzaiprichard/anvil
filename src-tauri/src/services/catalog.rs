@@ -20,7 +20,7 @@
 //! have it. A tracked `.gitkeep` keeps the directory present either way.
 //!
 //! Legal: whatever is *committed/shipped* here MUST be original, shippable
-//! content — never a third party's problem text (`.docs/CONTENT_MAP.md`). The
+//! content — never a third party's problem text. The
 //! LeetCode scrape is a local dev input only and is gitignored (`*leetcode*`).
 
 use std::collections::{BTreeMap, HashSet};

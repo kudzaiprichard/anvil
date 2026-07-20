@@ -70,7 +70,7 @@ export interface FunctionSignature {
 export type Checker = "exact" | "unordered";
 
 /**
- * Full judge taxonomy (CONTENT_DESIGN.md §4). `Checker` covers the original
+ * Full judge taxonomy. `Checker` covers the original
  * two modes; `Judge` adds the modes imported/pack-backed problems need.
  * Absent on a problem ⇒ derived from `checker`.
  */
@@ -140,7 +140,7 @@ export interface DesignIo {
  * Which callable the harness invokes per language: "Solution.twoSum" means
  * instantiate the class and call the method; a bare name is a top-level
  * function. Absent ⇒ the legacy `solve` convention. Doubles as the
- * import-time match fingerprint (CONTENT_DESIGN.md §6).
+ * import-time match fingerprint.
  */
 export interface EntryPoint {
   python: string;
@@ -202,7 +202,7 @@ export interface Problem {
   /**
    * Sanitized HTML statement, present only on imported problems (full
    * fidelity: superscripts, <pre> examples). When set, the problem panel
-   * renders this instead of `description_md`. CONTENT_DESIGN.md §8.
+   * renders this instead of `description_md`.
    */
   body_html?: string;
   constraints: string[];
@@ -223,7 +223,7 @@ export interface Problem {
   author: string;
 }
 
-/* ---------- test packs (CONTENT_DESIGN.md §3) ---------- */
+/* ---------- test packs ---------- */
 
 /** What a literal pack test is probing; surfaced in "reveal failing case". */
 export type PackTestKind = "edge" | "boundary" | "trap";
@@ -298,7 +298,7 @@ export interface TestPack {
   generated_at: string;
 }
 
-/* ---------- curriculum / course content (LESSON_COURSE_DESIGN.md §3, §7) ----------
+/* ---------- curriculum / course content ----------
  * Phase 1 ships schemas + a fail-closed loader only; no UI reads these yet.
  * Field names are snake_case, same convention as Problem/TestPack/Preset. */
 
@@ -483,7 +483,7 @@ export interface Lesson {
 export type UnitStatus = "locked" | "unlocked" | "mastered";
 
 /** How close the learner is to clearing a unit's mastery gate — only hint-free,
- *  no-peek solves are tallied (COURSE_BLUEPRINT.md §6). */
+ *  no-peek solves are tallied. */
 export interface UnitGateState {
   /** Gate problems that must be solved hint-free. */
   passCount: number;
@@ -629,7 +629,7 @@ export interface ReviewItem {
   overdueDays: number;
 }
 
-/** The honest habit layer (COURSE_BLUEPRINT.md §7): a streak that survives one
+/** The honest habit layer: a streak that survives one
  *  missed day via a freeze ("never miss twice"). No XP, no leaderboards. */
 export interface HabitState {
   /** Consecutive practice days, forgiving one isolated missed day. */

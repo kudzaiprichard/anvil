@@ -1,4 +1,4 @@
-//! Curriculum + lesson loading (LESSON_COURSE_DESIGN.md §6.4, §8): glob-
+//! Curriculum + lesson loading: glob-
 //! discovers `resources/curriculum/**` + `resources/lessons/**`, parses,
 //! and validates at startup — fail-closed, mirroring `preset_store.rs`. A
 //! malformed curriculum/unit/lesson/quiz/diagram file, a dangling
@@ -22,8 +22,8 @@ pub struct CurriculumStore {
     curriculum: Curriculum,
     units: HashMap<String, Unit>,
     lessons: HashMap<String, Lesson>,
-    /// The interleaved, cross-unit pattern-picker pool (Phase 4,
-    /// LESSON_COURSE_DESIGN.md §13.3): unlabeled "which pattern?" prompts drawn
+    /// The interleaved, cross-unit pattern-picker pool (Phase 4):
+    /// unlabeled "which pattern?" prompts drawn
     /// from across the stage, used for spaced/interleaved formative retrieval.
     /// Empty when no `curriculum/pattern-pool.json` ships (optional content,
     /// like lessons).
@@ -74,8 +74,7 @@ impl CurriculumStore {
             }
         }
 
-        // Spiral-reuse enforcement (BLUEPRINT.md §13.2, LESSON_COURSE_DESIGN.md
-        // §3.2). Two rules, fail-closed:
+        // Spiral-reuse enforcement. Two rules, fail-closed:
         //   (a) every unit's `spiral` entries name a real unit that is an
         //       *ancestor* (transitive prereq) — you only resurface a pattern the
         //       learner has already been taught; and

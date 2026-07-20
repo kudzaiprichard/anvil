@@ -983,7 +983,7 @@ function LessonView({ lessonId }: { lessonId: string }) {
   const patternLabel = (id: string) => unitTitles.get(id) ?? prettifySlug(id);
   const unitHref = unitId ? `/learn?unit=${unitId}` : "/learn";
 
-  // Split the lesson quiz for spaced placement (LESSON_COURSE_DESIGN.md §13.3):
+  // Split the lesson quiz for spaced placement:
   // concept-check/complexity land mid-lesson, pattern-picker at the end.
   const conceptItems = lesson.quiz.items.filter(
     (it) => it.type === "concept-check" || it.type === "complexity"
@@ -1015,7 +1015,7 @@ function LessonView({ lessonId }: { lessonId: string }) {
   const practiceSolved = practiceSolvedCount === lesson.practice.length;
 
   // The lesson is a sequence of focused steps (one activity per screen), built
-  // in the pedagogically-ordered flow (LESSON_COURSE_DESIGN.md §13.1). A step is
+  // in the pedagogically-ordered flow. A step is
   // only present if it has content; a `blocked` step disables Continue until its
   // gate is met (quiz passed / problem solved).
   const steps: {

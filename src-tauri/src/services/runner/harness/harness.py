@@ -7,7 +7,7 @@
 #   @@ANVIL@@{"index": 2, "ok": false, "traceback": "..."}   (then stop)
 #
 # An optional meta.json next to cases.json configures entry-point
-# resolution and execution mode (CONTENT_DESIGN.md §4–5):
+# resolution and execution mode:
 #   { "entry_point": "Solution.twoSum",       # optional; absent = legacy solve
 #     "mode": "call" | "in_place" | "design" | "any_valid",   # default "call"
 #     "arg_index": 0,                          # in_place: which arg to emit
@@ -310,7 +310,7 @@ def run_design(module, index, args, design_io=None):
     return outputs
 
 
-# --- Node I/O adapter (CONTENT_DESIGN.md §5, task 0003) -------------------
+# --- Node I/O adapter (task 0003) -------------------
 # When meta.json declares `io_types`, the harness (de)serializes ListNode /
 # TreeNode parameters and return values at the call boundary, so a LeetCode
 # stub referencing those classes runs unmodified. The canonical wire form is an

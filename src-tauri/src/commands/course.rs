@@ -57,7 +57,7 @@ pub fn get_pattern_pool(state: State<AppState>) -> AppResult<Quiz> {
 }
 
 /// Grades a formative quiz submission and records the outcome to feed the
-/// review signal (LESSON_COURSE_DESIGN.md §3.4). `source` is a lesson id or the
+/// review signal. `source` is a lesson id or the
 /// reserved `pattern-pool` id. Grading is server-side against the validated
 /// content, so the answer key never has to be trusted from the caller. Quizzes
 /// **never gate progression** — the result is feedback only.
@@ -111,7 +111,7 @@ pub fn get_lesson_progress(state: State<AppState>) -> AppResult<Vec<LessonProgre
 /// Every unit's progression snapshot (locked/unlocked/mastered + lesson and
 /// gate progress), in stage order — the course overview and unit views read
 /// this to gate navigation and draw progress. Engine logic, not stored data
-/// (LESSON_COURSE_DESIGN.md §6): lock state is derived from the prereq DAG and
+/// Lock state is derived from the prereq DAG and
 /// which units have passed their gate.
 #[tauri::command]
 pub fn get_progression(state: State<AppState>) -> AppResult<Vec<UnitProgress>> {
@@ -119,7 +119,7 @@ pub fn get_progression(state: State<AppState>) -> AppResult<Vec<UnitProgress>> {
     progression::progression(&state.curriculum, &state.db)
 }
 
-/// Evaluates a passing gate attempt (COURSE_BLUEPRINT.md §6). The unit is
+/// Evaluates a passing gate attempt. The unit is
 /// derived from validated content — a caller can't gate a non-gate problem or a
 /// locked unit. `used_help` is trusted from the workspace, which sets it when
 /// the learner reveals a hint or the solution: such an attempt is recorded but
@@ -146,7 +146,7 @@ pub fn evaluate_gate(
 /// The Stage-7 mixed capstone as the course page shows it (Phase 7): the
 /// unlabeled cross-unit pool + how far through it the learner is. `None` when no
 /// capstone ships. The pattern each problem belongs to is deliberately absent —
-/// the capstone is the unlabeled recognition exam (BLUEPRINT.md §4).
+/// the capstone is the unlabeled recognition exam.
 #[tauri::command]
 pub fn get_capstone(state: State<AppState>) -> AppResult<Option<CapstoneView>> {
     log::debug!("get_capstone");
@@ -192,7 +192,7 @@ pub fn apply_placement(
     advancement::apply_placement(&state.curriculum, &state.db, &answers, &db::now_local_iso())
 }
 
-/// The honest course-readiness signal (Phase 7, BLUEPRINT.md §7): how much of
+/// The honest course-readiness signal (Phase 7): how much of
 /// the ladder is mastered, folded with whether the unlabeled capstone is cleared.
 #[tauri::command]
 pub fn get_readiness(state: State<AppState>) -> AppResult<Readiness> {
@@ -200,7 +200,7 @@ pub fn get_readiness(state: State<AppState>) -> AppResult<Readiness> {
     advancement::readiness(&state.curriculum, &state.db)
 }
 
-/// The spaced-review queue (Phase 6, COURSE_BLUEPRINT.md §7): the Stage-1
+/// The spaced-review queue (Phase 6): the Stage-1
 /// problems due to be re-solved *cold* right now — interleaved across patterns —
 /// plus the honest habit header (streak-with-freezes, counts). Pure engine
 /// output derived from the FSRS `review_schedule`; content stays bundled data.
@@ -215,8 +215,8 @@ pub fn get_review_queue(state: State<AppState>) -> AppResult<ReviewQueue> {
     )
 }
 
-/// Records a cold re-solve and reschedules the card via FSRS (COURSE_BLUEPRINT.md
-/// §7). `rating` is the learner's self-assessed recall after re-solving; an
+/// Records a cold re-solve and reschedules the card via FSRS.
+/// `rating` is the learner's self-assessed recall after re-solving; an
 /// `again` demotes the card (interval collapses, lapse counter bumps). Rejects a
 /// problem that never entered the queue.
 #[tauri::command]

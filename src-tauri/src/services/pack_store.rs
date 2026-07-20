@@ -1,4 +1,4 @@
-//! Test-pack bundle access (task 0008, CONTENT_DESIGN.md §3, §7): opens the
+//! Test-pack bundle access (task 0008): opens the
 //! shipped `test-packs.json.gz` lazily on first use (startup is untouched),
 //! indexes packs by slug, and materializes stress generator specs into
 //! literal hidden test cases through the existing sandbox — so the runtime

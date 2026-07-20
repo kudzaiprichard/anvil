@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use crate::domain::quiz::QuizItem;
 
 /// One capstone problem as the workspace sees it: a slug and whether it's been
-/// cleared — **no pattern/unit label** (BLUEPRINT.md §4: the capstone is the
+/// cleared — **no pattern/unit label** (the capstone is the
 /// unlabeled recognition exam).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -81,7 +81,7 @@ pub struct PlacementOutcome {
     pub frontier: Vec<String>,
 }
 
-/// The honest course-readiness aggregate (BLUEPRINT.md §7 "readiness signal").
+/// The honest course-readiness aggregate ("readiness signal").
 /// No single number is gospel — it combines how much of the ladder is mastered
 /// with whether the unlabeled capstone has been cleared.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

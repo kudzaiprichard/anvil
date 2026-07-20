@@ -42,7 +42,7 @@ pub fn streaks(pass_days: &[NaiveDate], today: NaiveDate) -> (u32, u32) {
 }
 
 /// A streak that forgives one isolated missed day — the honest habit layer's
-/// "never miss twice" (COURSE_BLUEPRINT.md §7). `freeze_active` means the streak
+/// "never miss twice". `freeze_active` means the streak
 /// is currently held together by a freeze (yesterday was missed) and will break
 /// on a second consecutive miss.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +52,7 @@ pub struct FreezeStreak {
     pub freeze_active: bool,
 }
 
-/// Streak with freezes (COURSE_BLUEPRINT.md §7 habit layer): consecutive
+/// Streak with freezes (habit layer): consecutive
 /// calendar days with ≥1 passing submit, where a *single* missed day between two
 /// practice days is bridged by a freeze — but two missed days in a row break it.
 /// Each freeze forgives at most the one gap it spans. Unlike [`streaks`] (strict

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Anvil test-pack generation pipeline (task 0009, CONTENT_DESIGN.md §2).
+"""Anvil test-pack generation pipeline (task 0009).
 
 Turns a user's `catalog_leetcode.json` scrape into VERIFIED test packs, or fails
-closed. The load-bearing rule (CONTENT_DESIGN.md §2):
+closed. The load-bearing rule:
 
     The AI never writes expected outputs. It writes inputs and solutions;
     expected outputs are computed by EXECUTING verified reference solutions.
@@ -14,7 +14,7 @@ sandbox harness (`src-tauri/src/services/runner/harness/`). The generation
 model's JSON is used for inputs, solution *source*, hints, and the pattern
 note — never for an expected value.
 
-Pipeline per question (CONTENT_DESIGN.md §2 steps 1-6):
+Pipeline per question (steps 1-6):
   1. Parse the statement's own Example blocks  -> ground-truth (input, output)
   2. Classify the judge type (AI + mechanical sanity check)
   3. Generate optimal + brute-force Python and a JavaScript reference, plus the
@@ -239,7 +239,7 @@ def compute_expected(
     """Compute expected outputs by EXECUTING the reference Python solution.
 
     This is the single, auditable source of every `expected` value that lands
-    in a pack (CONTENT_DESIGN.md §2). Nothing the model emits is ever copied
+    in a pack. Nothing the model emits is ever copied
     into an expected field; it must pass through this function — i.e. through
     the sandbox — first.
     """
@@ -513,7 +513,7 @@ def _example_blocks(body_text: str) -> list[tuple[Optional[str], Optional[str]]]
 
 
 # ---------------------------------------------------------------------------
-# Judge classification (CONTENT_DESIGN.md §4) — mechanical sanity checks
+# Judge classification — mechanical sanity checks
 # ---------------------------------------------------------------------------
 
 JUDGE_TYPES = {
@@ -683,7 +683,7 @@ def verify_and_build(
     gen: dict,
     anchors: list[tuple[list, Any]],
 ) -> VerifyResult:
-    """Run every CONTENT_DESIGN.md §2 check and assemble a verified pack, or
+    """Run every check and assemble a verified pack, or
     return a fail-closed result. `gen` is the model output; every expected
     value is (re)computed here via the harness."""
     slug = q["slug"]
@@ -772,7 +772,7 @@ def verify_and_build(
         # An edge input is either a bare positional arg-list (kind "edge", the
         # API path's shape) or a rich `{kind, description, input}` entry so a
         # hand-authored pack can label boundary/trap cases for "reveal failing
-        # case" (CONTENT_DESIGN.md §4, §7). Expected values never appear here.
+        # case". Expected values never appear here.
         if isinstance(item, dict):
             args = item.get("input", item.get("args"))
             if not isinstance(args, list):

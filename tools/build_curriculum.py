@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Curriculum content validator (Phase 1, IMPLEMENTATION_PLAN.md, LESSON_COURSE_DESIGN.md §8).
+"""Curriculum content validator (Phase 1).
 
 Unlike ``build_packs.py`` there is no compile step here: curriculum/unit/lesson
 content ships as-is — the JSON/Markdown files directly under
@@ -9,7 +9,7 @@ This script is the fail-closed **--check**: it re-implements, in Python, the
 same structural rules `services::curriculum` enforces in Rust at app startup,
 so a bad content PR fails CI before it ever reaches a user's machine.
 
-Checks (LESSON_COURSE_DESIGN.md §8):
+Checks:
   * `curriculum.json` parses; every stage references a unit file that exists;
     the prereq graph is a DAG (no cycles).
   * Every `units/<id>.json` parses, is non-empty, and has unique problem slugs;
@@ -18,7 +18,7 @@ Checks (LESSON_COURSE_DESIGN.md §8):
   * Every problem slug referenced anywhere (units, worked examples, practice)
     has a frozen pack in the shipped test-pack bundle.
   * Every `resources/lessons/**/*.md` has valid YAML frontmatter, all required
-    parts (LESSON_COURSE_DESIGN.md §3.3), and its `diagram`/`quiz` companion
+    parts, and its `diagram`/`quiz` companion
     files parse; quiz `answer` in `options`; diagram `predict_at` indices valid.
 
 Usage:
@@ -341,7 +341,7 @@ def check() -> int:
                 f"curriculum.json prereqs {sorted(curriculum_level)}"
             )
 
-    # Spiral-reuse enforcement (LESSON_COURSE_DESIGN.md §3.2, mirrors the Rust
+    # Spiral-reuse enforcement (mirrors the Rust
     # loader): (a) every unit's spiral entry must be a transitive prerequisite
     # (you only resurface an already-taught pattern), and (b) coverage — every
     # unit that some unit depends on must be resurfaced by at least one spiral.

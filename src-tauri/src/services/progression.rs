@@ -1,12 +1,12 @@
 //! Progression + mastery-gate engine (Phase 3). This is the *behavior* half of
-//! the course — the "hard-coded" side of LESSON_COURSE_DESIGN.md §6: unlock
+//! the course — the "hard-coded" side: unlock
 //! rules and mastery evaluation live in compiled Rust, never in editable data.
 //!
 //! Two responsibilities:
 //!   * **Progression view** — for every unit, is it `locked`/`unlocked`/
 //!     `mastered`, how far through its lessons, and how close to its gate.
 //!   * **Gate evaluation** — a learner submitted a passing gate solve; decide
-//!     whether it counts (COURSE_BLUEPRINT.md §6: hint-free & no-peek, pass = N
+//!     whether it counts (hint-free & no-peek, pass = N
 //!     incl. >=1 novel), persist it, and unlock the next unit(s) on mastery.
 //!
 //! The linear Stage-1 chain falls out of the prereq DAG: a unit is `unlocked`
@@ -128,7 +128,7 @@ pub fn progression(store: &CurriculumStore, db: &Db) -> AppResult<Vec<UnitProgre
     Ok(out)
 }
 
-/// Evaluates a passing gate solve (COURSE_BLUEPRINT.md §6). Rejects a solve for
+/// Evaluates a passing gate solve. Rejects a solve for
 /// a problem that isn't one of the unit's `role:gate` problems, and refuses to
 /// grade a unit that is still locked. A peeked/hinted attempt (`used_help`) is
 /// recorded as an attempt but never counts toward mastery. When the counted

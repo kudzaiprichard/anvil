@@ -1,4 +1,4 @@
-//! LeetCode import domain (task 0005, CONTENT_DESIGN.md §6–8). Two halves:
+//! LeetCode import domain (task 0005). Two halves:
 //!
 //! 1. The **scrape file** shape (`catalog_leetcode.json`) — the user's own export,
 //!    deserialized leniently (the external scraper owns this format; unknown
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use super::problem::{Difficulty, Pattern};
 
-/// The experience tier a matched question lands in (CONTENT_DESIGN.md §7).
+/// The experience tier a matched question lands in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ImportTier {

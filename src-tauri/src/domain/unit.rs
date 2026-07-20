@@ -1,4 +1,4 @@
-//! Unit types — the mastery-gate boundary (LESSON_COURSE_DESIGN.md §3.2).
+//! Unit types — the mastery-gate boundary.
 //! One unit = one concept (e.g. "Arrays & Hashing"); it owns an ordered
 //! lesson list and a problem pool split into worked/guided/gate roles.
 //! Field names mirror `src/lib/types.ts` exactly, same convention as

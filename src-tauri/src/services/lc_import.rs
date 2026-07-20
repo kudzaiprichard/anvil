@@ -1,4 +1,4 @@
-//! LeetCode import logic (task 0005, CONTENT_DESIGN.md §6–8): parse the
+//! LeetCode import logic (task 0005): parse the
 //! scrape, match each question to its bundled pack by slug, verify the match
 //! by entry-point fingerprint, and merge the user's statement with our pack
 //! into the unified `Problem` schema. Tauri-free and runtime-free — stress
@@ -60,7 +60,7 @@ pub fn build_preview_items(
         .collect()
 }
 
-/// Allowlist-sanitized statement HTML (CONTENT_DESIGN.md §8). Uses ammonia's
+/// Allowlist-sanitized statement HTML. Uses ammonia's
 /// safe default (scripts, event handlers, `javascript:` URLs all stripped)
 /// and additionally drops `img` — the statement should never pull remote
 /// assets in an offline app.
@@ -73,7 +73,7 @@ pub fn sanitize_html(raw: &str) -> String {
 
 /// Verifies a pack actually belongs to this scraped question: the pack's
 /// entry-point method name must appear in the imported Python stub and, when
-/// the stub's arity is determinable, match it (CONTENT_DESIGN.md §6). A
+/// the stub's arity is determinable, match it. A
 /// mismatch means LeetCode changed the problem or the match is wrong → the
 /// caller demotes to basic mode rather than judge against the wrong tests.
 pub fn verify_fingerprint(pack_entry: &EntryPoint, python_stub: &str) -> bool {
@@ -178,7 +178,7 @@ pub fn merge_question(
     }
     let preset_ids = preset_tags(&q.slug, presets);
 
-    // Visible tests = the statement's own examples (CONTENT_DESIGN.md §7).
+    // Visible tests = the statement's own examples.
     let input_lines: Vec<Vec<String>> = q
         .example_tests
         .iter()

@@ -2,8 +2,7 @@
 //! shapes (camelCase JSON, like `progress::LessonProgress`), distinct from the
 //! bundled content schemas in `unit`/`curriculum` (snake_case). The engine that
 //! fills them lives in `services::progression`; the enforcement rules
-//! (locked→unlocked→mastered, "pass = N incl. >=1 novel, hint-free") come from
-//! COURSE_BLUEPRINT.md §6 and LESSON_COURSE_DESIGN.md §3.6.
+//! (locked→unlocked→mastered, "pass = N incl. >=1 novel, hint-free").
 
 use serde::{Deserialize, Serialize};
 

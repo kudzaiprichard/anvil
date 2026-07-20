@@ -226,7 +226,7 @@ function Workspace() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
 
-  // Mastery-gate mode (COURSE_BLUEPRINT.md §6): launched from a unit's gate
+  // Mastery-gate mode: launched from a unit's gate
   // with `?gate=<unitId>&target=<min>`. Hints/solution are guarded, a soft
   // timer shows the target, and a pass is scored via `evaluateGate`.
   const gateUnit = searchParams.get("gate");

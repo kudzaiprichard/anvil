@@ -1,4 +1,4 @@
-//! Preset slug lists (task 0007, CONTENT_DESIGN.md §6): Blind 75 and
+//! Preset slug lists (task 0007): Blind 75 and
 //! NeetCode 150 as ordered LeetCode slugs grouped by Anvil pattern. Slug
 //! lists are uncopyrightable facts — we ship these, and never any statement
 //! text or test data alongside them. Field names mirror `src/lib/types.ts`.

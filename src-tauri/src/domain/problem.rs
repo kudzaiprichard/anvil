@@ -63,7 +63,7 @@ pub(crate) fn checker_is_exact(c: &Checker) -> bool {
     matches!(c, Checker::Exact)
 }
 
-/// Full judge taxonomy (CONTENT_DESIGN.md §4). `Checker` covers the original
+/// Full judge taxonomy. `Checker` covers the original
 /// two modes and stays on disk for existing problems; `Judge` adds the modes
 /// imported/pack-backed problems need. A problem carries at most one `judge`;
 /// when absent it is derived from `checker` (see `Problem::effective_judge`).
@@ -182,7 +182,7 @@ pub struct DesignIo {
 /// Which callable the harness invokes, per language. `"Solution.twoSum"`
 /// means instantiate the class and call the method; a bare name is a
 /// top-level function. Absent on a problem ⇒ the legacy `solve` convention.
-/// Also serves as the import-time match fingerprint (CONTENT_DESIGN.md §6).
+/// Also serves as the import-time match fingerprint.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EntryPoint {
     pub python: String,
@@ -335,7 +335,7 @@ pub struct Problem {
     /// Sanitized HTML statement, set only for imported problems so the panel
     /// can render with full fidelity (superscripts, `<pre>` examples);
     /// `description_md` (from `body_text`) stays the search/fallback source
-    /// (CONTENT_DESIGN.md §8). Absent ⇒ render `description_md` as markdown.
+    /// Absent ⇒ render `description_md` as markdown.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_html: Option<String>,
     pub constraints: Vec<String>,
@@ -420,8 +420,8 @@ impl Problem {
         }
     }
 
-    /// Structural rules every stored problem must satisfy (PROBLEMS.md
-    /// quality bar) — enforced on built-ins at startup and on imported
+    /// Structural rules every stored problem must satisfy (the quality
+    /// bar) — enforced on built-ins at startup and on imported
     /// files before they touch the library.
     pub fn validate_structure(&self) -> Result<(), String> {
         if self.id.trim().is_empty() {

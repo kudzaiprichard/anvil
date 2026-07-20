@@ -192,7 +192,7 @@ function DescriptionTab({
   );
 }
 
-/** Graduated hint-ladder rung names (COURSE_BLUEPRINT.md §7): a Socratic climb
+/** Graduated hint-ladder rung names: a Socratic climb
  *  from a nudge toward — but never reaching — the answer. The first rung is
  *  always a nudge, the last the fullest approach we give; middle rungs escalate
  *  through approach → data structure. */
@@ -252,7 +252,7 @@ function HintsTab({ problem }: { problem: Problem }) {
   );
 }
 
-/** Self-explanation gate (COURSE_BLUEPRINT.md §7): before the reference
+/** Self-explanation gate: before the reference
  *  solution unlocks on a practice problem, the learner explains the approach in
  *  their own words. Self-explanation has a >2× post-test effect and is free to
  *  author — we just make room for it. Stays on-device; nothing is submitted. */
@@ -402,8 +402,8 @@ function SolutionTab({
   );
 }
 
-/** In a mastery gate the reference solution stays hidden (COURSE_BLUEPRINT.md
- *  §6): the learner may reveal it, but doing so voids the problem for the gate.
+/** In a mastery gate the reference solution stays hidden:
+ *  the learner may reveal it, but doing so voids the problem for the gate.
  *  This interstitial makes that cost explicit and reports the choice upward so
  *  the attempt is marked help-used. (Hints aren't offered at all during a gate.) */
 function GateSolutionGuard({ onReveal }: { onReveal: () => void }) {
