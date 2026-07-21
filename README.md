@@ -47,14 +47,6 @@ Two things make it different from the usual prep sites and the offline clones:
 > curriculum ship in the app; you supply the LeetCode **statements** locally, and everything clicks into
 > place by slug — the app ships with an **empty problem library by design** ([why](#problem-content--legal)).
 
-## Demo
-
-<div align="center">
-  <img src="./.github/assets/demo.gif" alt="Anvil in action" width="900" />
-  <br />
-  <sub>A look at the current build. Product screens continue to land with the roadmap.</sub>
-</div>
-
 ## Table of contents
 
 - [Why Anvil](#why-anvil)
