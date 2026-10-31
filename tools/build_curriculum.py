@@ -17,6 +17,11 @@ Checks:
     every unit's own `prereqs` are declared as curriculum-level prereqs too.
   * Every problem slug referenced anywhere (units, worked examples, practice)
     has a frozen pack in the shipped test-pack bundle.
+  * Gates: `pass_count` <= the unit's gate problems (with a novel one when
+    `require_novel`), and a gate slug never appears outside units that depend
+    on its gate unit (gate freshness).
+  * Lesson practice never repeats the worked example, and every lesson slug is
+    in its unit's `problems` roster (so solves enter spaced review).
   * Every `resources/lessons/**/*.md` has valid YAML frontmatter, all required
     parts, and its `diagram`/`quiz` companion
     files parse; quiz `answer` in `options`; diagram `predict_at` indices valid.
@@ -433,6 +438,76 @@ def check() -> int:
             ok += 1
         except (json.JSONDecodeError, CheckError) as e:
             errors.append(f"pattern-pool.json: {e}")
+
+    # Gate sizing: a unit can only demand as many gate solves as it has gate
+    # problems, and the novel requirement needs at least one novel gate.
+    for uid, unit in units.items():
+        gate_probs = [p for p in unit["problems"] if p.get("role") == "gate"]
+        need = unit["gate"]["pass_count"]
+        if len(gate_probs) < need:
+            errors.append(
+                f"unit '{uid}': gate.pass_count {need} exceeds its {len(gate_probs)} gate problem(s)"
+            )
+        if unit["gate"]["require_novel"] and not any(p.get("novel") for p in gate_probs):
+            errors.append(f"unit '{uid}': gate.require_novel is set but no gate problem is novel")
+
+    # Gate freshness: a gate problem must be met cold. It may resurface only in
+    # units that strictly depend on its gate unit (by then the gate is passed);
+    # anywhere else — the gate unit's own lessons/roster, a prerequisite, or a
+    # parallel unit the learner could take first — would pre-expose it.
+    gate_owner: dict[str, str] = {}
+    for uid, unit in units.items():
+        for p in unit["problems"]:
+            if p.get("role") == "gate":
+                if p["slug"] in gate_owner and gate_owner[p["slug"]] != uid:
+                    errors.append(
+                        f"gate problem '{p['slug']}' is a gate in both "
+                        f"'{gate_owner[p['slug']]}' and '{uid}'"
+                    )
+                gate_owner.setdefault(p["slug"], uid)
+
+    def _gate_leak(slug: str, where_unit: str) -> str | None:
+        owner = gate_owner.get(slug)
+        if owner is None or owner in ancestors.get(where_unit, set()):
+            return None
+        return owner
+
+    for uid, unit in units.items():
+        for p in unit["problems"]:
+            if p.get("role") != "gate":
+                owner = _gate_leak(p["slug"], uid)
+                if owner:
+                    errors.append(
+                        f"unit '{uid}': '{p['slug']}' is unit '{owner}''s gate problem - "
+                        f"it can only reappear in units that depend on '{owner}'"
+                    )
+    for lid, lesson in lessons.items():
+        uid = lesson["unit"]
+        for slug in [lesson["worked_example"], *lesson["practice"]]:
+            owner = _gate_leak(slug, uid)
+            if owner:
+                errors.append(
+                    f"lesson '{lid}': '{slug}' is unit '{owner}''s gate problem - "
+                    f"lesson worked examples/practice must never pre-expose a gate"
+                )
+
+    # Lesson practice must be real follow-on work: not the worked example
+    # again, and listed in the unit roster so solves enter FSRS review
+    # (`CurriculumStore::unit_of_problem` only sees roster slugs).
+    for lid, lesson in lessons.items():
+        unit = units.get(lesson["unit"])
+        if unit is None:
+            continue
+        roster = {p["slug"] for p in unit["problems"]}
+        if lesson["worked_example"] in lesson["practice"]:
+            errors.append(f"lesson '{lid}': practice repeats its own worked example")
+        if len(set(lesson["practice"])) != len(lesson["practice"]):
+            errors.append(f"lesson '{lid}': duplicate practice slug")
+        for slug in [lesson["worked_example"], *lesson["practice"]]:
+            if slug not in roster:
+                errors.append(
+                    f"lesson '{lid}': '{slug}' is not in unit '{lesson['unit']}''s problems roster"
+                )
 
     # every referenced slug has a frozen pack
     pack_slugs = load_pack_slugs()
