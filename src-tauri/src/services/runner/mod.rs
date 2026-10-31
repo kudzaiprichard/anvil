@@ -529,13 +529,20 @@ struct ProbeLine {
     #[serde(default)]
     ops: Option<u64>,
     #[serde(default)]
+    depth: Option<u64>,
+    #[serde(default)]
+    time_ns: Option<u64>,
+    #[serde(default)]
+    heap_bytes: Option<u64>,
+    #[serde(default)]
     error: Option<String>,
 }
 
 /// Outcome of a complexity probe run.
 pub enum ProbeOutcome {
-    /// One `(n, ops)` sample per size that ran successfully.
-    Samples(Vec<crate::domain::complexity::ComplexitySample>),
+    /// Per-size measurements (ops, untraced time, auxiliary heap, recursion
+    /// depth) for every size that ran successfully.
+    Samples(crate::domain::complexity::ProbeSamples),
     /// The solution ran past the time limit — itself a strong "too slow" signal.
     TooSlow,
     /// The probe couldn't start (solution didn't load, bad entry point, …).
@@ -557,6 +564,53 @@ pub fn count_ops(
     sizes: &[u64],
     program: &str,
 ) -> AppResult<ProbeOutcome> {
+    run_probe(
+        code,
+        entry_point,
+        io_types,
+        generator,
+        seed,
+        sizes,
+        program,
+        false,
+    )
+}
+
+/// Untraced timing only (no op count, no heap pass) — used to time the pack's
+/// reference solution on the same inputs, which calibrates hidden-work
+/// detection. Samples carry `ops: 0`; only `time_ns` is meaningful.
+pub fn time_only(
+    code: &str,
+    entry_point: &str,
+    io_types: Option<&crate::domain::problem::IoTypes>,
+    generator: &str,
+    seed: u64,
+    sizes: &[u64],
+    program: &str,
+) -> AppResult<ProbeOutcome> {
+    run_probe(
+        code,
+        entry_point,
+        io_types,
+        generator,
+        seed,
+        sizes,
+        program,
+        true,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_probe(
+    code: &str,
+    entry_point: &str,
+    io_types: Option<&crate::domain::problem::IoTypes>,
+    generator: &str,
+    seed: u64,
+    sizes: &[u64],
+    program: &str,
+    timing_only: bool,
+) -> AppResult<ProbeOutcome> {
     let spec = spec_for(Language::Python);
     let dir = tempfile::tempdir()?;
     std::fs::write(dir.path().join(spec.solution_filename), code)?;
@@ -570,6 +624,9 @@ pub fn count_ops(
     probe.insert("sizes".into(), serde_json::json!(sizes));
     if let Some(io) = io_types {
         probe.insert("io_types".into(), serde_json::json!(io));
+    }
+    if timing_only {
+        probe.insert("mode".into(), serde_json::json!("time"));
     }
     std::fs::write(
         dir.path().join("probe.json"),
@@ -626,15 +683,18 @@ pub fn count_ops(
         return Ok(ProbeOutcome::Failed(detail));
     }
 
-    let samples: Vec<_> = lines
-        .iter()
-        .filter_map(|l| match (l.ok, l.size, l.ops) {
-            (true, Some(n), Some(ops)) => {
-                Some(crate::domain::complexity::ComplexitySample { n, ops })
-            }
-            _ => None,
-        })
-        .collect();
+    use crate::domain::complexity::{ComplexitySample, ProbeSamples};
+    let mut samples = ProbeSamples::default();
+    let point = |n: u64, v: Option<u64>| v.map(|ops| ComplexitySample { n, ops });
+    for l in lines.iter().filter(|l| l.ok) {
+        let (Some(n), Some(ops)) = (l.size, l.ops) else {
+            continue;
+        };
+        samples.ops.push(ComplexitySample { n, ops });
+        samples.depth.extend(point(n, l.depth));
+        samples.time_ns.extend(point(n, l.time_ns));
+        samples.heap_bytes.extend(point(n, l.heap_bytes));
+    }
     Ok(ProbeOutcome::Samples(samples))
 }
 

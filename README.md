@@ -41,7 +41,7 @@ Two things make it different from the usual prep sites and the offline clones:
 >
 > **Shipping now:** the desktop shell, the sandboxed code runner (Python & JavaScript), the offline
 > test-pack judging engine (**3,000+ verified packs**), **and the guided course** — a mastery-gated climb
-> of **8 stages / 19 units / 62 lessons** with prediction diagrams, unlabeled pattern-picker drills,
+> of **8 stages / 19 units / 76 lessons** with prediction diagrams, unlabeled pattern-picker drills,
 > hint-free timed gates, a graduated hint ladder, deterministic complexity feedback, FSRS spaced review,
 > and a Stage-7 unlabeled capstone (see the [roadmap](#roadmap)). The lessons, diagrams, judges, and
 > curriculum ship in the app; you supply the LeetCode **statements** locally, and everything clicks into
@@ -94,7 +94,7 @@ Anvil aims to be the best of both — a real course you own:
 
 | | |
 |---|---|
-| 🎓 **Guided DSA course** | One mastery-gated climb — 8 stages / 19 units / 62 lessons. Each lesson teaches one sub-pattern with an explainer, explicit trigger signals, an interactive prediction diagram, a worked example, and faded → independent practice. Content is data; the engine is code. |
+| 🎓 **Guided DSA course** | One mastery-gated climb — 8 stages / 19 units / 76 lessons. Each lesson teaches one sub-pattern with an explainer, explicit trigger signals, an interactive prediction diagram, a worked example, and faded → independent practice. Content is data; the engine is code. |
 | 🧩 **Pattern-recognition trainer** | Prompt-only, *unlabeled* pattern-picker drills (per lesson + a cross-unit interleaved pool) that train *which* technique an unfamiliar problem needs — the moat. |
 | 🛡️ **Mastery gates** | Fresh, unseen problems (≥1 novel) solved **hint-free, no-peek, under a soft timer** to unlock the next unit. A prerequisite DAG drives parallel unlocking, with diagnostic placement and spiral reuse. |
 | 🔁 **FSRS spaced review** | Solved problems return on an on-device (`fsrs-rs`) spaced, interleaved schedule and are re-solved *cold*. Honest habit layer — streaks with freezes, no XP, no leaderboards. |
@@ -261,7 +261,7 @@ you load complies with its source's copyright and Terms of Service. **Full detai
 | ✅ | Local code runner — run/test Python & JavaScript with timeouts and sandboxing (Rust) |
 | ✅ | Test-pack judging — 3,000+ verified packs frozen into the app (oracle-checked, no answer keys) |
 | ✅ | Name-agnostic catalog loader — bring-your-own statements, mapped to packs by slug |
-| ✅ | **Guided course** — 8 stages / 19 units / 62 lessons: diagrams, quizzes, pattern-picker, mastery ladder |
+| ✅ | **Guided course** — 8 stages / 19 units / 76 lessons: diagrams, quizzes, pattern-picker, mastery ladder |
 | ✅ | Mastery gates + prerequisite-DAG unlocking, diagnostic placement, Stage-7 unlabeled capstone |
 | ✅ | FSRS spaced review + progress tracking (local SQLite, no account) |
 | ✅ | User-authored problems — write & validate your own original problems in the app |
