@@ -789,6 +789,9 @@ export interface ComplexityReport {
    *  built-ins (`x in list`, slicing, `+=` on strings). `measured` then
    *  reflects the timing-based class. */
   hiddenWork?: boolean;
+  /** Untraced running time per size in µs (`ops` field) — sent when
+   *  `hiddenWork` is set, since the time verdict is based on it. */
+  timeSamples?: ComplexitySample[];
   /** Measured auxiliary space class (heap + recursion depth), e.g. "O(n)". */
   spaceMeasured?: string;
   /** Pack-declared optimal space, e.g. "O(1)". */

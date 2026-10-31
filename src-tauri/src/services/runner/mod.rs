@@ -564,6 +564,53 @@ pub fn count_ops(
     sizes: &[u64],
     program: &str,
 ) -> AppResult<ProbeOutcome> {
+    run_probe(
+        code,
+        entry_point,
+        io_types,
+        generator,
+        seed,
+        sizes,
+        program,
+        false,
+    )
+}
+
+/// Untraced timing only (no op count, no heap pass) — used to time the pack's
+/// reference solution on the same inputs, which calibrates hidden-work
+/// detection. Samples carry `ops: 0`; only `time_ns` is meaningful.
+pub fn time_only(
+    code: &str,
+    entry_point: &str,
+    io_types: Option<&crate::domain::problem::IoTypes>,
+    generator: &str,
+    seed: u64,
+    sizes: &[u64],
+    program: &str,
+) -> AppResult<ProbeOutcome> {
+    run_probe(
+        code,
+        entry_point,
+        io_types,
+        generator,
+        seed,
+        sizes,
+        program,
+        true,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_probe(
+    code: &str,
+    entry_point: &str,
+    io_types: Option<&crate::domain::problem::IoTypes>,
+    generator: &str,
+    seed: u64,
+    sizes: &[u64],
+    program: &str,
+    timing_only: bool,
+) -> AppResult<ProbeOutcome> {
     let spec = spec_for(Language::Python);
     let dir = tempfile::tempdir()?;
     std::fs::write(dir.path().join(spec.solution_filename), code)?;
@@ -577,6 +624,9 @@ pub fn count_ops(
     probe.insert("sizes".into(), serde_json::json!(sizes));
     if let Some(io) = io_types {
         probe.insert("io_types".into(), serde_json::json!(io));
+    }
+    if timing_only {
+        probe.insert("mode".into(), serde_json::json!("time"));
     }
     std::fs::write(
         dir.path().join("probe.json"),

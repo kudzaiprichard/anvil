@@ -264,12 +264,19 @@ const VERDICT_META: Record<
   unknown: { className: "text-muted-foreground", icon: Info },
 };
 
-/** Mini (n → ops) bars — the measured growth, drawn from the op-count trace. */
+/** Mini (n → value) bars — the measured growth behind the time verdict: the
+ *  op-count trace, or untraced running time (µs) when hidden built-in work
+ *  made timing the basis of the verdict. */
 function GrowthBars({ report }: { report: ComplexityReport }) {
-  const max = Math.max(1, ...report.samples.map((s) => s.ops));
+  const timed = !!report.hiddenWork && (report.timeSamples?.length ?? 0) > 0;
+  const series = timed ? report.timeSamples! : report.samples;
+  const max = Math.max(1, ...series.map((s) => s.ops));
   return (
     <div className="mt-3 flex flex-col gap-1">
-      {report.samples.map((s) => (
+      <div className="text-[10.5px] text-muted-foreground">
+        {timed ? "Running time (µs) as n grows" : "Operations as n grows"}
+      </div>
+      {series.map((s) => (
         <div key={s.n} className="flex items-center gap-2">
           <span className="w-12 shrink-0 text-right font-mono text-[11px] text-muted-foreground">
             n={s.n}
@@ -282,6 +289,7 @@ function GrowthBars({ report }: { report: ComplexityReport }) {
           </div>
           <span className="w-16 shrink-0 font-mono text-[11px] text-muted-foreground">
             {s.ops.toLocaleString()}
+            {timed ? " µs" : ""}
           </span>
         </div>
       ))}

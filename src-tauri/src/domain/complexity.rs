@@ -78,6 +78,11 @@ pub struct ComplexityReport {
     /// `measured` then reflects the timing-based class.
     #[serde(default)]
     pub hidden_work: bool,
+    /// Untraced running time per size, in microseconds — what the time verdict
+    /// is based on when `hidden_work` is set (the UI then charts these instead
+    /// of the op counts in `samples`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub time_samples: Vec<ComplexitySample>,
     /// Measured auxiliary space class (heap + recursion depth), e.g. `"O(n)"`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub space_measured: Option<String>,
@@ -106,6 +111,7 @@ impl ComplexityReport {
             note: note.into(),
             samples: Vec::new(),
             hidden_work: false,
+            time_samples: Vec::new(),
             space_measured: None,
             space_optimal: None,
             space_verdict: ComplexityVerdict::Unknown,
@@ -139,6 +145,8 @@ pub fn growth_slope(samples: &[ComplexitySample]) -> Option<f64> {
 /// Minimum wall time at the largest size before timing is trusted (below
 /// this, interpreter overhead and timer noise dominate).
 const HIDDEN_WORK_MIN_NS: u64 = 500_000;
+/// The same floor when the reference solution's timing calibrates the check.
+const HIDDEN_WORK_MIN_NS_CALIBRATED: u64 = 150_000;
 /// How much steeper (in log-log slope) time must grow than the op count. A
 /// whole power of n is ~1.0; 0.6 leaves room for cache/allocator drift on a
 /// genuinely linear solution while catching an O(n) scan hidden per element.
@@ -166,7 +174,15 @@ pub fn hidden_work(
     let Some(top) = time_ns.iter().max_by_key(|s| s.n) else {
         return false;
     };
-    if top.ops < HIDDEN_WORK_MIN_NS {
+    // With a reference timed on the same inputs, its slope absorbs input- and
+    // machine-level drift, so smaller timings are trustworthy; alone, require
+    // more signal.
+    let floor = if reference_time.is_some() {
+        HIDDEN_WORK_MIN_NS_CALIBRATED
+    } else {
+        HIDDEN_WORK_MIN_NS
+    };
+    if top.ops < floor {
         return false;
     }
     let (Some(so), Some(st)) = (growth_slope(ops), growth_slope(time_ns)) else {
@@ -186,9 +202,11 @@ pub fn hidden_work(
 /// leaves ~3.5–4.2 B/element of list over-allocation slack, while the smallest
 /// genuine O(n) temporary — a copied/sorted list of references — is ~8 B.
 const CONSTANT_HEAP_PER_ELEM: f64 = 6.0;
-/// With deep recursion, CPython's frame data-stack chunks show up in the heap
-/// trace at ~22 B/frame. Heap under this per element is that stack overhead,
-/// already accounted for by the depth series.
+/// With recursion as deep as the input (depth ≥ n/4 at the top size),
+/// CPython's frame data-stack chunks show up in the heap trace at ~22 B/frame.
+/// Heap under this per element is that stack overhead, already accounted for
+/// by the depth series. Shallow (e.g. log n) recursion allocates no chunks, so
+/// it keeps the normal floor.
 const STACK_HEAP_PER_ELEM: f64 = 46.0;
 /// Recursion this shallow at every size is constant stack.
 const CONSTANT_DEPTH: u64 = 3;
@@ -199,6 +217,17 @@ fn per_elem_at_top(s: &[ComplexitySample]) -> f64 {
         .map_or(0.0, |x| x.ops as f64 / x.n.max(1) as f64)
 }
 
+/// Call-stack space class from max recursion depths. `None` with too little data.
+pub fn depth_class(depth: &[ComplexitySample]) -> Option<&'static str> {
+    if depth.len() < 3 {
+        None
+    } else if depth.iter().all(|x| x.ops <= CONSTANT_DEPTH) {
+        Some("O(1)")
+    } else {
+        classify(depth)
+    }
+}
+
 /// Auxiliary-space class from heap peaks and recursion depths: the larger of
 /// the two classes (an O(n)-deep recursion is O(n) space even with O(1)
 /// locals). `None` when neither series has enough data.
@@ -206,15 +235,12 @@ pub fn classify_space(
     heap: &[ComplexitySample],
     depth: &[ComplexitySample],
 ) -> Option<&'static str> {
-    let d = if depth.len() < 3 {
-        None
-    } else if depth.iter().all(|x| x.ops <= CONSTANT_DEPTH) {
-        Some("O(1)")
-    } else {
-        classify(depth)
-    };
-    let recursive = d.is_some_and(|c| c != "O(1)");
-    let floor = if recursive {
+    let d = depth_class(depth);
+    let deep = depth
+        .iter()
+        .max_by_key(|x| x.n)
+        .is_some_and(|x| x.ops.saturating_mul(4) >= x.n);
+    let floor = if deep {
         STACK_HEAP_PER_ELEM
     } else {
         CONSTANT_HEAP_PER_ELEM
@@ -530,6 +556,13 @@ mod tests {
         assert!(!hidden_work(&ops, &slow, Some(&ref_steep)));
         let ref_lin = series(&[(100, 20_000), (200, 40_000), (400, 80_000), (800, 160_000)]);
         assert!(hidden_work(&ops, &slow, Some(&ref_lin)));
+        // A smaller ladder (top ~200µs) is trusted only with a reference.
+        let small = series(&[(25, 13_000), (50, 50_000), (100, 200_000), (200, 210_000)]);
+        let small = [small[0], small[1], small[2]];
+        let small_ops = series(&[(25, 50), (50, 100), (100, 200)]);
+        let small_ref = series(&[(25, 5_000), (50, 10_000), (100, 20_000)]);
+        assert!(!hidden_work(&small_ops, &small, None));
+        assert!(hidden_work(&small_ops, &small, Some(&small_ref)));
         // Linear time: nothing hidden.
         let fair = series(&[
             (100, 70_000),
@@ -557,6 +590,11 @@ mod tests {
         let chunks = series(&[(100, 380), (200, 380), (400, 4952), (800, 17_752)]);
         assert_eq!(classify_space(&chunks, &deep), Some("O(n)"));
         assert_eq!(classify_space(&[], &[]), None);
+        // Log-depth recursion (merge sort) allocates no stack chunks, so its
+        // real O(n) heap (~20 B/element) must not hide under the stack floor.
+        let log_depth = series(&[(100, 8), (200, 9), (400, 10), (800, 11)]);
+        let merge_heap = series(&[(100, 2_000), (200, 4_100), (400, 8_000), (800, 16_500)]);
+        assert_eq!(classify_space(&merge_heap, &log_depth), Some("O(n)"));
         // Dict/set capacity doubles in steps; still linear, not n log n.
         let steps = series(&[(100, 3_400), (200, 6_800), (400, 14_000), (800, 67_000)]);
         assert_eq!(classify_space(&steps, &flat_depth), Some("O(n)"));

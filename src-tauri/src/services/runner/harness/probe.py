@@ -93,16 +93,20 @@ SOLFILE = "solution.py"
 
 # Method calls on containers whose real cost scales with the container, charged
 # via sys.setprofile's `c_call` event (it hands us the bound C method, so
-# `__self__` is the container). Only O(n)-always operations are charged —
-# `pop`/`append` are O(1) at the end and their index argument isn't visible,
-# so they're left alone rather than over-charged.
-_LINEAR_METHODS = {
-    list: ("index", "count", "remove", "insert", "copy", "reverse"),
-    str: ("count", "find", "index", "replace", "split", "strip", "upper", "lower"),
-    dict: ("copy",),
-    set: ("copy",),
-}
-_SORT_METHODS = {list: ("sort",)}
+# `__self__` is the container). Only methods that are O(n) on EVERY call are
+# charged: `remove` always searches then shifts the tail (n total); `count`,
+# `copy`, `reverse` and whole-string transforms touch everything. Methods that
+# can stop early or cost less (`index`, `find`, `insert`/`pop` near the end,
+# `strip`) are left uncharged rather than over-charged — if they really scan,
+# the untraced timing pass catches it. Matched with isinstance, so subclasses
+# (Counter, defaultdict, OrderedDict) are charged too.
+_LINEAR_METHODS = (
+    (list, ("count", "remove", "copy", "reverse")),
+    (str, ("count", "replace", "split", "upper", "lower")),
+    (dict, ("copy",)),
+    (set, ("copy",)),
+)
+_SORT_METHODS = ((list, ("sort",)),)
 
 
 def make_profiler(counter):
@@ -114,10 +118,9 @@ def make_profiler(counter):
             return
         owner = getattr(arg, "__self__", None)
         name = getattr(arg, "__name__", "")
-        kind = type(owner)
-        if name in _LINEAR_METHODS.get(kind, ()):
+        if any(isinstance(owner, t) and name in names for t, names in _LINEAR_METHODS):
             counter[0] += len(owner)
-        elif name in _SORT_METHODS.get(kind, ()):
+        elif any(isinstance(owner, t) and name in names for t, names in _SORT_METHODS):
             n = len(owner)
             if n > 1:
                 counter[0] += n * max(1, math.ceil(math.log2(n)))
@@ -149,22 +152,28 @@ def make_tracer(counter, depth):
     return glob
 
 
-def deep_size(obj, seen=None):
+def deep_size(obj, seen=None, keep=None):
     """Approximate bytes retained by a returned value (containers, strings,
     numbers, ListNode/TreeNode-style objects) — subtracted from the heap peak
-    so the space measurement is *auxiliary* space, as interviews count it."""
+    so the space measurement is *auxiliary* space, as interviews count it.
+    `keep`, when given, collects every visited object so the caller can hold
+    references (keeps ids from being reused while they're being compared)."""
     if seen is None:
         seen = set()
     if id(obj) in seen:
         return 0
     seen.add(id(obj))
+    if keep is not None:
+        keep.append(obj)
     size = sys.getsizeof(obj, 0)
     if isinstance(obj, dict):
-        size += sum(deep_size(k, seen) + deep_size(v, seen) for k, v in obj.items())
+        size += sum(
+            deep_size(k, seen, keep) + deep_size(v, seen, keep) for k, v in obj.items()
+        )
     elif isinstance(obj, (list, tuple, set, frozenset)):
-        size += sum(deep_size(x, seen) for x in obj)
+        size += sum(deep_size(x, seen, keep) for x in obj)
     elif hasattr(obj, "__dict__") and not isinstance(obj, type):
-        size += sum(deep_size(v, seen) for v in vars(obj).values())
+        size += sum(deep_size(v, seen, keep) for v in vars(obj).values())
     return size
 
 
@@ -201,10 +210,14 @@ def measure_aux_heap(get_callable, args):
     """Peak heap bytes allocated during one call, minus the *newly allocated*
     part of the returned value. Objects reachable from the inputs (an argument
     handed back after in-place work, input ints reused in an output list) were
-    allocated before the measurement started, so they're excluded from both."""
+    allocated before the measurement started, so they're excluded from both.
+    `get_callable` should come from a freshly loaded module so module-level
+    memo caches start cold. Input objects are kept alive for the whole
+    measurement so a freed input's id can't be reused by a new result object."""
     call_args = copy.deepcopy(args)
     input_ids = set()
-    deep_size(call_args, input_ids)  # records every input object's id
+    inputs_alive = []
+    deep_size(call_args, input_ids, inputs_alive)  # ids + live refs of inputs
     fn = get_callable()
     gc.collect()
     tracemalloc.start()
@@ -216,6 +229,7 @@ def measure_aux_heap(get_callable, args):
     finally:
         tracemalloc.stop()
     out = deep_size(result, input_ids)
+    del inputs_alive
     return max(0, peak - base - out)
 
 
@@ -224,6 +238,9 @@ def run():
         cfg = json.load(f)
     sizes = cfg.get("sizes", [])
     seed = cfg.get("seed", 0)
+    # "time": untraced timing only — used to calibrate against the pack's
+    # reference solution, which needs nothing else.
+    timing_only = cfg.get("mode") == "time"
     io_types = cfg.get("io_types")
     param_types = io_types.get("params", []) if io_types else []
 
@@ -263,6 +280,13 @@ def run():
             emit({"size": size, "ok": False, "error": "input generation failed"})
             continue
 
+        if timing_only:
+            try:
+                emit({"size": size, "ops": 0, "time_ns": time_call(get_callable, args), "ok": True})
+            except BaseException:
+                emit({"size": size, "ok": False, "error": H.clean_traceback(traceback.format_exc())})
+            continue
+
         fn = get_callable()
         call_args = copy.deepcopy(args)
         counter[0] = 0
@@ -292,7 +316,10 @@ def run():
         except BaseException:
             pass
         try:
-            line["heap_bytes"] = measure_aux_heap(get_callable, args)
+            # Fresh, uninstrumented module: cold module-level caches, and no
+            # charging wrappers allocating during the measurement.
+            fresh = H.resolve_entry(H.load_solution_with_prelude(), cfg.get("entry_point"))
+            line["heap_bytes"] = measure_aux_heap(fresh, args)
         except BaseException:
             pass
         emit(line)

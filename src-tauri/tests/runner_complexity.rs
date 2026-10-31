@@ -6,7 +6,7 @@
 mod common;
 
 use app_lib::domain::complexity::{classify, classify_space, hidden_work, ProbeSamples};
-use app_lib::services::runner::{count_ops, ProbeOutcome};
+use app_lib::services::runner::{count_ops, time_only, ProbeOutcome};
 
 /// A generator that just hands the solution `list(range(size))` — the size *is*
 /// n, and neither solution below short-circuits, so the op count is a clean
@@ -223,4 +223,44 @@ fn list_sort_method_is_charged() {
 ";
     let Some(ops) = probe(code) else { return };
     assert_ne!(classify(&ops), Some("O(1)"), "ops={ops:?}");
+}
+
+#[test]
+fn timing_only_probe_returns_times_without_tracing() {
+    require_runtime!("python");
+    let code = "def solve(nums):
+    return sum(nums)
+";
+    match time_only(code, "solve", None, GEN, 0, SIZES, "python").expect("probe ran") {
+        ProbeOutcome::Samples(s) => {
+            assert_eq!(s.time_ns.len(), SIZES.len(), "{s:?}");
+            assert!(
+                s.ops.iter().all(|o| o.ops == 0),
+                "no op counting in timing mode"
+            );
+            assert!(s.heap_bytes.is_empty() && s.depth.is_empty());
+        }
+        ProbeOutcome::Failed(e) if common::is_sandbox_thread_limit(&e) => {}
+        other => panic!("unexpected: {}", matches!(other, ProbeOutcome::TooSlow)),
+    }
+}
+
+#[test]
+fn module_level_memo_is_measured_cold() {
+    require_runtime!("python");
+    // The cache lives at module level: warmed by the traced/timed runs, it must
+    // still read as O(n) because heap is measured on a freshly loaded module.
+    let code = "memo = {}
+def solve(nums):
+    for x in nums:
+        memo[x] = x * 3
+    return len(memo)
+";
+    let Some(s) = probe_all(code) else { return };
+    assert_eq!(
+        classify_space(&s.heap_bytes, &s.depth),
+        Some("O(n)"),
+        "heap={:?}",
+        s.heap_bytes
+    );
 }

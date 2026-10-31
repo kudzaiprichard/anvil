@@ -138,7 +138,14 @@ fn compose_space_note(
     optimal: Option<&str>,
     verdict: ComplexityVerdict,
     deep_recursion: bool,
+    incomparable: Option<&str>,
 ) -> String {
+    if let Some(stated) = incomparable {
+        return format!(
+            "Extra space ~{measured}. The stated optimal {stated} is in terms of other \
+             variables than the input size, so it isn't compared on this single size ladder."
+        );
+    }
     let stack = if deep_recursion {
         " Recursion depth counts: every pending call holds a stack frame."
     } else {
@@ -216,13 +223,17 @@ fn build_report(
                     note.push_str(&hidden_work_note(ops_class, measured));
                 }
 
-                // Space: heap + recursion depth, capped at the operation class
-                // (a program can't allocate more objects than it runs steps —
-                // byte growth beyond that is large values, e.g. big integers,
-                // not extra structure). Only compared against the pack when its
-                // declared space is in terms of n alone.
+                // Space: heap + recursion depth, capped at the measured time
+                // class (a program can't allocate more objects than it runs
+                // steps — byte growth beyond that is large values, e.g. big
+                // integers, not extra structure). Never capped below O(n): an
+                // O(n) structure can be built entirely inside C (`set(nums)`,
+                // a slice) where neither the op count nor a short timing sees
+                // it. Only compared against the pack when its declared space
+                // is in terms of n alone.
+                let cap = complexity::max_label(measured, "O(n)");
                 let space = complexity::classify_space(&samples.heap_bytes, &samples.depth)
-                    .map(|s| complexity::min_label(s, ops_class));
+                    .map(|s| complexity::min_label(s, cap));
                 let space_cmp = optimal_space
                     .as_deref()
                     .filter(|s| complexity::only_in_n(s));
@@ -231,9 +242,23 @@ fn build_report(
                     None => ComplexityVerdict::Unknown,
                 };
                 let deep_recursion =
-                    complexity::classify_space(&[], &samples.depth).is_some_and(|d| d != "O(1)");
-                let space_note =
-                    space.map(|m| compose_space_note(m, space_cmp, space_verdict, deep_recursion));
+                    complexity::depth_class(&samples.depth).is_some_and(|d| d != "O(1)");
+                let incomparable = optimal_space.as_deref().filter(|_| space_cmp.is_none());
+                let space_note = space.map(|m| {
+                    compose_space_note(m, space_cmp, space_verdict, deep_recursion, incomparable)
+                });
+                let time_samples = if hidden {
+                    samples
+                        .time_ns
+                        .iter()
+                        .map(|s| complexity::ComplexitySample {
+                            n: s.n,
+                            ops: (s.ops / 1000).max(1),
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
 
                 ComplexityReport {
                     available: true,
@@ -243,6 +268,7 @@ fn build_report(
                     note,
                     samples: samples.ops,
                     hidden_work: hidden,
+                    time_samples,
                     space_measured: space.map(str::to_string),
                     space_optimal: optimal_space,
                     space_verdict,
@@ -308,11 +334,26 @@ pub async fn analyze_complexity(
             )
         };
         let outcome = probe(&code)?;
-        // Calibration only: if the reference can't be profiled, the timing
-        // check falls back to comparing against the learner's own op count.
-        let reference_time = match probe(&reference) {
-            Ok(ProbeOutcome::Samples(s)) if !s.time_ns.is_empty() => Some(s.time_ns),
-            _ => None,
+        // Calibration only, and only when it can matter: the learner's run
+        // produced timings. Timing-only mode skips the trace and heap passes.
+        // If the reference can't be timed, the check falls back to comparing
+        // against the learner's own op count.
+        let wants_reference = matches!(&outcome, ProbeOutcome::Samples(s) if !s.time_ns.is_empty());
+        let reference_time = if wants_reference {
+            match runner::time_only(
+                &reference,
+                &entry,
+                io_types.as_ref(),
+                &generator,
+                seed,
+                &sizes,
+                &program,
+            ) {
+                Ok(ProbeOutcome::Samples(s)) if !s.time_ns.is_empty() => Some(s.time_ns),
+                _ => None,
+            }
+        } else {
+            None
         };
         AppResult::Ok((outcome, reference_time))
     })
