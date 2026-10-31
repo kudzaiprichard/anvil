@@ -291,6 +291,19 @@ pub struct TestCase {
     pub input: Vec<serde_json::Value>,
     pub expected: serde_json::Value,
     pub hidden: bool,
+    /// What this case probes, carried from the verified pack (`edge` /
+    /// `boundary` / `trap` / `stress` + a one-line description). Lets a failed
+    /// *hidden* case say what it was testing without leaking its input.
+    /// Absent for statement examples and authored/older stored problems.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<CaseLabel>,
+}
+
+/// A test case's probe category + description (see [`TestCase::label`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CaseLabel {
+    pub kind: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -318,6 +331,10 @@ pub struct ReferenceSolution {
     pub python: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub javascript: Option<String>,
+    /// The pack's verified brute-force oracle — the baseline an interviewer
+    /// expects you to state before optimizing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brute_force_python: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub complexity: Option<Complexity>,
 }
@@ -651,6 +668,7 @@ mod tests {
             input: vec![json!(1)],
             expected: json!(1),
             hidden: false,
+            label: None,
         }];
         assert_eq!(p.experience_tier(), "basic");
         p.judge = Some(Judge::Exact);
@@ -659,6 +677,7 @@ mod tests {
             input: vec![json!(2)],
             expected: json!(2),
             hidden: true,
+            label: None,
         });
         assert_eq!(p.experience_tier(), "full");
         p.source = ProblemSource::BuiltIn;

@@ -27,6 +27,7 @@ fn case(input: serde_json::Value, expected: serde_json::Value) -> TestCase {
         input: input.as_array().unwrap().clone(),
         expected,
         hidden: false,
+        label: None,
     }
 }
 

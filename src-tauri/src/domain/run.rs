@@ -44,6 +44,13 @@ pub struct CaseResult {
     pub expected: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// What the case probes (`edge` / `boundary` / `trap` / `stress`) and a
+    /// one-line description — sent for hidden cases too, since it names the
+    /// scenario without revealing the input or expected value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -107,11 +114,13 @@ mod tests {
             "status": "fail",
             "cases": [
                 { "index": 1, "hidden": false, "passed": true,
-                  "input": "nums=[2,7], target=9", "output": "[0, 1]", "expected": "[0, 1]" },
-                { "index": 2, "hidden": true, "passed": false }
+                  "input": "nums = [2,7], target = 9", "output": "[0, 1]", "expected": "[0, 1]" },
+                { "index": 2, "hidden": true, "passed": false },
+                { "index": 3, "hidden": true, "passed": false,
+                  "kind": "trap", "description": "repeated value must use two distinct indices" }
             ],
             "passed": 1,
-            "total": 2,
+            "total": 3,
             "runtimeMs": 12
         }));
 

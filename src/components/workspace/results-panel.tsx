@@ -27,6 +27,23 @@ export type RunState = "idle" | "running" | RunResult;
 
 export type ResultsTab = "testcase" | "result";
 
+const PROBE_LABEL: Record<string, string> = {
+  edge: "Edge case",
+  boundary: "Boundary",
+  trap: "Trap",
+  stress: "Large input",
+};
+
+/** What a case was probing, from the verified pack — e.g. "Trap · repeated
+ *  zero must use two distinct indices". Names the scenario you missed without
+ *  revealing a hidden case's input. Statement examples carry no useful label. */
+function caseProbe(result: CaseResult): { kind: string; text: string } | null {
+  const text = result.description?.trim();
+  if (!text || text.toLowerCase() === "statement example") return null;
+  const kind = result.kind ? (PROBE_LABEL[result.kind] ?? result.kind) : "Tests";
+  return { kind, text };
+}
+
 function CaseCard({ result }: { result: CaseResult }) {
   const label = result.hidden
     ? `Hidden case ${result.index}`
@@ -60,6 +77,7 @@ function CaseCard({ result }: { result: CaseResult }) {
       </div>
     );
   }
+  const probe = caseProbe(result);
   return (
     <div className="rounded-[9px] border-[1.5px] border-fail/30 bg-fail/5 px-3 py-[11px] dark:bg-fail/10">
       <div className="flex items-center justify-between">
@@ -69,6 +87,14 @@ function CaseCard({ result }: { result: CaseResult }) {
         </div>
         <span className="text-[11.5px] font-semibold text-fail">Failed</span>
       </div>
+      {probe && (
+        <div className="mt-[7px] flex items-start gap-2 text-[12px] leading-relaxed">
+          <span className="shrink-0 rounded-md bg-fail/10 px-1.5 py-px text-[10.5px] font-semibold uppercase tracking-wide text-fail">
+            {probe.kind}
+          </span>
+          <span className="text-foreground/85">{probe.text}</span>
+        </div>
+      )}
       {!result.hidden && result.input && (
         <div className="mt-[9px] max-h-48 select-text overflow-y-auto break-all font-mono text-xs leading-[1.9] text-muted-foreground">
           <div>
@@ -179,7 +205,11 @@ function ResultBody({
                     firstFail.hidden
                       ? `Hidden case ${firstFail.index}`
                       : `Case ${firstFail.index}`
-                  } — your output didn't match the expected result.`
+                  } — your output didn't match the expected result.${
+                    caseProbe(firstFail)
+                      ? " See the scenario it tests below — build a tiny input like it and trace your code by hand."
+                      : ""
+                  }`
                 : ""}
             </div>
           </div>

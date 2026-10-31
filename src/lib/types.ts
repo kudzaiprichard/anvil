@@ -49,6 +49,8 @@ export interface TestCase {
   input: unknown[];
   expected: unknown;
   hidden: boolean;
+  /** What the case probes, carried from the verified pack. */
+  label?: { kind: string; description: string };
 }
 
 export interface FunctionSignature {
@@ -187,6 +189,9 @@ export interface IoTypes {
 export interface ReferenceSolution {
   python?: string;
   javascript?: string;
+  /** The pack's verified brute-force oracle (Python) — the baseline to state
+   *  before optimizing. */
+  brute_force_python?: string;
   complexity?: { time: string; space: string };
 }
 
@@ -738,6 +743,12 @@ export interface CaseResult {
   output?: string;
   expected?: string;
   error?: string;
+  /** What the case probes ("edge" | "boundary" | "trap" | "stress"), from the
+   *  verified pack. Present on hidden cases too — it names the scenario
+   *  without revealing the input. */
+  kind?: string;
+  /** One-line description of that scenario. */
+  description?: string;
 }
 
 export interface RunResult {

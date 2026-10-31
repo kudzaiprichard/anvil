@@ -185,6 +185,7 @@ mod tests {
                 input: vec![1.into()],
                 expected: 1.into(),
                 hidden: false,
+                label: None,
             }],
             checker: crate::domain::problem::Checker::Exact,
             judge: None,

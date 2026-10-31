@@ -196,11 +196,13 @@ mod tests {
                     input: vec![1.into(), 2.into()],
                     expected: 3.into(),
                     hidden: false,
+                    label: None,
                 },
                 TestCase {
                     input: vec![2.into(), 2.into()],
                     expected: 4.into(),
                     hidden: true,
+                    label: None,
                 },
             ],
             hints: vec![],

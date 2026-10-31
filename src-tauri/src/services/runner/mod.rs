@@ -304,7 +304,11 @@ pub fn execute_with_program(
         return Ok(error_result(total, message));
     }
 
-    let params = python_param_names(&problem.function_signature.python);
+    let method = problem
+        .entry_point
+        .as_ref()
+        .and_then(|e| e.python.rsplit('.').next());
+    let params = python_param_names(&problem.function_signature.python, method);
     let mut cases = Vec::with_capacity(selected.len());
     let mut passed = 0u32;
     let mut runtime_ms = 0f64;
@@ -329,6 +333,8 @@ pub fn execute_with_program(
             output: None,
             expected: None,
             error: None,
+            kind: tc.label.as_ref().map(|l| l.kind.clone()),
+            description: tc.label.as_ref().map(|l| l.description.clone()),
         };
         if !tc.hidden {
             case.input = Some(fmt_input(&params, &tc.input));
@@ -725,34 +731,69 @@ fn fmt_value(value: &serde_json::Value) -> String {
         .replace(',', ", ")
 }
 
-/// Mirrors the mock's `fmtInput`: `name=value` pairs joined with ", ",
-/// names parsed from the python signature.
+/// Mirrors the mock's `fmtInput`: `name = value` pairs joined with ", " — the
+/// way a LeetCode statement prints an example input
+/// (`nums = [2,7,11,15], target = 9`). Names come from the python signature.
 fn fmt_input(params: &[String], args: &[serde_json::Value]) -> String {
     args.iter()
         .enumerate()
         .map(|(i, arg)| {
             let name = params.get(i).cloned().unwrap_or_else(|| format!("arg{i}"));
             let json = serde_json::to_string(arg).unwrap_or_else(|_| "null".into());
-            format!("{name}={json}")
+            format!("{name} = {json}")
         })
         .collect::<Vec<_>>()
         .join(", ")
 }
 
-/// Parameter names from a `def solve(a, b: int)` style signature — the same
-/// rule as `paramNames` in the frontend seam.
-fn python_param_names(signature: &str) -> Vec<String> {
-    let Some(open) = signature.find('(') else {
+/// Parameter names from a Python signature, as LeetCode statements name them
+/// — the same rule as `paramNames` in the frontend seam. `method` picks the
+/// entry method out of a multi-method stub (LeetCode design stubs list
+/// `__init__` first); without it the first `def` is used. `self`/`cls` are
+/// dropped, and only top-level commas split parameters, so annotations like
+/// `Dict[str, int]` stay intact.
+fn python_param_names(signature: &str, method: Option<&str>) -> Vec<String> {
+    let start = method
+        .and_then(|m| signature.find(&format!("def {m}(")))
+        .or_else(|| signature.find("def "))
+        .unwrap_or(0);
+    let Some(open) = signature[start..].find('(').map(|i| start + i) else {
         return Vec::new();
     };
-    let Some(close) = signature[open..].find(')').map(|i| open + i) else {
+    let mut depth = 0i32;
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut closed = false;
+    for ch in signature[open + 1..].chars() {
+        match ch {
+            ')' if depth == 0 => {
+                closed = true;
+                break;
+            }
+            ',' if depth == 0 => {
+                parts.push(std::mem::take(&mut current));
+                continue;
+            }
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            _ => {}
+        }
+        current.push(ch);
+    }
+    if !closed {
         return Vec::new();
-    };
-    signature[open + 1..close]
-        .split(',')
+    }
+    parts.push(current);
+    parts
+        .iter()
         .filter_map(|part| {
-            let name = part.split(':').next().unwrap_or("").trim();
-            (!name.is_empty()).then(|| name.to_string())
+            let name = part
+                .split([':', '='])
+                .next()
+                .unwrap_or("")
+                .trim()
+                .trim_start_matches('*');
+            (!name.is_empty() && name != "self" && name != "cls").then(|| name.to_string())
         })
         .collect()
 }
@@ -765,12 +806,43 @@ mod tests {
     #[test]
     fn param_names_parse_typed_and_untyped_signatures() {
         assert_eq!(
-            python_param_names("def solve(nums: list[int], target: int) -> list[int]:"),
+            python_param_names(
+                "def solve(nums: list[int], target: int) -> list[int]:",
+                None
+            ),
             vec!["nums", "target"]
         );
-        assert_eq!(python_param_names("def solve(s):\n    pass"), vec!["s"]);
-        assert_eq!(python_param_names("def solve():"), Vec::<String>::new());
-        assert_eq!(python_param_names("no signature"), Vec::<String>::new());
+        assert_eq!(
+            python_param_names("def solve(s):\n    pass", None),
+            vec!["s"]
+        );
+        assert_eq!(
+            python_param_names("def solve():", None),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            python_param_names("no signature", None),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn param_names_follow_leetcode_class_stubs() {
+        // LeetCode's own stub: `self` is not a parameter.
+        let stub = "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        ";
+        assert_eq!(
+            python_param_names(stub, Some("twoSum")),
+            vec!["nums", "target"]
+        );
+        // Commas inside annotations don't split parameters; defaults are dropped.
+        assert_eq!(
+            python_param_names("def f(self, m: Dict[str, int], k: int = 3):", None),
+            vec!["m", "k"]
+        );
+        // Design stubs list __init__ first; the entry method is picked by name.
+        let design = "class LRUCache:\n    def __init__(self, capacity: int):\n        \n    def get(self, key: int) -> int:\n        ";
+        assert_eq!(python_param_names(design, Some("get")), vec!["key"]);
+        assert_eq!(python_param_names(design, None), vec!["capacity"]);
     }
 
     fn line(output: serde_json::Value) -> HarnessLine {
@@ -909,9 +981,9 @@ mod tests {
                 &["nums".to_string(), "target".to_string()],
                 &[json!([2, 7, 11, 15]), json!(9)]
             ),
-            "nums=[2,7,11,15], target=9"
+            "nums = [2,7,11,15], target = 9"
         );
         // unnamed args fall back to argN
-        assert_eq!(fmt_input(&[], &[json!(1)]), "arg0=1");
+        assert_eq!(fmt_input(&[], &[json!(1)]), "arg0 = 1");
     }
 }

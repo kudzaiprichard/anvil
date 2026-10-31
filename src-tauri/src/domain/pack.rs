@@ -17,6 +17,17 @@ pub enum PackTestKind {
     Trap,
 }
 
+impl PackTestKind {
+    /// The wire string (matches the serde `lowercase` rename).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            PackTestKind::Edge => "edge",
+            PackTestKind::Boundary => "boundary",
+            PackTestKind::Trap => "trap",
+        }
+    }
+}
+
 /// A literal verified test: positional args (same convention as
 /// `TestCase.input`) and an expected value computed by executing the
 /// reference solutions — never authored by the model.

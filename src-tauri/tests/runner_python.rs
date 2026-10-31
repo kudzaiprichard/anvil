@@ -53,7 +53,7 @@ fn wrong_solution_fails_with_per_case_detail() {
     assert_eq!(result.status, RunStatus::Fail);
     assert!(result.passed < result.total);
     let first = &result.cases[0];
-    assert_eq!(first.input.as_deref(), Some("a=1, b=2"));
+    assert_eq!(first.input.as_deref(), Some("a = 1, b = 2"));
     assert_eq!(first.expected.as_deref(), Some("3"));
     assert_eq!(first.output.as_deref(), Some("-1"));
 }

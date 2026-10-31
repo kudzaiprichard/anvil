@@ -135,6 +135,7 @@ pub fn parse_examples(
             input: args,
             expected,
             hidden: false,
+            label: None,
         });
     }
 

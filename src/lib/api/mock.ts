@@ -107,18 +107,45 @@ function fmtInput(p: Problem, caseIndex: number): string {
   const tc = p.test_cases[caseIndex];
   const params = paramNames(p);
   return tc.input
-    .map((arg, i) => `${params[i] ?? `arg${i}`}=${JSON.stringify(arg)}`)
+    .map((arg, i) => `${params[i] ?? `arg${i}`} = ${JSON.stringify(arg)}`)
     .join(", ");
 }
 
-/** Parameter names parsed from the python signature, for display. */
+/** Parameter names parsed from the python signature, for display — as a
+ *  LeetCode statement names them. Mirrors `python_param_names` in the Rust
+ *  runner: picks the entry method out of a multi-method (design) stub, drops
+ *  `self`/`cls`, and splits only on top-level commas so `Dict[str, int]`
+ *  annotations stay intact. */
 export function paramNames(p: Problem): string[] {
-  const m = p.function_signature.python.match(/def\s+\w+\(([^)]*)\)/);
-  if (!m) return [];
-  return m[1]
-    .split(",")
-    .map((s) => s.split(":")[0].trim())
-    .filter(Boolean);
+  const sig = p.function_signature.python;
+  const method = p.entry_point?.python.split(".").pop();
+  let start = method ? sig.indexOf(`def ${method}(`) : -1;
+  if (start < 0) start = sig.indexOf("def ");
+  const open = sig.indexOf("(", Math.max(start, 0));
+  if (open < 0) return [];
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  let closed = false;
+  for (const ch of sig.slice(open + 1)) {
+    if (ch === ")" && depth === 0) {
+      closed = true;
+      break;
+    }
+    if (ch === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    if ("([{".includes(ch)) depth++;
+    else if (")]}".includes(ch)) depth--;
+    current += ch;
+  }
+  if (!closed) return [];
+  parts.push(current);
+  return parts
+    .map((s) => s.split(/[:=]/)[0].trim().replace(/^\*+/, ""))
+    .filter((n) => n && n !== "self" && n !== "cls");
 }
 
 function executeMock(
