@@ -10,8 +10,8 @@ worked_example: min-stack
 diagram: 03-stack-design.diagram.json
 quiz: 03-stack-design.quiz.json
 practice:
-  - evaluate-reverse-polish-notation
-  - generate-parentheses
+  - design-a-stack-with-increment-operation
+  - implement-stack-using-queues
 recap:
   - 01-lifo-parsing
 follow_up:

@@ -10,8 +10,8 @@ worked_example: valid-palindrome
 diagram: 01-opposite-ends.diagram.json
 quiz: 01-opposite-ends.quiz.json
 practice:
-  - container-with-most-water
-  - two-sum
+  - valid-palindrome-ii
+  - squares-of-a-sorted-array
 recap: []
 follow_up:
   - "What if you had to return the *first* mismatching pair instead of a yes/no answer?"

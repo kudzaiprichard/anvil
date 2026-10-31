@@ -11,7 +11,7 @@ diagram: 03-bounded-hops.diagram.json
 quiz: 03-bounded-hops.quiz.json
 practice:
   - network-delay-time
-  - swim-in-rising-water
+  - minimum-cost-to-reach-destination-in-time
 recap:
   - 01-dijkstra
 follow_up:

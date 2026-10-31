@@ -10,8 +10,8 @@ worked_example: merge-two-sorted-lists
 diagram: 03-merge-dummy.diagram.json
 quiz: 03-merge-dummy.quiz.json
 practice:
+  - partition-list
   - remove-nth-node-from-end-of-list
-  - reorder-list
 recap:
   - 02-fast-slow
 follow_up:

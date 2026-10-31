@@ -10,8 +10,8 @@ worked_example: min-stack
 diagram: 03-augmented.diagram.json
 quiz: 03-augmented.quiz.json
 practice:
-  - implement-trie-prefix-tree
-  - design-add-and-search-words-data-structure
+  - insert-delete-getrandom-o1
+  - maximum-frequency-stack
 recap:
   - 01-lru
   - 02-versioned

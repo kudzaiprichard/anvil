@@ -10,8 +10,8 @@ worked_example: partition-equal-subset-sum
 diagram: 03-knapsack.diagram.json
 quiz: 03-knapsack.quiz.json
 practice:
-  - coin-change-ii
   - target-sum
+  - last-stone-weight-ii
 recap:
   - 01-grid-paths
 follow_up:

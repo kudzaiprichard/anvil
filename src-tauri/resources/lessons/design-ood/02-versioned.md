@@ -10,8 +10,8 @@ worked_example: time-based-key-value-store
 diagram: 02-versioned.diagram.json
 quiz: 02-versioned.quiz.json
 practice:
-  - lru-cache
-  - implement-trie-prefix-tree
+  - snapshot-array
+  - online-election
 recap:
   - 01-lru
 follow_up:

@@ -11,7 +11,8 @@ diagram: 04-bst-ops.diagram.json
 quiz: 04-bst-ops.quiz.json
 practice:
   - kth-smallest-element-in-a-bst
-  - subtree-of-another-tree
+  - lowest-common-ancestor-of-a-binary-search-tree
+  - search-in-a-binary-search-tree
 recap:
   - 01-dfs-traversal
 follow_up:

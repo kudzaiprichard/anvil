@@ -10,8 +10,8 @@ worked_example: unique-paths
 diagram: 01-grid-paths.diagram.json
 quiz: 01-grid-paths.quiz.json
 practice:
-  - longest-common-subsequence
-  - target-sum
+  - unique-paths-ii
+  - minimum-path-sum
 recap: []
 follow_up:
   - "What if some cells were blocked obstacles — how does the recurrence change at a blocked cell?"

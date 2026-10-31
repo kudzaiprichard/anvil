@@ -11,7 +11,7 @@ diagram: 05-compare-structure.diagram.json
 quiz: 05-compare-structure.quiz.json
 practice:
   - subtree-of-another-tree
-  - balanced-binary-tree
+  - symmetric-tree
 recap:
   - 01-dfs-traversal
 follow_up:

@@ -11,7 +11,7 @@ diagram: 02-combinations.diagram.json
 quiz: 02-combinations.quiz.json
 practice:
   - combination-sum-ii
-  - palindrome-partitioning
+  - combination-sum-iii
 recap:
   - 01-subsets
 follow_up:

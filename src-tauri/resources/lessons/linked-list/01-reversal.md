@@ -10,7 +10,7 @@ worked_example: reverse-linked-list
 diagram: 01-reversal.diagram.json
 quiz: 01-reversal.quiz.json
 practice:
-  - reorder-list
+  - reverse-linked-list-ii
   - palindrome-linked-list
 recap: []
 follow_up:

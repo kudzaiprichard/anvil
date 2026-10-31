@@ -10,8 +10,8 @@ worked_example: two-sum
 diagram: 01-hashmap-lookup.diagram.json
 quiz: 01-hashmap-lookup.quiz.json
 practice:
-  - contains-duplicate
-  - valid-anagram
+  - contains-duplicate-ii
+  - max-number-of-k-sum-pairs
 recap: []
 follow_up:
   - "What if the array were already sorted — could you drop the hash map and use two pointers instead?"

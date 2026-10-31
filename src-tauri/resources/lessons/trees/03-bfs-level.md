@@ -10,8 +10,8 @@ worked_example: binary-tree-level-order-traversal
 diagram: 03-bfs-level.diagram.json
 quiz: 03-bfs-level.quiz.json
 practice:
-  - binary-tree-right-side-view
-  - invert-binary-tree
+  - binary-tree-zigzag-level-order-traversal
+  - average-of-levels-in-binary-tree
 recap:
   - 01-dfs-traversal
 follow_up:

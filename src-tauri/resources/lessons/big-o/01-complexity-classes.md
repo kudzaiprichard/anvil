@@ -11,7 +11,7 @@ diagram: 01-complexity-classes.diagram.json
 quiz: 01-complexity-classes.quiz.json
 practice:
   - contains-duplicate
-  - valid-anagram
+  - majority-element
 recap: []
 follow_up:
   - "Given an approach that's O(n log n) because it sorts first, could you drop the sort and reach O(n) with a hash map instead?"

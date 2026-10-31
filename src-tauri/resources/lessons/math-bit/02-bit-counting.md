@@ -10,7 +10,7 @@ worked_example: counting-bits
 diagram: 02-bit-counting.diagram.json
 quiz: 02-bit-counting.quiz.json
 practice:
-  - number-of-1-bits
+  - hamming-distance
   - reverse-bits
 recap:
   - 01-xor-tricks

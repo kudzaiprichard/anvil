@@ -10,8 +10,8 @@ worked_example: swim-in-rising-water
 diagram: 04-weighted-grid.diagram.json
 quiz: 04-weighted-grid.quiz.json
 practice:
-  - network-delay-time
-  - min-cost-to-connect-all-points
+  - minimum-obstacle-removal-to-reach-corner
+  - minimum-cost-to-make-at-least-one-valid-path-in-a-grid
 recap:
   - 01-dijkstra
 follow_up:

@@ -11,7 +11,7 @@ diagram: 01-subsets.diagram.json
 quiz: 01-subsets.quiz.json
 practice:
   - subsets-ii
-  - letter-combinations-of-a-phone-number
+  - letter-case-permutation
 recap: []
 follow_up:
   - "What if the input has duplicate values — how would you avoid emitting the same subset twice?"

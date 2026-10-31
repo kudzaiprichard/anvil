@@ -10,8 +10,8 @@ worked_example: koko-eating-bananas
 diagram: 02-answer-space.diagram.json
 quiz: 02-answer-space.quiz.json
 practice:
-  - find-minimum-in-rotated-sorted-array
-  - search-a-2d-matrix
+  - capacity-to-ship-packages-within-d-days
+  - minimum-number-of-days-to-make-m-bouquets
 recap:
   - 01-sorted-boundary
 follow_up:

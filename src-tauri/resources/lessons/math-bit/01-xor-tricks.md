@@ -11,7 +11,7 @@ diagram: 01-xor-tricks.diagram.json
 quiz: 01-xor-tricks.quiz.json
 practice:
   - missing-number
-  - number-of-1-bits
+  - find-the-difference
 recap: []
 follow_up:
   - "What if two values were unpaired instead of one — could a single XOR pass still isolate them, or do you need an extra split step?"

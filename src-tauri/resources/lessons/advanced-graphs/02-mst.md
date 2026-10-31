@@ -10,8 +10,8 @@ worked_example: min-cost-to-connect-all-points
 diagram: 02-mst.diagram.json
 quiz: 02-mst.quiz.json
 practice:
-  - network-delay-time
-  - cheapest-flights-within-k-stops
+  - find-critical-and-pseudo-critical-edges-in-minimum-spanning-tree
+  - remove-max-number-of-edges-to-keep-graph-fully-traversable
 recap:
   - 01-dijkstra
 follow_up:

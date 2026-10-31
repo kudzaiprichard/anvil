@@ -10,8 +10,8 @@ worked_example: invert-binary-tree
 diagram: 01-dfs-traversal.diagram.json
 quiz: 01-dfs-traversal.quiz.json
 practice:
-  - same-tree
-  - count-good-nodes-in-binary-tree
+  - binary-tree-inorder-traversal
+  - binary-tree-postorder-traversal
 recap: []
 follow_up:
   - "What if you needed the *values* in sorted order rather than just transforming the tree — where in the recursion would you record them?"

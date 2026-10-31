@@ -10,8 +10,8 @@ worked_example: number-of-islands
 diagram: 01-grid-dfs.diagram.json
 quiz: 01-grid-dfs.quiz.json
 practice:
+  - flood-fill
   - max-area-of-island
-  - surrounded-regions
 recap: []
 follow_up:
   - "What if you needed the *size* of each island, not just the count — where would you accumulate that inside the DFS?"

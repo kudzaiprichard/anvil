@@ -10,8 +10,8 @@ worked_example: valid-parentheses
 diagram: 01-lifo-parsing.diagram.json
 quiz: 01-lifo-parsing.quiz.json
 practice:
-  - generate-parentheses
-  - two-sum
+  - evaluate-reverse-polish-notation
+  - simplify-path
 recap: []
 follow_up:
   - "What if you needed to report *which* bracket was unmatched, not just yes/no?"

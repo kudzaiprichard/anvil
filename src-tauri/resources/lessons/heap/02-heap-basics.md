@@ -10,8 +10,8 @@ worked_example: last-stone-weight
 diagram: 02-heap-basics.diagram.json
 quiz: 02-heap-basics.quiz.json
 practice:
-  - k-closest-points-to-origin
-  - kth-largest-element-in-an-array
+  - take-gifts-from-the-richest-pile
+  - remove-stones-to-minimize-the-total
 recap:
   - 01-top-k
 follow_up:

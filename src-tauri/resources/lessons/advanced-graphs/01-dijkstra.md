@@ -10,8 +10,8 @@ worked_example: network-delay-time
 diagram: 01-dijkstra.diagram.json
 quiz: 01-dijkstra.quiz.json
 practice:
-  - swim-in-rising-water
-  - number-of-islands
+  - path-with-maximum-probability
+  - find-the-city-with-the-smallest-number-of-neighbors-at-a-threshold-distance
 recap: []
 follow_up:
   - "What if some edge weights could be negative — does \"once popped, distance is final\" still hold?"

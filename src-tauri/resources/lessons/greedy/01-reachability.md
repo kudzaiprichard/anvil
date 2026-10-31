@@ -10,8 +10,8 @@ worked_example: jump-game
 diagram: 01-reachability.diagram.json
 quiz: 01-reachability.quiz.json
 practice:
-  - maximum-subarray
   - jump-game-ii
+  - video-stitching
 recap: []
 follow_up:
   - "What if the question weren't yes/no but asked for the *minimum number of jumps* to reach the end — how would you adapt the same scan? (jump-game-ii)"

@@ -10,8 +10,8 @@ worked_example: gas-station
 diagram: 02-exchange-argument.diagram.json
 quiz: 02-exchange-argument.quiz.json
 practice:
-  - jump-game
-  - hand-of-straights
+  - two-city-scheduling
+  - boats-to-save-people
 recap:
   - 01-reachability
 follow_up:

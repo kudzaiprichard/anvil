@@ -10,8 +10,8 @@ worked_example: permutations
 diagram: 03-permutations.diagram.json
 quiz: 03-permutations.quiz.json
 practice:
-  - subsets-ii
-  - combination-sum-ii
+  - permutations-ii
+  - beautiful-arrangement
 recap:
   - 01-subsets
 follow_up:

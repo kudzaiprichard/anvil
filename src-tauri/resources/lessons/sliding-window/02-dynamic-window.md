@@ -11,7 +11,8 @@ diagram: 02-dynamic-window.diagram.json
 quiz: 02-dynamic-window.quiz.json
 practice:
   - longest-repeating-character-replacement
-  - best-time-to-buy-and-sell-stock
+  - minimum-size-subarray-sum
+  - fruit-into-baskets
 recap:
   - 01-fixed-window
 follow_up:

@@ -10,8 +10,8 @@ worked_example: longest-common-subsequence
 diagram: 02-two-sequence.diagram.json
 quiz: 02-two-sequence.quiz.json
 practice:
-  - unique-paths
-  - coin-change-ii
+  - delete-operation-for-two-strings
+  - longest-palindromic-subsequence
 recap:
   - 01-grid-paths
 follow_up:

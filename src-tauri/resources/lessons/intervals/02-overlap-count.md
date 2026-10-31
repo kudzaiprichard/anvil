@@ -10,8 +10,8 @@ worked_example: non-overlapping-intervals
 diagram: 02-overlap-count.diagram.json
 quiz: 02-overlap-count.quiz.json
 practice:
-  - meeting-rooms-iii
-  - jump-game
+  - minimum-number-of-arrows-to-burst-balloons
+  - car-pooling
 recap:
   - 01-merge-insert
 follow_up:

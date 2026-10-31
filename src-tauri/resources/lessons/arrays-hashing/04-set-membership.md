@@ -10,8 +10,9 @@ worked_example: contains-duplicate
 diagram: 04-set-membership.diagram.json
 quiz: 04-set-membership.quiz.json
 practice:
+  - intersection-of-two-arrays
   - valid-sudoku
-  - two-sum
+  - happy-number
 follow_up:
   - "What if you needed to know *how many times* each value repeats, not just whether it repeats — does a set still suffice?"
   - "What if duplicates only count within a sliding window of size k — how would you shrink the set as the window moves?"

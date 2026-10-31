@@ -11,7 +11,7 @@ diagram: 01-fibonacci.diagram.json
 quiz: 01-fibonacci.quiz.json
 practice:
   - min-cost-climbing-stairs
-  - house-robber
+  - n-th-tribonacci-number
 recap: []
 follow_up:
   - "What if you only cared about the final count, not any intermediate one — could you drop the array down to two variables?"

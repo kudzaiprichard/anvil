@@ -10,8 +10,8 @@ worked_example: binary-search
 diagram: 01-sorted-boundary.diagram.json
 quiz: 01-sorted-boundary.quiz.json
 practice:
-  - search-a-2d-matrix
-  - contains-duplicate
+  - search-insert-position
+  - find-first-and-last-position-of-element-in-sorted-array
 recap: []
 follow_up:
   - "What if you needed the *first* occurrence of a repeated target instead of any match — how would the branch on nums[mid] == target need to change?"

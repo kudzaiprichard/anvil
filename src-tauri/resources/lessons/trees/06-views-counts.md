@@ -11,7 +11,8 @@ diagram: 06-views-counts.diagram.json
 quiz: 06-views-counts.quiz.json
 practice:
   - count-good-nodes-in-binary-tree
-  - maximum-depth-of-binary-tree
+  - find-bottom-left-tree-value
+  - path-sum
 recap:
   - 03-bfs-level
 follow_up:

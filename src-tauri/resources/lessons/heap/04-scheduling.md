@@ -10,8 +10,8 @@ worked_example: task-scheduler
 diagram: 04-scheduling.diagram.json
 quiz: 04-scheduling.quiz.json
 practice:
-  - design-twitter
-  - kth-largest-element-in-an-array
+  - reorganize-string
+  - single-threaded-cpu
 recap:
   - 01-top-k
 follow_up:

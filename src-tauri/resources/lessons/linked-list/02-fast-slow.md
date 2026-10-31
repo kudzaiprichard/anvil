@@ -10,8 +10,8 @@ worked_example: middle-of-the-linked-list
 diagram: 02-fast-slow.diagram.json
 quiz: 02-fast-slow.quiz.json
 practice:
-  - palindrome-linked-list
-  - valid-palindrome
+  - linked-list-cycle
+  - linked-list-cycle-ii
 recap:
   - 01-reversal
 follow_up:
