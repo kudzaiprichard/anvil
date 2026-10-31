@@ -785,6 +785,17 @@ export interface ComplexityReport {
   /** One-line learner-facing message. */
   note: string;
   samples: ComplexitySample[];
+  /** Running time grew clearly faster than the op count — work hidden in
+   *  built-ins (`x in list`, slicing, `+=` on strings). `measured` then
+   *  reflects the timing-based class. */
+  hiddenWork?: boolean;
+  /** Measured auxiliary space class (heap + recursion depth), e.g. "O(n)". */
+  spaceMeasured?: string;
+  /** Pack-declared optimal space, e.g. "O(1)". */
+  spaceOptimal?: string;
+  spaceVerdict?: ComplexityVerdict;
+  /** One-line learner-facing message about space. */
+  spaceNote?: string;
 }
 
 /* ---------- status mutations (workspace buttons) ---------- */

@@ -767,6 +767,13 @@ export async function analyzeComplexity(
       ? "You wrote ~O(n^2). The optimal here is O(n) — there's a faster approach; look for repeated work you can trade memory to avoid."
       : "Measured ~O(n), matching the optimal O(n). Nicely done.",
     samples,
+    hiddenWork: false,
+    spaceMeasured: usesMap ? "O(n)" : "O(1)",
+    spaceOptimal: "O(n)",
+    spaceVerdict: usesMap ? "optimal" : "faster",
+    spaceNote: usesMap
+      ? "Extra space ~O(n), matching the optimal O(n)."
+      : "Extra space ~O(1), below the stated O(n) — usually because the reference keeps a structure yours avoids, or reuses the input.",
   };
 }
 

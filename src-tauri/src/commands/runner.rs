@@ -124,7 +124,53 @@ fn compose_note(measured: &str, optimal: Option<&str>, verdict: ComplexityVerdic
     }
 }
 
-fn build_report(outcome: ProbeOutcome, optimal: Option<String>) -> ComplexityReport {
+fn hidden_work_note(ops_class: &str, measured: &str) -> String {
+    format!(
+        " Your Python lines grow like ~{ops_class}, but the running time grows like \
+         ~{measured}: real work is hiding inside built-ins — e.g. `x in list`, \
+         `list.index`/`remove`/`insert`, slicing `a[i:j]`, or building a string \
+         with `+=` in a loop. Each of those is O(n) per call."
+    )
+}
+
+fn compose_space_note(
+    measured: &str,
+    optimal: Option<&str>,
+    verdict: ComplexityVerdict,
+    deep_recursion: bool,
+) -> String {
+    let stack = if deep_recursion {
+        " Recursion depth counts: every pending call holds a stack frame."
+    } else {
+        ""
+    };
+    match (optimal, verdict) {
+        (Some(opt), ComplexityVerdict::Slower) => format!(
+            "Extra space ~{measured}; the optimal uses {opt}. Look for a structure \
+             you can drop or reuse in place.{stack}"
+        ),
+        (Some(opt), ComplexityVerdict::Optimal) => {
+            format!("Extra space ~{measured}, matching the optimal {opt}.{stack}")
+        }
+        (Some(opt), ComplexityVerdict::Faster) => format!(
+            "Extra space ~{measured}, below the stated {opt} — usually because the \
+             reference keeps a structure yours avoids, or reuses the input.{stack}"
+        ),
+        _ => format!(
+            "Extra space ~{measured} (heap allocated during the call, not counting \
+             the returned answer, plus recursion depth).{stack}"
+        ),
+    }
+}
+
+/// Builds the learner-facing report. `reference_time` is the pack's reference
+/// solution timed on the same inputs (calibrates hidden-work detection).
+fn build_report(
+    outcome: ProbeOutcome,
+    optimal: Option<String>,
+    optimal_space: Option<String>,
+    reference_time: Option<Vec<complexity::ComplexitySample>>,
+) -> ComplexityReport {
     match outcome {
         ProbeOutcome::TooSlow => {
             let mut r = ComplexityReport::unavailable(
@@ -137,26 +183,70 @@ fn build_report(outcome: ProbeOutcome, optimal: Option<String>) -> ComplexityRep
         ProbeOutcome::Failed(err) => {
             ComplexityReport::unavailable(format!("Couldn't profile this run: {err}"))
         }
-        ProbeOutcome::Samples(samples) => match complexity::classify(&samples) {
+        ProbeOutcome::Samples(samples) => match complexity::classify(&samples.ops) {
             None => {
                 let mut r = ComplexityReport::unavailable(
                     "Not enough signal to classify the growth — the inputs may be too small \
                      or the work too flat to measure.",
                 );
                 r.optimal = optimal;
-                r.samples = samples;
+                r.samples = samples.ops;
                 r
             }
-            Some(measured) => {
+            Some(ops_class) => {
+                // Time: the op count is the deterministic baseline; when wall
+                // time grows clearly faster (than the op count AND than the
+                // reference solution on the same inputs), built-ins are doing
+                // unseen work and the timing class is the honest one.
+                let hidden = complexity::hidden_work(
+                    &samples.ops,
+                    &samples.time_ns,
+                    reference_time.as_deref(),
+                );
+                let measured = if hidden {
+                    complexity::classify(&samples.time_ns)
+                        .map_or(ops_class, |t| complexity::max_label(ops_class, t))
+                } else {
+                    ops_class
+                };
+                let hidden = hidden && measured != ops_class;
                 let verdict = complexity::verdict(measured, optimal.as_deref());
-                let note = compose_note(measured, optimal.as_deref(), verdict);
+                let mut note = compose_note(measured, optimal.as_deref(), verdict);
+                if hidden {
+                    note.push_str(&hidden_work_note(ops_class, measured));
+                }
+
+                // Space: heap + recursion depth, capped at the operation class
+                // (a program can't allocate more objects than it runs steps —
+                // byte growth beyond that is large values, e.g. big integers,
+                // not extra structure). Only compared against the pack when its
+                // declared space is in terms of n alone.
+                let space = complexity::classify_space(&samples.heap_bytes, &samples.depth)
+                    .map(|s| complexity::min_label(s, ops_class));
+                let space_cmp = optimal_space
+                    .as_deref()
+                    .filter(|s| complexity::only_in_n(s));
+                let space_verdict = match space {
+                    Some(m) => complexity::verdict(m, space_cmp),
+                    None => ComplexityVerdict::Unknown,
+                };
+                let deep_recursion =
+                    complexity::classify_space(&[], &samples.depth).is_some_and(|d| d != "O(1)");
+                let space_note =
+                    space.map(|m| compose_space_note(m, space_cmp, space_verdict, deep_recursion));
+
                 ComplexityReport {
                     available: true,
                     measured: Some(measured.to_string()),
                     optimal,
                     verdict,
                     note,
-                    samples,
+                    samples: samples.ops,
+                    hidden_work: hidden,
+                    space_measured: space.map(str::to_string),
+                    space_optimal: optimal_space,
+                    space_verdict,
+                    space_note,
                 }
             }
         },
@@ -164,10 +254,12 @@ fn build_report(outcome: ProbeOutcome, optimal: Option<String>) -> ComplexityRep
 }
 
 /// Deterministic complexity feedback (Phase 5).
-/// Profiles the learner's *own* Python solution on growing inputs (op-count via
-/// the runner, no AI) and compares the measured growth class to the pack's
-/// declared optimal. Never records anything — it's pure feedback, and it reuses
-/// the pack's verified stress generator so it works fully offline.
+/// Profiles the learner's *own* Python solution on growing inputs (op-count,
+/// untraced timing, heap and recursion depth via the runner, no AI) and
+/// compares the measured time and space classes to the pack's declared
+/// optimal. The pack's reference solution is profiled on the same inputs to
+/// calibrate the timing check. Never records anything — it's pure feedback,
+/// and it reuses the pack's verified stress generator so it works fully offline.
 #[tauri::command]
 pub async fn analyze_complexity(
     state: State<'_, AppState>,
@@ -191,29 +283,46 @@ pub async fn analyze_complexity(
         ));
     };
     let optimal = pack.solutions.complexity.as_ref().map(|c| c.time.clone());
+    let optimal_space = pack.solutions.complexity.as_ref().map(|c| c.space.clone());
     let sizes = complexity_ladder(spec.size);
     let entry = pack.entry_point.python.clone();
     let io_types = pack.entry_point.io_types.clone();
     let generator = spec.generator_python.clone();
     let seed = spec.seed;
+    let reference = pack.solutions.python.clone();
 
     let program = state.runtime_path(Language::Python).ok_or_else(|| {
         AppError::Runner("Python 3.10+ not found — see Settings → Runtime".into())
     })?;
     let code = req.code.clone();
-    let outcome = tauri::async_runtime::spawn_blocking(move || {
-        runner::count_ops(
-            &code,
-            &entry,
-            io_types.as_ref(),
-            &generator,
-            seed,
-            &sizes,
-            &program,
-        )
+    let (outcome, reference_time) = tauri::async_runtime::spawn_blocking(move || {
+        let probe = |src: &str| {
+            runner::count_ops(
+                src,
+                &entry,
+                io_types.as_ref(),
+                &generator,
+                seed,
+                &sizes,
+                &program,
+            )
+        };
+        let outcome = probe(&code)?;
+        // Calibration only: if the reference can't be profiled, the timing
+        // check falls back to comparing against the learner's own op count.
+        let reference_time = match probe(&reference) {
+            Ok(ProbeOutcome::Samples(s)) if !s.time_ns.is_empty() => Some(s.time_ns),
+            _ => None,
+        };
+        AppResult::Ok((outcome, reference_time))
     })
     .await
     .map_err(|e| AppError::Runner(format!("probe task panicked: {e}")))??;
 
-    Ok(build_report(outcome, optimal))
+    Ok(build_report(
+        outcome,
+        optimal,
+        optimal_space,
+        reference_time,
+    ))
 }

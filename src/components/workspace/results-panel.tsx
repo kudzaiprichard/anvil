@@ -402,11 +402,43 @@ function ComplexityCard({
 
       {report.samples.length > 0 && <GrowthBars report={report} />}
 
+      {report.spaceMeasured && <SpaceRow report={report} />}
+
       <p className="mt-2.5 text-[10.5px] leading-snug text-muted-foreground">
-        Counts operations as input grows — your Python plus the size-weighted
-        cost of built-ins like sorted / sum / min / max. A few container ops
-        (.sort(), <code>x in list</code>) still read a little light.
+        Time counts operations as input grows — your Python plus the
+        size-weighted cost of built-ins — and cross-checks real running time to
+        catch work hidden inside them (<code>x in list</code>, slicing). Space
+        is the extra memory allocated during the call (not the returned
+        answer) plus recursion depth.
       </p>
+    </div>
+  );
+}
+
+/** The space half of the complexity card: measured auxiliary space vs the
+ *  pack's optimal, with its own verdict. Interviewers ask for both. */
+function SpaceRow({ report }: { report: ComplexityReport }) {
+  const meta = VERDICT_META[report.spaceVerdict ?? "unknown"];
+  const Icon = meta.icon;
+  return (
+    <div className="mt-3 border-t pt-2.5">
+      <div className="flex items-center gap-2">
+        <span className="microlabel text-muted-foreground">Space</span>
+        <Icon className={cn("size-[15px]", meta.className)} />
+        <span className="font-mono text-[13.5px] font-semibold">
+          {report.spaceMeasured}
+        </span>
+        {report.spaceOptimal && (
+          <span className="font-mono text-[12px] text-muted-foreground">
+            · optimal {report.spaceOptimal}
+          </span>
+        )}
+      </div>
+      {report.spaceNote && (
+        <Markdown className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground [&_p]:!my-0">
+          {report.spaceNote}
+        </Markdown>
+      )}
     </div>
   );
 }

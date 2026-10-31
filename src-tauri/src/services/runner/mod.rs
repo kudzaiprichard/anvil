@@ -529,13 +529,20 @@ struct ProbeLine {
     #[serde(default)]
     ops: Option<u64>,
     #[serde(default)]
+    depth: Option<u64>,
+    #[serde(default)]
+    time_ns: Option<u64>,
+    #[serde(default)]
+    heap_bytes: Option<u64>,
+    #[serde(default)]
     error: Option<String>,
 }
 
 /// Outcome of a complexity probe run.
 pub enum ProbeOutcome {
-    /// One `(n, ops)` sample per size that ran successfully.
-    Samples(Vec<crate::domain::complexity::ComplexitySample>),
+    /// Per-size measurements (ops, untraced time, auxiliary heap, recursion
+    /// depth) for every size that ran successfully.
+    Samples(crate::domain::complexity::ProbeSamples),
     /// The solution ran past the time limit — itself a strong "too slow" signal.
     TooSlow,
     /// The probe couldn't start (solution didn't load, bad entry point, …).
@@ -626,15 +633,18 @@ pub fn count_ops(
         return Ok(ProbeOutcome::Failed(detail));
     }
 
-    let samples: Vec<_> = lines
-        .iter()
-        .filter_map(|l| match (l.ok, l.size, l.ops) {
-            (true, Some(n), Some(ops)) => {
-                Some(crate::domain::complexity::ComplexitySample { n, ops })
-            }
-            _ => None,
-        })
-        .collect();
+    use crate::domain::complexity::{ComplexitySample, ProbeSamples};
+    let mut samples = ProbeSamples::default();
+    let point = |n: u64, v: Option<u64>| v.map(|ops| ComplexitySample { n, ops });
+    for l in lines.iter().filter(|l| l.ok) {
+        let (Some(n), Some(ops)) = (l.size, l.ops) else {
+            continue;
+        };
+        samples.ops.push(ComplexitySample { n, ops });
+        samples.depth.extend(point(n, l.depth));
+        samples.time_ns.extend(point(n, l.time_ns));
+        samples.heap_bytes.extend(point(n, l.heap_bytes));
+    }
     Ok(ProbeOutcome::Samples(samples))
 }
 
