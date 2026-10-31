@@ -742,6 +742,7 @@ function Workspace() {
             onSelectCase={setSelectedCase}
             onMarkMastered={handleMarkMastered}
             complexityEnabled={!examMode}
+            probeLabelsEnabled={!examMode}
             onAnalyzeComplexity={analyzeCurrentComplexity}
           />
         }

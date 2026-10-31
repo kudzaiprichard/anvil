@@ -304,11 +304,7 @@ pub fn execute_with_program(
         return Ok(error_result(total, message));
     }
 
-    let method = problem
-        .entry_point
-        .as_ref()
-        .and_then(|e| e.python.rsplit('.').next());
-    let params = python_param_names(&problem.function_signature.python, method);
+    let params = display_param_names(problem, &judge);
     let mut cases = Vec::with_capacity(selected.len());
     let mut passed = 0u32;
     let mut runtime_ms = 0f64;
@@ -334,7 +330,10 @@ pub fn execute_with_program(
             expected: None,
             error: None,
             kind: tc.label.as_ref().map(|l| l.kind.clone()),
-            description: tc.label.as_ref().map(|l| l.description.clone()),
+            description: tc
+                .label
+                .as_ref()
+                .and_then(|l| case_description(&l.description, tc.hidden)),
         };
         if !tc.hidden {
             case.input = Some(fmt_input(&params, &tc.input));
@@ -746,84 +745,60 @@ fn fmt_input(params: &[String], args: &[serde_json::Value]) -> String {
         .join(", ")
 }
 
-/// Parameter names from a Python signature, as LeetCode statements name them
-/// — the same rule as `paramNames` in the frontend seam. `method` picks the
-/// entry method out of a multi-method stub (LeetCode design stubs list
-/// `__init__` first); without it the first `def` is used. `self`/`cls` are
-/// dropped, and only top-level commas split parameters, so annotations like
-/// `Dict[str, int]` stay intact.
-fn python_param_names(signature: &str, method: Option<&str>) -> Vec<String> {
-    let start = method
-        .and_then(|m| signature.find(&format!("def {m}(")))
-        .or_else(|| signature.find("def "))
-        .unwrap_or(0);
-    let Some(open) = signature[start..].find('(').map(|i| start + i) else {
-        return Vec::new();
-    };
-    let mut depth = 0i32;
-    let mut parts = Vec::new();
-    let mut current = String::new();
-    let mut closed = false;
-    for ch in signature[open + 1..].chars() {
-        match ch {
-            ')' if depth == 0 => {
-                closed = true;
-                break;
-            }
-            ',' if depth == 0 => {
-                parts.push(std::mem::take(&mut current));
-                continue;
-            }
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth -= 1,
-            _ => {}
-        }
-        current.push(ch);
+/// The description sent with a case result. Statement-example filler carries
+/// nothing useful. For a *hidden* case the description must not leak the
+/// input or answer — some pack descriptions quote literal values ("k=2, …",
+/// "a 3x3 grid", "gives 0"), so any containing digits, `=`, brackets or quotes
+/// is withheld and only the case's kind is sent (the UI shows a generic line).
+fn case_description(description: &str, hidden: bool) -> Option<String> {
+    let d = description.trim();
+    if d.is_empty() || d.to_lowercase().starts_with("statement example") {
+        return None;
     }
-    if !closed {
-        return Vec::new();
+    let leaks_values = d
+        .chars()
+        .any(|c| c.is_ascii_digit() || matches!(c, '=' | '[' | ']' | '{' | '}' | '"' | '\''));
+    if hidden && leaks_values {
+        return None;
     }
-    parts.push(current);
-    parts
-        .iter()
-        .filter_map(|part| {
-            let name = part
-                .split([':', '='])
-                .next()
-                .unwrap_or("")
-                .trim()
-                .trim_start_matches('*');
-            (!name.is_empty() && name != "self" && name != "cls").then(|| name.to_string())
-        })
-        .collect()
+    Some(d.to_string())
+}
+
+/// Parameter names for displaying a case's input, as LeetCode statements show
+/// them — the same rule as `paramNames` in the frontend seam. Design problems
+/// take an `[operations, arguments]` pair rather than the constructor's
+/// parameters, so they're labelled that way; otherwise the entry method's
+/// parameters are read from the stub (see
+/// [`example_parse::python_method_params`]: comments stripped, `self` dropped,
+/// the entry method picked out of a multi-method stub).
+fn display_param_names(problem: &Problem, judge: &Judge) -> Vec<String> {
+    if matches!(judge, Judge::Design { .. }) {
+        return vec!["operations".into(), "arguments".into()];
+    }
+    let method = problem
+        .entry_point
+        .as_ref()
+        .and_then(|e| e.python.rsplit('.').next());
+    crate::services::example_parse::python_method_params(&problem.function_signature.python, method)
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::example_parse::python_method_params;
     use serde_json::json;
 
     #[test]
     fn param_names_parse_typed_and_untyped_signatures() {
+        let p = |s: &str| python_method_params(s, None).unwrap_or_default();
         assert_eq!(
-            python_param_names(
-                "def solve(nums: list[int], target: int) -> list[int]:",
-                None
-            ),
+            p("def solve(nums: list[int], target: int) -> list[int]:"),
             vec!["nums", "target"]
         );
-        assert_eq!(
-            python_param_names("def solve(s):\n    pass", None),
-            vec!["s"]
-        );
-        assert_eq!(
-            python_param_names("def solve():", None),
-            Vec::<String>::new()
-        );
-        assert_eq!(
-            python_param_names("no signature", None),
-            Vec::<String>::new()
-        );
+        assert_eq!(p("def solve(s):\n    pass"), vec!["s"]);
+        assert_eq!(p("def solve():"), Vec::<String>::new());
+        assert_eq!(p("no signature"), Vec::<String>::new());
     }
 
     #[test]
@@ -831,18 +806,89 @@ mod tests {
         // LeetCode's own stub: `self` is not a parameter.
         let stub = "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        ";
         assert_eq!(
-            python_param_names(stub, Some("twoSum")),
+            python_method_params(stub, Some("twoSum")).unwrap(),
             vec!["nums", "target"]
         );
         // Commas inside annotations don't split parameters; defaults are dropped.
         assert_eq!(
-            python_param_names("def f(self, m: Dict[str, int], k: int = 3):", None),
+            python_method_params("def f(self, m: Dict[str, int], k: int = 3):", None).unwrap(),
             vec!["m", "k"]
         );
-        // Design stubs list __init__ first; the entry method is picked by name.
+        // LeetCode's commented node definition is never mistaken for the signature.
+        let list_stub = "# Definition for singly-linked list.\n# class ListNode:\n#     def __init__(self, val=0, next=None):\n#         self.val = val\nclass Solution:\n    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        ";
+        assert_eq!(
+            python_method_params(list_stub, Some("reverseList")).unwrap(),
+            vec!["head"]
+        );
+        assert_eq!(python_method_params(list_stub, None).unwrap(), vec!["head"]);
+    }
+
+    #[test]
+    fn hidden_case_descriptions_never_leak_values() {
+        // Hidden: scenario words pass, anything quoting values is withheld.
+        assert_eq!(
+            case_description("repeated zero must use two distinct indices", true).as_deref(),
+            Some("repeated zero must use two distinct indices")
+        );
+        assert_eq!(
+            case_description("k=2, cheapest is one duplication", true),
+            None
+        );
+        assert_eq!(case_description("typical mixed 3x3 grid", true), None);
+        assert_eq!(case_description("the word \"abc\" repeats", true), None);
+        assert_eq!(
+            case_description("statement example, best split", true),
+            None
+        );
+        // Visible: the input is on screen anyway, so values are fine.
+        assert_eq!(
+            case_description("k=2, cheapest is one duplication", false).as_deref(),
+            Some("k=2, cheapest is one duplication")
+        );
+        assert_eq!(case_description("statement example", false), None);
+    }
+
+    #[test]
+    fn design_problems_label_the_operation_pair() {
         let design = "class LRUCache:\n    def __init__(self, capacity: int):\n        \n    def get(self, key: int) -> int:\n        ";
-        assert_eq!(python_param_names(design, Some("get")), vec!["key"]);
-        assert_eq!(python_param_names(design, None), vec!["capacity"]);
+        let problem = crate::domain::problem::Problem {
+            id: "lru-cache".into(),
+            number: 146,
+            title: "LRU Cache".into(),
+            pattern: crate::domain::problem::Pattern("Design".into()),
+            difficulty: crate::domain::problem::Difficulty::Medium,
+            source: crate::domain::problem::ProblemSource::Imported,
+            description_md: "d".into(),
+            body_html: None,
+            constraints: vec![],
+            examples: vec![],
+            function_signature: crate::domain::problem::FunctionSignature {
+                python: design.into(),
+                javascript: String::new(),
+                extra: Default::default(),
+            },
+            test_cases: vec![],
+            checker: crate::domain::problem::Checker::Exact,
+            judge: None,
+            entry_point: None,
+            hints: vec![],
+            reference_solution: None,
+            explanation_md: None,
+            follow_up: None,
+            license: "project-default".into(),
+            author: "built-in".into(),
+        };
+        // Design judges take an [operations, arguments] pair, not __init__'s params.
+        let design_judge = Judge::Design { design_io: None };
+        assert_eq!(
+            display_param_names(&problem, &design_judge),
+            vec!["operations", "arguments"]
+        );
+        // Any other judge reads the entry method (first def here: __init__).
+        assert_eq!(
+            display_param_names(&problem, &Judge::Exact),
+            vec!["capacity"]
+        );
     }
 
     fn line(output: serde_json::Value) -> HarnessLine {

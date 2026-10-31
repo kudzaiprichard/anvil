@@ -112,12 +112,19 @@ function fmtInput(p: Problem, caseIndex: number): string {
 }
 
 /** Parameter names parsed from the python signature, for display — as a
- *  LeetCode statement names them. Mirrors `python_param_names` in the Rust
+ *  LeetCode statement names them. Mirrors `display_param_names` in the Rust
  *  runner: picks the entry method out of a multi-method (design) stub, drops
  *  `self`/`cls`, and splits only on top-level commas so `Dict[str, int]`
  *  annotations stay intact. */
 export function paramNames(p: Problem): string[] {
-  const sig = p.function_signature.python;
+  // Design problems take an [operations, arguments] pair, not __init__'s params.
+  if (p.judge?.type === "design") return ["operations", "arguments"];
+  // Strip comments so LeetCode's commented `# def __init__(self, val=0, …)`
+  // node definitions are never mistaken for the signature.
+  const sig = p.function_signature.python
+    .split(/\r?\n/)
+    .map((l) => l.replace(/#.*$/, ""))
+    .join("\n");
   const method = p.entry_point?.python.split(".").pop();
   let start = method ? sig.indexOf(`def ${method}(`) : -1;
   if (start < 0) start = sig.indexOf("def ");

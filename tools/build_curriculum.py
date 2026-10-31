@@ -451,6 +451,8 @@ def check() -> int:
         if unit["gate"]["require_novel"] and not any(p.get("novel") for p in gate_probs):
             errors.append(f"unit '{uid}': gate.require_novel is set but no gate problem is novel")
 
+    # (The Stage-7 capstone is exempt: it only opens once every unit is
+    # mastered, so any gate slug it reuses has already been solved cold.)
     # Gate freshness: a gate problem must be met cold. It may resurface only in
     # units that strictly depend on its gate unit (by then the gate is passed);
     # anywhere else — the gate unit's own lessons/roster, a prerequisite, or a

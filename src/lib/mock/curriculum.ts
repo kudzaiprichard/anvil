@@ -75,9 +75,10 @@ export const MOCK_UNITS: Unit[] = [
       { slug: "two-sum-ii-input-array-is-sorted", role: "worked", tier: "intro", novel: false },
       { slug: "3sum", role: "guided", tier: "core", novel: false },
       { slug: "container-with-most-water", role: "guided", tier: "core", novel: false },
+      { slug: "sort-colors", role: "gate", tier: "core", novel: false },
       { slug: "trapping-rain-water", role: "gate", tier: "stretch", novel: true },
     ],
-    gate: { pass_count: 1, require_novel: true, timer_target_min: 25, threshold_pct: 80 },
+    gate: { pass_count: 2, require_novel: true, timer_target_min: 25, threshold_pct: 80 },
     spiral: ["arrays-hashing"],
   },
   {
@@ -101,9 +102,10 @@ export const MOCK_UNITS: Unit[] = [
         novel: false,
       },
       { slug: "permutation-in-string", role: "guided", tier: "core", novel: false },
+      { slug: "max-consecutive-ones-iii", role: "gate", tier: "core", novel: false },
       { slug: "minimum-window-substring", role: "gate", tier: "stretch", novel: true },
     ],
-    gate: { pass_count: 1, require_novel: true, timer_target_min: 25, threshold_pct: 80 },
+    gate: { pass_count: 2, require_novel: true, timer_target_min: 25, threshold_pct: 80 },
     spiral: ["arrays-hashing", "two-pointers"],
   },
 ];

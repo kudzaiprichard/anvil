@@ -411,12 +411,12 @@ function SolutionTab({
   return (
     <div>
       {solution.brute_force_python && (
-        <BruteForceBlock code={solution.brute_force_python} />
-      )}
-      {solution.brute_force_python && (
-        <div className="mb-2 microlabel text-muted-foreground">
-          Optimal solution
-        </div>
+        <>
+          <BruteForceBlock code={solution.brute_force_python} />
+          <div className="mb-2 microlabel text-muted-foreground">
+            Optimal solution
+          </div>
+        </>
       )}
       <div className="flex items-center gap-0.5">
         {languages.map((l) => (

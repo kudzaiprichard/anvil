@@ -18,13 +18,12 @@ pub enum PackTestKind {
 }
 
 impl PackTestKind {
-    /// The wire string (matches the serde `lowercase` rename).
-    pub fn as_str(self) -> &'static str {
-        match self {
-            PackTestKind::Edge => "edge",
-            PackTestKind::Boundary => "boundary",
-            PackTestKind::Trap => "trap",
-        }
+    /// The wire string, derived from the serde rename so the two can't drift.
+    pub fn wire_name(self) -> String {
+        serde_json::to_value(self)
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_default()
     }
 }
 

@@ -225,7 +225,7 @@ pub fn merge_question(
                     expected: t.expected.clone(),
                     hidden: i >= promote,
                     label: Some(CaseLabel {
-                        kind: t.kind.as_str().to_string(),
+                        kind: t.kind.wire_name(),
                         description: t.description.clone(),
                     }),
                 });
