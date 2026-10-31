@@ -17,6 +17,16 @@ pub enum PackTestKind {
     Trap,
 }
 
+impl PackTestKind {
+    /// The wire string, derived from the serde rename so the two can't drift.
+    pub fn wire_name(self) -> String {
+        serde_json::to_value(self)
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_default()
+    }
+}
+
 /// A literal verified test: positional args (same convention as
 /// `TestCase.input`) and an expected value computed by executing the
 /// reference solutions — never authored by the model.

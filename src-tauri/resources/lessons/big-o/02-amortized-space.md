@@ -10,8 +10,8 @@ worked_example: best-time-to-buy-and-sell-stock
 diagram: 02-amortized-space.diagram.json
 quiz: 02-amortized-space.quiz.json
 practice:
-  - two-sum
-  - binary-search
+  - implement-queue-using-stacks
+  - move-zeroes
 recap:
   - 01-complexity-classes
 follow_up:

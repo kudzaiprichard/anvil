@@ -410,6 +410,14 @@ function SolutionTab({
 
   return (
     <div>
+      {solution.brute_force_python && (
+        <>
+          <BruteForceBlock code={solution.brute_force_python} />
+          <div className="mb-2 microlabel text-muted-foreground">
+            Optimal solution
+          </div>
+        </>
+      )}
       <div className="flex items-center gap-0.5">
         {languages.map((l) => (
           <button
@@ -427,11 +435,6 @@ function SolutionTab({
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2">
-          {solution.complexity && (
-            <span className="font-mono text-xs text-muted-foreground">
-              Time {solution.complexity.time} · Space {solution.complexity.space}
-            </span>
-          )}
           <CopyButton
             getText={() => solution[lang] ?? ""}
             toastMessage="Solution copied"
@@ -450,11 +453,59 @@ function SolutionTab({
           className="max-h-[340px]"
         />
       </div>
+      {solution.complexity && (
+        <div className="mt-4 rounded-[10px] border bg-surface-2 px-3.5 py-3">
+          <div className="text-[13px] font-semibold">Complexity — say it out loud</div>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+            &ldquo;This runs in{" "}
+            <span className="font-mono text-foreground">{solution.complexity.time}</span>{" "}
+            time and uses{" "}
+            <span className="font-mono text-foreground">{solution.complexity.space}</span>{" "}
+            extra space.&rdquo; Then justify each: what does every element cost,
+            and what grows with the input?
+          </p>
+        </div>
+      )}
       {problem.explanation_md && (
         <>
-          <div className="mt-5 text-[13px] font-semibold">Explanation</div>
+          <div className="mt-5 text-[13px] font-semibold">Why it works</div>
           <Markdown className="mt-2">{problem.explanation_md}</Markdown>
         </>
+      )}
+    </div>
+  );
+}
+
+/** The verified brute-force oracle, shown before the optimal solution — in an
+ *  interview you state the naive approach and its cost first, then optimize by
+ *  naming the repeated work it does. Collapsed by default to keep the optimal
+ *  solution one glance away. */
+function BruteForceBlock({ code }: { code: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-4 rounded-[10px] border bg-surface-2 px-3.5 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[13px] font-semibold">Brute force — state this first</div>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+            Correct but slow. In an interview, name this baseline and its
+            Big-O, then ask what work it repeats — that&apos;s the step to the
+            optimal solution.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="shrink-0 rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-muted"
+        >
+          {open ? "Hide" : "Show"} code
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2.5 overflow-hidden rounded-[10px] border">
+          <CodeEditor value={code} language="python" readOnly className="max-h-[260px]" />
+        </div>
       )}
     </div>
   );

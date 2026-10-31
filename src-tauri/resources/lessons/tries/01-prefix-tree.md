@@ -11,7 +11,8 @@ diagram: 01-prefix-tree.diagram.json
 quiz: 01-prefix-tree.quiz.json
 practice:
   - design-add-and-search-words-data-structure
-  - group-anagrams
+  - replace-words
+  - search-suggestions-system
 recap: []
 follow_up:
   - "What if a query character could match *any* letter — a wildcard `.` — how do you search a trie when the path isn't fixed?"

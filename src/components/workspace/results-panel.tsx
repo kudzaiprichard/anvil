@@ -27,7 +27,49 @@ export type RunState = "idle" | "running" | RunResult;
 
 export type ResultsTab = "testcase" | "result";
 
-function CaseCard({ result }: { result: CaseResult }) {
+const PROBE_LABEL: Record<string, string> = {
+  edge: "Edge case",
+  boundary: "Boundary",
+  trap: "Trap",
+  stress: "Large input",
+};
+
+/** Generic wording when a hidden case's description was withheld (the
+ *  runner drops any that quote literal values, so nothing leaks). */
+const PROBE_GENERIC: Record<string, string> = {
+  edge: "an edge case of the input space",
+  boundary: "an input at the limits of the constraints",
+  trap: "a common-mistake trap",
+  stress: "a large, generated input",
+};
+
+/** What a case was probing, from the verified pack — e.g. "Trap · repeated
+ *  zero must use two distinct indices". Names the scenario you missed without
+ *  revealing a hidden case's input. Statement examples carry no label. */
+function caseProbe(result: CaseResult): { kind: string; text: string } | null {
+  const text = result.description?.trim();
+  if (!result.kind && !text) return null;
+  const kind = result.kind ? (PROBE_LABEL[result.kind] ?? result.kind) : "Tests";
+  const body = text || (result.kind ? PROBE_GENERIC[result.kind] : undefined);
+  return body ? { kind, text: body } : null;
+}
+
+/** Follow-up advice for the first failure: tiny hand-traced inputs reproduce
+ *  logic slips, but a failure only on a large input points at size. */
+function probeAdvice(result: CaseResult): string {
+  if (!caseProbe(result)) return "";
+  return result.kind === "stress"
+    ? " It only fails at scale — check for integer overflow, recursion depth, or work that grows faster than it should."
+    : " See the scenario it tests below — build a tiny input like it and trace your code by hand.";
+}
+
+function CaseCard({
+  result,
+  showProbe,
+}: {
+  result: CaseResult;
+  showProbe: boolean;
+}) {
   const label = result.hidden
     ? `Hidden case ${result.index}`
     : `Case ${result.index}`;
@@ -60,6 +102,7 @@ function CaseCard({ result }: { result: CaseResult }) {
       </div>
     );
   }
+  const probe = showProbe ? caseProbe(result) : null;
   return (
     <div className="rounded-[9px] border-[1.5px] border-fail/30 bg-fail/5 px-3 py-[11px] dark:bg-fail/10">
       <div className="flex items-center justify-between">
@@ -69,6 +112,14 @@ function CaseCard({ result }: { result: CaseResult }) {
         </div>
         <span className="text-[11.5px] font-semibold text-fail">Failed</span>
       </div>
+      {probe && (
+        <div className="mt-[7px] flex items-start gap-2 text-[12px] leading-relaxed">
+          <span className="shrink-0 rounded-md bg-fail/10 px-1.5 py-px text-[10.5px] font-semibold uppercase tracking-wide text-fail">
+            {probe.kind}
+          </span>
+          <span className="text-foreground/85">{probe.text}</span>
+        </div>
+      )}
       {!result.hidden && result.input && (
         <div className="mt-[9px] max-h-48 select-text overflow-y-auto break-all font-mono text-xs leading-[1.9] text-muted-foreground">
           <div>
@@ -92,9 +143,12 @@ function CaseCard({ result }: { result: CaseResult }) {
 function ResultBody({
   result,
   onMarkMastered,
+  showProbe,
 }: {
   result: RunResult;
   onMarkMastered: () => void;
+  /** Off in a mastery gate / capstone: naming the failed scenario is a hint. */
+  showProbe: boolean;
 }) {
   if (result.status === "error" || result.status === "timeout") {
     const isTimeout = result.status === "timeout";
@@ -179,7 +233,9 @@ function ResultBody({
                     firstFail.hidden
                       ? `Hidden case ${firstFail.index}`
                       : `Case ${firstFail.index}`
-                  } — your output didn't match the expected result.`
+                  } — your output didn't match the expected result.${
+                    showProbe ? probeAdvice(firstFail) : ""
+                  }`
                 : ""}
             </div>
           </div>
@@ -187,7 +243,7 @@ function ResultBody({
       )}
       <div className="flex flex-col gap-2">
         {result.cases.map((c) => (
-          <CaseCard key={`${c.hidden}-${c.index}`} result={c} />
+          <CaseCard key={`${c.hidden}-${c.index}`} result={c} showProbe={showProbe} />
         ))}
       </div>
     </div>
@@ -365,6 +421,7 @@ export function ResultsPanel({
   onSelectCase,
   onMarkMastered,
   complexityEnabled = false,
+  probeLabelsEnabled = true,
   onAnalyzeComplexity,
 }: {
   problem: Problem;
@@ -376,6 +433,8 @@ export function ResultsPanel({
   onMarkMastered: () => void;
   /** Off in a mastery gate; on for practice. */
   complexityEnabled?: boolean;
+  /** Off in a mastery gate / capstone: what a failed case tests is a hint. */
+  probeLabelsEnabled?: boolean;
   /** Profiles the current code — closure supplied by the workspace. */
   onAnalyzeComplexity?: () => Promise<ComplexityReport>;
 }) {
@@ -491,7 +550,11 @@ export function ResultsPanel({
           </div>
         )}
         {tab === "result" && result && (
-          <ResultBody result={result} onMarkMastered={onMarkMastered} />
+          <ResultBody
+            result={result}
+            onMarkMastered={onMarkMastered}
+            showProbe={probeLabelsEnabled}
+          />
         )}
         {/* Complexity feedback: after a passing practice run (off on gates).
             Keyed to the problem so switching problems resets it. */}

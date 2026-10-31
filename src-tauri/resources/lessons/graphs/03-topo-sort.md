@@ -10,8 +10,8 @@ worked_example: course-schedule
 diagram: 03-topo-sort.diagram.json
 quiz: 03-topo-sort.quiz.json
 practice:
-  - number-of-islands
   - course-schedule-ii
+  - find-all-possible-recipes-from-given-supplies
 recap:
   - 01-grid-dfs
 follow_up:

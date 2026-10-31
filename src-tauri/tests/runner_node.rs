@@ -76,7 +76,7 @@ fn wrong_solution_fails_with_per_case_detail() {
     };
     assert_eq!(result.status, RunStatus::Fail);
     let first = &result.cases[0];
-    assert_eq!(first.input.as_deref(), Some("a=1, b=2"));
+    assert_eq!(first.input.as_deref(), Some("a = 1, b = 2"));
     assert_eq!(first.output.as_deref(), Some("-1"));
 }
 

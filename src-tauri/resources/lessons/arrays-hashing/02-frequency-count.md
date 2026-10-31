@@ -10,8 +10,9 @@ worked_example: group-anagrams
 diagram: 02-frequency-count.diagram.json
 quiz: 02-frequency-count.quiz.json
 practice:
+  - ransom-note
+  - first-unique-character-in-a-string
   - top-k-frequent-elements
-  - valid-anagram
 recap:
   - 01-hashmap-lookup
 follow_up:

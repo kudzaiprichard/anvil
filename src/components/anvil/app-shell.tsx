@@ -195,7 +195,9 @@ export function AppShell({
             <span className="hidden sm:inline">offline · no account</span>
             <span className="flex-1" />
             {status}
-            <span className="opacity-70">anvil v0.1.0</span>
+            <span className="opacity-70">
+              anvil v{process.env.NEXT_PUBLIC_APP_VERSION}
+            </span>
           </footer>
           </div>
         </div>

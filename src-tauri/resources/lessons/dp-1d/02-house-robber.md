@@ -11,7 +11,7 @@ diagram: 02-house-robber.diagram.json
 quiz: 02-house-robber.quiz.json
 practice:
   - house-robber-ii
-  - coin-change
+  - delete-and-earn
 recap:
   - 01-fibonacci
 follow_up:

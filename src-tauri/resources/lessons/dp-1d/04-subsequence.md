@@ -10,8 +10,8 @@ worked_example: longest-increasing-subsequence
 diagram: 04-subsequence.diagram.json
 quiz: 04-subsequence.quiz.json
 practice:
-  - coin-change
-  - maximum-product-subarray
+  - number-of-longest-increasing-subsequence
+  - largest-divisible-subset
 recap:
   - 01-fibonacci
 follow_up:

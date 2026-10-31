@@ -135,6 +135,7 @@ pub fn parse_examples(
             input: args,
             expected,
             hidden: false,
+            label: None,
         });
     }
 
@@ -187,9 +188,21 @@ pub fn python_stub_arity(python_stub: &str) -> Option<usize> {
 
 /// Parameter names of the stub's first method/function, excluding `self`.
 pub fn python_stub_params(python_stub: &str) -> Option<Vec<String>> {
+    python_method_params(python_stub, None)
+}
+
+/// Parameter names of `method` in a Python stub (the first `def` when `method`
+/// is `None` or not found), as a LeetCode statement names them: comments are
+/// stripped first (so LeetCode's commented `# def __init__(self, val=0, …)`
+/// node definitions never match), `self`/`cls` are dropped, and annotations,
+/// defaults and `*`/`**` prefixes are removed. Only top-level commas split, so
+/// `Dict[str, int]` stays one parameter.
+pub fn python_method_params(python_stub: &str, method: Option<&str>) -> Option<Vec<String>> {
     let decommented = decomment_python(python_stub);
     let python_stub = decommented.as_str();
-    let def = python_stub.find("def ")?;
+    let def = method
+        .and_then(|m| python_stub.find(&format!("def {m}(")))
+        .or_else(|| python_stub.find("def "))?;
     let after = &python_stub[def..];
     let open = after.find('(')?;
     let close = matching_paren(&after[open..])? + open;
@@ -198,8 +211,13 @@ pub fn python_stub_params(python_stub: &str) -> Option<Vec<String>> {
         split_top_level(inner)
             .into_iter()
             .filter_map(|part| {
-                let name = part.split(':').next().unwrap_or("").trim();
-                (!name.is_empty() && name != "self").then(|| name.to_string())
+                let name = part
+                    .split([':', '='])
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .trim_start_matches('*');
+                (!name.is_empty() && name != "self" && name != "cls").then(|| name.to_string())
             })
             .collect(),
     )

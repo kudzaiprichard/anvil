@@ -10,8 +10,8 @@ worked_example: rotate-image
 diagram: 03-matrix-ops.diagram.json
 quiz: 03-matrix-ops.quiz.json
 practice:
+  - set-matrix-zeroes
   - spiral-matrix
-  - single-number
 recap: []
 follow_up:
   - "What if the matrix weren't square — how would in-place transpose need to change, and is a true in-place rotation even possible without extra memory?"

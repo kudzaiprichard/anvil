@@ -10,8 +10,8 @@ worked_example: lru-cache
 diagram: 01-lru.diagram.json
 quiz: 01-lru.quiz.json
 practice:
-  - min-stack
-  - time-based-key-value-store
+  - design-browser-history
+  - design-linked-list
 recap: []
 follow_up:
   - "What if capacity could grow or shrink at runtime — do the dict and the linked list still stay in sync for free?"

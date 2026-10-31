@@ -11,7 +11,8 @@ diagram: 03-prefix-sum.diagram.json
 quiz: 03-prefix-sum.quiz.json
 practice:
   - range-sum-query-immutable
-  - two-sum
+  - find-pivot-index
+  - range-sum-query-2d-immutable
 recap:
   - 01-hashmap-lookup
 follow_up:

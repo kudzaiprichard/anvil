@@ -16,7 +16,7 @@ use crate::domain::lc_import::{
 use crate::domain::pack::TestPack;
 use crate::domain::preset::Preset;
 use crate::domain::problem::{
-    Complexity, EntryPoint, Example, FunctionSignature, Pattern, Problem, ProblemSource,
+    CaseLabel, Complexity, EntryPoint, Example, FunctionSignature, Pattern, Problem, ProblemSource,
     ReferenceSolution, TestCase,
 };
 use crate::error::{AppError, AppResult};
@@ -224,12 +224,17 @@ pub fn merge_question(
                     input: t.input.clone(),
                     expected: t.expected.clone(),
                     hidden: i >= promote,
+                    label: Some(CaseLabel {
+                        kind: t.kind.wire_name(),
+                        description: t.description.clone(),
+                    }),
                 });
             }
             visible.extend(materialized_stress);
             let reference = ReferenceSolution {
                 python: Some(pack.solutions.python.clone()),
                 javascript: pack.solutions.javascript.clone(),
+                brute_force_python: pack.solutions.brute_force_python.clone(),
                 complexity: pack.solutions.complexity.clone().map(|c| Complexity {
                     time: c.time,
                     space: c.space,
@@ -523,6 +528,24 @@ mod tests {
             .count();
         assert_eq!(visible, 1);
         assert_eq!(hidden, 1);
+        // The hidden pack case keeps its probe label (what it tests, not its
+        // input); the statement example carries none.
+        let hidden_case = merged.problem.test_cases.iter().find(|c| c.hidden).unwrap();
+        assert_eq!(
+            hidden_case.label,
+            Some(CaseLabel {
+                kind: "edge".into(),
+                description: "dupes".into()
+            })
+        );
+        assert!(merged
+            .problem
+            .test_cases
+            .iter()
+            .find(|c| !c.hidden)
+            .unwrap()
+            .label
+            .is_none());
         assert_eq!(merged.problem.judge, Some(Judge::Exact));
         assert_eq!(
             merged.problem.entry_point.as_ref().unwrap().python,

@@ -10,8 +10,8 @@ worked_example: daily-temperatures
 diagram: 02-monotonic.diagram.json
 quiz: 02-monotonic.quiz.json
 practice:
-  - two-sum
-  - valid-parentheses
+  - next-greater-element-i
+  - online-stock-span
 recap:
   - 01-lifo-parsing
 follow_up:

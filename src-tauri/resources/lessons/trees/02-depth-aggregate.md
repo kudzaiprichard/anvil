@@ -12,6 +12,7 @@ quiz: 02-depth-aggregate.quiz.json
 practice:
   - diameter-of-binary-tree
   - balanced-binary-tree
+  - minimum-depth-of-binary-tree
 recap:
   - 01-dfs-traversal
 follow_up:

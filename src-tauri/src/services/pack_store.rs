@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use crate::domain::pack::{StressSpec, TestPack};
-use crate::domain::problem::{Judge, TestCase};
+use crate::domain::problem::{CaseLabel, Judge, TestCase};
 use crate::domain::run::Language;
 use crate::error::{AppError, AppResult};
 use crate::services::runner;
@@ -156,6 +156,10 @@ fn materialize_one(
         input: args,
         expected,
         hidden: true,
+        label: Some(CaseLabel {
+            kind: "stress".into(),
+            description: spec.description.clone(),
+        }),
     })
 }
 

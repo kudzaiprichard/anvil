@@ -153,6 +153,7 @@ pub fn build_problem(draft: &UserProblemDraft, id: &str, number: u32) -> AppResu
             input,
             expected,
             hidden: tc.hidden,
+            label: None,
         });
     }
     Ok(Problem {

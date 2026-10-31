@@ -253,9 +253,11 @@ mod tests {
     }
 
     /// Masters Big-O (the stage-0 root), which every stage-1 unit now sits
-    /// behind. Its gate needs one novel solve — `maximum-subarray`.
+    /// behind. Its gate needs two solves incl. one novel — `maximum-subarray`
+    /// (novel) + `valid-anagram`.
     fn master_big_o(store: &CurriculumStore, db: &Db) {
         evaluate_gate(store, db, "big-o", "maximum-subarray", false, "B1").unwrap();
+        evaluate_gate(store, db, "big-o", "valid-anagram", false, "B2").unwrap();
     }
 
     #[test]
@@ -432,15 +434,19 @@ mod tests {
             "T2",
         )
         .unwrap();
-        // Now two-pointers is gateable; its gate needs one novel solve. Mastering
-        // it opens sliding-window (s1) and linked-list (s2) together.
+        // Now two-pointers is gateable; its gate needs two solves incl. one
+        // novel. One isn't enough; the second masters it and opens
+        // sliding-window (s1) and linked-list (s2) together.
+        let out = evaluate_gate(&store, &db, "two-pointers", "sort-colors", false, "T3").unwrap();
+        assert!(out.counted);
+        assert!(!out.unit_mastered);
         let out = evaluate_gate(
             &store,
             &db,
             "two-pointers",
             "trapping-rain-water",
             false,
-            "T3",
+            "T4",
         )
         .unwrap();
         assert!(out.unit_mastered);

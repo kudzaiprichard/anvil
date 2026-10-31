@@ -10,8 +10,8 @@ worked_example: coin-change
 diagram: 03-coin-change.diagram.json
 quiz: 03-coin-change.quiz.json
 practice:
-  - min-cost-climbing-stairs
-  - house-robber-ii
+  - perfect-squares
+  - combination-sum-iv
 recap:
   - 01-fibonacci
 follow_up:

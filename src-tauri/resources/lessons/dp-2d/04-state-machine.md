@@ -10,8 +10,8 @@ worked_example: best-time-to-buy-and-sell-stock-with-cooldown
 diagram: 04-state-machine.diagram.json
 quiz: 04-state-machine.quiz.json
 practice:
-  - unique-paths
-  - target-sum
+  - best-time-to-buy-and-sell-stock-with-transaction-fee
+  - best-time-to-buy-and-sell-stock-iii
 recap:
   - 01-grid-paths
 follow_up:

@@ -10,8 +10,8 @@ worked_example: two-sum-ii-input-array-is-sorted
 diagram: 02-sorted-pair-sum.diagram.json
 quiz: 02-sorted-pair-sum.quiz.json
 practice:
-  - valid-palindrome
-  - contains-duplicate
+  - container-with-most-water
+  - sum-of-square-numbers
 recap:
   - 01-opposite-ends
 follow_up:

@@ -11,7 +11,7 @@ diagram: 01-merge-insert.diagram.json
 quiz: 01-merge-insert.quiz.json
 practice:
   - insert-interval
-  - meeting-rooms-iii
+  - interval-list-intersections
 recap: []
 follow_up:
   - "What if intervals arrived one at a time, online, rather than all at once — could you keep the list merged incrementally instead of re-sorting every time?"

@@ -10,8 +10,8 @@ worked_example: k-closest-points-to-origin
 diagram: 03-k-closest.diagram.json
 quiz: 03-k-closest.quiz.json
 practice:
-  - kth-largest-element-in-an-array
-  - top-k-frequent-elements
+  - find-k-closest-elements
+  - kth-smallest-element-in-a-sorted-matrix
 recap:
   - 01-top-k
 follow_up:

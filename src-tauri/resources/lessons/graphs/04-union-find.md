@@ -10,8 +10,8 @@ worked_example: number-of-provinces
 diagram: 04-union-find.diagram.json
 quiz: 04-union-find.quiz.json
 practice:
-  - number-of-islands
-  - max-area-of-island
+  - number-of-operations-to-make-network-connected
+  - accounts-merge
 recap:
   - 01-grid-dfs
 follow_up:

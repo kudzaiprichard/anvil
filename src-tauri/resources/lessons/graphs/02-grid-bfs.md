@@ -10,8 +10,8 @@ worked_example: rotting-oranges
 diagram: 02-grid-bfs.diagram.json
 quiz: 02-grid-bfs.quiz.json
 practice:
-  - number-of-islands
-  - pacific-atlantic-water-flow
+  - 01-matrix
+  - as-far-from-land-as-possible
 recap:
   - 01-grid-dfs
 follow_up:

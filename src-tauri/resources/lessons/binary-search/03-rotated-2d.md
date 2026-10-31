@@ -11,7 +11,7 @@ diagram: 03-rotated-2d.diagram.json
 quiz: 03-rotated-2d.quiz.json
 practice:
   - search-a-2d-matrix
-  - koko-eating-bananas
+  - search-in-rotated-sorted-array-ii
 recap:
   - 01-sorted-boundary
 follow_up:

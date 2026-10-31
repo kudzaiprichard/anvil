@@ -10,8 +10,8 @@ worked_example: 3sum
 diagram: 03-partition-scan.diagram.json
 quiz: 03-partition-scan.quiz.json
 practice:
-  - container-with-most-water
-  - two-sum-ii-input-array-is-sorted
+  - 3sum-closest
+  - 4sum
 recap:
   - 02-sorted-pair-sum
 follow_up:

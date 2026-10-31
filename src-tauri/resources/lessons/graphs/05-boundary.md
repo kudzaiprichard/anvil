@@ -10,8 +10,8 @@ worked_example: pacific-atlantic-water-flow
 diagram: 05-boundary.diagram.json
 quiz: 05-boundary.quiz.json
 practice:
-  - number-of-islands
   - surrounded-regions
+  - number-of-enclaves
 recap:
   - 01-grid-dfs
 follow_up:

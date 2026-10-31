@@ -10,8 +10,8 @@ worked_example: kth-largest-element-in-a-stream
 diagram: 01-top-k.diagram.json
 quiz: 01-top-k.quiz.json
 practice:
-  - top-k-frequent-elements
   - kth-largest-element-in-an-array
+  - top-k-frequent-words
 recap: []
 follow_up:
   - "What if you needed the k smallest instead of the k largest — does the heap orientation flip?"

@@ -10,8 +10,8 @@ worked_example: maximum-product-subarray
 diagram: 05-product-subarray.diagram.json
 quiz: 05-product-subarray.quiz.json
 practice:
-  - house-robber
-  - longest-increasing-subsequence
+  - maximum-sum-circular-subarray
+  - maximum-absolute-sum-of-any-subarray
 recap:
   - 01-fibonacci
 follow_up:
