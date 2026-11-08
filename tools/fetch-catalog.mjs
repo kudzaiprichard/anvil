@@ -34,6 +34,7 @@
 //   https://raw.githubusercontent.com/<owner>/<repo>/<branch>/catalog.json
 
 import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -77,6 +78,21 @@ function parseArgs() {
 
 function isLeetcodeName(name) {
   return /leetcode/i.test(name);
+}
+
+// A catalog is judged by what it IS, not only by what it's called: the dev
+// scrape served as a plain `catalog.json` dodges the name check. The scrape's
+// header declares `"source": "leetcode"` and a LeetCode-ownership notice, so
+// the first few KB of the (decompressed) payload are enough to recognise it.
+// tools/pack-msix.mjs applies the same test to what it stages.
+function isLeetcodeContent(buf, name) {
+  let text;
+  try {
+    text = (name.endsWith('.gz') ? gunzipSync(buf) : buf).subarray(0, 8192).toString('utf8');
+  } catch {
+    return false;
+  }
+  return /"source"s*:s*"[^"]*leetcode/i.test(text) || /property of LeetCode/i.test(text);
 }
 
 function fileNameFromUrl(url) {
@@ -168,6 +184,15 @@ async function main() {
   }
 
   const buf = Buffer.from(await res.arrayBuffer());
+
+  if (mode === 'prod' && isLeetcodeContent(buf, outName)) {
+    console.log(
+      '::warning::ANVIL_CATALOG_URL serves *leetcode* content (as ' +
+        `${outName}) — legally un-shippable (DISCLAIMER.md §3–4), so it is NOT ` +
+        'written or bundled; shipping an EMPTY catalog.',
+    );
+    return;
+  }
 
   // Sanity check: plain-JSON catalogs must parse. Skip for gzipped payloads.
   if (outName.endsWith('.json')) {

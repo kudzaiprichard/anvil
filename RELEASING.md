@@ -204,3 +204,40 @@ release upload`, and all 4 (sometimes more, across retries) independently "won" 
 separate duplicate draft releases instead of one shared release with every platform's installer attached.
 Serializing creation into its own job the matrix `needs:` closes that race by construction: there is
 exactly one `create` call in the whole workflow, and every platform job's publish step is upload-only.
+
+## Microsoft Store (MSIX)
+
+Anvil is listed on the Microsoft Store as **Anvil DSA** (Store ID `9P42J0RQK6NQ`; the plain name
+"Anvil" was already taken). The Store takes an MSIX, which Tauri's bundler can't make, so it's built the
+way Microsoft's [winapp CLI + Tauri guide](https://learn.microsoft.com/en-us/windows/apps/dev-tools/winapp-cli/guides/tauri)
+describes (the same route the OurAfrica desktop app ships through):
+
+```bash
+npm run package:msix       # Windows: tauri build --no-bundle + winapp package -> unsigned Store MSIX
+npm run package:msix:dev   # ...signed with a throwaway dev cert instead, installable on this PC
+node tools/pack-msix.mjs --skip-build   # repack the release binary already built
+```
+
+`tools/pack-msix.mjs` stages `Anvil.exe`, the four Store tile icons from `src-tauri/icons/`, and every
+`bundle.resources` entry from `tauri.conf.json` at the same relative path (`resources/…` beside the exe,
+where `resource_dir()` looks on Windows). It fills the `src-tauri/msix/Package.appxmanifest` template
+(version = `tauri.conf.json` version + `.0`; the Store reserves the 4th part) with the Partner Center
+identity in `src-tauri/msix/store-identity.json`, and runs `winapp package --no-sign` (the Store signs on
+ingestion). Output: `src-tauri/target/msix/Anvil-Store_<version>.0_x64.msix`; only the `-Store` file is
+for Partner Center. Needs the winapp CLI (`winget install Microsoft.winappcli --source winget`); the
+script also finds it as an execution alias that isn't on PATH, or via `WINAPP=<path>`.
+
+**The shipping boundary applies to the Store package too.** The script refuses any `*leetcode*` file,
+leaves out any catalog file whose *content* is the LeetCode scrape (even when it's called plain
+`catalog.json`, as a dev `.env` fetch produces), and fails if the staged resources exceed the 10 MB
+no-scrape baseline. It never deletes the developer's own copy in `src-tauri/resources/`.
+`tools/fetch-catalog.mjs --mode prod` now applies the same content test to what it downloads, so a
+LeetCode catalog served under a neutral filename is no longer bundled into any release.
+
+The manifest is a full-trust desktop app (`runFullTrust`), Windows 10 1809+, x64, with **no**
+`internetClient` capability, because Anvil never uses the network. The runner still uses the learner's own Python/Node
+from PATH. A package can't run the WebView2 bootstrapper; Windows 11 ships WebView2 and Windows 10 gets
+it with Edge.
+
+Submitting: Partner Center → Anvil DSA → the open submission → **Packages**, upload the `-Store` MSIX,
+then Store listings / age ratings → **Submit for certification**.
